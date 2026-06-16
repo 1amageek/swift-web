@@ -1,0 +1,23 @@
+import Foundation
+import Logging
+import Vapor
+
+final class SwiftWebDevRouteLoggingMiddleware: Middleware {
+    private let logLevel: Logger.Level
+
+    init(logLevel: Logger.Level = .info) {
+        self.logLevel = logLevel
+    }
+
+    func respond(to request: Request, chainingTo next: any Responder) async throws -> Response {
+        if SwiftWebDevHotReload.shouldSuppressRouteLog(for: request) {
+            return try await next.respond(to: request)
+        }
+
+        request.logger.log(
+            level: logLevel,
+            "\(request.method) \(request.url.path.removingPercentEncoding ?? request.url.path)"
+        )
+        return try await next.respond(to: request)
+    }
+}

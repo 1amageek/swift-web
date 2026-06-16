@@ -1,0 +1,172 @@
+# SwiftWebUI
+
+SwiftWebUI is the SwiftUI-inspired component layer built on top of SwiftHTML.
+
+It owns reusable visual components, layout primitives, theme propagation, and developer-friendly modifiers. It does not own the HTML graph, page metadata, route registration, Vapor request handling, macros, or the CLI.
+
+The core architecture is documented in [`docs/SwiftWebUICoreDesign.md`](../../docs/SwiftWebUICoreDesign.md). That document defines the component graph, dynamic property lifecycle, modifier graph, and style abstraction boundaries.
+
+## Responsibility
+
+| Area | Responsibility |
+|---|---|
+| Layout primitives | Provides `VStack`, `HStack`, `ZStack`, `Spacer`, `ScrollView`, grids, and lazy stacks. |
+| UI controls | Provides `Button`, server action reference buttons, `SubmitButton`, `TextField`, `SecureField`, `Toggle`, and links. |
+| Text components | Provides `Text`, semantic `TextElement` switching via `as`, `Heading`, and text tones. |
+| Containers | Provides `Card`, `Section`, `List`, `ListRow`, and `Toolbar`. |
+| Theme | Provides `Theme` color mode values, `DesignStyle` component design values, `ThemeStylesheet`, and environment integration. |
+| Modifiers | Provides SwiftUI-like modifier graph wrappers for styles, attributes, frame, padding, alignment, accessibility, and events. |
+| Navigation | Provides `NavigationStack`, `NavigationLink`, `NavigationPath`, and `navigationTitle` metadata hooks. |
+
+## Directory Layout
+
+| Directory | Responsibility |
+|---|---|
+| `Core/` | Shared primitives used by components, including axes, edges, spacing tokens, attributes, and modifiers. |
+| `Components/Layout/` | Layout containers and sizing primitives such as stacks, grids, lazy stacks, `Spacer`, and `ScrollView`. |
+| `Components/Text/` | Text rendering, semantic tag switching through `as`, headings, and text block helpers. |
+| `Components/Controls/` | Interactive controls such as `Button`, forms, links, text fields, toggles, and submit controls. |
+| `Components/Navigation/` | Navigation containers, navigation links, paths, and title metadata hooks. |
+| `Components/Containers/` | Structural UI components such as cards, sections, lists, toolbars, badges, and value displays. |
+| `Components/Media/` | Media-oriented components such as `Image`. |
+| `Theming/` | Theme values, design style values, typed stylesheet defaults, environment integration, scoped overrides, and theme switching controls. |
+
+## Boundaries
+
+SwiftWebUI should make common UI concise without hiding SwiftHTML.
+
+```mermaid
+flowchart LR
+  A["SwiftWebUI Component"] --> B["SwiftHTML Component"]
+  B --> C["HTMLGraph"]
+  D["Theme Environment"] --> A
+  E["DesignStyle Environment"] --> A
+  F["Modifiers"] --> A
+```
+
+## Not Responsible For
+
+| Not owned by SwiftWebUI | Owner |
+|---|---|
+| Lowercase raw HTML tags | `SwiftHTML` |
+| HTML graph construction and diffing | `SwiftHTML` |
+| Browser-independent WASM contracts | `SwiftHTML` |
+| JavaScriptKit browser runtime adapter | `SwiftWebUIRuntime` |
+| Page metadata and document shell | `SwiftWeb` |
+| Route registration | `SwiftWeb` |
+| `@Page` expansion | `SwiftWebMacros` |
+| File watching and app generation | `SwiftWebCLI` |
+
+## Design Notes
+
+- Components should follow SwiftUI naming and initializer shape where it maps cleanly to the web.
+- Color mode should be theme-driven through `.environment(\.theme, value)`.
+- Component design language should be design-style-driven through `.environment(\.designStyle, value)`.
+- Default CSS should be declared through SwiftHTML `Style` helpers and `Stylesheet` rules, not concatenated raw stylesheet strings.
+- Concrete CSS property output should use SwiftHTML generated standard property helpers so SwiftWebUI does not maintain a separate CSS property surface.
+- Public styling should prefer `foregroundStyle`, `backgroundStyle`, and `tint` over color-specific APIs.
+- Modifiers should be ordered wrapper values that work on any `HTML`, not only components that store attributes directly.
+- Control state should flow through environment values such as `isEnabled`, `controlSize`, `tint`, and `buttonStyle`.
+- Semantic HTML should be explicit. `Text("Title", as: .h1)` changes the tag without requiring a separate component.
+- `Button` supports client closures for Client WASM work and `ActionRepresentable` values for route or server-side actions.
+- Action buttons consume SwiftHTML action contracts. They should not capture server closures or own distributed actor resolution.
+- Action buttons are user intents. They may render form-compatible transport markup for progressive enhancement, but the public concept is still `ActionRepresentable`, not a separate `ServerButton`.
+- Use `SubmitButton` inside `Form` only when a custom form owns multiple controls.
+- Components may wrap SwiftHTML primitives but should not introduce a second rendering model.
+- Components should not create `html`, `head`, `title`, or document-level metadata; those belong to SwiftWeb `Page`.
+
+## Theme And DesignStyle
+
+`Theme` controls semantic color values such as background, text, accent, and border. `DesignStyle` controls component-wide design choices such as card radius, button shape, field padding, value display treatment, material effects, and motion timing.
+
+```mermaid
+flowchart LR
+  A["Theme"] --> B["color variables"]
+  C["DesignStyle"] --> D["component variables"]
+  B --> E["ThemeStylesheet"]
+  D --> E
+  E --> F["SwiftWebUI components"]
+```
+
+`DesignStyle.default` is complete. Custom styles should start from that default and override only the parts that differ, so every component always has a fallback token.
+
+```swift
+let glass = DesignStyle(id: "glass") {
+    .surface {
+        .cardRadius("22px")
+        .cardShadow("var(--swui-material-glass-shadow)")
+        .cardBackdropFilter("var(--swui-material-glass-backdrop-filter)")
+    }
+    .button {
+        .radius("999px")
+    }
+}
+
+CounterView()
+    .environment(\.theme, .dark)
+    .environment(\.designStyle, glass)
+```
+
+When both values are set through modifiers, place `designStyle` outside the theme scope as shown above. Modifier order is semantic: the stylesheet scope created by `theme` reads outer environment values.
+
+## Action Boundary
+
+SwiftWebUI makes action calls concise, but it does not execute them. A button declares a user intent and consumes a SwiftHTML action contract. SwiftWeb can provide that contract with a generated Server Action reference.
+
+```mermaid
+flowchart LR
+  A["Button"] --> B["ActionRepresentable"]
+  B --> C["form-compatible transport"]
+  D["SwiftWeb ActionReference"] --> B
+  C --> E["Route or SwiftWeb ActionGateway"]
+```
+
+This keeps visual components independent from Vapor and Distributed Actor runtime details.
+
+## Button Action Semantics
+
+`Button` has three distinct use cases. They share visual styling, but they do not share ownership responsibilities.
+
+```mermaid
+flowchart LR
+  A["Button closure"] --> B["Client WASM handler"]
+  C["Button ActionRepresentable"] --> D["form-compatible action transport"]
+  D --> E["SwiftWeb ActionGateway"]
+  F["SubmitButton in Form"] --> G["user-owned form submission"]
+```
+
+| API shape | Owner of behavior | Rendered transport |
+|---|---|---|
+| `Button("Save") { ... }` | ClientComponent / WASM runtime | Plain button with event handler identity |
+| `Button("Reserve", action: service.reserveAction)` | A value conforming to `ActionRepresentable` | Button wrapped in action metadata that can be intercepted by WASM or submitted as HTTP fallback |
+| `Form { SubmitButton(...) }` | User-authored form route | Traditional form submission |
+
+This is why SwiftWebUI does not provide `ServerButton`. A normal `Button` can express route or server intent when it receives an `ActionRepresentable` value.
+
+## SwiftUI-Style API Surface
+
+```swift
+NavigationStack {
+    Text("Counter")
+        .as(.h1)
+        .font(.largeTitle)
+        .foregroundStyle(.primary)
+
+    Button("Increment") {
+        count += 1
+    }
+    .buttonStyle(.borderedProminent)
+    .controlSize(.large)
+    .tint(.accent)
+}
+.navigationTitle("Counter")
+```
+
+| API | Responsibility |
+|---|---|
+| `foregroundStyle`, `backgroundStyle`, `tint`, `border` | Resolves `WebShapeStyle` values through theme/environment and lowers to CSS. |
+| `font`, `fontWeight`, `fontDesign`, `bold`, `italic`, `monospaced` | Provides SwiftUI-like typography without requiring raw CSS. |
+| `disabled`, `controlSize`, `buttonStyle` | Propagates control state through environment and lets controls render native attributes. |
+| `TextField`, `Toggle`, `Slider`, `Stepper`, `Picker` | Use `Binding` as the primary state interface. |
+| `accessibilityLabel`, `accessibilityHint`, `accessibilityValue`, `accessibilityHidden`, `accessibilityRole` | Maps common accessibility intent to semantic attributes. |
+| `NavigationStack`, `NavigationLink`, `navigationTitle` | Creates a navigation graph that can later be connected to browser history and transitions. |
