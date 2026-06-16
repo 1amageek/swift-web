@@ -2,20 +2,20 @@ import SwiftHTML
 
 public struct StyleResolutionContext: Sendable {
     public let theme: Theme
-    public let designStyle: DesignStyle
+    public let styleSystem: StyleSystem
     public let colorScheme: ColorScheme
     public let layoutDirection: LayoutDirection
     public let controlState: ControlState
 
     public init(
         theme: Theme,
-        designStyle: DesignStyle,
+        styleSystem: StyleSystem,
         colorScheme: ColorScheme,
         layoutDirection: LayoutDirection,
         controlState: ControlState
     ) {
         self.theme = theme
-        self.designStyle = designStyle
+        self.styleSystem = styleSystem
         self.colorScheme = colorScheme
         self.layoutDirection = layoutDirection
         self.controlState = controlState

@@ -1,6 +1,6 @@
 import SwiftHTML
 
-public struct DesignStyle: Codable, Sendable, Equatable, Identifiable {
+public struct StyleSystem: Codable, Sendable, Equatable, Identifiable {
     public var id: String
     public var root: Root
     public var layout: Layout
@@ -48,7 +48,7 @@ public struct DesignStyle: Codable, Sendable, Equatable, Identifiable {
         self.material = material
     }
 
-    public func overriding(_ override: Override) -> DesignStyle {
+    public func overriding(_ override: Override) -> StyleSystem {
         var style = self
         if let id = override.id {
             style.id = id
@@ -96,7 +96,7 @@ public struct DesignStyle: Codable, Sendable, Equatable, Identifiable {
     }
 }
 
-public extension DesignStyle {
+public extension StyleSystem {
     struct Override: Codable, Sendable, Equatable {
         public var id: String?
         public var root: Root.Override?
@@ -196,55 +196,44 @@ public extension DesignStyle {
     }
 
     struct Surface: Codable, Sendable, Equatable {
-        public var cardBackground: String
+        // The card fill and backdrop are owned by the `Material` primitive; the
+        // surface only contributes the chrome that is a legitimate per-component
+        // design difference (border, radius, shadow).
         public var cardBorder: String
         public var cardRadius: String
         public var cardShadow: String
-        public var cardBackdropFilter: String
 
         public init(
-            cardBackground: String,
             cardBorder: String,
             cardRadius: String,
-            cardShadow: String,
-            cardBackdropFilter: String
+            cardShadow: String
         ) {
-            self.cardBackground = cardBackground
             self.cardBorder = cardBorder
             self.cardRadius = cardRadius
             self.cardShadow = cardShadow
-            self.cardBackdropFilter = cardBackdropFilter
         }
 
         public func overriding(_ override: Override) -> Surface {
             Surface(
-                cardBackground: override.cardBackground ?? cardBackground,
                 cardBorder: override.cardBorder ?? cardBorder,
                 cardRadius: override.cardRadius ?? cardRadius,
-                cardShadow: override.cardShadow ?? cardShadow,
-                cardBackdropFilter: override.cardBackdropFilter ?? cardBackdropFilter
+                cardShadow: override.cardShadow ?? cardShadow
             )
         }
 
         public struct Override: Codable, Sendable, Equatable {
-            public var cardBackground: String?
             public var cardBorder: String?
             public var cardRadius: String?
             public var cardShadow: String?
-            public var cardBackdropFilter: String?
 
             public init(
-                cardBackground: String? = nil,
                 cardBorder: String? = nil,
                 cardRadius: String? = nil,
-                cardShadow: String? = nil,
-                cardBackdropFilter: String? = nil
+                cardShadow: String? = nil
             ) {
-                self.cardBackground = cardBackground
                 self.cardBorder = cardBorder
                 self.cardRadius = cardRadius
                 self.cardShadow = cardShadow
-                self.cardBackdropFilter = cardBackdropFilter
             }
         }
     }
@@ -699,70 +688,99 @@ public extension DesignStyle {
         }
     }
 
+    /// The single set of knobs the shared `swui-material`/`swui-glass` recipe
+    /// reads. A design style sets these once; every chrome component composes a
+    /// material *level* (ultra-thin … bar) and the CSS derives that level's fill
+    /// opacity from `opacity` ± N·`opacityStep`. Solid styles set `opacity` to 1
+    /// and `opacityStep`/`blur`/`refraction` to their no-op values, so the same
+    /// component code reads as a plain surface; glass styles enable blur, rim and
+    /// SVG refraction. `solidFill` is the opaque fallback used where
+    /// `backdrop-filter` is unsupported or reduced-transparency is requested.
     struct Material: Codable, Sendable, Equatable {
-        public var solidBackground: String
-        public var elevatedBackground: String
-        public var glassBackground: String
-        public var glassBorder: String
-        public var glassShadow: String
-        public var glassBackdropFilter: String
+        public var tint: String
+        public var opacity: String
+        public var opacityStep: String
+        public var blur: String
+        public var saturate: String
+        public var brightness: String
+        public var rim: String
+        public var refraction: String
+        public var solidFill: String
 
         public init(
-            solidBackground: String,
-            elevatedBackground: String,
-            glassBackground: String,
-            glassBorder: String,
-            glassShadow: String,
-            glassBackdropFilter: String
+            tint: String,
+            opacity: String,
+            opacityStep: String,
+            blur: String,
+            saturate: String,
+            brightness: String,
+            rim: String,
+            refraction: String,
+            solidFill: String
         ) {
-            self.solidBackground = solidBackground
-            self.elevatedBackground = elevatedBackground
-            self.glassBackground = glassBackground
-            self.glassBorder = glassBorder
-            self.glassShadow = glassShadow
-            self.glassBackdropFilter = glassBackdropFilter
+            self.tint = tint
+            self.opacity = opacity
+            self.opacityStep = opacityStep
+            self.blur = blur
+            self.saturate = saturate
+            self.brightness = brightness
+            self.rim = rim
+            self.refraction = refraction
+            self.solidFill = solidFill
         }
 
         public func overriding(_ override: Override) -> Material {
             Material(
-                solidBackground: override.solidBackground ?? solidBackground,
-                elevatedBackground: override.elevatedBackground ?? elevatedBackground,
-                glassBackground: override.glassBackground ?? glassBackground,
-                glassBorder: override.glassBorder ?? glassBorder,
-                glassShadow: override.glassShadow ?? glassShadow,
-                glassBackdropFilter: override.glassBackdropFilter ?? glassBackdropFilter
+                tint: override.tint ?? tint,
+                opacity: override.opacity ?? opacity,
+                opacityStep: override.opacityStep ?? opacityStep,
+                blur: override.blur ?? blur,
+                saturate: override.saturate ?? saturate,
+                brightness: override.brightness ?? brightness,
+                rim: override.rim ?? rim,
+                refraction: override.refraction ?? refraction,
+                solidFill: override.solidFill ?? solidFill
             )
         }
 
         public struct Override: Codable, Sendable, Equatable {
-            public var solidBackground: String?
-            public var elevatedBackground: String?
-            public var glassBackground: String?
-            public var glassBorder: String?
-            public var glassShadow: String?
-            public var glassBackdropFilter: String?
+            public var tint: String?
+            public var opacity: String?
+            public var opacityStep: String?
+            public var blur: String?
+            public var saturate: String?
+            public var brightness: String?
+            public var rim: String?
+            public var refraction: String?
+            public var solidFill: String?
 
             public init(
-                solidBackground: String? = nil,
-                elevatedBackground: String? = nil,
-                glassBackground: String? = nil,
-                glassBorder: String? = nil,
-                glassShadow: String? = nil,
-                glassBackdropFilter: String? = nil
+                tint: String? = nil,
+                opacity: String? = nil,
+                opacityStep: String? = nil,
+                blur: String? = nil,
+                saturate: String? = nil,
+                brightness: String? = nil,
+                rim: String? = nil,
+                refraction: String? = nil,
+                solidFill: String? = nil
             ) {
-                self.solidBackground = solidBackground
-                self.elevatedBackground = elevatedBackground
-                self.glassBackground = glassBackground
-                self.glassBorder = glassBorder
-                self.glassShadow = glassShadow
-                self.glassBackdropFilter = glassBackdropFilter
+                self.tint = tint
+                self.opacity = opacity
+                self.opacityStep = opacityStep
+                self.blur = blur
+                self.saturate = saturate
+                self.brightness = brightness
+                self.rim = rim
+                self.refraction = refraction
+                self.solidFill = solidFill
             }
         }
     }
 }
 
-public extension DesignStyle {
-    static let `default` = DesignStyle(
+public extension StyleSystem {
+    static let `default` = StyleSystem(
         id: "swift-web",
         root: Root(
             pageInlinePadding: "clamp(16px, 4vw, 24px)",
@@ -772,11 +790,9 @@ public extension DesignStyle {
             lazyIntrinsicSize: "auto 56px"
         ),
         surface: Surface(
-            cardBackground: "var(--swui-surface)",
             cardBorder: "1px solid var(--swui-border)",
             cardRadius: "var(--swui-radius-medium)",
-            cardShadow: "0 1px 2px rgba(15, 23, 42, 0.05)",
-            cardBackdropFilter: "none"
+            cardShadow: "0 1px 2px rgba(15, 23, 42, 0.05)"
         ),
         typography: Typography(
             pageHeadingSize: "clamp(32px, 5vw, 44px)",
@@ -843,19 +859,27 @@ public extension DesignStyle {
             quick: "120ms ease",
             standard: "180ms ease"
         ),
+        // Solid base: every level renders as the opaque theme surface. A zero
+        // opacity step collapses the levels onto one fill, no backdrop blur, and
+        // no SVG refraction; depth comes from the components' own borders and
+        // shadows. Components may still override `--swui-material-tint` inline to
+        // keep semantic surfaces (e.g. a raised field) distinct.
         material: Material(
-            solidBackground: "var(--swui-surface)",
-            elevatedBackground: "var(--swui-surface-raised)",
-            glassBackground: "color-mix(in srgb, var(--swui-surface) 82%, transparent)",
-            glassBorder: "1px solid color-mix(in srgb, var(--swui-border) 72%, transparent)",
-            glassShadow: "0 12px 32px rgba(15, 23, 42, 0.14)",
-            glassBackdropFilter: "blur(18px) saturate(1.2)"
+            tint: "var(--swui-surface)",
+            opacity: "1",
+            opacityStep: "0",
+            blur: "0px",
+            saturate: "1",
+            brightness: "1",
+            rim: "none",
+            refraction: "none",
+            solidFill: "var(--swui-surface)"
         )
     )
 
-    static let swiftWeb = DesignStyle.default
+    static let swiftWeb = StyleSystem.default
 
-    static let material = DesignStyle(id: "material") {
+    static let material = StyleSystem(id: "material") {
         .root {
             .pageInlinePadding("clamp(16px, 5vw, 32px)")
         }
@@ -881,16 +905,17 @@ public extension DesignStyle {
         }
     }
 
-    static let liquidGlass = DesignStyle(id: "liquid-glass") {
+    static let liquidGlass = StyleSystem(id: "liquid-glass") {
         .root {
             .pageInlinePadding("clamp(18px, 5vw, 36px)")
         }
         .surface {
-            .cardBackground("var(--swui-material-glass-background)")
-            .cardBorder("var(--swui-material-glass-border)")
+            // Card fill + backdrop now come from the shared material primitive
+            // (Card composes `.regularMaterial`); the surface only keeps the
+            // glassy rim border, larger radius, and elevated drop shadow.
+            .cardBorder("1px solid color-mix(in srgb, #ffffff 34%, var(--swui-border))")
             .cardRadius("22px")
-            .cardShadow("var(--swui-material-glass-shadow)")
-            .cardBackdropFilter("var(--swui-material-glass-backdrop-filter)")
+            .cardShadow("0 18px 48px rgba(15, 23, 42, 0.18)")
         }
         .control {
             .regularHeight("40px")
@@ -898,17 +923,21 @@ public extension DesignStyle {
             .disabledOpacity("0.62")
         }
         .button {
+            // The secondary surface fill + translucency now come from the shared
+            // material primitive (the bordered button composes `.thinMaterial`).
+            // Only the glassy rim border stays a per-button difference; the tint
+            // hues stay opaque so the material owns the translucency.
             .radius("999px")
-            .secondaryBackground("color-mix(in srgb, var(--swui-surface) 58%, transparent)")
             .secondaryBorder("color-mix(in srgb, var(--swui-border) 58%, transparent)")
-            .secondaryHoverBackground("color-mix(in srgb, var(--swui-surface-raised) 66%, transparent)")
         }
         .badge {
-            .background("color-mix(in srgb, var(--swui-surface) 62%, transparent)")
+            // Fill + translucency come from the shared material; only the glassy
+            // rim border is overridden here.
             .border("1px solid color-mix(in srgb, var(--swui-border) 54%, transparent)")
         }
         .valueDisplay {
-            .background("color-mix(in srgb, var(--swui-accent) 14%, transparent)")
+            // Fill + translucency come from the shared material; the accent-tinted
+            // rim border and larger radius stay a per-component difference.
             .border("1px solid color-mix(in srgb, var(--swui-accent) 24%, transparent)")
             .radius("20px")
         }
@@ -917,25 +946,32 @@ public extension DesignStyle {
             .standard("240ms cubic-bezier(0.16, 1, 0.3, 1)")
         }
         .material {
-            .glassBackground("color-mix(in srgb, var(--swui-surface) 58%, transparent)")
-            .glassBorder("1px solid color-mix(in srgb, #ffffff 34%, var(--swui-border))")
-            .glassShadow("0 18px 48px rgba(15, 23, 42, 0.18)")
-            .glassBackdropFilter("blur(24px) saturate(1.45)")
+            // Real Liquid Glass: translucent surface tint scaled per level, a
+            // wide backdrop blur with boosted saturation, a specular rim, and the
+            // SVG displacement refraction. `solidFill` is the opaque fallback for
+            // browsers without `backdrop-filter` and for reduced-transparency.
+            .tint("var(--swui-surface)")
+            .opacity("0.62")
+            .opacityStep("0.07")
+            .blur("24px")
+            .saturate("1.6")
+            .brightness("1.05")
+            .rim("inset 0 1px 0 0 color-mix(in srgb, #ffffff 70%, transparent), inset 0 -1px 1px 0 color-mix(in srgb, #000000 12%, transparent)")
+            .refraction("url(\"#swui-glass-refraction\")")
+            .solidFill("color-mix(in srgb, var(--swui-surface) 88%, var(--swui-border))")
         }
     }
 }
 
-public extension DesignStyle {
+public extension StyleSystem {
     var cssVariableStyle: Style {
         Style {
             .custom("--swui-page-inline-padding", root.pageInlinePadding)
             .custom("--swui-stack-spacing", root.stackSpacing)
             .custom("--swui-lazy-intrinsic-size", layout.lazyIntrinsicSize)
-            .custom("--swui-card-background", surface.cardBackground)
             .custom("--swui-card-border", surface.cardBorder)
             .custom("--swui-card-radius", surface.cardRadius)
             .custom("--swui-card-shadow", surface.cardShadow)
-            .custom("--swui-card-backdrop-filter", surface.cardBackdropFilter)
             .custom("--swui-heading-page-size", typography.pageHeadingSize)
             .custom("--swui-heading-page-line-height", typography.pageHeadingLineHeight)
             .custom("--swui-heading-section-size", typography.sectionHeadingSize)
@@ -980,12 +1016,15 @@ public extension DesignStyle {
             .custom("--swui-toggle-checked-thumb-offset", toggle.checkedThumbOffset)
             .custom("--swui-motion-quick", motion.quick)
             .custom("--swui-motion-standard", motion.standard)
-            .custom("--swui-material-solid-background", material.solidBackground)
-            .custom("--swui-material-elevated-background", material.elevatedBackground)
-            .custom("--swui-material-glass-background", material.glassBackground)
-            .custom("--swui-material-glass-border", material.glassBorder)
-            .custom("--swui-material-glass-shadow", material.glassShadow)
-            .custom("--swui-material-glass-backdrop-filter", material.glassBackdropFilter)
+            .custom("--swui-material-tint", material.tint)
+            .custom("--swui-material-opacity", material.opacity)
+            .custom("--swui-material-opacity-step", material.opacityStep)
+            .custom("--swui-material-blur", material.blur)
+            .custom("--swui-material-saturate", material.saturate)
+            .custom("--swui-material-brightness", material.brightness)
+            .custom("--swui-material-rim", material.rim)
+            .custom("--swui-material-refraction", material.refraction)
+            .custom("--swui-material-solid-fill", material.solidFill)
         }
     }
 }

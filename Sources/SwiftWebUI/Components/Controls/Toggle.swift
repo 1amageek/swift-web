@@ -23,7 +23,14 @@ public struct Toggle: WebUIAttributeComponent {
     public var body: some HTML {
         Element("label", attributes: [.class("swui-toggle \(controlSize.className)")]) {
             Element("input", attributes: inputAttributes, isVoid: true)
-            span(.class("swui-toggle-control")) {}
+            // The track composes the shared thin material for its fill, backdrop
+            // blur, and rim; the thumb keeps the track's own `::after` overlay,
+            // which is why the material recipe only ever uses `::before`. The
+            // raised surface tint stays opaque so the recipe owns translucency.
+            span(
+                .class("swui-toggle-control \(MaterialClass.material) \(MaterialClass.thin)"),
+                styleAttribute(.custom("--swui-material-tint", "var(--swui-surface-raised)"))
+            ) {}
             span(.class("swui-toggle-label")) {
                 title
             }

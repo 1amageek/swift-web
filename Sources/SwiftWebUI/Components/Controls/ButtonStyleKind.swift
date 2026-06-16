@@ -2,6 +2,8 @@ public enum ButtonStyleKind: String, Codable, Sendable, Equatable {
     case automatic
     case bordered
     case borderedProminent
+    case glass
+    case glassProminent
     case plain
 
     func resolve(
@@ -15,6 +17,10 @@ public enum ButtonStyleKind: String, Codable, Sendable, Equatable {
             BorderedButtonStyle().resolve(configuration: configuration, context: context)
         case .borderedProminent:
             BorderedProminentButtonStyle().resolve(configuration: configuration, context: context)
+        case .glass:
+            GlassButtonStyle().resolve(configuration: configuration, context: context)
+        case .glassProminent:
+            GlassProminentButtonStyle().resolve(configuration: configuration, context: context)
         case .plain:
             PlainButtonStyle().resolve(configuration: configuration, context: context)
         }

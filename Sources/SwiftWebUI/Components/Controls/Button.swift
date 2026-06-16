@@ -7,7 +7,7 @@ public struct Button<Label: HTML>: WebUIAttributeComponent {
     private let label: Label
     @Environment(\.actionHiddenFields) private var actionHiddenFields
     @Environment(\.theme) private var theme
-    @Environment(\.designStyle) private var designStyle
+    @Environment(\.styleSystem) private var styleSystem
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.layoutDirection) private var layoutDirection
     @Environment(\.controlSize) private var controlSize
@@ -115,7 +115,7 @@ public struct Button<Label: HTML>: WebUIAttributeComponent {
     private var styleContext: StyleResolutionContext {
         StyleResolutionContext(
             theme: theme,
-            designStyle: designStyle,
+            styleSystem: styleSystem,
             colorScheme: colorScheme,
             layoutDirection: layoutDirection,
             controlState: isEnabled ? .enabled : .disabled

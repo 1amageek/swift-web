@@ -114,7 +114,7 @@ struct StoryboardProject {
         swift-web storyboard --package-path \(Self.shellPath(projectDirectory.deletingLastPathComponent().deletingLastPathComponent().path))
         ```
 
-        Generated launchers live in `.swiftweb/generated`, just like `swift-web dev`.
+        Storyboard launchers live inside this managed Storyboard package under `.swiftweb/generated`. They are generated from the same runtime path used by `swift-web dev`, but they are scoped to `.swiftweb/storyboard` so the user's app source is not modified.
         """
     }
 
@@ -163,11 +163,13 @@ struct StoryboardProject {
                     VStack(spacing: .xlarge) {
                         StoryboardHeader()
                         StoryboardMatrix()
+                        StoryboardMaterials()
                         StoryboardHugFill()
                         StoryboardTypography()
                         StoryboardButtons()
                         StoryboardStates()
                         StoryboardMedia()
+                        StoryboardStatus()
                         StoryboardInputs()
                         StoryboardForms()
                         StoryboardContainers()
@@ -182,7 +184,7 @@ struct StoryboardProject {
                     .padding(.vertical, "56px")
                 }
                 .environment(\\.theme, .light)
-                .environment(\\.designStyle, .swiftWeb)
+                .environment(\\.styleSystem, .swiftWeb)
             }
         }
 
@@ -318,10 +320,10 @@ struct StoryboardProject {
             }
         }
 
-        // MARK: - Theme x DesignStyle matrix
+        // MARK: - Theme x StyleSystem matrix
 
-        // Renders the same sample under every theme/design-style pairing. Each cell
-        // applies its own .environment(\\.theme:)/.environment(\\.designStyle:) so the
+        // Renders the same sample under every theme/style-system pairing. Each cell
+        // applies its own .environment(\\.theme:)/.environment(\\.styleSystem:) so the
         // nested ThemeScope rethemes backgrounds, surfaces, and controls independently.
         struct StoryboardMatrix: Component {
             var body: some HTML {
@@ -344,7 +346,7 @@ struct StoryboardProject {
         struct StoryboardMatrixCell: Component {
             let theme: Theme
             let themeLabel: String
-            let style: DesignStyle
+            let style: StyleSystem
             let styleLabel: String
 
             var body: some HTML {
@@ -358,7 +360,7 @@ struct StoryboardProject {
 
                     StoryboardMatrixSample()
                         .environment(\\.theme, theme)
-                        .environment(\\.designStyle, style)
+                        .environment(\\.styleSystem, style)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -385,6 +387,102 @@ struct StoryboardProject {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.all, "12px")
+            }
+        }
+
+        // MARK: - Materials & Glass
+
+        // The unified material primitive. Every chrome surface composes one shared
+        // recipe; a level only scales the fill translucency. Under Liquid Glass the
+        // recipe adds backdrop blur, a specular rim, and SVG refraction \\u{2014}
+        // shown here over a vivid backdrop so the blur reads. Solid styles render
+        // the same levels as opaque surfaces (compare the matrix above).
+        struct StoryboardMaterials: Component {
+            var body: some HTML {
+                StoryboardSection(
+                    "Materials & Glass",
+                    "One recipe behind every surface. Levels scale the fill; Liquid Glass adds blur, a specular rim, and refraction. The stages below are scoped to Liquid Glass so the glass reads."
+                ) {
+                    Text("Material levels", as: .strong)
+                    StoryboardGlassStage {
+                        Grid(minColumnWidth: "150px", spacing: .medium) {
+                            StoryboardMaterialSwatch("Ultra thin", code: ".ultraThinMaterial", material: .ultraThinMaterial)
+                            StoryboardMaterialSwatch("Thin", code: ".thinMaterial", material: .thinMaterial)
+                            StoryboardMaterialSwatch("Regular", code: ".regularMaterial", material: .regularMaterial)
+                            StoryboardMaterialSwatch("Thick", code: ".thickMaterial", material: .thickMaterial)
+                            StoryboardMaterialSwatch("Ultra thick", code: ".ultraThickMaterial", material: .ultraThickMaterial)
+                            StoryboardMaterialSwatch("Bar", code: ".bar", material: .bar)
+                        }
+                    }
+
+                    Divider()
+
+                    Text("glassEffect(in:) and glass buttons", as: .strong)
+                    StoryboardGlassStage {
+                        HStack(spacing: .medium) {
+                            Text("Regular glass")
+                                .padding(.all, "12px 18px")
+                                .glassEffect(.regular, in: .capsule)
+                            Text("Tinted + interactive")
+                                .padding(.all, "12px 18px")
+                                .glassEffect(.regular.tint("var(--swui-accent)").interactive(), in: .capsule)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                        HStack(spacing: .small) {
+                            Button("Glass", prominence: .primary)
+                                .buttonStyle(.glass)
+                            Button("Glass prominent", prominence: .primary)
+                                .buttonStyle(.glassProminent)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .environment(\\.styleSystem, .liquidGlass)
+            }
+        }
+
+        // A vivid backdrop so a material/glass surface's backdrop-filter blur and
+        // refraction read clearly. The gradient is the stage's own background, so
+        // children blur it through `backdrop-filter`.
+        struct StoryboardGlassStage<Content: HTML>: Component {
+            let content: Content
+            init(@HTMLBuilder content: () -> Content) { self.content = content() }
+
+            var body: some HTML {
+                VStack(alignment: .leading, spacing: .medium) {
+                    content
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.all, "20px")
+                .cornerRadius("16px")
+                .style {
+                    .background("radial-gradient(440px 220px at 12% 16%, #ff7a7a, transparent 62%), radial-gradient(460px 240px at 88% 18%, #5b8cff, transparent 62%), radial-gradient(560px 280px at 50% 120%, #2dd4a7, transparent 60%), #0f172a")
+                    .border("1px solid var(--swui-border)")
+                }
+            }
+        }
+
+        // A labeled panel filled with a material level. `.background(_:in:)` applies
+        // the shared recipe; the level only changes the fill translucency.
+        struct StoryboardMaterialSwatch: Component {
+            let title: String
+            let code: String
+            let material: Material
+            init(_ title: String, code: String, material: Material) {
+                self.title = title
+                self.code = code
+                self.material = material
+            }
+
+            var body: some HTML {
+                VStack(alignment: .leading, spacing: .xsmall) {
+                    Text(title, as: .strong)
+                    Text(code, as: .small, tone: .muted)
+                }
+                .padding(.all, "16px")
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(material, in: .rect(cornerRadius: 16))
             }
         }
 
@@ -454,11 +552,15 @@ struct StoryboardProject {
             var body: some HTML {
                 StoryboardSection(
                     "Buttons",
-                    "Prominence, button styles, and links."
+                    "Prominence, button styles, and links. Glass styles read as Liquid Glass under that design style and degrade to a solid surface elsewhere."
                 ) {
                     Toolbar {
                         Button("Primary", prominence: .primary)
                         Button("Secondary")
+                        Button("Glass")
+                            .buttonStyle(.glass)
+                        Button("Glass prominent", prominence: .primary)
+                            .buttonStyle(.glassProminent)
                         Button("Plain")
                             .buttonStyle(.plain)
                         ButtonLink("Link", href: "#", prominence: .secondary)
@@ -541,6 +643,47 @@ struct StoryboardProject {
                         Label("Pinned", systemImage: "pin.fill")
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
+
+        // MARK: - Status
+
+        struct StoryboardStatus: Component {
+            var body: some HTML {
+                StoryboardSection(
+                    "Status",
+                    "ProgressView and Gauge compose the ultra-thin material track; DisclosureGroup composes the regular material like Card."
+                ) {
+                    Grid(minColumnWidth: "240px", spacing: .large) {
+                        StoryboardMiniPanel("ProgressView") {
+                            VStack(alignment: .leading, spacing: .medium) {
+                                ProgressView("Uploading", value: 0.35)
+                                ProgressView("Rendering", value: 0.7)
+                                ProgressView("Loading")
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        StoryboardMiniPanel("Gauge") {
+                            VStack(alignment: .leading, spacing: .medium) {
+                                Gauge(value: 0.25, label: "Disk")
+                                Gauge(value: 0.62, label: "CPU")
+                                Gauge(value: 0.9, label: "Memory")
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+
+                    DisclosureGroup("Advanced options", isExpanded: true) {
+                        VStack(alignment: .leading, spacing: .small) {
+                            Text("Nested content reveals when expanded.", tone: .muted)
+                            Label("Verbose logging", systemImage: "doc.text")
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    DisclosureGroup("Collapsed by default") {
+                        Text("Hidden until toggled.", tone: .muted)
+                    }
                 }
             }
         }
@@ -782,17 +925,30 @@ struct StoryboardProject {
 
     private var storyboardInputsSwift: String {
         """
+        import Foundation
         import SwiftHTML
         import SwiftWebUI
 
         public struct StoryboardInputs: ClientComponent, Sendable {
             @State private var name = "Ada"
+            @State private var email = "ada@example.com"
             @State private var secret = "hunter2"
             @State private var style = "swift-web"
             @State private var enabled = true
             @State private var volume = 0.6
             @State private var density = 3
             @State private var theme = Theme.light
+            @State private var notes = "Multi-line text editor."
+            @State private var due = Date(timeIntervalSince1970: 1_718_000_000)
+            @State private var accent = "#3366ff"
+            @State private var segment = "list"
+            @State private var scope = "all"
+            @State private var tab = "summary"
+            @State private var query = ""
+            @State private var showsAlert = false
+            @State private var showsConfirmation = false
+            @State private var showsSheet = false
+            @State private var showsPopover = false
 
             public init() {}
 
@@ -809,6 +965,10 @@ struct StoryboardProject {
                     Grid(minColumnWidth: "240px", spacing: .large) {
                         VStack(alignment: .leading, spacing: .medium) {
                             TextField("Name", text: $name)
+                            TextField("Email", text: $email, .type(.email), .required)
+                                .textContentType(.emailAddress)
+                                .keyboardType(.emailAddress)
+                                .submitLabel(.go)
                             SecureField("Secret", text: $secret)
                             Picker("Design style", selection: $style) {
                                 PickerOption("SwiftWeb", value: "swift-web")
@@ -829,11 +989,137 @@ struct StoryboardProject {
 
                     Divider()
 
+                    Grid(minColumnWidth: "240px", spacing: .large) {
+                        VStack(alignment: .leading, spacing: .medium) {
+                            TextEditor(text: $notes)
+                            ColorPicker("Accent", selection: $accent)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                        VStack(alignment: .leading, spacing: .medium) {
+                            DatePicker("Due date", selection: $due)
+                            DatePicker(
+                                "Starts at",
+                                selection: $due,
+                                displayedComponents: [.date, .hourAndMinute]
+                            )
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    Divider()
+
                     VStack(alignment: .leading, spacing: .small) {
                         Text("Theme switcher", as: .small, tone: .muted)
                         ThemeSwitcher(selection: $theme, themes: [.light, .dark, .system])
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Divider()
+
+                    Grid(minColumnWidth: "240px", spacing: .large) {
+                        VStack(alignment: .leading, spacing: .small) {
+                            Text("Picker \\u{2014} segmented", as: .small, tone: .muted)
+                            Picker("View", selection: $segment) {
+                                PickerOption("List", value: "list")
+                                PickerOption("Grid", value: "grid")
+                                PickerOption("Columns", value: "columns")
+                            }
+                            .pickerStyle(.segmented)
+
+                            Text("Picker \\u{2014} inline", as: .small, tone: .muted)
+                            Picker("Scope", selection: $scope) {
+                                PickerOption("All", value: "all")
+                                PickerOption("Unread", value: "unread")
+                                PickerOption("Flagged", value: "flagged")
+                            }
+                            .pickerStyle(.inline)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                        VStack(alignment: .leading, spacing: .small) {
+                            Text("Menu", as: .small, tone: .muted)
+                            Menu("Options") {
+                                Button("Duplicate") {}
+                                Button("Move\\u{2026}") {}
+                                Button("Delete") {}
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    Divider()
+
+                    VStack(alignment: .leading, spacing: .small) {
+                        Text("TabView", as: .small, tone: .muted)
+                        TabView(selection: $tab) {
+                            Tab("Summary", systemImage: "doc.text", value: "summary") {
+                                Text("Summary panel content.", tone: .muted)
+                            }
+                            Tab("Activity", systemImage: "chart.bar", value: "activity") {
+                                Text("Activity panel content.", tone: .muted)
+                            }
+                            Tab("Settings", systemImage: "gear", value: "settings") {
+                                Text("Settings panel content.", tone: .muted)
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Divider()
+
+                    VStack(alignment: .leading, spacing: .small) {
+                        Text("Searchable", as: .small, tone: .muted)
+                        List {
+                            ListRow { Text("Inbox") }
+                            ListRow { Text("Drafts") }
+                            ListRow { Text("Sent") }
+                        }
+                        .searchable(text: $query)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Divider()
+
+                    VStack(alignment: .leading, spacing: .small) {
+                        Text("Presentation", as: .small, tone: .muted)
+                        HStack(spacing: .small) {
+                            Button("Alert") { showsAlert = true }
+                            Button("Confirm") { showsConfirmation = true }
+                            Button("Sheet") { showsSheet = true }
+                            Button("Popover") { showsPopover = true }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .alert("Delete this draft?", isPresented: $showsAlert) {
+                        Button("Delete", action: Action.post("/storyboard/delete"))
+                    } message: {
+                        Text("This action cannot be undone.")
+                    }
+                    .confirmationDialog(
+                        "Discard changes?",
+                        isPresented: $showsConfirmation,
+                        titleVisibility: .visible
+                    ) {
+                        Button("Discard", action: Action.post("/storyboard/discard"))
+                        Button("Keep editing") { showsConfirmation = false }
+                    }
+                    .sheet(isPresented: $showsSheet) {
+                        VStack(alignment: .leading, spacing: .medium) {
+                            Heading("Sheet", level: .section)
+                            Text(
+                                "A sheet composes the thick material and lifts to the top layer.",
+                                tone: .muted
+                            )
+                            Button("Done") { showsSheet = false }
+                        }
+                    }
+                    .popover(isPresented: $showsPopover) {
+                        VStack(alignment: .leading, spacing: .small) {
+                            Text("Popover content anchored to its source.", tone: .muted)
+                            Button("Close") { showsPopover = false }
+                        }
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }

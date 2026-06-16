@@ -20,6 +20,10 @@ private struct ButtonStyleEnvironmentKey: ClientEnvironmentKey {
     static let defaultValue = ButtonStyleKind.automatic
 }
 
+private struct PickerStyleEnvironmentKey: ClientEnvironmentKey {
+    static let defaultValue = PickerStyleKind.automatic
+}
+
 private struct IsInsideFormEnvironmentKey: ClientEnvironmentKey {
     static let defaultValue = false
 }
@@ -48,6 +52,11 @@ extension EnvironmentValues {
     public var buttonStyle: ButtonStyleKind {
         get { self[ButtonStyleEnvironmentKey.self] }
         set { self[ButtonStyleEnvironmentKey.self] = newValue }
+    }
+
+    public var pickerStyle: PickerStyleKind {
+        get { self[PickerStyleEnvironmentKey.self] }
+        set { self[PickerStyleEnvironmentKey.self] = newValue }
     }
 
     var isInsideForm: Bool {

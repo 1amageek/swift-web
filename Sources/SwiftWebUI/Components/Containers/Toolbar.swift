@@ -11,10 +11,14 @@ public struct Toolbar<Content: HTML>: WebUIAttributeComponent {
 
     @HTMLBuilder
     public var body: some HTML {
+        // A toolbar is chrome that floats over content, so it composes the `bar`
+        // material — one step more frosted than a card. The fill, backdrop blur,
+        // rim, and refraction all come from the shared recipe; the toolbar keeps
+        // only its own padding and radius (in the `.swui-toolbar` rule).
         Element(
             "div",
             attributes: mergedAttributes(
-                class: "swui-toolbar \(LayoutClass.fillHorizontal)",
+                class: "swui-toolbar \(LayoutClass.fillHorizontal) \(MaterialClass.material) \(MaterialClass.bar)",
                 styles: .gap(Space.small.rawValue),
                 extra: attributes
             )

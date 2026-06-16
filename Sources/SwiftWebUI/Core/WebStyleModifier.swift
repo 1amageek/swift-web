@@ -10,7 +10,7 @@ public struct WebStyleModifier<ShapeStyle: WebShapeStyle>: ComponentModifier {
     }
 
     @Environment(\.theme) private var theme
-    @Environment(\.designStyle) private var designStyle
+    @Environment(\.styleSystem) private var styleSystem
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.layoutDirection) private var layoutDirection
     @Environment(\.controlState) private var controlState
@@ -33,7 +33,7 @@ public struct WebStyleModifier<ShapeStyle: WebShapeStyle>: ComponentModifier {
     private var resolvedStyle: ResolvedStyle {
         style.resolve(in: StyleResolutionContext(
             theme: theme,
-            designStyle: designStyle,
+            styleSystem: styleSystem,
             colorScheme: colorScheme,
             layoutDirection: layoutDirection,
             controlState: resolvedControlState

@@ -6,7 +6,7 @@ public struct ButtonLink: WebUIAttributeComponent {
     private let prominence: ButtonProminence
     private let attributes: [HTMLAttribute]
     @Environment(\.theme) private var theme
-    @Environment(\.designStyle) private var designStyle
+    @Environment(\.styleSystem) private var styleSystem
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.layoutDirection) private var layoutDirection
     @Environment(\.controlSize) private var controlSize
@@ -62,7 +62,7 @@ public struct ButtonLink: WebUIAttributeComponent {
     private var styleContext: StyleResolutionContext {
         StyleResolutionContext(
             theme: theme,
-            designStyle: designStyle,
+            styleSystem: styleSystem,
             colorScheme: colorScheme,
             layoutDirection: layoutDirection,
             controlState: isEnabled ? .enabled : .disabled
@@ -102,7 +102,10 @@ public enum ButtonProminence: Sendable, Equatable {
         case .primary:
             "swui-button swui-button-primary"
         case .secondary:
-            "swui-button swui-button-secondary"
+            // The secondary surface fill is owned by the shared material, so the
+            // class always carries the material tokens alongside the variant —
+            // the `.swui-button-secondary` rule no longer paints a background.
+            "swui-button swui-button-secondary \(MaterialClass.material) \(MaterialClass.thin)"
         }
     }
 }

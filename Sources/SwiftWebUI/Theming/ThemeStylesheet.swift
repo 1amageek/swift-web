@@ -1,16 +1,29 @@
 import SwiftHTML
 
 enum ThemeStylesheet {
-    static func stylesheet(for theme: Theme, designStyle: DesignStyle) -> Stylesheet {
+    static func stylesheet(for theme: Theme, styleSystem: StyleSystem) -> Stylesheet {
         Stylesheet {
             baseStylesheet
+            materialStylesheet
             rule("[data-swift-web-ui-theme=\"\(cssAttributeString(theme.name))\"]") {
                 theme.cssVariableStyle
             }
-            rule("[data-swift-web-ui-design-style=\"\(cssAttributeString(designStyle.id))\"]") {
-                designStyle.cssVariableStyle
+            rule("[data-swift-web-ui-style-system=\"\(cssAttributeString(styleSystem.id))\"]") {
+                styleSystem.cssVariableStyle
             }
         }
+    }
+
+    /// The full stylesheet text, including the material fallback at-rules that
+    /// `CSSRule` cannot express. `@supports`/`@media` blocks are appended raw
+    /// because the rule model is flat (`selector { declarations }`); they are an
+    /// explicit, designed degradation, not a silent fallback.
+    static func css(for theme: Theme, styleSystem: StyleSystem) -> String {
+        stylesheet(for: theme, styleSystem: styleSystem).cssText
+            + "\n"
+            + materialFallbackCSS
+            + "\n"
+            + progressSpinnerKeyframes
     }
 
     private static func cssAttributeString(_ value: String) -> String {
@@ -127,16 +140,25 @@ enum ThemeStylesheet {
                 .justifyItems("stretch")
                 .boxSizing("border-box")
             }
+            // The card fill + backdrop come from the shared material primitive
+            // (Card composes `.swui-material .swui-material-regular`); this rule
+            // only keeps the chrome that is a legitimate per-component design
+            // difference: border, radius, and the elevated drop shadow.
             rule(".swui-card") {
                 .display("flex")
                 .flexDirection("column")
                 .alignItems("flex-start")
-                .background("var(--swui-card-background)")
                 .border("var(--swui-card-border)")
                 .borderRadius("var(--swui-card-radius)")
                 .boxSizing("border-box")
                 .boxShadow("var(--swui-card-shadow)")
-                .backdropFilter("var(--swui-card-backdrop-filter)")
+            }
+            // The toolbar reads as a floating glass bar: its fill + backdrop come
+            // from the shared `bar` material (composed in `Toolbar`); this rule
+            // adds the padding and radius that give the bar its shape.
+            rule(".swui-toolbar") {
+                .padding("var(--swui-space-sm) var(--swui-space-md)")
+                .borderRadius("var(--swui-radius-large)")
             }
             // MARK: Sizing intent markers (parent-axis aware)
             // Horizontal fill under a column parent -> stretch the cross axis.
@@ -316,12 +338,18 @@ enum ThemeStylesheet {
                 .color("var(--swui-button-primary-foreground)")
                 // Resolve the control tint on the button element itself so the inline
                 // per-button --swui-control-tint override wins. Falling back to the
-                // design-style default avoids depending on an ancestor-resolved token.
+                // style-system default avoids depending on an ancestor-resolved token.
                 .background("var(--swui-control-tint, var(--swui-button-primary-background))")
             }
+            // The bordered (secondary) button surface comes from the shared
+            // material (BorderedButtonStyle composes `.thinMaterial`). The
+            // secondary background token is fed in as the material tint — an
+            // opaque hue — so the recipe owns the translucency and the button
+            // reads as frosted glass under a glass design style and as a plain
+            // raised surface under a solid one.
             rule(".swui-button-secondary") {
                 .color("var(--swui-button-secondary-foreground)")
-                .background("var(--swui-button-secondary-background)")
+                .custom("--swui-material-tint", "var(--swui-button-secondary-background)")
                 .borderColor("var(--swui-button-secondary-border)")
             }
             rule(".swui-button-plain") {
@@ -330,8 +358,23 @@ enum ThemeStylesheet {
                 .borderColor("transparent")
                 .paddingInline("0")
             }
+            // Glass buttons take their fill from the shared `swui-glass` recipe
+            // (composed in the button style), so these rules only set the text
+            // color and clear the base border. The plain glass keeps the neutral
+            // surface tint; the prominent glass is washed with the control tint.
+            rule(".swui-button-glass") {
+                .color("var(--swui-text)")
+                .borderColor("transparent")
+            }
+            rule(".swui-button-glass-prominent") {
+                .color("var(--swui-accent-text)")
+                .borderColor("transparent")
+                .custom("--swui-material-tint", "var(--swui-control-tint, var(--swui-accent))")
+            }
+            // Shift the material tint on hover (rather than painting an opaque
+            // background over the glass) so the frosted surface is preserved.
             rule(".swui-button-secondary:hover") {
-                .background("var(--swui-button-secondary-hover-background)")
+                .custom("--swui-material-tint", "var(--swui-button-secondary-hover-background)")
             }
             rule("""
             .swui-control-disabled,
@@ -365,13 +408,15 @@ enum ThemeStylesheet {
             rule(".swui-label-title") {
                 .display("inline")
             }
+            // The badge fill comes from the shared material (Badge composes
+            // `.thinMaterial`); this rule keeps the badge's own border, radius,
+            // padding, and text color.
             rule(".swui-badge") {
                 .display("inline-flex")
                 .alignItems("center")
                 .width("fit-content")
                 .borderRadius("var(--swui-badge-radius)")
                 .padding("var(--swui-badge-padding)")
-                .background("var(--swui-badge-background)")
                 .border("var(--swui-badge-border)")
                 .color("var(--swui-badge-foreground)")
                 .fontSize("12px")
@@ -385,13 +430,15 @@ enum ThemeStylesheet {
             rule(".swui-button-action-form") {
                 .display("inline-flex")
             }
+            // The value-display fill comes from the shared material (ValueDisplay
+            // composes `.regularMaterial`); this rule keeps its own border,
+            // radius, and padding.
             rule(".swui-value-display") {
                 .display("grid")
                 .justifyItems("center")
                 .gap("var(--swui-space-xs)")
                 .padding("var(--swui-value-display-padding)")
                 .borderRadius("var(--swui-value-display-radius)")
-                .background("var(--swui-value-display-background)")
                 .border("var(--swui-value-display-border)")
             }
             rule(".swui-value-label") {
@@ -484,9 +531,15 @@ enum ThemeStylesheet {
                 .color("var(--swui-text-muted)")
                 .fontSize("var(--swui-field-label-size)")
             }
+            // The field fill comes from the shared material (TextField/Picker/
+            // DatePicker compose `.thinMaterial`); this rule keeps the field's
+            // border, radius, padding, and text color. `<input>`/`<select>` are
+            // replaced elements, so the material's `::before` rim/refraction
+            // overlay does not paint, but its fill and backdrop blur still apply.
             rule("""
             .swui-text-field,
-            .swui-picker
+            .swui-picker,
+            .swui-date-picker
             """) {
                 .minHeight("var(--swui-control-regular-height)")
                 .border("var(--swui-field-border)")
@@ -494,7 +547,6 @@ enum ThemeStylesheet {
                 .padding("var(--swui-field-padding)")
                 .boxSizing("border-box")
                 .color("var(--swui-text)")
-                .background("var(--swui-field-background)")
                 .font("inherit")
             }
             rule(".swui-slider") {
@@ -527,12 +579,15 @@ enum ThemeStylesheet {
                 .opacity("0")
                 .pointerEvents("none")
             }
+            // The off-state track fill comes from the shared material (Toggle
+            // composes `.thinMaterial`); this rule keeps the track's size,
+            // pill radius, and border. The checked rules below paint the track
+            // solid accent, and the thumb lives on the track's own `::after`.
             rule(".swui-toggle-control") {
                 .width("var(--swui-toggle-width)")
                 .height("var(--swui-toggle-height)")
                 .borderRadius("var(--swui-radius-pill)")
                 .border("1px solid var(--swui-border)")
-                .background("var(--swui-surface-raised)")
                 .boxSizing("border-box")
                 .position("relative")
             }
@@ -565,6 +620,571 @@ enum ThemeStylesheet {
                 .fontSize("0.85em")
                 .lineHeight("1")
             }
+
+            // MARK: ProgressView
+            // Container stacks an optional label over the bar/spinner.
+            rule(".swui-progress") {
+                .display("flex")
+                .flexDirection("column")
+                .gap("var(--swui-space-xs)")
+                .boxSizing("border-box")
+            }
+            rule(".swui-progress-label") {
+                .color("var(--swui-text-muted)")
+                .fontSize("var(--swui-field-label-size)")
+            }
+            // The track fill comes from the composed `.ultraThinMaterial`; the
+            // value paints solid accent. `<progress>` is a replaced element, so
+            // its `::before` overlay does not render and only the fill/blur apply.
+            rule(".swui-progress-bar") {
+                .appearance("none")
+                .custom("-webkit-appearance", "none")
+                .width("100%")
+                .height("6px")
+                .border("none")
+                .borderRadius("var(--swui-radius-pill)")
+                .overflow("hidden")
+                .boxSizing("border-box")
+            }
+            rule(".swui-progress-bar::-webkit-progress-bar") {
+                .background("transparent")
+                .borderRadius("var(--swui-radius-pill)")
+            }
+            rule(".swui-progress-bar::-webkit-progress-value") {
+                .background("var(--swui-tint, var(--swui-accent))")
+                .borderRadius("var(--swui-radius-pill)")
+            }
+            rule(".swui-progress-bar::-moz-progress-bar") {
+                .background("var(--swui-tint, var(--swui-accent))")
+                .borderRadius("var(--swui-radius-pill)")
+            }
+            // Indeterminate spinner; `@keyframes swui-spin` is appended raw in
+            // `css(for:)` because keyframes are not expressible as a flat rule.
+            rule(".swui-progress-spinner") {
+                .width("20px")
+                .height("20px")
+                .borderRadius("999px")
+                .border("2px solid color-mix(in srgb, var(--swui-text-muted) 30%, transparent)")
+                .borderTopColor("var(--swui-tint, var(--swui-accent))")
+                .animation("swui-spin 0.7s linear infinite")
+                .boxSizing("border-box")
+            }
+
+            // MARK: Gauge
+            rule(".swui-gauge") {
+                .display("flex")
+                .flexDirection("column")
+                .gap("var(--swui-space-xs)")
+                .boxSizing("border-box")
+            }
+            rule(".swui-gauge-label") {
+                .color("var(--swui-text-muted)")
+                .fontSize("var(--swui-field-label-size)")
+            }
+            // `<meter>` track fill comes from the composed `.ultraThinMaterial`;
+            // the value paints solid accent. Like `<progress>` it is replaced, so
+            // only the fill/blur apply and the rim overlay does not render.
+            rule(".swui-gauge-meter") {
+                .appearance("none")
+                .custom("-webkit-appearance", "none")
+                .width("100%")
+                .height("8px")
+                .border("none")
+                .borderRadius("var(--swui-radius-pill)")
+                .overflow("hidden")
+                .boxSizing("border-box")
+            }
+            rule(".swui-gauge-meter::-webkit-meter-bar") {
+                .background("transparent")
+                .border("none")
+                .borderRadius("var(--swui-radius-pill)")
+            }
+            rule(".swui-gauge-meter::-webkit-meter-optimum-value") {
+                .background("var(--swui-tint, var(--swui-accent))")
+                .borderRadius("var(--swui-radius-pill)")
+            }
+            rule(".swui-gauge-meter::-webkit-meter-suboptimum-value") {
+                .background("var(--swui-tint, var(--swui-accent))")
+                .borderRadius("var(--swui-radius-pill)")
+            }
+            rule(".swui-gauge-meter::-webkit-meter-even-less-good-value") {
+                .background("var(--swui-tint, var(--swui-accent))")
+                .borderRadius("var(--swui-radius-pill)")
+            }
+            rule(".swui-gauge-meter::-moz-meter-bar") {
+                .background("var(--swui-tint, var(--swui-accent))")
+                .borderRadius("var(--swui-radius-pill)")
+            }
+
+            // MARK: DisclosureGroup
+            // `<details>` is not replaced, so the composed `.regularMaterial`
+            // paints its full recipe (fill + rim + refraction) on the container.
+            rule(".swui-disclosure-group") {
+                .borderRadius("var(--swui-card-radius)")
+                .border("var(--swui-card-border)")
+                .overflow("hidden")
+                .boxSizing("border-box")
+            }
+            rule(".swui-disclosure-summary") {
+                .display("flex")
+                .alignItems("center")
+                .gap("var(--swui-space-sm)")
+                .padding("var(--swui-space-md)")
+                .cursor("pointer")
+                .fontWeight("600")
+                .color("var(--swui-text)")
+                .userSelect("none")
+                .custom("list-style", "none")
+            }
+            rule(".swui-disclosure-summary::-webkit-details-marker") {
+                .display("none")
+            }
+            rule(".swui-disclosure-content") {
+                .padding("0 var(--swui-space-md) var(--swui-space-md)")
+                .color("var(--swui-text)")
+            }
+
+            // MARK: TextEditor
+            // `<textarea>` is a form control: the composed `.thinMaterial` fill
+            // and backdrop blur apply, while the rim overlay does not render.
+            rule(".swui-text-editor") {
+                .minHeight("calc(var(--swui-control-regular-height) * 3)")
+                .width("100%")
+                .border("var(--swui-field-border)")
+                .borderRadius("var(--swui-field-radius)")
+                .padding("var(--swui-field-padding)")
+                .boxSizing("border-box")
+                .color("var(--swui-text)")
+                .font("inherit")
+                .resize("vertical")
+            }
+
+            // MARK: ColorPicker
+            // Label and swatch sit in a row; this overrides the `.swui-field`
+            // grid set earlier in source order.
+            rule(".swui-color-picker") {
+                .display("flex")
+                .flexDirection("row")
+                .alignItems("center")
+                .justifyContent("space-between")
+                .gap("var(--swui-space-sm)")
+                .cursor("pointer")
+            }
+            // No material on the swatch — it must show the chosen color verbatim.
+            rule(".swui-color-picker-input") {
+                .appearance("none")
+                .custom("-webkit-appearance", "none")
+                .width("44px")
+                .height("28px")
+                .padding("0")
+                .border("var(--swui-field-border)")
+                .borderRadius("var(--swui-radius-small)")
+                .background("transparent")
+                .cursor("pointer")
+                .boxSizing("border-box")
+            }
+            rule(".swui-color-picker-input::-webkit-color-swatch-wrapper") {
+                .padding("0")
+            }
+            rule(".swui-color-picker-input::-webkit-color-swatch") {
+                .border("none")
+                .borderRadius("calc(var(--swui-radius-small) - 1px)")
+            }
+            rule(".swui-color-picker-input::-moz-color-swatch") {
+                .border("none")
+                .borderRadius("calc(var(--swui-radius-small) - 1px)")
+            }
+
+            // MARK: Picker — segmented / inline
+            // The `.segmented` style composes the `bar` material as a pill track;
+            // each option is a hidden radio whose label span is the visual
+            // segment, highlighted via the same `input:checked ~ label` sibling
+            // pattern the toggle uses (no `:has()` dependency). The `.inline`
+            // style is a plain vertical radio list with a leading marker.
+            rule(".swui-picker-segmented") {
+                .display("inline-flex")
+                .flexDirection("row")
+                .gap("2px")
+                .padding("3px")
+                .borderRadius("var(--swui-field-radius)")
+                .boxSizing("border-box")
+            }
+            rule(".swui-picker-inline") {
+                .display("flex")
+                .flexDirection("column")
+                .gap("var(--swui-space-xs)")
+            }
+            rule(".swui-picker-segment") {
+                .position("relative")
+                .display("inline-flex")
+                .cursor("pointer")
+                .color("var(--swui-text)")
+            }
+            rule(".swui-picker-segmented .swui-picker-segment") {
+                .flex("1 1 0")
+            }
+            rule(".swui-picker-segment-input") {
+                .position("absolute")
+                .opacity("0")
+                .pointerEvents("none")
+                .width("0")
+                .height("0")
+            }
+            rule(".swui-picker-segment-label") {
+                .display("flex")
+                .alignItems("center")
+                .justifyContent("center")
+                .width("100%")
+                .boxSizing("border-box")
+                .userSelect("none")
+                .fontSize("var(--swui-field-label-size)")
+            }
+            rule(".swui-picker-segmented .swui-picker-segment-label") {
+                .padding("4px 12px")
+                .borderRadius("calc(var(--swui-field-radius) - 3px)")
+                .textAlign("center")
+                .transition("background var(--swui-motion-quick), color var(--swui-motion-quick)")
+            }
+            rule(".swui-picker-segmented .swui-picker-segment-input:checked ~ .swui-picker-segment-label") {
+                .background("var(--swui-accent)")
+                .color("var(--swui-accent-text)")
+            }
+            rule(".swui-picker-inline .swui-picker-segment-label") {
+                .justifyContent("flex-start")
+                .gap("var(--swui-space-sm)")
+                .padding("var(--swui-space-xs) 0")
+            }
+            rule(".swui-picker-inline .swui-picker-segment-label::before") {
+                .content("\"\"")
+                .width("18px")
+                .height("18px")
+                .borderRadius("999px")
+                .border("2px solid var(--swui-border)")
+                .boxSizing("border-box")
+                .flex("0 0 auto")
+            }
+            rule(".swui-picker-inline .swui-picker-segment-input:checked ~ .swui-picker-segment-label::before") {
+                .borderColor("var(--swui-accent)")
+                .background("radial-gradient(circle at center, var(--swui-accent) 0 5px, transparent 6px)")
+            }
+            rule(".swui-picker-segment-input:focus-visible ~ .swui-picker-segment-label") {
+                .outline("2px solid var(--swui-accent)")
+                .outlineOffset("2px")
+            }
+
+            // MARK: Menu
+            // `<details>` anchors a floating panel under an interactive-glass
+            // summary. The native disclosure triangle is hidden; the panel
+            // composes `regularMaterial` plus the card elevation shadow.
+            rule(".swui-menu") {
+                .position("relative")
+                .display("inline-block")
+            }
+            rule(".swui-menu-label") {
+                .display("inline-flex")
+                .alignItems("center")
+                .gap("var(--swui-space-xs)")
+                .padding("var(--swui-field-padding)")
+                .borderRadius("var(--swui-radius-pill)")
+                .cursor("pointer")
+                .userSelect("none")
+                .listStyle("none")
+                .color("var(--swui-text)")
+            }
+            rule(".swui-menu-label::-webkit-details-marker") {
+                .display("none")
+            }
+            rule(".swui-menu-content") {
+                .position("absolute")
+                .top("calc(100% + var(--swui-space-xs))")
+                .insetInlineStart("0")
+                .minWidth("180px")
+                .display("flex")
+                .flexDirection("column")
+                .gap("2px")
+                .padding("var(--swui-space-xs)")
+                .borderRadius("var(--swui-radius-medium)")
+                .boxShadow("var(--swui-card-shadow)")
+                .zIndex("40")
+                .boxSizing("border-box")
+            }
+
+            // MARK: TabView
+            // Each `Tab` is a `display: contents` unit holding a hidden radio
+            // (the tab button) and its panel. Flattening the unit lets every tab
+            // button form the bar (order 0) while the active panel sits below it
+            // (order 1, full width). The active panel is revealed purely in CSS
+            // via `:has(.swui-tab-input:checked)`, with no client runtime; the
+            // adjacency stays scoped to one unit, so no panel leaks across tabs.
+            rule(".swui-tabview") {
+                .display("flex")
+                .flexWrap("wrap")
+                .alignItems("center")
+                .gap("var(--swui-space-xs)")
+            }
+            rule(".swui-tab") {
+                .display("contents")
+            }
+            rule(".swui-tab-input") {
+                .position("absolute")
+                .opacity("0")
+                .pointerEvents("none")
+                .width("0")
+                .height("0")
+            }
+            rule(".swui-tab-item") {
+                .order("0")
+                .display("inline-flex")
+                .alignItems("center")
+                .gap("var(--swui-space-xs)")
+                .padding("var(--swui-field-padding)")
+                .borderRadius("var(--swui-radius-pill)")
+                .cursor("pointer")
+                .userSelect("none")
+                .color("var(--swui-text)")
+                .transition("background var(--swui-motion-quick), color var(--swui-motion-quick)")
+            }
+            rule(".swui-tab-item:has(.swui-tab-input:checked)") {
+                .background("var(--swui-accent)")
+                .color("var(--swui-accent-text)")
+            }
+            rule(".swui-tab-item:has(.swui-tab-input:focus-visible)") {
+                .outline("2px solid var(--swui-accent)")
+                .outlineOffset("2px")
+            }
+            rule(".swui-tab-panel") {
+                .order("1")
+                .flexBasis("100%")
+                .width("100%")
+                .display("none")
+                .paddingBlockStart("var(--swui-space-sm)")
+            }
+            rule(".swui-tab-item:has(.swui-tab-input:checked) + .swui-tab-panel") {
+                .display("block")
+            }
+
+            // MARK: Searchable
+            // The search field stacks above the searchable content. It composes
+            // the shared thin material for its fill and backdrop blur; the rule
+            // keeps its border, radius, padding, and text color.
+            rule(".swui-searchable") {
+                .display("flex")
+                .flexDirection("column")
+                .gap("var(--swui-space-sm)")
+            }
+            rule(".swui-search-bar") {
+                .display("flex")
+            }
+            rule(".swui-search-field") {
+                .custom("--swui-material-tint", "var(--swui-field-background)")
+                .width("100%")
+                .boxSizing("border-box")
+                .minHeight("var(--swui-control-regular-height)")
+                .border("var(--swui-field-border)")
+                .borderRadius("var(--swui-radius-pill)")
+                .padding("var(--swui-field-padding)")
+                .color("var(--swui-text)")
+                .font("inherit")
+            }
+            // MARK: Presentation (alert / confirmationDialog / sheet / popover)
+            // The shared `<dialog>` overlay. Like `.swui-card`, the material
+            // primitive owns the fill + backdrop blur + specular rim; this rule
+            // keeps the border, radius, drop shadow, sizing, and the modal layout.
+            // A `<dialog>` without `open` is `display: none` by UA default, so the
+            // overlay costs no layout while hidden.
+            rule(".swui-presentation") {
+                .margin("auto")
+                .padding("0")
+                .boxSizing("border-box")
+                .width("100%")
+                .maxWidth("min(92vw, 28rem)")
+                .border("var(--swui-card-border)")
+                .borderRadius("var(--swui-card-radius)")
+                .boxShadow("var(--swui-card-shadow)")
+                .color("var(--swui-text)")
+            }
+            // Pin the open overlay to the viewport center. This holds for the
+            // true top-layer modal (runtime `showModal()`) and for the in-flow
+            // `<dialog open>` degradation when the client runtime is absent.
+            rule(".swui-presentation[open]") {
+                .position("fixed")
+                .top("0")
+                .right("0")
+                .bottom("0")
+                .left("0")
+            }
+            // The scrim only paints for a true modal (top layer). Without the
+            // runtime the dialog is in-flow and the page behind stays visible —
+            // an explicit, documented degradation, not a silent fallback.
+            rule(".swui-presentation::backdrop") {
+                .background("color-mix(in srgb, var(--swui-text) 32%, transparent)")
+                .custom("-webkit-backdrop-filter", "blur(2px)")
+                .custom("backdrop-filter", "blur(2px)")
+            }
+            rule(".swui-presentation-surface") {
+                .display("flex")
+                .flexDirection("column")
+                .gap("var(--swui-space-md)")
+                .padding("var(--swui-space-lg)")
+                .boxSizing("border-box")
+            }
+            rule(".swui-presentation-title") {
+                .margin("0")
+                .fontSize("var(--swui-heading-subsection-size)")
+                .lineHeight("1.25")
+                .color("var(--swui-text)")
+            }
+            rule(".swui-presentation-message") {
+                .margin("0")
+                .color("var(--swui-text-muted)")
+            }
+            rule(".swui-presentation-actions") {
+                .display("flex")
+                .flexWrap("wrap")
+                .gap("var(--swui-space-sm)")
+                .justifyContent("flex-end")
+            }
+            // Action sheets stack their choices full width, matching the native
+            // confirmation dialog layout.
+            rule(".swui-presentation-confirmation .swui-presentation-actions") {
+                .flexDirection("column")
+                .alignItems("stretch")
+            }
+            // The sheet anchors to the bottom edge and squares its lower corners.
+            rule(".swui-presentation-sheet") {
+                .margin("auto auto 0 auto")
+                .maxWidth("min(96vw, 40rem)")
+                .borderBottomLeftRadius("0")
+                .borderBottomRightRadius("0")
+            }
+            rule(".swui-presentation-sheet[open]") {
+                .top("auto")
+            }
+            // The popover reads as a compact card. True source anchoring needs the
+            // CSS anchor positioning API; until then it presents centered.
+            rule(".swui-presentation-popover") {
+                .maxWidth("min(92vw, 20rem)")
+            }
         }
     }
+
+    // MARK: Liquid Glass material primitive
+
+    /// The single Liquid Glass recipe every chrome surface composes. A surface
+    /// adds `.swui-material`/`.swui-glass` plus one level modifier; the level
+    /// only scales the fill opacity, while blur, saturation, rim, and refraction
+    /// come from the active design style's tokens. Solid styles set those tokens
+    /// to no-op values, so the same markup reads as a plain surface.
+    private static var materialStylesheet: Stylesheet {
+        Stylesheet {
+            // Base fill + backdrop. `isolation: isolate` establishes a stacking
+            // context so the `::before` overlay paints above the fill but below
+            // the element content (z-index: -1). The interactive multiplier folds
+            // into the backdrop brightness and defaults to 1.
+            rule("""
+            .swui-material,
+            .swui-glass
+            """) {
+                .position("relative")
+                .isolation("isolate")
+                .custom("--swui-material-level-opacity", "var(--swui-material-opacity)")
+                .background("color-mix(in srgb, var(--swui-material-tint) calc(var(--swui-material-level-opacity) * 100%), transparent)")
+                .backdropFilter("blur(var(--swui-material-blur)) saturate(var(--swui-material-saturate)) brightness(calc(var(--swui-material-brightness) * var(--swui-material-interactive, 1)))")
+                .custom("-webkit-backdrop-filter", "blur(var(--swui-material-blur)) saturate(var(--swui-material-saturate)) brightness(calc(var(--swui-material-brightness) * var(--swui-material-interactive, 1)))")
+            }
+            // One overlay carries both the SVG displacement refraction (a second
+            // backdrop-filter pass) and the specular rim (inset shadow), leaving
+            // `::after` free for component pseudo-elements (e.g. the toggle
+            // thumb). On Safari the `url()` backdrop-filter is ignored and only
+            // the base blur remains — a documented degradation, not a silent one.
+            rule("""
+            .swui-material::before,
+            .swui-glass::before
+            """) {
+                .content("\"\"")
+                .position("absolute")
+                .inset("0")
+                .zIndex("-1")
+                .borderRadius("inherit")
+                .backdropFilter("var(--swui-material-refraction)")
+                .custom("-webkit-backdrop-filter", "var(--swui-material-refraction)")
+                .boxShadow("var(--swui-material-rim)")
+                .pointerEvents("none")
+            }
+            // Level modifiers scale the regular-level opacity by ±N steps. Solid
+            // styles use a zero step, collapsing every level onto one fill.
+            rule(".swui-material-ultra-thin") {
+                .custom("--swui-material-level-opacity", "calc(var(--swui-material-opacity) - 2 * var(--swui-material-opacity-step))")
+            }
+            rule(".swui-material-thin") {
+                .custom("--swui-material-level-opacity", "calc(var(--swui-material-opacity) - 1 * var(--swui-material-opacity-step))")
+            }
+            rule(".swui-material-regular") {
+                .custom("--swui-material-level-opacity", "var(--swui-material-opacity)")
+            }
+            rule(".swui-material-thick") {
+                .custom("--swui-material-level-opacity", "calc(var(--swui-material-opacity) + 1 * var(--swui-material-opacity-step))")
+            }
+            rule(".swui-material-ultra-thick") {
+                .custom("--swui-material-level-opacity", "calc(var(--swui-material-opacity) + 2 * var(--swui-material-opacity-step))")
+            }
+            // The bar material (toolbars/tab bars) sits one step more frosted
+            // than regular so chrome reads as a distinct layer over content.
+            rule(".swui-material-bar") {
+                .custom("--swui-material-level-opacity", "calc(var(--swui-material-opacity) + 1 * var(--swui-material-opacity-step))")
+            }
+            // Interactive glass: pointer hover/press scales the backdrop
+            // brightness through the multiplier the base recipe folds in.
+            rule(".swui-glass-interactive") {
+                .cursor("pointer")
+            }
+            rule(".swui-glass-interactive:hover") {
+                .custom("--swui-material-interactive", "1.12")
+            }
+            rule(".swui-glass-interactive:active") {
+                .custom("--swui-material-interactive", "0.94")
+            }
+            // Shared compositing context for grouped glass surfaces.
+            rule(".swui-glass-container") {
+                .display("flex")
+                .isolation("isolate")
+            }
+        }
+    }
+
+    /// Opaque fallback applied where translucency is unavailable or unwanted.
+    /// Appended raw because `@supports`/`@media` blocks are not expressible as a
+    /// flat `CSSRule`. Both the unsupported-`backdrop-filter` path and the
+    /// reduced-transparency path drop to the solid fill and hide the overlay —
+    /// an explicit, designed recipe rather than a silent fallback.
+    private static let materialFallbackCSS = """
+    @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+      .swui-material,
+      .swui-glass {
+        background: var(--swui-material-solid-fill);
+      }
+      .swui-material::before,
+      .swui-glass::before {
+        display: none;
+      }
+    }
+    @media (prefers-reduced-transparency: reduce) {
+      .swui-material,
+      .swui-glass {
+        background: var(--swui-material-solid-fill);
+      }
+      .swui-material::before,
+      .swui-glass::before {
+        display: none;
+      }
+    }
+    """
+
+    /// Rotation keyframes for the indeterminate `ProgressView` spinner. Appended
+    /// raw because `@keyframes` is not expressible as a flat `CSSRule`.
+    private static let progressSpinnerKeyframes = """
+    @keyframes swui-spin {
+      to { transform: rotate(360deg); }
+    }
+    """
 }

@@ -27,7 +27,17 @@ public struct ValueDisplay: WebUIAttributeComponent {
 
     @HTMLBuilder
     public var body: some HTML {
-        Element("div", attributes: mergedAttributes(class: "swui-value-display", extra: attributes)) {
+        // The value readout composes the shared regular material; its accent-
+        // tinted surface stays a per-component difference fed in as the material
+        // tint, while the recipe owns the translucency, blur, rim, and refraction.
+        Element(
+            "div",
+            attributes: mergedAttributes(
+                class: "swui-value-display \(MaterialClass.material) \(MaterialClass.regular)",
+                styles: .custom("--swui-material-tint", "var(--swui-value-display-background)"),
+                extra: attributes
+            )
+        ) {
             if let label {
                 span(.class("swui-value-label")) {
                     label

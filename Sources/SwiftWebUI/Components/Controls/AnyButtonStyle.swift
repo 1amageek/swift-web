@@ -19,5 +19,7 @@ public extension AnyButtonStyle {
     static var automatic: AnyButtonStyle { AnyButtonStyle(AutomaticButtonStyle()) }
     static var bordered: AnyButtonStyle { AnyButtonStyle(BorderedButtonStyle()) }
     static var borderedProminent: AnyButtonStyle { AnyButtonStyle(BorderedProminentButtonStyle()) }
+    static var glass: AnyButtonStyle { AnyButtonStyle(GlassButtonStyle()) }
+    static var glassProminent: AnyButtonStyle { AnyButtonStyle(GlassProminentButtonStyle()) }
     static var plain: AnyButtonStyle { AnyButtonStyle(PlainButtonStyle()) }
 }

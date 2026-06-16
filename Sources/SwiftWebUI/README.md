@@ -14,7 +14,7 @@ The core architecture is documented in [`docs/SwiftWebUICoreDesign.md`](../../do
 | UI controls | Provides `Button`, server action reference buttons, `SubmitButton`, `TextField`, `SecureField`, `Toggle`, and links. |
 | Text components | Provides `Text`, semantic `TextElement` switching via `as`, `Heading`, and text tones. |
 | Containers | Provides `Card`, `Section`, `List`, `ListRow`, and `Toolbar`. |
-| Theme | Provides `Theme` color mode values, `DesignStyle` component design values, `ThemeStylesheet`, and environment integration. |
+| Theme | Provides `Theme` color mode values, `StyleSystem` component design values, `ThemeStylesheet`, and environment integration. |
 | Modifiers | Provides SwiftUI-like modifier graph wrappers for styles, attributes, frame, padding, alignment, accessibility, and events. |
 | Navigation | Provides `NavigationStack`, `NavigationLink`, `NavigationPath`, and `navigationTitle` metadata hooks. |
 
@@ -40,7 +40,7 @@ flowchart LR
   A["SwiftWebUI Component"] --> B["SwiftHTML Component"]
   B --> C["HTMLGraph"]
   D["Theme Environment"] --> A
-  E["DesignStyle Environment"] --> A
+  E["StyleSystem Environment"] --> A
   F["Modifiers"] --> A
 ```
 
@@ -61,7 +61,7 @@ flowchart LR
 
 - Components should follow SwiftUI naming and initializer shape where it maps cleanly to the web.
 - Color mode should be theme-driven through `.environment(\.theme, value)`.
-- Component design language should be design-style-driven through `.environment(\.designStyle, value)`.
+- Component design language should be style-system-driven through `.environment(\.styleSystem, value)`.
 - Default CSS should be declared through SwiftHTML `Style` helpers and `Stylesheet` rules, not concatenated raw stylesheet strings.
 - Concrete CSS property output should use SwiftHTML generated standard property helpers so SwiftWebUI does not maintain a separate CSS property surface.
 - Public styling should prefer `foregroundStyle`, `backgroundStyle`, and `tint` over color-specific APIs.
@@ -75,39 +75,50 @@ flowchart LR
 - Components may wrap SwiftHTML primitives but should not introduce a second rendering model.
 - Components should not create `html`, `head`, `title`, or document-level metadata; those belong to SwiftWeb `Page`.
 
-## Theme And DesignStyle
+## Theme And StyleSystem
 
-`Theme` controls semantic color values such as background, text, accent, and border. `DesignStyle` controls component-wide design choices such as card radius, button shape, field padding, value display treatment, material effects, and motion timing.
+`Theme` controls semantic color values such as background, text, accent, and border. `StyleSystem` controls component-wide design choices such as card radius, button shape, field padding, value display treatment, material effects, and motion timing.
 
 ```mermaid
 flowchart LR
   A["Theme"] --> B["color variables"]
-  C["DesignStyle"] --> D["component variables"]
+  C["StyleSystem"] --> D["component variables"]
   B --> E["ThemeStylesheet"]
   D --> E
   E --> F["SwiftWebUI components"]
 ```
 
-`DesignStyle.default` is complete. Custom styles should start from that default and override only the parts that differ, so every component always has a fallback token.
+`StyleSystem.default` is complete. Custom styles should start from that default and override only the parts that differ, so every component always has a fallback token.
+
+Every chrome surface — card, toolbar, badge, field, toggle track, and the bordered/glass buttons — composes one shared material recipe instead of hand-rolling its own translucency. A design style tunes that single recipe through the `material` block: `opacity` (with the per-level `opacityStep`), `blur`, `saturate`, the specular `rim`, and the SVG `refraction`. Components pick a *level* (`.regularMaterial`, `.thinMaterial`, `.bar`, …) and the CSS derives the level's fill from these knobs, so the glass stays consistent across the whole UI.
 
 ```swift
-let glass = DesignStyle(id: "glass") {
+let glass = StyleSystem(id: "glass") {
     .surface {
         .cardRadius("22px")
-        .cardShadow("var(--swui-material-glass-shadow)")
-        .cardBackdropFilter("var(--swui-material-glass-backdrop-filter)")
+        .cardShadow("0 18px 48px rgba(15, 23, 42, 0.18)")
     }
     .button {
         .radius("999px")
+    }
+    .material {
+        .opacity("0.62")
+        .opacityStep("0.07")
+        .blur("24px")
+        .saturate("1.6")
+        .refraction("url(\"#swui-glass-refraction\")")
+        .solidFill("color-mix(in srgb, var(--swui-surface) 88%, var(--swui-border))")
     }
 }
 
 CounterView()
     .environment(\.theme, .dark)
-    .environment(\.designStyle, glass)
+    .environment(\.styleSystem, glass)
 ```
 
-When both values are set through modifiers, place `designStyle` outside the theme scope as shown above. Modifier order is semantic: the stylesheet scope created by `theme` reads outer environment values.
+`solidFill` is the opaque fallback used where `backdrop-filter` is unsupported (e.g. Safari ignores `url()` filters) or when the reader requests reduced transparency. This degradation is part of the recipe, not a silent default. The built-in `.liquidGlass` preset already sets all of these knobs.
+
+When both values are set through modifiers, place `styleSystem` outside the theme scope as shown above. Modifier order is semantic: the stylesheet scope created by `theme` reads outer environment values.
 
 ## Action Boundary
 

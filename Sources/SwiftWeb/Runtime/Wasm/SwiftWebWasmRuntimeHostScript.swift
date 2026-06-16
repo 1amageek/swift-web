@@ -5,6 +5,7 @@ const swiftWebEventNames = [
   "input",
   "change",
   "submit",
+  "close",
   "keydown",
   "keyup",
   "focus",
@@ -124,6 +125,7 @@ class SwiftWebWasmRuntime {
     });
     this.installEventListeners();
     this.installServerActionListeners();
+    this.installPresentationReconciler();
     this.publishStatus(true);
     this.completeReadyMetrics(runtimeStartedAt);
     this.scheduleAutomaticStages();
@@ -606,6 +608,55 @@ class SwiftWebWasmRuntime {
         console.error("SwiftWeb server action failed", error);
       });
     }, true);
+  }
+
+  // Upgrades server-rendered presentation dialogs to true top-layer modals.
+  //
+  // The server renders `<dialog data-swui-presented>` with the `open` attribute
+  // toggled by the binding. An `open` attribute alone yields a non-modal, in-flow
+  // dialog (no top layer, no ::backdrop, no focus trap). This reconciler observes
+  // the `data-swui-presented` marker and the subtree, then drives the imperative
+  // `showModal()` / `close()` lifecycle so the dialog is lifted to the browser top
+  // layer. `close()` (not attribute removal) fires the native `close` event, which
+  // the Swift-side handler uses to sync the binding back to `false`.
+  installPresentationReconciler() {
+    const reconcile = () => {
+      const dialogs = document.querySelectorAll("dialog[data-swui-presented]");
+      for (const dialog of dialogs) {
+        const shouldPresent = dialog.getAttribute("data-swui-presented") === "true";
+        const isModal = typeof dialog.matches === "function" && dialog.matches(":modal");
+        if (shouldPresent && !isModal) {
+          if (typeof dialog.showModal === "function") {
+            // Drop the SSR `open` attribute first: showModal() throws if the
+            // dialog is already open as a non-modal in-flow element.
+            dialog.removeAttribute("open");
+            try {
+              dialog.showModal();
+            } catch (error) {
+              // Explicit, logged degradation — never a silent fallback. Keep the
+              // dialog visible in-flow via the `open` attribute so the binding
+              // still drives show/hide even when top-layer promotion fails.
+              console.warn("SwiftWeb presentation: showModal() failed, falling back to in-flow open", error);
+              dialog.setAttribute("open", "");
+            }
+          } else {
+            console.warn("SwiftWeb presentation: <dialog>.showModal() unavailable, presenting in-flow only");
+            dialog.setAttribute("open", "");
+          }
+        } else if (!shouldPresent && (isModal || dialog.open)) {
+          // close() fires the native `close` event that syncs the binding.
+          dialog.close();
+        }
+      }
+    };
+    reconcile();
+    const observer = new MutationObserver(() => reconcile());
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-swui-presented"],
+      childList: true,
+      subtree: true
+    });
   }
 
   async submitServerAction(form, event) {

@@ -17,10 +17,13 @@ public struct Card<Content: HTML>: WebUIAttributeComponent {
 
     @HTMLBuilder
     public var body: some HTML {
+        // The card surface is the canonical content material: it composes the
+        // shared `regularMaterial` recipe (fill + backdrop blur + rim + SVG
+        // refraction) and keeps only its own border/radius/shadow chrome.
         Element(
             "div",
             attributes: mergedAttributes(
-                class: "swui-card",
+                class: "swui-card \(MaterialClass.material) \(MaterialClass.regular)",
                 styles: .padding(padding.rawValue),
                 extra: attributes
             )
