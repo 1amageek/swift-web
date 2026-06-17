@@ -86,7 +86,8 @@ enum SwiftWebDevBoundaryAnnotator {
         let attributes = [
             ("data-swift-component", component.componentID.rawValue),
             ("data-swift-hmr-boundary", "true"),
-            ("data-swift-state-schema", schemaHash(for: component)),
+            ("data-swift-state-schema", component.stateSchemaHash),
+            ("data-swift-environment-schema", component.environmentSchemaHash),
             ("data-swift-component-type", component.typeName),
             ("data-swift-bundle", component.bundleID.rawValue),
         ]
@@ -150,19 +151,6 @@ enum SwiftWebDevBoundaryAnnotator {
             index = html.index(after: index)
         }
         return nil
-    }
-
-    private static func schemaHash(for component: ClientComponentAsset) -> String {
-        stableHash("\(component.typeName)|\(component.entrySymbols.map(\.rawValue).joined(separator: ","))")
-    }
-
-    private static func stableHash(_ value: String) -> String {
-        var hash: UInt64 = 0xcbf29ce484222325
-        for byte in value.utf8 {
-            hash ^= UInt64(byte)
-            hash &*= 0x100000001b3
-        }
-        return String(format: "%016llx", hash)
     }
 
     private static func escapeAttribute(_ value: String) -> String {

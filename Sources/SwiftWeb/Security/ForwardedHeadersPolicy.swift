@@ -19,8 +19,9 @@ public enum ForwardedHeadersPolicy: Sendable {
             firstHeaderValue(request.headers[HTTPField.Name("X-Forwarded-Host")!])
                 ?? request.headers[HTTPField.Name("Host")!]
                 ?? request.url.host
+                ?? configuredHost(for: request)
         } else {
-            request.headers[HTTPField.Name("Host")!] ?? request.url.host
+            request.headers[HTTPField.Name("Host")!] ?? request.url.host ?? configuredHost(for: request)
         }
     }
 
@@ -51,5 +52,15 @@ public enum ForwardedHeadersPolicy: Sendable {
             .split(separator: ",", maxSplits: 1)
             .first
             .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+    }
+
+    private func configuredHost(for request: Request) -> String? {
+        guard let hostname = request.application.serverConfiguration.hostname else {
+            return nil
+        }
+        guard let port = request.application.serverConfiguration.port else {
+            return hostname
+        }
+        return "\(hostname):\(port)"
     }
 }

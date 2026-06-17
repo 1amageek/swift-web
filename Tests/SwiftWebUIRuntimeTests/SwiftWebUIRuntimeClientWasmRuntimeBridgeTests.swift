@@ -80,6 +80,41 @@ private struct WasmBridgeHotReloadComponent: ClientComponent, Sendable {
     }
 }
 
+private enum WasmBridgeHotReloadStateFixture {
+    nonisolated(unsafe) static var text = "Before"
+}
+
+private struct WasmBridgeHotReloadStatefulComponent: ClientComponent, Sendable {
+    @State private var value = 0
+
+    var body: some HTML {
+        button(.type(ButtonType.button), .onClick {
+            value += 1
+        }) {
+            "\(WasmBridgeHotReloadStateFixture.text) \(value)"
+        }
+    }
+}
+
+private enum WasmBridgeHotReloadStructureFixture {
+    nonisolated(unsafe) static var showsDetail = false
+}
+
+private struct WasmBridgeHotReloadStructuralComponent: ClientComponent, Sendable {
+    var body: some HTML {
+        div {
+            span {
+                "Stable"
+            }
+            if WasmBridgeHotReloadStructureFixture.showsDetail {
+                p {
+                    "Inserted"
+                }
+            }
+        }
+    }
+}
+
 private struct WasmBridgeMountedRoot: Component, Sendable {
     var body: some HTML {
         div {
@@ -199,6 +234,162 @@ struct SwiftWebUIRuntimeClientWasmRuntimeBridgeTests {
 
         #expect(response.commandBatch?.commands.contains {
             $0 == .updateText(node: textNode.id, value: "After")
+        } == true)
+    }
+
+    @Test
+    func bridgeHotReloadModeProducesStructuralPatchForInsertedNode() throws {
+        WasmBridgeHotReloadStructureFixture.showsDetail = false
+        let serverArtifact = WasmBridgeHotReloadStructuralComponent().renderArtifact()
+        let serverIndex = serverArtifact.browserHydrationIndex()
+        WasmBridgeHotReloadStructureFixture.showsDetail = true
+        let bridge = ClientWasmRuntimeBridge<WasmBridgeHotReloadStructuralComponent>(
+            componentMount: ClientWasmComponentMount(WasmBridgeHotReloadStructuralComponent.self)
+        ) { _ in
+            WasmBridgeHotReloadStructuralComponent()
+        }
+
+        let response = try bridge.bootstrap(
+            ClientWasmBootstrapRequest(
+                hydrationIndex: serverIndex,
+                location: ClientWasmBootstrapLocation(
+                    href: "http://127.0.0.1:8080/storyboard",
+                    search: ""
+                ),
+                mode: .hotReload
+            )
+        )
+
+        #expect(response.commandBatch?.commands.contains { command in
+            if case .insertHTML(_, _, let html) = command {
+                return html.contains("Inserted")
+            }
+            return false
+        } == true)
+        #expect(response.hydrationIndex?.nodes.contains { node in
+            node.role == .text && node.text == "Inserted"
+        } == true)
+        try assertCommandTargetsResolve(response)
+    }
+
+    @Test
+    func bridgeHotReloadRestoresStateWhenSchemaMatches() throws {
+        WasmBridgeHotReloadStateFixture.text = "Before"
+        let serverArtifact = WasmBridgeHotReloadStatefulComponent().renderArtifact()
+        let serverIndex = serverArtifact.browserHydrationIndex()
+        let oldBridge = ClientWasmRuntimeBridge<WasmBridgeHotReloadStatefulComponent>(
+            componentMount: ClientWasmComponentMount(WasmBridgeHotReloadStatefulComponent.self)
+        ) { _ in
+            WasmBridgeHotReloadStatefulComponent()
+        }
+
+        _ = try oldBridge.bootstrap(
+            ClientWasmBootstrapRequest(
+                hydrationIndex: serverIndex,
+                location: ClientWasmBootstrapLocation(
+                    href: "http://127.0.0.1:8080/storyboard",
+                    search: ""
+                )
+            )
+        )
+        let handler = try #require(serverIndex.handlers.first)
+        let incremented = try oldBridge.dispatch(
+            ClientWasmEventRequest(
+                handlerID: handler.handlerID,
+                event: DOMEvent()
+            )
+        )
+        let incrementedIndex = try #require(incremented.hydrationIndex)
+        let incrementedTextNode = try #require(incremented.commandBatch?.commands.compactMap(textUpdateNode).first)
+        let snapshot = try oldBridge.snapshotState()
+
+        WasmBridgeHotReloadStateFixture.text = "After"
+        let newBridge = ClientWasmRuntimeBridge<WasmBridgeHotReloadStatefulComponent>(
+            componentMount: ClientWasmComponentMount(WasmBridgeHotReloadStatefulComponent.self)
+        ) { _ in
+            WasmBridgeHotReloadStatefulComponent()
+        }
+
+        let response = try newBridge.bootstrap(
+            ClientWasmBootstrapRequest(
+                hydrationIndex: incrementedIndex,
+                location: ClientWasmBootstrapLocation(
+                    href: "http://127.0.0.1:8080/storyboard",
+                    search: ""
+                ),
+                mode: .hotReload,
+                stateSnapshot: snapshot
+            )
+        )
+
+        #expect(snapshot.values.count == 1)
+        #expect(response.hydrationIndex?.nodes.contains { node in
+            node.role == .text && node.text == "After 1"
+        } == true)
+        #expect(response.commandBatch?.commands.contains { command in
+            command == .updateText(node: incrementedTextNode, value: "After 1")
+        } == true)
+    }
+
+    @Test
+    func bridgeHotReloadDropsStateWhenSchemaMismatches() throws {
+        WasmBridgeHotReloadStateFixture.text = "Before"
+        let serverArtifact = WasmBridgeHotReloadStatefulComponent().renderArtifact()
+        let serverIndex = serverArtifact.browserHydrationIndex()
+        let oldBridge = ClientWasmRuntimeBridge<WasmBridgeHotReloadStatefulComponent>(
+            componentMount: ClientWasmComponentMount(WasmBridgeHotReloadStatefulComponent.self)
+        ) { _ in
+            WasmBridgeHotReloadStatefulComponent()
+        }
+
+        _ = try oldBridge.bootstrap(
+            ClientWasmBootstrapRequest(
+                hydrationIndex: serverIndex,
+                location: ClientWasmBootstrapLocation(
+                    href: "http://127.0.0.1:8080/storyboard",
+                    search: ""
+                )
+            )
+        )
+        let handler = try #require(serverIndex.handlers.first)
+        let incremented = try oldBridge.dispatch(
+            ClientWasmEventRequest(
+                handlerID: handler.handlerID,
+                event: DOMEvent()
+            )
+        )
+        let incrementedIndex = try #require(incremented.hydrationIndex)
+        let incrementedTextNode = try #require(incremented.commandBatch?.commands.compactMap(textUpdateNode).first)
+        let snapshot = try oldBridge.snapshotState()
+        let incompatibleSnapshot = ClientWasmStateSnapshot(
+            schemaHash: "incompatible",
+            values: snapshot.values
+        )
+
+        WasmBridgeHotReloadStateFixture.text = "After"
+        let newBridge = ClientWasmRuntimeBridge<WasmBridgeHotReloadStatefulComponent>(
+            componentMount: ClientWasmComponentMount(WasmBridgeHotReloadStatefulComponent.self)
+        ) { _ in
+            WasmBridgeHotReloadStatefulComponent()
+        }
+
+        let response = try newBridge.bootstrap(
+            ClientWasmBootstrapRequest(
+                hydrationIndex: incrementedIndex,
+                location: ClientWasmBootstrapLocation(
+                    href: "http://127.0.0.1:8080/storyboard",
+                    search: ""
+                ),
+                mode: .hotReload,
+                stateSnapshot: incompatibleSnapshot
+            )
+        )
+
+        #expect(response.hydrationIndex?.nodes.contains { node in
+            node.role == .text && node.text == "After 0"
+        } == true)
+        #expect(response.commandBatch?.commands.contains { command in
+            command == .updateText(node: incrementedTextNode, value: "After 0")
         } == true)
     }
 
@@ -356,5 +547,12 @@ struct SwiftWebUIRuntimeClientWasmRuntimeBridgeTests {
         case .moveKeyed(let parent, _, _):
             [parent]
         }
+    }
+
+    private func textUpdateNode(_ command: BrowserDOMCommand) -> HTMLNodeID? {
+        if case .updateText(let node, _) = command {
+            return node
+        }
+        return nil
     }
 }

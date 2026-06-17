@@ -736,6 +736,42 @@ struct SwiftWebUIRenderingTests {
         #expect(shown.contains("<h2 class=\"swui-presentation-title\">Choose</h2>"))
     }
 
+    @Test
+    func interactiveDismissDisabledForcesExplicitChoice() {
+        @State var isPresented = true
+
+        // By default an alert light-dismisses on a backdrop tap or Esc.
+        let dismissable = Text("Anchor")
+            .alert("Delete this draft?", isPresented: $isPresented) {
+                Button("Delete", action: Action.post("/delete"))
+            }
+            .render()
+        #expect(dismissable.contains("closedby=\"any\""))
+
+        // Applying `interactiveDismissDisabled()` outside the presentation flows
+        // the opt-out down through the environment, so the dialog renders
+        // `closedby="none"` — neither the backdrop nor Esc can dismiss it and
+        // only the binding (a button that flips it) closes the dialog.
+        let locked = Text("Anchor")
+            .alert("Delete this draft?", isPresented: $isPresented) {
+                Button("Delete", action: Action.post("/delete"))
+            }
+            .interactiveDismissDisabled()
+            .render()
+        #expect(locked.contains("closedby=\"none\""))
+        #expect(!locked.contains("closedby=\"any\""))
+
+        // Passing `false` restores the default light dismissal.
+        let reenabled = Text("Anchor")
+            .alert("Delete this draft?", isPresented: $isPresented) {
+                Button("Delete", action: Action.post("/delete"))
+            }
+            .interactiveDismissDisabled(false)
+            .render()
+        #expect(reenabled.contains("closedby=\"any\""))
+        #expect(!reenabled.contains("closedby=\"none\""))
+    }
+
     private func countOccurrences(of needle: String, in haystack: String) -> Int {
         haystack.components(separatedBy: needle).count - 1
     }

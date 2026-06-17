@@ -24,6 +24,20 @@ enum SwiftWebPackageManifestInspector {
         named dependencyPackageName: String,
         in packageDirectory: URL
     ) throws -> URL {
+        if let root = try optionalLocalDependencyRoot(named: dependencyPackageName, in: packageDirectory) {
+            return root
+        }
+
+        throw SwiftWebGeneratedPackageMaterializerError.localDependencyNotFound(
+            package: dependencyPackageName,
+            in: packageDirectory
+        )
+    }
+
+    static func optionalLocalDependencyRoot(
+        named dependencyPackageName: String,
+        in packageDirectory: URL
+    ) throws -> URL? {
         let roots = try SwiftWebDevLocalPackageDependencyResolver.localPackageRoots(
             for: packageDirectory
         )
@@ -35,9 +49,6 @@ enum SwiftWebPackageManifestInspector {
             }
         }
 
-        throw SwiftWebGeneratedPackageMaterializerError.localDependencyNotFound(
-            package: dependencyPackageName,
-            in: packageDirectory
-        )
+        return nil
     }
 }

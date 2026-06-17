@@ -16,7 +16,25 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         }
 
         let swiftWebPackage = root.appendingPathComponent("swift-web", isDirectory: true)
+        let swiftHTMLPackage = root.appendingPathComponent("swift-html", isDirectory: true)
         let appPackage = root.appendingPathComponent("SampleApp", isDirectory: true)
+        try write(
+            """
+            // swift-tools-version: 6.4
+            import PackageDescription
+
+            let package = Package(
+                name: "swift-html",
+                products: [
+                    .library(name: "SwiftHTML", targets: ["SwiftHTML"]),
+                ],
+                targets: [
+                    .target(name: "SwiftHTML"),
+                ]
+            )
+            """,
+            to: swiftHTMLPackage.appendingPathComponent("Package.swift")
+        )
         try write(
             """
             // swift-tools-version: 6.4
@@ -29,6 +47,9 @@ struct SwiftWebGeneratedPackageMaterializerTests {
                     .library(name: "SwiftWebUI", targets: ["SwiftWebUI"]),
                     .library(name: "SwiftWebUIRuntime", targets: ["SwiftWebUIRuntime"]),
                     .library(name: "SwiftWeb", targets: ["SwiftWeb"]),
+                ],
+                dependencies: [
+                    .package(path: "\(swiftHTMLPackage.path)"),
                 ],
                 targets: [
                     .target(name: "SwiftWebActors"),
@@ -110,7 +131,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         #expect(packageSwift.contains(".executable(name: \"app-server\", targets: [\"AppServerLauncher\"])"))
         #expect(packageSwift.contains(".executable(name: \"sample-wasm-runtime\", targets: [\"SampleWasmRuntime\"])"))
         #expect(packageSwift.contains(".package(path: \"\(swiftWebPackage.path)\""))
-        #expect(packageSwift.contains(".package(url: \"https://github.com/1amageek/swift-html.git\", from: \"0.2.2\")"))
+        #expect(packageSwift.contains(".package(path: \"\(swiftHTMLPackage.path)\""))
         #expect(packageSwift.contains(".package(url: \"https://github.com/swiftwasm/JavaScriptKit.git\""))
         #expect(packageSwift.contains(".package(url: \"https://github.com/1amageek/swift-actor-runtime.git\", exact: \"0.5.0\")"))
         #expect(!packageSwift.contains("let swiftHTMLTarget = Target.target("))

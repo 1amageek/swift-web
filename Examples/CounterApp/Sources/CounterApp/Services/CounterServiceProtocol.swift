@@ -1,5 +1,5 @@
 import Distributed
-import SwiftWeb
+import SwiftWebActors
 
 @Resolvable
 protocol CounterServiceProtocol: DistributedActor

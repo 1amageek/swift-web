@@ -72,38 +72,8 @@ enum SwiftWebDevHotReload {
                 .contentType: "text/event-stream; charset=utf-8",
                 .cacheControl: "no-cache, no-transform",
             ]
-            return Response(
-                headers: headers,
-                body: .init(asyncStream: { writer in
-                    let streamWriter = StreamWriter(writer, environment: EnvironmentValues())
-                    var lastEventID = search.lastEventID
-                    var lastHeartbeat = Date()
-                    do {
-                        let connected = SwiftWebDevEvent(kind: .connected)
-                        try await streamWriter.write(try sseData(for: connected))
-
-                        while !Task.isCancelled {
-                            let events = try eventLog.events(after: lastEventID)
-                            for event in events {
-                                try await streamWriter.write(try sseData(for: event))
-                                lastEventID = event.id
-                            }
-                            let now = Date()
-                            if now.timeIntervalSince(lastHeartbeat) >= 10 {
-                                try await streamWriter.write(": swift-web-dev heartbeat\n\n")
-                                lastHeartbeat = now
-                            }
-                            try await Task.sleep(nanoseconds: 300_000_000)
-                        }
-                        try await writer.write(.end)
-                    } catch is CancellationError {
-                        try await writer.write(.end)
-                    } catch {
-                        req.application.logger.error("SwiftWeb dev event stream failed: \(String(describing: error))")
-                        try await writer.write(.error(error))
-                    }
-                })
-            )
+            let payload = try await eventPayload(from: eventLog, after: search.lastEventID)
+            return Response(headers: headers, body: .init(string: payload))
         }
 
         return [reloadRoute, eventsRoute]
@@ -126,6 +96,31 @@ enum SwiftWebDevHotReload {
         let data = try JSONEncoder.swiftWebDevEvent.encode(event)
         let json = String(decoding: data, as: UTF8.self)
         return SSEEvent(event: event.kind.rawValue, id: event.id, data: json).render()
+    }
+
+    static func eventPayload(
+        from eventLog: SwiftWebDevEventLog,
+        after lastEventID: String?
+    ) async throws -> String {
+        if lastEventID == nil {
+            return try sseData(for: SwiftWebDevEvent(kind: .connected))
+        }
+
+        let deadline = Date().addingTimeInterval(30)
+        while !Task.isCancelled {
+            let events = try eventLog.events(after: lastEventID)
+            if !events.isEmpty {
+                return try events.map { event in
+                    try sseData(for: event)
+                }.joined()
+            }
+            if Date() >= deadline {
+                return ": swift-web-dev heartbeat\n\n"
+            }
+            try await Task.sleep(nanoseconds: 300_000_000)
+        }
+
+        throw CancellationError()
     }
 
     static func inject(into html: String) -> String {
@@ -186,6 +181,12 @@ enum SwiftWebDevHotReload {
             abortController: null,
             eventSource: null,
             reconnectTimer: null,
+            connectedAt: null,
+            lastEvent: null,
+            lastEventAt: null,
+            lastAppliedEvent: null,
+            lastAppliedEventAt: null,
+            lastError: null,
             close() {
               if (this.abortController) {
                 this.abortController.abort();
@@ -242,16 +243,63 @@ enum SwiftWebDevHotReload {
             element.textContent = patch.css;
             swiftWebDevOverlay("SwiftWeb HMR: style patch applied", "style");
           }
+          function swiftWebSleep(milliseconds) {
+            return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+          }
+          function swiftWebDispatchSSEMessage(message) {
+            if (!message || !message.data.length) {
+              return;
+            }
+            const payloadText = message.data.join("\\n");
+            swiftWebHandleDevEvent(JSON.parse(payloadText)).catch((error) => {
+              state.lastError = String(error && error.message ? error.message : error);
+              console.error("SwiftWeb HMR event failed", error);
+              swiftWebDevOverlay(String(error && error.message ? error.message : error), "error");
+            });
+          }
+          function swiftWebParseSSEChunk(buffer, onMessage) {
+            let cursor = 0;
+            while (true) {
+              const next = buffer.indexOf("\\n", cursor);
+              if (next === -1) {
+                return buffer.slice(cursor);
+              }
+              let line = buffer.slice(cursor, next);
+              cursor = next + 1;
+              if (line.endsWith("\\r")) {
+                line = line.slice(0, -1);
+              }
+              if (line.length === 0) {
+                onMessage();
+                continue;
+              }
+              if (line.startsWith(":")) {
+                continue;
+              }
+              const separator = line.indexOf(":");
+              const field = separator === -1 ? line : line.slice(0, separator);
+              const value = separator === -1
+                ? ""
+                : line.slice(separator + 1).replace(/^ /, "");
+              onMessage(field, value);
+            }
+          }
           async function swiftWebHandleDevEvent(payload) {
             if (!payload || !payload.kind) {
               return;
             }
+            state.lastEvent = payload;
+            state.lastEventAt = Date.now();
             if (payload.kind === "connected") {
               swiftWebDevOverlay("SwiftWeb HMR connected", "connected");
+              state.lastAppliedEvent = payload;
+              state.lastAppliedEventAt = Date.now();
               return;
             }
             if (payload.kind === "stylePatch") {
               swiftWebApplyStylePatch(payload.stylePatch);
+              state.lastAppliedEvent = payload;
+              state.lastAppliedEventAt = Date.now();
               return;
             }
             if (payload.kind === "clientComponentUpdate") {
@@ -259,6 +307,8 @@ enum SwiftWebDevHotReload {
               if (runtime && typeof runtime.applyHotUpdate === "function") {
                 await runtime.applyHotUpdate(payload.clientComponentUpdate);
                 swiftWebDevOverlay("SwiftWeb HMR: client component updated", "client");
+                state.lastAppliedEvent = payload;
+                state.lastAppliedEventAt = Date.now();
                 return;
               }
               window.location.reload();
@@ -266,6 +316,8 @@ enum SwiftWebDevHotReload {
             }
             if (payload.kind === "serverBuildStarted") {
               swiftWebDevOverlay("SwiftWeb HMR: server rebuilding", "server");
+              state.lastAppliedEvent = payload;
+              state.lastAppliedEventAt = Date.now();
               return;
             }
             if (payload.kind === "serverRestarted" || payload.kind === "pagePatch") {
@@ -273,6 +325,8 @@ enum SwiftWebDevHotReload {
               if (runtime && typeof runtime.invalidateServerDocument === "function") {
                 await runtime.invalidateServerDocument(window.location.href);
                 swiftWebDevOverlay("SwiftWeb HMR: page patched", "server");
+                state.lastAppliedEvent = payload;
+                state.lastAppliedEventAt = Date.now();
                 return;
               }
               window.location.reload();
@@ -284,7 +338,89 @@ enum SwiftWebDevHotReload {
             }
             if (payload.kind === "error") {
               swiftWebDevOverlay(payload.message || "SwiftWeb HMR error", "error");
+              state.lastAppliedEvent = payload;
+              state.lastAppliedEventAt = Date.now();
             }
+          }
+          function swiftWebStartFetchEventStream() {
+            if (!("fetch" in window) || !("TextDecoder" in window)) {
+              return false;
+            }
+            let lastEventID = null;
+            const streamState = {
+              readyState: 0,
+              close() {
+                this.readyState = 2;
+                if (state.abortController) {
+                  state.abortController.abort();
+                }
+              }
+            };
+            state.eventSource = streamState;
+            const run = async () => {
+              while (globalThis.__swiftWebDevReload === state && streamState.readyState !== 2) {
+                const controller = new AbortController();
+                state.abortController = controller;
+                const url = new URL(swiftWebDevEventsURL.href);
+                if (lastEventID) {
+                  url.searchParams.set("lastEventID", lastEventID);
+                }
+                try {
+                  const response = await fetch(url.href, {
+                    cache: "no-store",
+                    credentials: "same-origin",
+                    headers: { "Accept": "text/event-stream" },
+                    signal: controller.signal
+                  });
+                  if (!response.ok || !response.body) {
+                    throw new Error(`SwiftWeb HMR stream failed with ${response.status}`);
+                  }
+                  streamState.readyState = 1;
+                  state.connectedAt = Date.now();
+                  state.lastError = null;
+                  const reader = response.body.getReader();
+                  const decoder = new TextDecoder();
+                  let buffer = "";
+                  let message = { event: "message", id: null, data: [] };
+                  const flush = (field, value) => {
+                    if (field === undefined) {
+                      if (message.id) {
+                        lastEventID = message.id;
+                      }
+                      swiftWebDispatchSSEMessage(message);
+                      message = { event: "message", id: null, data: [] };
+                      return;
+                    }
+                    if (field === "event") {
+                      message.event = value;
+                    } else if (field === "id") {
+                      message.id = value;
+                    } else if (field === "data") {
+                      message.data.push(value);
+                    }
+                  };
+                  while (globalThis.__swiftWebDevReload === state) {
+                    const result = await reader.read();
+                    if (result.done) {
+                      break;
+                    }
+                    buffer += decoder.decode(result.value, { stream: true });
+                    buffer = swiftWebParseSSEChunk(buffer, flush);
+                  }
+                  streamState.readyState = 0;
+                } catch (error) {
+                  if (controller.signal.aborted || globalThis.__swiftWebDevReload !== state) {
+                    return;
+                  }
+                  streamState.readyState = 0;
+                  state.lastError = String(error && error.message ? error.message : error);
+                  swiftWebDevOverlay("SwiftWeb HMR reconnecting", "reconnecting");
+                }
+                await swiftWebSleep(500);
+              }
+            };
+            run();
+            return true;
           }
           function swiftWebStartEventStream() {
             if (!("EventSource" in window)) {
@@ -293,6 +429,8 @@ enum SwiftWebDevHotReload {
             const source = new EventSource(swiftWebDevEventsURL.href, { withCredentials: true });
             state.eventSource = source;
             source.onopen = () => {
+              state.connectedAt = Date.now();
+              state.lastError = null;
               if (state.reconnectTimer) {
                 window.clearTimeout(state.reconnectTimer);
                 state.reconnectTimer = null;
@@ -308,10 +446,12 @@ enum SwiftWebDevHotReload {
                   return;
                 }
                 swiftWebHandleDevEvent(JSON.parse(event.data)).catch((error) => {
+                  state.lastError = String(error && error.message ? error.message : error);
                   console.error("SwiftWeb HMR event failed", error);
                   swiftWebDevOverlay(String(error && error.message ? error.message : error), "error");
                 });
               } catch (error) {
+                state.lastError = String(error && error.message ? error.message : error);
                 console.error("SwiftWeb HMR event parse failed", error);
               }
             };
@@ -328,19 +468,22 @@ enum SwiftWebDevHotReload {
               source.addEventListener(name, handleEvent);
             }
             source.onerror = () => {
+              state.lastError = `EventSource error: readyState=${source.readyState}`;
               if (globalThis.__swiftWebDevReload === state && !state.reconnectTimer) {
                 state.reconnectTimer = window.setTimeout(() => {
                   state.reconnectTimer = null;
                   if (globalThis.__swiftWebDevReload !== state) {
                     return;
                   }
-                  if (source.readyState !== EventSource.OPEN) {
+                  if (source.readyState === EventSource.CLOSED) {
                     swiftWebDevOverlay("SwiftWeb HMR reconnecting", "reconnecting");
                     source.close();
                     if (state.eventSource === source) {
                       state.eventSource = null;
                     }
-                    swiftWebWaitForReload();
+                    swiftWebStartEventStream();
+                  } else if (source.readyState !== EventSource.OPEN) {
+                    swiftWebDevOverlay("SwiftWeb HMR reconnecting", "reconnecting");
                   }
                 }, 1200);
               }
@@ -372,7 +515,7 @@ enum SwiftWebDevHotReload {
               window.setTimeout(swiftWebWaitForReload, 300);
             }
           }
-          if (!swiftWebStartEventStream()) {
+          if (!swiftWebStartFetchEventStream() && !swiftWebStartEventStream()) {
             swiftWebWaitForReload();
           }
         }

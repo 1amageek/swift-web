@@ -4,11 +4,32 @@ import Vapor
 
 public enum SwiftWebWasmRuntimeRoutes {
     public static let hostScriptPath = "/__swiftweb/wasm/runtime-host.js"
-    public static let hostScriptVersion = "19"
+    /// Cache-bust token derived from the host script content.
+    ///
+    /// The token is a deterministic content hash of the served script, so any edit
+    /// to `SwiftWebWasmRuntimeHostScript.source` changes the URL automatically and
+    /// browsers refetch. Deriving it from the content removes the hand-maintained
+    /// version number that previously had to be bumped — and its assertions
+    /// rewritten — on every script change.
+    public static let hostScriptVersion = contentHash(of: SwiftWebWasmRuntimeHostScript.source)
     public static let versionedHostScriptPath = "\(hostScriptPath)?v=\(hostScriptVersion)"
     public static let javaScriptKitRuntimePath = "/__swiftweb/wasm/javascript-kit-runtime.js"
     public static let javaScriptKitRuntimeVersion = "1"
     public static let versionedJavaScriptKitRuntimePath = "\(javaScriptKitRuntimePath)?v=\(javaScriptKitRuntimeVersion)"
+
+    /// A deterministic FNV-1a 64-bit content hash rendered as hex.
+    ///
+    /// Unlike `Hasher`, the result is stable across processes, so the cache-bust
+    /// token is reproducible between the server build and every request rather
+    /// than changing per launch.
+    static func contentHash(of string: String) -> String {
+        var hash: UInt64 = 0xcbf2_9ce4_8422_2325
+        for byte in string.utf8 {
+            hash ^= UInt64(byte)
+            hash = hash &* 0x0000_0100_0000_01b3
+        }
+        return String(hash, radix: 16)
+    }
 
     @discardableResult
     public static func registerHost(on routes: any RoutesBuilder) -> [Route] {

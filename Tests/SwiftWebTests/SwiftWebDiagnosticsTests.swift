@@ -54,10 +54,13 @@ struct SwiftWebDiagnosticsTests {
         #expect(html.contains("<link rel=\"preload\" href=\"/assets/runtime.wasm\" as=\"fetch\" type=\"application/wasm\" crossorigin=\"anonymous\">"))
         #expect(html.contains("<link rel=\"preload\" href=\"/assets/swift-web-client.json\" as=\"fetch\" type=\"application/json\" crossorigin=\"anonymous\">"))
         #expect(html.contains("\"mode\":\"wasm\""))
-        #expect(html.contains("\"hostScriptPath\":\"\\/__swiftweb\\/wasm\\/runtime-host.js?v=19\""))
-        #expect(html.contains("\"javaScriptKitRuntimePath\":\"\\/__swiftweb\\/wasm\\/javascript-kit-runtime.js?v=1\""))
+        // Build expectations from the route constants, not literal versions: the
+        // host script's cache-bust token is a content hash that changes on every
+        // script edit, so a pinned literal would force a rewrite each time.
+        #expect(html.contains("\"hostScriptPath\":\"\\/__swiftweb\\/wasm\\/runtime-host.js?v=\(SwiftWebWasmRuntimeRoutes.hostScriptVersion)\""))
+        #expect(html.contains("\"javaScriptKitRuntimePath\":\"\\/__swiftweb\\/wasm\\/javascript-kit-runtime.js?v=\(SwiftWebWasmRuntimeRoutes.javaScriptKitRuntimeVersion)\""))
         #expect(html.contains("\"metricsMode\":\"summary\""))
-        #expect(html.contains("<script type=\"module\" src=\"/__swiftweb/wasm/runtime-host.js?v=19\"></script></body>"))
+        #expect(html.contains("<script type=\"module\" src=\"\(SwiftWebWasmRuntimeRoutes.versionedHostScriptPath)\"></script></body>"))
     }
 
     @Test
@@ -149,9 +152,19 @@ struct SwiftWebDiagnosticsTests {
         #expect(source.contains("\"instantiatingBundle\""))
         #expect(source.contains("IntersectionObserver"))
         #expect(source.contains("\"pointerover\""))
+        // interactiveDismissDisabled (closedby="none") blocks Esc cross-browser
+        // by preventing the modal dialog's cancel default.
+        #expect(source.contains("__swuiDismissPolicyBound"))
+        #expect(source.contains("addEventListener(\"cancel\""))
         #expect(source.contains("targetInstance = await this.instanceForComponent(componentID)"))
         #expect(source.contains("response.appliesDOMCommandsInRuntime !== true"))
         #expect(source.contains("callRuntime(exportName, payload, instance = this.primaryInstance)"))
+        #expect(source.contains("const previousBundles = Array.isArray(this.manifest.bundles)"))
+        #expect(source.contains("const previousLoading = this.loading.get(bundleID) || null"))
+        #expect(source.contains("this.manifest.bundles = previousBundles"))
+        #expect(source.contains("restoredBundle.asset = previousAsset ? { ...previousAsset } : previousAsset"))
+        #expect(source.contains("this.instances.delete(bundleID)"))
+        #expect(source.contains("this.swiftRuntimes.delete(bundleID)"))
         #expect(source.components(separatedBy: "this.publishMetrics();").count - 1 == 6)
         let runtimeDeclaration = source.range(of: "class SwiftWebWasmRuntime")
         let runtimeStart = source.range(of: "new SwiftWebWasmRuntime")

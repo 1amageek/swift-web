@@ -1,3 +1,4 @@
+import HTTPTypes
 import Vapor
 
 enum SecurityRequestValidator {
@@ -15,8 +16,25 @@ enum SecurityRequestValidator {
             return
         }
         guard security.origin.allowsRequestOrigin(request, forwardedHeaders: security.forwardedHeaders) else {
-            throw Abort(.forbidden, reason: "Request origin is not allowed")
+            throw Abort(.forbidden, reason: originRejectionReason(
+                request,
+                forwardedHeaders: security.forwardedHeaders
+            ))
         }
+    }
+
+    private static func originRejectionReason(
+        _ request: Request,
+        forwardedHeaders: ForwardedHeadersPolicy
+    ) -> String {
+        let origin = request.headers[.origin] ?? "none"
+        let referrer = request.headers[HTTPField.Name("Referer")!] ?? "none"
+        let host = request.headers[HTTPField.Name("Host")!] ?? "none"
+        let targetOrigin = OriginPolicy.requestOrigin(
+            for: request,
+            forwardedHeaders: forwardedHeaders
+        ) ?? "none"
+        return "Request origin is not allowed (origin: \(origin), referrer: \(referrer), target: \(targetOrigin), host: \(host))"
     }
 
     static func validateCSRF(

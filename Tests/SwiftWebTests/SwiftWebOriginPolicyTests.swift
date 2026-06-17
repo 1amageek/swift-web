@@ -17,6 +17,18 @@ struct OriginPolicyTests {
     }
 
     @Test
+    func requestOriginFallsBackToServerConfigurationWhenHostHeaderIsMissing() async throws {
+        try await withApplication { application in
+            application.serverConfiguration.hostname = "127.0.0.1"
+            application.serverConfiguration.port = 3000
+            let request = Request(application: application)
+
+            #expect(OriginPolicy.requestOrigin(for: request) == "http://127.0.0.1:3000")
+            #expect(OriginPolicy.sameOrigin.allows(origin: "http://127.0.0.1:3000", for: request))
+        }
+    }
+
+    @Test
     func requestOriginIgnoresForwardedHeadersByDefault() async throws {
         try await withApplication { application in
             let request = Request(application: application)

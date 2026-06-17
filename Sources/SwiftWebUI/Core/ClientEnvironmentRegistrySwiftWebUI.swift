@@ -30,4 +30,5 @@ extension ClientEnvironmentRegistry {
         .registering(TabGroupNameEnvironmentKey.self)
         .registering(PickerSelectionEnvironmentKey.self)
         .registering(PickerGroupNameEnvironmentKey.self)
+        .registering(InteractiveDismissDisabledEnvironmentKey.self)
 }

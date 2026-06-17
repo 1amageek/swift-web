@@ -89,6 +89,49 @@ struct SwiftWebDevHMRTests {
     }
 
     @Test
+    func devEventPayloadReturnsConnectedForInitialConnection() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("SwiftWebDevInitialEventPayloadTests-\(UUID().uuidString)", isDirectory: true)
+        defer {
+            do {
+                try FileManager.default.removeItem(at: root)
+            } catch {}
+        }
+
+        let log = SwiftWebDevEventLog(fileURL: root.appendingPathComponent("events.jsonl"))
+        try log.reset()
+
+        let payload = try await SwiftWebDevHotReload.eventPayload(from: log, after: nil)
+
+        #expect(payload.contains("event: connected"))
+        #expect(payload.contains(#""kind":"connected""#))
+    }
+
+    @Test
+    func devEventPayloadReturnsEventsAfterLastEventID() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("SwiftWebDevIncrementalEventPayloadTests-\(UUID().uuidString)", isDirectory: true)
+        defer {
+            do {
+                try FileManager.default.removeItem(at: root)
+            } catch {}
+        }
+
+        let log = SwiftWebDevEventLog(fileURL: root.appendingPathComponent("events.jsonl"))
+        try log.reset()
+        let oldEvent = SwiftWebDevEvent(kind: .stylePatch, stylePatch: SwiftWebDevStylePatch(css: ".old {}"))
+        let nextEvent = SwiftWebDevEvent(kind: .clientComponentUpdate, message: "client updated")
+        try log.append(oldEvent)
+        try log.append(nextEvent)
+
+        let payload = try await SwiftWebDevHotReload.eventPayload(from: log, after: oldEvent.id)
+
+        #expect(!payload.contains(oldEvent.id))
+        #expect(payload.contains(nextEvent.id))
+        #expect(payload.contains("event: clientComponentUpdate"))
+    }
+
+    @Test
     func boundaryAnnotatorAddsDevMetadataToClientComponentRootElement() {
         let componentID = ComponentID("component-1")
         let nestedComponentID = ComponentID("nested")

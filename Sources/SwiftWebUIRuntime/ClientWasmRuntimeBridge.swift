@@ -35,17 +35,7 @@ public enum ClientWasmBootstrapMode: String, Sendable, Codable, Equatable {
     case hotReload
 }
 
-public struct ClientWasmStateSnapshot: Sendable, Codable, Equatable {
-    public let schemaHash: String
-    public let values: [String: String]
-
-    public init(schemaHash: String = "", values: [String: String] = [:]) {
-        self.schemaHash = schemaHash
-        self.values = values
-    }
-
-    public static let empty = ClientWasmStateSnapshot()
-}
+public typealias ClientWasmStateSnapshot = StateStoreSnapshot
 
 public struct ClientWasmEventRequest: Sendable, Codable, Equatable {
     public let handlerID: HandlerID
@@ -161,33 +151,46 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
             emitsBrowserHydrationMarkers: true,
             componentEnvironmentOverrides: componentEnvironmentOverrides
         )
-        session = try HydrationRuntimeSession(
+        session = try makeSession(
             root: root,
             environment: environment,
-            stateStore: stateStore,
-            options: options
+            options: options,
+            restoring: request.stateSnapshot
         )
         if let componentMount {
             let localIndex = session?.artifact.browserHydrationIndex() ?? .empty
             mountedHydrationIndex = request.hydrationIndex
-            mountedNodeMap = try Self.nodeMap(
+            let initialNodeMap = try Self.nodeMap(
                 localIndex: localIndex,
                 mountedIndex: request.hydrationIndex,
                 mount: componentMount
             )
+            mountedNodeMap = initialNodeMap
             if request.mode == .hotReload {
-                let commandBatch = Self.hotReloadCommandBatch(
+                let nextNodeMap = Self.structuralNodeMap(
                     localIndex: localIndex,
                     mountedIndex: request.hydrationIndex,
-                    nodeMap: mountedNodeMap
+                    mount: componentMount
+                )
+                let previousNodeMap = Self.boundaryNodeMap(
+                    mountedIndex: request.hydrationIndex,
+                    mount: componentMount
+                )
+                let commandBatch = Self.hotReloadCommandBatch(
+                    localArtifact: session?.artifact,
+                    localIndex: localIndex,
+                    mountedIndex: request.hydrationIndex,
+                    nodeMap: nextNodeMap,
+                    mount: componentMount
                 )
                 let nextHydrationIndex = Self.rebased(
                     localIndex,
                     mountedIndex: request.hydrationIndex,
-                    previousNodeMap: mountedNodeMap,
-                    nodeMap: mountedNodeMap
+                    previousNodeMap: previousNodeMap,
+                    nodeMap: nextNodeMap
                 )
                 mountedHydrationIndex = nextHydrationIndex
+                mountedNodeMap = nextNodeMap
                 if let domHost {
                     try domHost.apply(commandBatch, updatedIndex: nextHydrationIndex)
                 }
@@ -209,11 +212,20 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
         )
     }
 
-    public func snapshotState() -> ClientWasmStateSnapshot {
-        .empty
+    public func snapshotState() throws -> ClientWasmStateSnapshot {
+        guard let session else {
+            return .empty
+        }
+        return try stateStore.snapshot(schemaHash: session.artifact.hydration.stateSchemaHash)
     }
 
     public func restoreState(_ snapshot: ClientWasmStateSnapshot) {
+        guard let session,
+              snapshot.schemaHash == session.artifact.hydration.stateSchemaHash
+        else {
+            return
+        }
+        stateStore.restore(snapshot)
     }
 
     public func dispatch(_ request: ClientWasmEventRequest) throws -> ClientWasmRuntimeResponse {
@@ -268,6 +280,34 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
         )
     }
 
+    private func makeSession(
+        root: Root,
+        environment: EnvironmentValues,
+        options: HTMLRenderOptions,
+        restoring snapshot: ClientWasmStateSnapshot?
+    ) throws -> HydrationRuntimeSession<Root> {
+        var nextSession = try HydrationRuntimeSession(
+            root: root,
+            environment: environment,
+            stateStore: stateStore,
+            options: options
+        )
+        guard let snapshot,
+              snapshot.schemaHash == nextSession.artifact.hydration.stateSchemaHash
+        else {
+            return nextSession
+        }
+
+        stateStore.restore(snapshot)
+        nextSession = try HydrationRuntimeSession(
+            root: root,
+            environment: environment,
+            stateStore: stateStore,
+            options: options
+        )
+        return nextSession
+    }
+
     private static func nodeMap(
         localIndex: BrowserHydrationIndex,
         mountedIndex: BrowserHydrationIndex,
@@ -292,37 +332,170 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
     }
 
     private static func hotReloadCommandBatch(
+        localArtifact: RenderArtifact?,
         localIndex: BrowserHydrationIndex,
         mountedIndex: BrowserHydrationIndex,
-        nodeMap: [HTMLNodeID: HTMLNodeID]
+        nodeMap: [HTMLNodeID: HTMLNodeID],
+        mount: ClientWasmComponentMount
     ) -> BrowserDOMCommandBatch {
+        guard let localArtifact,
+              let localComponent = localIndex.components.first(where: { $0.typeName == mount.typeName }),
+              let mountedComponent = mountedIndex.components.first(where: { $0.typeName == mount.typeName }),
+              let mountedRoot = nodeMap[localComponent.nodeID],
+              mountedRoot == mountedComponent.nodeID
+        else {
+            return BrowserDOMCommandBatch(commands: [])
+        }
+
         var commands: [BrowserDOMCommand] = []
-        for (localID, mountedID) in nodeMap.sorted(by: { $0.key.rawValue < $1.key.rawValue }) {
-            guard let localNode = localIndex.node(localID),
-                  let mountedNode = mountedIndex.node(mountedID),
-                  localNode.role == mountedNode.role,
-                  localNode.name == mountedNode.name else {
+        let mountedToLocal = Dictionary(uniqueKeysWithValues: nodeMap.map { ($0.value, $0.key) })
+        appendHotReloadCommands(
+            localID: localComponent.nodeID,
+            mountedID: mountedComponent.nodeID,
+            localArtifact: localArtifact,
+            localIndex: localIndex,
+            mountedIndex: mountedIndex,
+            localToMounted: nodeMap,
+            mountedToLocal: mountedToLocal,
+            commands: &commands
+        )
+        return BrowserDOMCommandBatch(commands: commands)
+    }
+
+    private static func appendHotReloadCommands(
+        localID: HTMLNodeID,
+        mountedID: HTMLNodeID,
+        localArtifact: RenderArtifact,
+        localIndex: BrowserHydrationIndex,
+        mountedIndex: BrowserHydrationIndex,
+        localToMounted: [HTMLNodeID: HTMLNodeID],
+        mountedToLocal: [HTMLNodeID: HTMLNodeID],
+        commands: inout [BrowserDOMCommand]
+    ) {
+        guard let localNode = localIndex.node(localID),
+              let mountedNode = mountedIndex.node(mountedID)
+        else {
+            return
+        }
+
+        guard nodesAreCompatible(localNode, mountedNode) else {
+            commands.append(.replaceSubtree(
+                node: mountedID,
+                html: localArtifact.renderSubtree(localID)
+            ))
+            return
+        }
+
+        switch localNode.role {
+        case .text, .rawHTML, .placeholder:
+            if localNode.text != mountedNode.text {
+                commands.append(.updateText(node: mountedID, value: localNode.text ?? ""))
+            }
+            return
+        case .comment:
+            if localNode.text != mountedNode.text {
+                commands.append(.updateComment(node: mountedID, value: localNode.text ?? ""))
+            }
+            return
+        case .element:
+            if localNode.attributes != mountedNode.attributes {
+                commands.append(.updateAttributes(node: mountedID, attributes: localNode.attributes))
+                appendPropertyCommands(
+                    node: mountedID,
+                    oldAttributes: mountedNode.attributes,
+                    newAttributes: localNode.attributes,
+                    commands: &commands
+                )
+            }
+        case .document, .doctype, .fragment, .component, .serverSlot:
+            break
+        }
+
+        appendHotReloadChildCommands(
+            localNode: localNode,
+            mountedNode: mountedNode,
+            localArtifact: localArtifact,
+            localIndex: localIndex,
+            mountedIndex: mountedIndex,
+            localToMounted: localToMounted,
+            mountedToLocal: mountedToLocal,
+            commands: &commands
+        )
+    }
+
+    private static func appendHotReloadChildCommands(
+        localNode: BrowserHydrationNodeRecord,
+        mountedNode: BrowserHydrationNodeRecord,
+        localArtifact: RenderArtifact,
+        localIndex: BrowserHydrationIndex,
+        mountedIndex: BrowserHydrationIndex,
+        localToMounted: [HTMLNodeID: HTMLNodeID],
+        mountedToLocal: [HTMLNodeID: HTMLNodeID],
+        commands: inout [BrowserDOMCommand]
+    ) {
+        for (index, mountedChildID) in mountedNode.childIDs.enumerated().reversed() {
+            if mountedToLocal[mountedChildID] == nil {
+                commands.append(.remove(parent: mountedNode.id, index: index, node: mountedChildID))
+            }
+        }
+
+        for (index, localChildID) in localNode.childIDs.enumerated() {
+            guard let mountedChildID = localToMounted[localChildID],
+                  mountedIndex.node(mountedChildID) != nil
+            else {
+                commands.append(.insertHTML(
+                    parent: mountedNode.id,
+                    index: index,
+                    html: localArtifact.renderSubtree(localChildID)
+                ))
                 continue
             }
 
-            switch localNode.role {
-            case .text, .rawHTML, .placeholder:
-                if localNode.text != mountedNode.text {
-                    commands.append(.updateText(node: mountedID, value: localNode.text ?? ""))
-                }
-            case .comment:
-                if localNode.text != mountedNode.text {
-                    commands.append(.updateComment(node: mountedID, value: localNode.text ?? ""))
-                }
-            case .element:
-                if localNode.attributes != mountedNode.attributes {
-                    commands.append(.updateAttributes(node: mountedID, attributes: localNode.attributes))
-                }
-            case .document, .doctype, .fragment, .component, .serverSlot:
+            appendHotReloadCommands(
+                localID: localChildID,
+                mountedID: mountedChildID,
+                localArtifact: localArtifact,
+                localIndex: localIndex,
+                mountedIndex: mountedIndex,
+                localToMounted: localToMounted,
+                mountedToLocal: mountedToLocal,
+                commands: &commands
+            )
+
+            guard let mountedIndex = mountedNode.childIDs.firstIndex(of: mountedChildID),
+                  mountedIndex != index
+            else {
                 continue
             }
+
+            if let key = localIndex.node(localChildID)?.key {
+                commands.append(.moveKeyed(parent: mountedNode.id, key: key, to: index))
+            } else {
+                commands.append(.move(parent: mountedNode.id, from: mountedIndex, to: index, key: Key(index)))
+            }
         }
-        return BrowserDOMCommandBatch(commands: commands)
+    }
+
+    private static func appendPropertyCommands(
+        node: HTMLNodeID,
+        oldAttributes: [HTMLAttributeRecord],
+        newAttributes: [HTMLAttributeRecord],
+        commands: inout [BrowserDOMCommand]
+    ) {
+        let oldProperties = Dictionary(
+            uniqueKeysWithValues: oldAttributes
+                .filter { $0.kind == .propertyBinding }
+                .map { ($0.name, $0.value) }
+        )
+        let newProperties = Dictionary(
+            uniqueKeysWithValues: newAttributes
+                .filter { $0.kind == .propertyBinding }
+                .map { ($0.name, $0.value) }
+        )
+        for name in Set(oldProperties.keys).union(newProperties.keys).sorted()
+            where oldProperties[name] != newProperties[name] {
+            commands.append(.setProperty(node: node, name: name, value: newProperties[name] ?? nil))
+        }
     }
 
     private static func buildNodeMap(
@@ -478,6 +651,28 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
         }
 
         walk(localID: localComponent.nodeID, mountedID: mountedComponent.nodeID)
+        return map
+    }
+
+    private static func boundaryNodeMap(
+        mountedIndex: BrowserHydrationIndex,
+        mount: ClientWasmComponentMount
+    ) -> [HTMLNodeID: HTMLNodeID] {
+        guard let mountedComponent = mountedIndex.components.first(where: { $0.typeName == mount.typeName }) else {
+            return [:]
+        }
+
+        var map: [HTMLNodeID: HTMLNodeID] = [:]
+        func walk(_ mountedID: HTMLNodeID) {
+            map[mountedID] = mountedID
+            guard let mountedNode = mountedIndex.node(mountedID) else {
+                return
+            }
+            for childID in mountedNode.childIDs {
+                walk(childID)
+            }
+        }
+        walk(mountedComponent.nodeID)
         return map
     }
 
@@ -664,6 +859,7 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
                 bundleID: mountedComponent.bundleID,
                 loadPolicy: mountedComponent.loadPolicy,
                 serverSlotIDs: mountedComponent.serverSlotIDs,
+                stateSlots: mountedComponent.stateSlots,
                 environmentSnapshot: mountedComponent.environmentSnapshot
             )
         }
@@ -675,6 +871,7 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
             bundleID: component.bundleID,
             loadPolicy: component.loadPolicy,
             serverSlotIDs: component.serverSlotIDs,
+            stateSlots: component.stateSlots,
             environmentSnapshot: component.environmentSnapshot
         )
     }

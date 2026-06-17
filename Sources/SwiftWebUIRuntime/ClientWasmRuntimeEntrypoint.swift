@@ -74,8 +74,13 @@ public final class ClientWasmRuntimeEntrypoint<Root: HTML> {
     }
 
     public func snapshotState() -> UInt32 {
-        responseStorage.store(bridge.snapshotState())
-        return 0
+        do {
+            responseStorage.store(try bridge.snapshotState())
+            return 0
+        } catch {
+            responseStorage.storeError(error)
+            return 1
+        }
     }
 
     public func restoreState(pointer: UInt32, length: UInt32) -> UInt32 {

@@ -36,8 +36,8 @@ struct SwiftWebDevBuildProcess: Sendable {
             bundleID: ClientBundleID(runtime.productName),
             assetPath: "\(runtime.assetPath)?v=\(hash)",
             contentHash: hash,
-            stateSchemaHash: hash,
-            environmentSchemaHash: hash
+            stateSchemaHash: "",
+            environmentSchemaHash: ""
         )
     }
 

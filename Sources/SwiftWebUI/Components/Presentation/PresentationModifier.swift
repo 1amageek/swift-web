@@ -22,6 +22,8 @@ public struct PresentationModifier<PresentedContent: HTML>: ComponentModifier {
     private let onDismiss: (() -> Void)?
     private let presentedContent: PresentedContent
 
+    @Environment(\.interactiveDismissDisabled) private var interactiveDismissDisabled
+
     init(
         kind: PresentationKind,
         isPresented: Binding<Bool>,
@@ -32,6 +34,16 @@ public struct PresentationModifier<PresentedContent: HTML>: ComponentModifier {
         self.isPresented = isPresented
         self.onDismiss = onDismiss
         self.presentedContent = presentedContent()
+    }
+
+    /// The dialog's light dismiss policy after applying the environment opt-out.
+    ///
+    /// `interactiveDismissDisabled` forces `none` so neither a backdrop tap nor
+    /// Esc can dismiss the dialog; otherwise the kind's default (`any`) keeps
+    /// light dismissal. The runtime reconciler binds its backdrop handler only
+    /// for `any`, so `none` is honored both natively and in the reconciler.
+    private var effectiveClosedBy: DialogClosedBy {
+        interactiveDismissDisabled ? .none : kind.closedBy
     }
 
     @HTMLBuilder
@@ -54,7 +66,7 @@ public struct PresentationModifier<PresentedContent: HTML>: ComponentModifier {
             .class("swui-presentation \(kind.cssClass) \(MaterialClass.material) \(MaterialClass.thick)"),
             .role(kind.role),
             HTMLAttribute("data-swui-presented", isPresented.wrappedValue ? "true" : "false"),
-            .closedby(kind.closedBy),
+            .closedby(effectiveClosedBy),
             .event("close") { _ in
                 // React only to a real close so the idempotent reconciliation
                 // pass cannot loop. Dismissal owns the binding write-back.

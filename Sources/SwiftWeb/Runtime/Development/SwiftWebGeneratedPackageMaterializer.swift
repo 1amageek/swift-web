@@ -35,6 +35,9 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
             named: "swift-web",
             in: appPackageDirectory
         )
+        let swiftHTMLPackageDirectory = try resolveLocalSwiftHTMLPackageDirectory(
+            swiftWebPackageDirectory: swiftWebPackageDirectory
+        )
         try FileManager.default.createDirectory(
             at: generatedPackageDirectory,
             withIntermediateDirectories: true
@@ -44,16 +47,34 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
                 packageName: packageName,
                 appProductName: appProductName,
                 devProductName: devProductName,
-                swiftWebPackageDirectory: swiftWebPackageDirectory
+                swiftWebPackageDirectory: swiftWebPackageDirectory,
+                swiftHTMLPackageDirectory: swiftHTMLPackageDirectory
             )
         }
+    }
+
+    private func resolveLocalSwiftHTMLPackageDirectory(
+        swiftWebPackageDirectory: URL
+    ) throws -> URL? {
+        if let appSwiftHTMLPackageDirectory = try SwiftWebPackageManifestInspector.optionalLocalDependencyRoot(
+            named: "swift-html",
+            in: appPackageDirectory
+        ) {
+            return appSwiftHTMLPackageDirectory
+        }
+
+        return try SwiftWebPackageManifestInspector.optionalLocalDependencyRoot(
+            named: "swift-html",
+            in: swiftWebPackageDirectory
+        )
     }
 
     private func materializeUnlocked(
         packageName: String,
         appProductName: String,
         devProductName: String,
-        swiftWebPackageDirectory: URL
+        swiftWebPackageDirectory: URL,
+        swiftHTMLPackageDirectory: URL?
     ) throws -> SwiftWebGeneratedPackage {
         let clientComponents = try discoverClientComponents(appProductName: appProductName)
         let wasmRuntimeTargets = wasmRuntimeTargets(for: clientComponents)
@@ -79,6 +100,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
             appProductName: appProductName,
             devProductName: devProductName,
             swiftWebPackageDirectory: swiftWebPackageDirectory,
+            swiftHTMLPackageDirectory: swiftHTMLPackageDirectory,
             wasmRuntimeTargetNames: wasmRuntimeTargetNames
         )
         try removeGeneratedBuildDirectoryIfPackageChanged(nextPackageSwift: packageSwiftContents)
@@ -518,6 +540,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
         appProductName: String,
         devProductName: String,
         swiftWebPackageDirectory: URL,
+        swiftHTMLPackageDirectory: URL?,
         wasmRuntimeTargetNames: [String]
     ) -> String {
         let wasmTargetDeclarations = wasmRuntimeTargetNames.map { targetName in
@@ -538,6 +561,9 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
         let wasmTargets = (["appClientTarget"] + wasmRuntimeTargetNames.map(Self.variableName(for:)))
             .map { "        \($0)" }
             .joined(separator: ",\n")
+        let swiftHTMLPackageDependency = swiftHTMLPackageDirectory.map {
+            ".package(path: \"\(Self.swiftStringLiteral($0.path))\")"
+        } ?? ".package(url: \"https://github.com/1amageek/swift-html.git\", from: \"0.3.0\")"
         return """
         // swift-tools-version: 6.3
 
@@ -637,7 +663,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
                 .executable(name: "\(serverProductName)", targets: ["AppServerLauncher"]),
             ],
             dependencies: buildsWasmRuntime ? [
-                .package(url: "https://github.com/1amageek/swift-html.git", from: "0.2.2"),
+                \(swiftHTMLPackageDependency),
                 .package(url: "https://github.com/swiftwasm/JavaScriptKit.git", from: "0.55.0"),
                 .package(url: "https://github.com/1amageek/swift-actor-runtime.git", exact: "0.5.0"),
             ] : [

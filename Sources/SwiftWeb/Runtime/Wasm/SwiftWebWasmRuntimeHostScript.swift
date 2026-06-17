@@ -660,26 +660,39 @@ class SwiftWebWasmRuntime {
     });
   }
 
-  // Closes a modal presentation when the user taps its backdrop scrim.
+  // Enforces a presentation dialog's interactive-dismissal policy across browsers.
   //
-  // The native `closedby="any"` attribute already does this in browsers that
-  // support it; this handler provides the same light dismissal where that
-  // attribute is unsupported (e.g. Safari, Firefox), so the behavior is uniform
-  // across browsers rather than silently degrading. A dialog that opts out with
-  // `closedby="closerequest"` is honored — its backdrop never dismisses.
+  // Browsers without native `closedby` support (Safari, Firefox) ignore the
+  // attribute, so a modal <dialog> would light-dismiss on a backdrop tap or Esc
+  // regardless of the declared policy. This restores the policy uniformly rather
+  // than silently degrading:
+  //   - "any": dismiss on a backdrop tap (Esc already dismisses natively).
+  //   - "none": block Esc as well (interactiveDismissDisabled); the backdrop is
+  //     never bound, so only the binding closes the dialog.
+  //   - "closerequest": Esc dismisses natively; the backdrop is never bound.
   //
   // The content fills the dialog box via `.swui-presentation-surface`, so a click
   // whose target is the dialog element itself landed on the backdrop, not the
   // content. `close()` (not attribute removal) fires the native `close` event,
   // which the Swift-side handler uses to sync the binding back to `false`.
   bindPresentationLightDismiss(dialog) {
-    if (dialog.__swuiLightDismissBound) {
+    if (dialog.__swuiDismissPolicyBound) {
       return;
     }
-    if (dialog.getAttribute("closedby") === "closerequest") {
+    dialog.__swuiDismissPolicyBound = true;
+    const closedBy = dialog.getAttribute("closedby");
+    if (closedBy === "none") {
+      // A modal <dialog> still closes on Esc via the cancel event in browsers
+      // that ignore `closedby`; preventing its default keeps the no-dismiss
+      // guarantee uniform instead of degrading in Safari and Firefox.
+      dialog.addEventListener("cancel", (event) => {
+        event.preventDefault();
+      });
       return;
     }
-    dialog.__swuiLightDismissBound = true;
+    if (closedBy !== "any") {
+      return;
+    }
     dialog.addEventListener("click", (event) => {
       if (event.target === dialog) {
         dialog.close();
@@ -923,35 +936,41 @@ class SwiftWebWasmRuntime {
 
     const bundleID = rawValue(update.bundleID);
     let bundle = this.bundle(bundleID);
-    if (!bundle) {
-      bundle = {
-        id: { rawValue: bundleID },
-        kind: "component",
-        asset: { path: update.assetPath },
-        symbols: [],
-        dependencies: [],
-        components: [],
-        loadPolicy: "eager",
-        estimatedByteSize: 0
-      };
-      this.manifest.bundles = [...(this.manifest.bundles || []), bundle];
-    } else {
-      bundle.asset = { ...(bundle.asset || {}), path: update.assetPath };
-    }
-
+    const previousBundles = Array.isArray(this.manifest.bundles) ? [...this.manifest.bundles] : [];
+    const hadBundle = !!bundle;
+    const previousAsset = bundle && bundle.asset ? { ...bundle.asset } : null;
     const previousInstance = this.instances.get(bundleID) || null;
     const previousSwiftRuntime = this.swiftRuntimes.get(bundleID) || null;
     const previousLoaded = this.loadedBundleIDs.has(bundleID);
     const previousBootstrapped = this.bootstrappedBundleIDs.has(bundleID);
-    const stateSnapshot = previousInstance ? this.snapshotState(previousInstance) : null;
-
-    this.instances.delete(bundleID);
-    this.swiftRuntimes.delete(bundleID);
-    this.loadedBundleIDs.delete(bundleID);
-    this.bootstrappedBundleIDs.delete(bundleID);
-    this.loading.delete(bundleID);
+    const previousLoading = this.loading.get(bundleID) || null;
+    const hadLoading = this.loading.has(bundleID);
 
     try {
+      if (!bundle) {
+        bundle = {
+          id: { rawValue: bundleID },
+          kind: "component",
+          asset: { path: update.assetPath },
+          symbols: [],
+          dependencies: [],
+          components: [],
+          loadPolicy: "eager",
+          estimatedByteSize: 0
+        };
+        this.manifest.bundles = [...(this.manifest.bundles || []), bundle];
+      } else {
+        bundle.asset = { ...(bundle.asset || {}), path: update.assetPath };
+      }
+
+      const stateSnapshot = previousInstance ? this.snapshotState(previousInstance) : null;
+
+      this.instances.delete(bundleID);
+      this.swiftRuntimes.delete(bundleID);
+      this.loadedBundleIDs.delete(bundleID);
+      this.bootstrappedBundleIDs.delete(bundleID);
+      this.loading.delete(bundleID);
+
       this.recordMetric("hmr.clientComponent.start", {
         bundleID,
         componentTypeName: update.componentTypeName || null,
@@ -968,6 +987,7 @@ class SwiftWebWasmRuntime {
         stateSnapshot
       }, instance);
       if (response && response.hydrationIndex) {
+        this.updateComponentSchemasFromHydrationIndex(response.hydrationIndex, bundleID, update);
         this.hydrationIndex = response.hydrationIndex;
       }
       if (response && response.commandBatch && response.appliesDOMCommandsInRuntime !== true) {
@@ -983,17 +1003,37 @@ class SwiftWebWasmRuntime {
       this.publishMetrics();
       return response;
     } catch (error) {
+      this.manifest.bundles = previousBundles;
+      if (hadBundle) {
+        const restoredBundle = this.bundle(bundleID);
+        if (restoredBundle) {
+          restoredBundle.asset = previousAsset ? { ...previousAsset } : previousAsset;
+        }
+      }
       if (previousInstance) {
         this.instances.set(bundleID, previousInstance);
+      } else {
+        this.instances.delete(bundleID);
       }
       if (previousSwiftRuntime) {
         this.swiftRuntimes.set(bundleID, previousSwiftRuntime);
+      } else {
+        this.swiftRuntimes.delete(bundleID);
       }
       if (previousLoaded) {
         this.loadedBundleIDs.add(bundleID);
+      } else {
+        this.loadedBundleIDs.delete(bundleID);
       }
       if (previousBootstrapped) {
         this.bootstrappedBundleIDs.add(bundleID);
+      } else {
+        this.bootstrappedBundleIDs.delete(bundleID);
+      }
+      if (hadLoading) {
+        this.loading.set(bundleID, previousLoading);
+      } else {
+        this.loading.delete(bundleID);
       }
       this.recordMetric("hmr.clientComponent.failed", {
         bundleID,
@@ -1008,6 +1048,33 @@ class SwiftWebWasmRuntime {
       return null;
     }
     return this.callRuntimeNoInput("swiftweb_snapshot_state", instance);
+  }
+
+  updateComponentSchemasFromHydrationIndex(hydrationIndex, bundleID, update) {
+    if (!hydrationIndex || !Array.isArray(hydrationIndex.components) || !Array.isArray(this.manifest?.components)) {
+      return;
+    }
+    const hydratedByID = new Map();
+    for (const component of hydrationIndex.components) {
+      hydratedByID.set(rawValue(component.id), component);
+    }
+    for (const component of this.manifest.components) {
+      const componentBundleID = rawValue(component.bundleID);
+      const componentID = rawValue(component.componentID);
+      const componentTypeName = component.typeName || "";
+      const matchesBundle = componentBundleID === bundleID;
+      const matchesType = update && update.componentTypeName && componentTypeName.endsWith(update.componentTypeName);
+      if (!matchesBundle && !matchesType) {
+        continue;
+      }
+      const hydrated = hydratedByID.get(componentID)
+        || hydrationIndex.components.find((record) => record.typeName === componentTypeName || componentTypeName.endsWith(record.typeName));
+      if (!hydrated) {
+        continue;
+      }
+      component.stateSchemaHash = stateSchemaHash(hydrated.stateSlots || []);
+      component.environmentSchemaHash = environmentSchemaHash(hydrated.environmentSnapshot || { values: [] });
+    }
   }
 
   componentIDForHandler(handlerID) {
@@ -1704,6 +1771,55 @@ function rawValue(value) {
     return value.rawValue;
   }
   return String(value);
+}
+
+function stateSchemaHash(slots) {
+  const lines = (slots || [])
+    .slice()
+    .sort((left, right) => String(rawValue(left.id)).localeCompare(String(rawValue(right.id))))
+    .map((slot) => [
+      rawValue(slot.id),
+      slot.valueType || "",
+      sourceLocationValue(slot.source)
+    ].join("|"));
+  return stableSchemaHash(lines.join("\n"));
+}
+
+function environmentSchemaHash(snapshot) {
+  const lines = ((snapshot && snapshot.values) || [])
+    .slice()
+    .sort((left, right) => {
+      if ((left.key || "") === (right.key || "")) {
+        return (left.valueType || "").localeCompare(right.valueType || "");
+      }
+      return (left.key || "").localeCompare(right.key || "");
+    })
+    .map((value) => [
+      value.key || "",
+      value.valueType || "",
+      value.encoding || ""
+    ].join("|"));
+  return stableSchemaHash(lines.join("\n"));
+}
+
+function sourceLocationValue(source) {
+  if (!source) {
+    return "";
+  }
+  if (source.rawValue) {
+    return source.rawValue;
+  }
+  return `${source.fileID || ""}:${source.line || 0}:${source.column || 0}`;
+}
+
+function stableSchemaHash(value) {
+  let hash = 0xcbf29ce484222325n;
+  const bytes = new TextEncoder().encode(value || "");
+  for (const byte of bytes) {
+    hash ^= BigInt(byte);
+    hash = BigInt.asUintN(64, hash * 0x100000001b3n);
+  }
+  return hash.toString(16).padStart(16, "0");
 }
 
 function findServerActionSubmitter(event) {
