@@ -40,6 +40,7 @@ let package = Package(
         .library(name: "SwiftWebUIRuntime", targets: ["SwiftWebUIRuntime"]),
         .library(name: "SwiftWeb", targets: ["SwiftWeb"]),
         .library(name: "SwiftWebDevelopment", targets: ["SwiftWebDevelopment"]),
+        .library(name: "SwiftWebStoryboard", targets: ["SwiftWebStoryboard"]),
         .executable(name: "swift-web", targets: ["SwiftWebCLI"]),
     ],
     dependencies: [
@@ -132,6 +133,13 @@ let package = Package(
             ],
             swiftSettings: swiftWebSwiftSettings
         ),
+        .target(
+            name: "SwiftWebStoryboard",
+            dependencies: [
+                "SwiftWebDevelopment",
+            ],
+            swiftSettings: swiftWebSwiftSettings
+        ),
         .executableTarget(
             name: "SwiftWebCLI",
             dependencies: [
@@ -139,6 +147,7 @@ let package = Package(
                 "SwiftWeb",
                 "SwiftWebUI",
                 "SwiftWebDevelopment",
+                "SwiftWebStoryboard",
             ],
             swiftSettings: swiftWebSwiftSettings
         ),
