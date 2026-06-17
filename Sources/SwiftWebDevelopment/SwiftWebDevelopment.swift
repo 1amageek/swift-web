@@ -28,7 +28,10 @@ extension SwiftWebDevelopmentHooks {
                 SwiftWebDevHotReload.inject(into: html, nonce: nonce)
             },
             annotateClientRuntimeHTML: { html, manifest, hydrationIndex in
-                SwiftWebDevBoundaryAnnotator.annotate(
+                if let store = SwiftWebDevClientManifestSnapshotStore() {
+                    store.record(manifest)
+                }
+                return SwiftWebDevBoundaryAnnotator.annotate(
                     html,
                     manifest: manifest,
                     hydrationIndex: hydrationIndex

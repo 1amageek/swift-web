@@ -97,6 +97,7 @@ public struct SwiftWebWasmArtifactProcessor: Sendable {
     public enum ProcessingError: Error, CustomStringConvertible {
         case processFailed(command: String, status: Int32)
         case missingOutput(URL)
+        case replacementRestoreFailed(target: URL, originalError: String, restoreError: String)
 
         public var description: String {
             switch self {
@@ -104,6 +105,8 @@ public struct SwiftWebWasmArtifactProcessor: Sendable {
                 "process failed with status \(status): \(command)"
             case .missingOutput(let url):
                 "expected output was not created at \(url.path)"
+            case .replacementRestoreFailed(let target, let originalError, let restoreError):
+                "failed to restore \(target.path) after replacement failed: \(restoreError); original error: \(originalError)"
             }
         }
     }
@@ -235,10 +238,6 @@ public struct SwiftWebWasmArtifactProcessor: Sendable {
             warnings.append("\(toolName) was not found; skipped .\(extensionName) sidecar")
             return nil
         }
-        if try sidecarIsFresh(sidecarURL, for: fileURL) {
-            return try fileSize(at: sidecarURL)
-        }
-
         try runProcess(
             executableURL: executableURL,
             arguments: arguments(fileURL, sidecarURL),
@@ -292,28 +291,36 @@ public struct SwiftWebWasmArtifactProcessor: Sendable {
     }
 
     private func replaceItem(at targetURL: URL, with replacementURL: URL) throws {
-        try removeItemIfExists(at: targetURL)
-        try FileManager.default.moveItem(at: replacementURL, to: targetURL)
+        guard FileManager.default.fileExists(atPath: targetURL.path) else {
+            try FileManager.default.moveItem(at: replacementURL, to: targetURL)
+            return
+        }
+
+        let backupURL = targetURL
+            .deletingLastPathComponent()
+            .appendingPathComponent(".swiftweb-\(UUID().uuidString).backup")
+        try FileManager.default.moveItem(at: targetURL, to: backupURL)
+        do {
+            try FileManager.default.moveItem(at: replacementURL, to: targetURL)
+        } catch let replacementError {
+            do {
+                try FileManager.default.moveItem(at: backupURL, to: targetURL)
+            } catch let restoreError {
+                throw ProcessingError.replacementRestoreFailed(
+                    target: targetURL,
+                    originalError: String(describing: replacementError),
+                    restoreError: String(describing: restoreError)
+                )
+            }
+            throw replacementError
+        }
+        try FileManager.default.removeItem(at: backupURL)
     }
 
     private func removeItemIfExists(at url: URL) throws {
         if FileManager.default.fileExists(atPath: url.path) {
             try FileManager.default.removeItem(at: url)
         }
-    }
-
-    private func sidecarIsFresh(_ sidecarURL: URL, for artifactURL: URL) throws -> Bool {
-        guard FileManager.default.fileExists(atPath: sidecarURL.path) else {
-            return false
-        }
-        let artifactValues = try artifactURL.resourceValues(forKeys: [.contentModificationDateKey])
-        let sidecarValues = try sidecarURL.resourceValues(forKeys: [.contentModificationDateKey])
-        guard let artifactDate = artifactValues.contentModificationDate,
-              let sidecarDate = sidecarValues.contentModificationDate
-        else {
-            return false
-        }
-        return sidecarDate >= artifactDate
     }
 
     private func fileSize(at url: URL) throws -> Int {

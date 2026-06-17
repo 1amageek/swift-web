@@ -39,6 +39,40 @@ struct SwiftWebWasmRuntimeRoutesTests {
             #expect(String(buffer: response.body) == "brotli")
             #expect(response.headers[HTTPField.Name("Content-Encoding")!] == "br")
             #expect(response.headers[HTTPField.Name("Vary")!] == "Accept-Encoding")
+            #expect(response.headers[.acceptRanges] == nil)
+        }
+    }
+
+    @Test
+    func servesGzipWhenItHasHigherQualityThanBrotli() async throws {
+        try await withApplication { application in
+            let root = try temporaryDirectory()
+            defer {
+                do {
+                    try FileManager.default.removeItem(at: root)
+                } catch {}
+            }
+            let wasmURL = root.appendingPathComponent("runtime.wasm")
+            try Data("raw".utf8).write(to: wasmURL)
+            try Data("gzip".utf8).write(to: URL(fileURLWithPath: wasmURL.path + ".gz"))
+            try Data("brotli".utf8).write(to: URL(fileURLWithPath: wasmURL.path + ".br"))
+            SwiftWebWasmRuntimeRoutes.registerWasmAsset(
+                on: application,
+                path: "/assets/runtime.wasm",
+                fileURL: wasmURL
+            )
+
+            var headers: HTTPFields = [:]
+            headers[HTTPField.Name("Accept-Encoding")!] = "br;q=0.1, gzip;q=1.0"
+            let response = try await application.testing().sendRequest(
+                .get,
+                "/assets/runtime.wasm",
+                headers: headers
+            )
+
+            #expect(response.status == .ok)
+            #expect(String(buffer: response.body) == "gzip")
+            #expect(response.headers[HTTPField.Name("Content-Encoding")!] == "gzip")
         }
     }
 
@@ -62,6 +96,38 @@ struct SwiftWebWasmRuntimeRoutesTests {
 
             var headers: HTTPFields = [:]
             headers[HTTPField.Name("Accept-Encoding")!] = "gzip;q=0"
+            let response = try await application.testing().sendRequest(
+                .get,
+                "/assets/runtime.wasm",
+                headers: headers
+            )
+
+            #expect(response.status == .ok)
+            #expect(String(buffer: response.body) == "raw")
+            #expect(response.headers[HTTPField.Name("Content-Encoding")!] == nil)
+        }
+    }
+
+    @Test
+    func explicitEncodingRejectionOverridesWildcardAcceptance() async throws {
+        try await withApplication { application in
+            let root = try temporaryDirectory()
+            defer {
+                do {
+                    try FileManager.default.removeItem(at: root)
+                } catch {}
+            }
+            let wasmURL = root.appendingPathComponent("runtime.wasm")
+            try Data("raw".utf8).write(to: wasmURL)
+            try Data("brotli".utf8).write(to: URL(fileURLWithPath: wasmURL.path + ".br"))
+            SwiftWebWasmRuntimeRoutes.registerWasmAsset(
+                on: application,
+                path: "/assets/runtime.wasm",
+                fileURL: wasmURL
+            )
+
+            var headers: HTTPFields = [:]
+            headers[HTTPField.Name("Accept-Encoding")!] = "br;q=0, *;q=1"
             let response = try await application.testing().sendRequest(
                 .get,
                 "/assets/runtime.wasm",

@@ -99,7 +99,6 @@ public enum SwiftWebWasmRuntimeRoutes {
             var headers: HTTPFields = [
                 .contentType: "application/wasm",
                 .cacheControl: "no-cache",
-                .acceptRanges: "bytes",
                 HTTPField.Name("Vary")!: "Accept-Encoding",
             ]
             if let contentEncoding = asset.contentEncoding {
@@ -117,38 +116,74 @@ public enum SwiftWebWasmRuntimeRoutes {
         acceptEncoding: String
     ) -> (fileURL: URL, contentEncoding: String?) {
         let brotliURL = URL(fileURLWithPath: fileURL.path + ".br")
-        if acceptsEncoding("br", in: acceptEncoding),
-           FileManager.default.fileExists(atPath: brotliURL.path)
+        let gzipURL = URL(fileURLWithPath: fileURL.path + ".gz")
+        let brotliQuality = acceptedEncodingQuality("br", in: acceptEncoding)
+        let gzipQuality = acceptedEncodingQuality("gzip", in: acceptEncoding)
+
+        if FileManager.default.fileExists(atPath: brotliURL.path),
+           brotliQuality > 0,
+           brotliQuality >= gzipQuality
         {
             return (brotliURL, "br")
         }
 
-        let gzipURL = URL(fileURLWithPath: fileURL.path + ".gz")
-        if acceptsEncoding("gzip", in: acceptEncoding),
-           FileManager.default.fileExists(atPath: gzipURL.path)
-        {
+        if FileManager.default.fileExists(atPath: gzipURL.path), gzipQuality > 0 {
             return (gzipURL, "gzip")
         }
 
         return (fileURL, nil)
     }
 
-    private static func acceptsEncoding(_ encoding: String, in header: String) -> Bool {
-        header
-            .lowercased()
-            .split(separator: ",")
-            .contains { value in
-                let parts = value
-                    .split(separator: ";")
-                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                guard let name = parts.first else {
-                    return false
-                }
-                if parts.contains("q=0") || parts.contains("q=0.0") {
-                    return false
-                }
-                return name == encoding || name == "*"
+    private static func acceptedEncodingQuality(_ encoding: String, in header: String) -> Double {
+        let normalizedEncoding = encoding.lowercased()
+        var explicitQuality: Double?
+        var wildcardQuality: Double?
+
+        for value in header.lowercased().split(separator: ",") {
+            let parts = value
+                .split(separator: ";")
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            guard let name = parts.first else {
+                continue
             }
+            guard name == normalizedEncoding || name == "*" else {
+                continue
+            }
+
+            let parsedQuality = parts
+                .dropFirst()
+                .compactMap(qualityParameter)
+                .first
+            let quality = parsedQuality ?? 1.0
+            if name == normalizedEncoding {
+                if let current = explicitQuality {
+                    explicitQuality = max(current, quality)
+                } else {
+                    explicitQuality = quality
+                }
+            } else if let current = wildcardQuality {
+                wildcardQuality = max(current, quality)
+            } else {
+                wildcardQuality = quality
+            }
+        }
+
+        return explicitQuality ?? wildcardQuality ?? 0
+    }
+
+    private static func qualityParameter(_ value: String) -> Double? {
+        let parts = value.split(separator: "=", maxSplits: 1)
+        guard parts.count == 2,
+              parts[0].trimmingCharacters(in: .whitespacesAndNewlines) == "q"
+        else {
+            return nil
+        }
+
+        let rawValue = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let quality = Double(rawValue) else {
+            return nil
+        }
+        return min(max(quality, 0), 1)
     }
 }
 

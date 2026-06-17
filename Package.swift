@@ -126,6 +126,8 @@ let package = Package(
                 .product(name: "Vapor", package: "vapor"),
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "Logging", package: "swift-log"),
+                .product(name: "SwiftParser", package: "swift-syntax"),
+                .product(name: "SwiftSyntax", package: "swift-syntax"),
                 "SwiftWeb",
             ],
             swiftSettings: swiftWebSwiftSettings

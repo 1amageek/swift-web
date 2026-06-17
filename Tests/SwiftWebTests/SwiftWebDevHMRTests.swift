@@ -194,6 +194,75 @@ struct SwiftWebDevHMRTests {
     }
 
     @Test
+    func clientManifestSnapshotStoreReturnsRuntimeSchemaHashes() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("SwiftWebDevManifestSnapshotTests-\(UUID().uuidString)", isDirectory: true)
+        defer {
+            do {
+                try FileManager.default.removeItem(at: root)
+            } catch {}
+        }
+
+        let bundleID = ClientBundleID("counter-runtime")
+        let store = SwiftWebDevClientManifestSnapshotStore(
+            fileURL: root.appendingPathComponent("client-manifest-snapshot.json")
+        )
+        try store.write(ClientBundleManifest(
+            runtimeBundleID: bundleID,
+            components: [
+                ClientComponentAsset(
+                    componentID: ComponentID("counter"),
+                    typeName: "Demo.ClientCounter",
+                    bundleID: bundleID,
+                    loadPolicy: .eager,
+                    entrySymbols: [ClientSymbolID("ClientCounter")],
+                    stateSchemaHash: "state-schema",
+                    environmentSchemaHash: "environment-schema"
+                ),
+            ]
+        ))
+
+        let hashes = try store.schemaHashes(for: SwiftWebGeneratedWasmRuntime(
+            targetName: "CounterWasmRuntime",
+            productName: "counter-wasm-runtime",
+            componentTypeNames: ["ClientCounter"],
+            bundleID: bundleID,
+            assetPath: "/assets/counter-wasm-runtime.wasm"
+        ))
+
+        #expect(hashes.stateSchemaHash == "state-schema")
+        #expect(hashes.environmentSchemaHash == "environment-schema")
+    }
+
+    @Test
+    func clientManifestSnapshotStoreRecordsWriteFailuresAsDevErrors() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("SwiftWebDevManifestSnapshotErrorTests-\(UUID().uuidString)", isDirectory: true)
+        defer {
+            do {
+                try FileManager.default.removeItem(at: root)
+            } catch {}
+        }
+
+        let blockedParent = root.appendingPathComponent("blocked-parent")
+        try write("not a directory", to: blockedParent)
+        let log = SwiftWebDevEventLog(fileURL: root.appendingPathComponent("events.jsonl"))
+        try log.reset()
+        let store = SwiftWebDevClientManifestSnapshotStore(
+            fileURL: blockedParent.appendingPathComponent("client-manifest-snapshot.json")
+        )
+
+        store.record(
+            ClientBundleManifest(runtimeBundleID: ClientBundleID("counter-runtime")),
+            eventLog: log
+        )
+
+        let events = try log.events(after: nil)
+        #expect(events.map(\.kind) == [.error])
+        #expect(events.first?.message?.contains("SwiftWeb dev manifest snapshot write failed") == true)
+    }
+
+    @Test
     func devEventPayloadReturnsConnectedForInitialConnection() async throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("SwiftWebDevInitialEventPayloadTests-\(UUID().uuidString)", isDirectory: true)

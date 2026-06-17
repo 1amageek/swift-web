@@ -188,7 +188,8 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
         let wasmPackageSwiftContents = wasmPackageSwift(
             appPackageName: packageName,
             appProductName: appProductName,
-            wasmRuntimeTargetNames: wasmRuntimeTargetNames
+            wasmRuntimeTargetNames: wasmRuntimeTargetNames,
+            actorRuntimeDependencyDeclaration: try actorRuntimeDependencyDeclaration()
         )
         try removeGeneratedBuildDirectoryIfPackageChanged(
             in: serverPackageDirectory,
@@ -301,30 +302,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
             relativePath: ""
         )
 
-        var declarations: [String: ClientComponentDeclaration] = [:]
-        for file in swiftFiles {
-            for declaration in try Self.clientComponents(in: file.url, relativePath: file.relativePath) {
-                declarations[declaration.typeName] = declarations[declaration.typeName]?.merged(with: declaration)
-                    ?? declaration
-            }
-        }
-
-        for file in swiftFiles {
-            let source = try String(contentsOf: file.url, encoding: .utf8)
-            for typeName in declarations.keys {
-                guard let override = try Self.modifierContractOverride(
-                    for: typeName,
-                    in: source
-                ) else {
-                    continue
-                }
-                declarations[typeName] = declarations[typeName]?.merged(with: override)
-            }
-        }
-
-        return declarations.values.sorted { left, right in
-            left.typeName < right.typeName
-        }
+        return try SwiftWebClientComponentDiscovery.discover(in: swiftFiles)
     }
 
     private func collectSwiftFiles(
@@ -354,150 +332,6 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
             }
         }
         return files
-    }
-
-    private static func clientComponents(in file: URL, relativePath: String) throws -> [ClientComponentDeclaration] {
-        let source = try String(contentsOf: file, encoding: .utf8)
-        let pattern = #"(?:public\s+)?(?:struct|final\s+class|class)\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:<[^>{}]+>)?\s*:\s*([^{]+)"#
-        let regex = try NSRegularExpression(pattern: pattern)
-        let range = NSRange(source.startIndex..<source.endIndex, in: source)
-
-        var declarations: [ClientComponentDeclaration] = []
-        for match in regex.matches(in: source, range: range) {
-            guard match.numberOfRanges > 2,
-                  let nameRange = Range(match.range(at: 1), in: source),
-                  let conformancesRange = Range(match.range(at: 2), in: source)
-            else {
-                continue
-            }
-            let conformances = source[conformancesRange]
-            guard conformances.contains("ClientComponent") else {
-                continue
-            }
-            let typeName = String(source[nameRange])
-            let body = declarationBody(in: source, after: match.range)
-            declarations.append(ClientComponentDeclaration(
-                typeName: typeName,
-                loadPolicy: try parseLoadPolicy(in: body) ?? .eager,
-                bundlePolicy: try parseBundlePolicy(in: body) ?? .main
-            ))
-        }
-        return declarations
-    }
-
-    private static func declarationBody(in source: String, after range: NSRange) -> String {
-        guard let searchStart = Range(range, in: source)?.upperBound,
-              let openingBrace = source[searchStart...].firstIndex(of: "{")
-        else {
-            return ""
-        }
-
-        var depth = 0
-        var index = openingBrace
-        while index < source.endIndex {
-            let character = source[index]
-            if character == "{" {
-                depth += 1
-            } else if character == "}" {
-                depth -= 1
-                if depth == 0 {
-                    return String(source[openingBrace...index])
-                }
-            }
-            index = source.index(after: index)
-        }
-        return String(source[openingBrace...])
-    }
-
-    private static func modifierContractOverride(
-        for typeName: String,
-        in source: String
-    ) throws -> ClientComponentDeclaration? {
-        var result = ClientComponentDeclaration(typeName: typeName)
-        var found = false
-        var searchRange = source.startIndex..<source.endIndex
-
-        while let typeRange = source.range(of: "\(typeName)(", range: searchRange) {
-            let windowEnd = source.index(
-                typeRange.lowerBound,
-                offsetBy: 600,
-                limitedBy: source.endIndex
-            ) ?? source.endIndex
-            let window = String(source[typeRange.lowerBound..<windowEnd])
-            if let loadPolicy = try parseLoadPolicy(in: window, requiresStatic: false) {
-                result.loadPolicy = loadPolicy
-                found = true
-            }
-            if let bundlePolicy = try parseBundlePolicy(in: window, requiresStatic: false) {
-                result.bundlePolicy = bundlePolicy
-                found = true
-            }
-            searchRange = typeRange.upperBound..<source.endIndex
-        }
-
-        return found ? result : nil
-    }
-
-    private static func parseLoadPolicy(
-        in source: String,
-        requiresStatic: Bool = true
-    ) throws -> LoadPolicy? {
-        let prefix = requiresStatic
-            ? #"static\s+(?:let|var)\s+loadPolicy\b"#
-            : #"\.loadPolicy\s*\("#
-        let pattern = "\(prefix)[\\s\\S]{0,120}\\.(eager|visible|interaction|idle|manual)"
-        guard let match = try firstMatch(pattern: pattern, in: source) else {
-            return nil
-        }
-        guard let value = match[1] else {
-            return nil
-        }
-        return LoadPolicy(rawValue: value)
-    }
-
-    private static func parseBundlePolicy(
-        in source: String,
-        requiresStatic: Bool = true
-    ) throws -> BundlePolicy? {
-        let prefix = requiresStatic
-            ? #"static\s+(?:let|var)\s+bundle\b"#
-            : #"\.bundle\s*\("#
-        let pattern = "\(prefix)[\\s\\S]{0,160}\\.(main|component|named|shared)(?:\\(\\s*\"([^\"]+)\"\\s*\\))?"
-        guard let match = try firstMatch(pattern: pattern, in: source) else {
-            return nil
-        }
-        guard let value = match[1] else {
-            return nil
-        }
-        switch value {
-        case "main":
-            return .main
-        case "component":
-            return .component
-        case "named":
-            return .named(match[2] ?? "")
-        case "shared":
-            return .shared(match[2] ?? "")
-        default:
-            return nil
-        }
-    }
-
-    private static func firstMatch(
-        pattern: String,
-        in source: String
-    ) throws -> [String?]? {
-        let regex = try NSRegularExpression(pattern: pattern)
-        let range = NSRange(source.startIndex..<source.endIndex, in: source)
-        guard let match = regex.firstMatch(in: source, range: range) else {
-            return nil
-        }
-        return (0..<match.numberOfRanges).map { index in
-            guard let range = Range(match.range(at: index), in: source) else {
-                return nil
-            }
-            return String(source[range])
-        }
     }
 
     private static func resolvedBundleID(
@@ -532,9 +366,9 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
             WasmRuntimeTargetDeclaration(
                 targetName: mainTargetName,
                 bundleID: mainBundleID,
-                componentTypeNames: clientComponents
+                componentTypeNames: Self.uniqueTypeNames(clientComponents
                     .filter { Self.resolvedBundleID(for: $0) == nil }
-                    .map(\.typeName),
+                    .map(\.typeName)),
                 linkMode: .standalone
             ),
         ]
@@ -568,14 +402,14 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
                 targets.append(WasmRuntimeTargetDeclaration(
                     targetName: targetName,
                     bundleID: ClientBundleID(Self.productName(forWasmRuntimeTarget: targetName)),
-                    componentTypeNames: policyPairs.map(\.typeName),
+                    componentTypeNames: Self.uniqueTypeNames(policyPairs.map(\.typeName)),
                     bundleArtifacts: policyBundleGroups.keys.sorted().map { bundleID in
                         let components = policyBundleGroups[bundleID, default: []].sorted { left, right in
                             left.typeName < right.typeName
                         }
                         return WasmRuntimeBundleArtifactDeclaration(
                             bundleID: bundleID,
-                            componentTypeNames: components.map(\.typeName)
+                            componentTypeNames: Self.uniqueTypeNames(components.map(\.typeName))
                         )
                     },
                     linkMode: .coalescedStaticFallback
@@ -599,11 +433,11 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
             targets.append(WasmRuntimeTargetDeclaration(
                 targetName: targetName,
                 bundleID: bundleID,
-                componentTypeNames: components.map(\.typeName),
+                componentTypeNames: Self.uniqueTypeNames(components.map(\.typeName)),
                 bundleArtifacts: [
                     WasmRuntimeBundleArtifactDeclaration(
                         bundleID: bundleID,
-                        componentTypeNames: components.map(\.typeName)
+                        componentTypeNames: Self.uniqueTypeNames(components.map(\.typeName))
                     ),
                 ],
                 linkMode: .standalone
@@ -650,6 +484,32 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
         } else if FileManager.default.fileExists(atPath: destinationURL.path) {
             try FileManager.default.removeItem(at: destinationURL)
         }
+    }
+
+    private func actorRuntimeDependencyDeclaration() throws -> String {
+        let sourceURL = appPackageDirectory.appendingPathComponent("Package.resolved")
+        guard FileManager.default.fileExists(atPath: sourceURL.path) else {
+            return fallbackActorRuntimeDependencyDeclaration
+        }
+
+        let data = try Data(contentsOf: sourceURL)
+        let packageResolved = try JSONDecoder().decode(PackageResolvedFile.self, from: data)
+        guard let pin = packageResolved.pins.first(where: { $0.identity.lowercased() == "swift-actor-runtime" }) else {
+            return fallbackActorRuntimeDependencyDeclaration
+        }
+
+        let location = pin.location ?? "https://github.com/1amageek/swift-actor-runtime.git"
+        if let version = pin.state.version {
+            return #".package(url: "\#(Self.swiftStringLiteral(location))", exact: "\#(Self.swiftStringLiteral(version))")"#
+        }
+        if let revision = pin.state.revision {
+            return #".package(url: "\#(Self.swiftStringLiteral(location))", revision: "\#(Self.swiftStringLiteral(revision))")"#
+        }
+        return fallbackActorRuntimeDependencyDeclaration
+    }
+
+    private var fallbackActorRuntimeDependencyDeclaration: String {
+        #".package(url: "https://github.com/1amageek/swift-actor-runtime.git", from: "0.5.0")"#
     }
 
     private func filteredPackageResolvedData(
@@ -1318,7 +1178,8 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
     private func wasmPackageSwift(
         appPackageName: String,
         appProductName: String,
-        wasmRuntimeTargetNames: [String]
+        wasmRuntimeTargetNames: [String],
+        actorRuntimeDependencyDeclaration: String
     ) -> String {
         let wasmTargetDeclarations = wasmRuntimeTargetNames.map { targetName in
             wasmRuntimeTargetDeclaration(targetName: targetName, appProductName: appProductName)
@@ -1430,7 +1291,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
                 \(wasmProductDeclarations)
             ],
             dependencies: [
-                .package(url: "https://github.com/1amageek/swift-actor-runtime.git", exact: "0.5.0"),
+                \(actorRuntimeDependencyDeclaration),
             ],
             targets: [
                 cJavaScriptKitTarget,
@@ -1578,6 +1439,15 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
             .replacingOccurrences(of: "\r", with: "\\r")
     }
 
+    private static func uniqueTypeNames(_ typeNames: [String]) -> [String] {
+        var seen = Set<String>()
+        var unique: [String] = []
+        for typeName in typeNames where seen.insert(typeName).inserted {
+            unique.append(typeName)
+        }
+        return unique
+    }
+
     private func wasmEntrypointSwift(
         appProductName: String,
         target: WasmRuntimeTargetDeclaration
@@ -1666,30 +1536,6 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
     }
 }
 
-private struct ClientComponentDeclaration: Sendable {
-    let typeName: String
-    var loadPolicy: LoadPolicy
-    var bundlePolicy: BundlePolicy
-
-    init(
-        typeName: String,
-        loadPolicy: LoadPolicy = .eager,
-        bundlePolicy: BundlePolicy = .main
-    ) {
-        self.typeName = typeName
-        self.loadPolicy = loadPolicy
-        self.bundlePolicy = bundlePolicy
-    }
-
-    func merged(with other: ClientComponentDeclaration) -> ClientComponentDeclaration {
-        ClientComponentDeclaration(
-            typeName: typeName,
-            loadPolicy: other.loadPolicy != .eager ? other.loadPolicy : loadPolicy,
-            bundlePolicy: other.bundlePolicy != .main ? other.bundlePolicy : bundlePolicy
-        )
-    }
-}
-
 private struct WasmRuntimeTargetDeclaration: Sendable {
     let targetName: String
     let bundleID: ClientBundleID
@@ -1705,4 +1551,19 @@ private struct WasmRuntimeTargetDeclaration: Sendable {
 private struct WasmRuntimeBundleArtifactDeclaration: Sendable {
     let bundleID: ClientBundleID
     let componentTypeNames: [String]
+}
+
+private struct PackageResolvedFile: Decodable {
+    let pins: [PackageResolvedPin]
+}
+
+private struct PackageResolvedPin: Decodable {
+    let identity: String
+    let location: String?
+    let state: PackageResolvedPinState
+}
+
+private struct PackageResolvedPinState: Decodable {
+    let version: String?
+    let revision: String?
 }

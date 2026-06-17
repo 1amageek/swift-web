@@ -107,6 +107,42 @@ struct SwiftWebWasmArtifactProcessorTests {
         #expect(FileManager.default.fileExists(atPath: artifactURL.path + ".size.json"))
     }
 
+    @Test
+    func productionRegeneratesExistingGzipSidecar() throws {
+        let root = try temporaryDirectory()
+        defer {
+            do {
+                try FileManager.default.removeItem(at: root)
+            } catch {}
+        }
+        let toolsDirectory = root.appendingPathComponent("tools", isDirectory: true)
+        try FileManager.default.createDirectory(at: toolsDirectory, withIntermediateDirectories: true)
+        try writeFakeTool(
+            """
+            #!/bin/sh
+            input="$4"
+            /bin/cp "$input" "$input.gz"
+            """,
+            named: "gzip",
+            in: toolsDirectory
+        )
+
+        let artifactURL = root.appendingPathComponent("runtime.wasm")
+        let artifactData = wasmModule(sections: [section(id: 10, payload: [0x01, 0x02])])
+        try artifactData.write(to: artifactURL)
+        try Data("stale".utf8).write(to: URL(fileURLWithPath: artifactURL.path + ".gz"))
+
+        let processor = SwiftWebWasmArtifactProcessor(
+            options: .production(environment: ["SWIFTWEB_WASM_OPTIMIZE": "0"]),
+            environment: ["PATH": toolsDirectory.path]
+        )
+        let result = try processor.process(fileURL: artifactURL)
+        let gzipData = try Data(contentsOf: URL(fileURLWithPath: artifactURL.path + ".gz"))
+
+        #expect(result.gzipBytes == artifactData.count)
+        #expect(gzipData == artifactData)
+    }
+
     private func temporaryDirectory() throws -> URL {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("SwiftWebWasmArtifactProcessorTests-\(UUID().uuidString)", isDirectory: true)

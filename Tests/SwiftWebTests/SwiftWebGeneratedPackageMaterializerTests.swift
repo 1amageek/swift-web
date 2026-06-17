@@ -105,6 +105,16 @@ struct SwiftWebGeneratedPackageMaterializerTests {
             to: appPackage.appendingPathComponent("Sources/SampleApp/ClientBadge.swift")
         )
         try write(
+            """
+            public struct ClientExtensionBox {
+                public init() {}
+            }
+
+            extension ClientExtensionBox: ClientComponent {}
+            """,
+            to: appPackage.appendingPathComponent("Sources/SampleApp/ClientExtensionBox.swift")
+        )
+        try write(
             "protocol SampleServiceProtocol {}",
             to: appPackage.appendingPathComponent("Sources/SampleApp/Services/SampleServiceProtocol.swift")
         )
@@ -138,6 +148,15 @@ struct SwiftWebGeneratedPackageMaterializerTests {
                   "location" : "https://github.com/vapor/vapor.git",
                   "state" : {
                     "revision" : "ghi"
+                  }
+                },
+                {
+                  "identity" : "swift-actor-runtime",
+                  "kind" : "remoteSourceControl",
+                  "location" : "https://github.com/1amageek/swift-actor-runtime.git",
+                  "state" : {
+                    "revision" : "jkl",
+                    "version" : "0.6.0"
                   }
                 }
               ],
@@ -198,6 +217,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         #expect(!wasmPackageResolved.contains("javascriptkit"))
         #expect(!wasmPackageResolved.contains("swift-syntax"))
         #expect(!wasmPackageResolved.contains("vapor"))
+        #expect(wasmPackageResolved.contains("swift-actor-runtime"))
         #expect(serverPackageSwift.contains(".executable(name: \"app-server\", targets: [\"AppServerLauncher\"])"))
         #expect(serverPackageSwift.contains(".package(path: \"\(appPackage.path)\""))
         #expect(!serverPackageSwift.contains(".executable(name: \"SampleApp-dev\", targets: [\"SwiftWebDevLauncher\"])"))
@@ -222,7 +242,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         #expect(!wasmPackageSwift.contains(".package(url: \"https://github.com/swiftwasm/JavaScriptKit.git\""))
         #expect(!wasmPackageSwift.contains("swift-syntax"))
         #expect(!wasmPackageSwift.contains("BridgeJSMacros"))
-        #expect(wasmPackageSwift.contains(".package(url: \"https://github.com/1amageek/swift-actor-runtime.git\", exact: \"0.5.0\")"))
+        #expect(wasmPackageSwift.contains(".package(url: \"https://github.com/1amageek/swift-actor-runtime.git\", exact: \"0.6.0\")"))
         #expect(!wasmPackageSwift.contains(".package(path: \"\(swiftWebPackage.path)\""))
         #expect(!wasmPackageSwift.contains(".package(path: \"\(appPackage.path)\""))
         #expect(!wasmPackageSwift.contains("AppServerLauncher"))
@@ -279,6 +299,9 @@ struct SwiftWebGeneratedPackageMaterializerTests {
             atPath: wasmSources.appendingPathComponent("SampleApp/ClientBadge.swift").path
         ))
         #expect(FileManager.default.fileExists(
+            atPath: wasmSources.appendingPathComponent("SampleApp/ClientExtensionBox.swift").path
+        ))
+        #expect(FileManager.default.fileExists(
             atPath: wasmSources.appendingPathComponent("SampleApp/Services/SampleServiceProtocol.swift").path
         ))
         #expect(FileManager.default.fileExists(
@@ -313,6 +336,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         #expect(wasmEntrypoint.contains("ClientWasmComponentRegistration("))
         #expect(wasmEntrypoint.contains("ClientSample.self"))
         #expect(wasmEntrypoint.contains("ClientBadge.self"))
+        #expect(wasmEntrypoint.contains("ClientExtensionBox.self"))
         #expect(FileManager.default.fileExists(
             atPath: wasmSources.appendingPathComponent("SwiftHTML/Core/HTML.swift").path
         ))
@@ -812,6 +836,25 @@ struct SwiftWebGeneratedPackageMaterializerTests {
             """,
             to: appPackage.appendingPathComponent("Sources/SampleApp/ClientInspector.swift")
         )
+        try write(
+            """
+            public struct ClientCard: ClientComponent {
+                public init() {}
+            }
+
+            public struct ClientUsageSamples {
+                public init() {}
+
+                public func render() {
+                    _ = ClientCard().loadPolicy(.visible)
+                    _ = ClientCard().loadPolicy(.visible).bundle(.shared("left"))
+                    _ = ClientCard().loadPolicy(.visible).bundle(.shared("right"))
+                    _ = ClientCard().loadPolicy(.manual).bundle(.shared("tools"))
+                }
+            }
+            """,
+            to: appPackage.appendingPathComponent("Sources/SampleApp/ClientUsageSamples.swift")
+        )
 
         let generatedPackage = try SwiftWebGeneratedPackageMaterializer(
             appPackageDirectory: appPackage,
@@ -829,6 +872,8 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         #expect(generatedPackage.wasmRuntimes[0].linkMode == .standalone)
         #expect(generatedPackage.wasmRuntimes.dropFirst().allSatisfy { $0.linkMode == .coalescedStaticFallback })
         #expect(generatedPackage.wasmRuntimes.flatMap(\.componentTypeNames).sorted() == [
+            "ClientCard",
+            "ClientCard",
             "ClientChart",
             "ClientEditor",
             "ClientInspector",
@@ -858,12 +903,14 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         )
         #expect(serverLauncher.contains("id: \"named-editing\""))
         #expect(serverLauncher.contains("id: \"shared-tools\""))
+        #expect(serverLauncher.contains("id: \"shared-left\""))
+        #expect(serverLauncher.contains("id: \"shared-right\""))
         #expect(serverLauncher.contains("id: \"component-"))
         #expect(serverLauncher.contains(
             "componentTypeNames: [\"ClientEditor\"]"
         ))
         #expect(serverLauncher.contains(
-            "componentTypeNames: [\"ClientInspector\"]"
+            "componentTypeNames: [\"ClientCard\", \"ClientInspector\"]"
         ))
         #expect(serverLauncher.contains(
             "componentTypeNames: [\"ClientChart\"]"
@@ -894,10 +941,13 @@ struct SwiftWebGeneratedPackageMaterializerTests {
             encoding: .utf8
         )
         #expect(visibleEntrypoint.contains("ClientChart.self"))
+        #expect(visibleEntrypoint.contains("ClientCard.self"))
+        #expect(visibleEntrypoint.components(separatedBy: "ClientCard.self").count - 1 == 1)
         #expect(!visibleEntrypoint.contains("ClientEditor.self"))
         #expect(interactionEntrypoint.contains("ClientEditor.self"))
         #expect(!interactionEntrypoint.contains("ClientChart.self"))
         #expect(manualEntrypoint.contains("ClientInspector.self"))
+        #expect(manualEntrypoint.contains("ClientCard.self"))
         #expect(!manualEntrypoint.contains("ClientShell.self"))
     }
 

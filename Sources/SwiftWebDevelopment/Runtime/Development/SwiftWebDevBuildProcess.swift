@@ -73,14 +73,15 @@ struct SwiftWebDevBuildProcess: Sendable {
             SwiftWebWasmBuildStamp(inputHash: inputHash, artifactHash: hash),
             for: runtime
         )
+        let schemaHashes = try schemaHashes(for: runtime)
 
         return ClientWasmHMRManifest(
             componentTypeName: runtime.componentTypeName,
             bundleID: runtime.bundleID,
             assetPath: "\(runtime.assetPath)?v=\(hash)",
             contentHash: hash,
-            stateSchemaHash: "",
-            environmentSchemaHash: ""
+            stateSchemaHash: schemaHashes.stateSchemaHash,
+            environmentSchemaHash: schemaHashes.environmentSchemaHash
         )
     }
 
@@ -112,14 +113,22 @@ struct SwiftWebDevBuildProcess: Sendable {
                 for: runtime
             )
         }
+        let schemaHashes = try schemaHashes(for: runtime)
         return ClientWasmHMRManifest(
             componentTypeName: runtime.componentTypeName,
             bundleID: runtime.bundleID,
             assetPath: "\(runtime.assetPath)?v=\(processingResult.contentHash)",
             contentHash: processingResult.contentHash,
-            stateSchemaHash: "",
-            environmentSchemaHash: ""
+            stateSchemaHash: schemaHashes.stateSchemaHash,
+            environmentSchemaHash: schemaHashes.environmentSchemaHash
         )
+    }
+
+    private func schemaHashes(for runtime: SwiftWebGeneratedWasmRuntime) throws -> SwiftWebDevClientManifestSchemaHashes {
+        try SwiftWebDevClientManifestSnapshotStore(
+            fileURL: SwiftWebDevClientManifestSnapshotStore.fileURL(for: configuration)
+        )
+        .schemaHashes(for: runtime)
     }
 
     private func readBuildStamp(
