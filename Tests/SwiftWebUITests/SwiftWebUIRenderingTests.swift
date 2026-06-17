@@ -680,8 +680,9 @@ struct SwiftWebUIRenderingTests {
         // The binding drives the SSR marker and the `open` attribute together.
         #expect(rendered.contains("data-swui-presented=\"true\""))
         #expect(rendered.contains("open"))
-        // Alerts force an explicit choice: native light dismiss only on Esc.
-        #expect(rendered.contains("closedby=\"closerequest\""))
+        // Every presentation kind light-dismisses on an outside tap; for an
+        // alert the backdrop tap is a safe cancel that runs no action.
+        #expect(rendered.contains("closedby=\"any\""))
         // The close event syncs the binding back when the dialog is dismissed.
         #expect(rendered.contains("data-swift-event-close="))
         #expect(rendered.contains("class=\"swui-presentation-surface\""))

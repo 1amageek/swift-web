@@ -39,15 +39,16 @@ public enum PresentationKind: Sendable, Hashable {
         }
     }
 
-    /// The native light dismiss policy for the dialog.
+    /// The light dismiss policy for the dialog.
     ///
-    /// Alerts dismiss only on a close request (Esc), forcing an explicit choice
-    /// for outside taps; the other kinds also dismiss on an outside tap, matching
-    /// their implicit-cancel semantics.
+    /// Every kind dismisses on an outside tap (`any`). For a confirmation, sheet,
+    /// or popover this is the implicit cancel; for an alert the backdrop tap is a
+    /// safe cancel that closes the dialog without invoking any action. The runtime
+    /// reconciler additionally binds an explicit backdrop-click handler, so light
+    /// dismissal works even in browsers without native `closedby` support. A kind
+    /// that must force an explicit choice would return `.closeRequest`, which both
+    /// the native attribute and the reconciler honor.
     var closedBy: DialogClosedBy {
-        switch self {
-        case .alert: return .closeRequest
-        case .confirmationDialog, .sheet, .popover: return .any
-        }
+        .any
     }
 }

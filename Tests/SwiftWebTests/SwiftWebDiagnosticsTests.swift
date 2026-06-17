@@ -54,10 +54,10 @@ struct SwiftWebDiagnosticsTests {
         #expect(html.contains("<link rel=\"preload\" href=\"/assets/runtime.wasm\" as=\"fetch\" type=\"application/wasm\" crossorigin=\"anonymous\">"))
         #expect(html.contains("<link rel=\"preload\" href=\"/assets/swift-web-client.json\" as=\"fetch\" type=\"application/json\" crossorigin=\"anonymous\">"))
         #expect(html.contains("\"mode\":\"wasm\""))
-        #expect(html.contains("\"hostScriptPath\":\"\\/__swiftweb\\/wasm\\/runtime-host.js?v=18\""))
+        #expect(html.contains("\"hostScriptPath\":\"\\/__swiftweb\\/wasm\\/runtime-host.js?v=19\""))
         #expect(html.contains("\"javaScriptKitRuntimePath\":\"\\/__swiftweb\\/wasm\\/javascript-kit-runtime.js?v=1\""))
         #expect(html.contains("\"metricsMode\":\"summary\""))
-        #expect(html.contains("<script type=\"module\" src=\"/__swiftweb/wasm/runtime-host.js?v=18\"></script></body>"))
+        #expect(html.contains("<script type=\"module\" src=\"/__swiftweb/wasm/runtime-host.js?v=19\"></script></body>"))
     }
 
     @Test

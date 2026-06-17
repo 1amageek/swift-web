@@ -632,6 +632,7 @@ class SwiftWebWasmRuntime {
             dialog.removeAttribute("open");
             try {
               dialog.showModal();
+              this.bindPresentationLightDismiss(dialog);
             } catch (error) {
               // Explicit, logged degradation — never a silent fallback. Keep the
               // dialog visible in-flow via the `open` attribute so the binding
@@ -656,6 +657,33 @@ class SwiftWebWasmRuntime {
       attributeFilter: ["data-swui-presented"],
       childList: true,
       subtree: true
+    });
+  }
+
+  // Closes a modal presentation when the user taps its backdrop scrim.
+  //
+  // The native `closedby="any"` attribute already does this in browsers that
+  // support it; this handler provides the same light dismissal where that
+  // attribute is unsupported (e.g. Safari, Firefox), so the behavior is uniform
+  // across browsers rather than silently degrading. A dialog that opts out with
+  // `closedby="closerequest"` is honored — its backdrop never dismisses.
+  //
+  // The content fills the dialog box via `.swui-presentation-surface`, so a click
+  // whose target is the dialog element itself landed on the backdrop, not the
+  // content. `close()` (not attribute removal) fires the native `close` event,
+  // which the Swift-side handler uses to sync the binding back to `false`.
+  bindPresentationLightDismiss(dialog) {
+    if (dialog.__swuiLightDismissBound) {
+      return;
+    }
+    if (dialog.getAttribute("closedby") === "closerequest") {
+      return;
+    }
+    dialog.__swuiLightDismissBound = true;
+    dialog.addEventListener("click", (event) => {
+      if (event.target === dialog) {
+        dialog.close();
+      }
     });
   }
 

@@ -4,7 +4,7 @@ import Vapor
 
 public enum SwiftWebWasmRuntimeRoutes {
     public static let hostScriptPath = "/__swiftweb/wasm/runtime-host.js"
-    public static let hostScriptVersion = "18"
+    public static let hostScriptVersion = "19"
     public static let versionedHostScriptPath = "\(hostScriptPath)?v=\(hostScriptVersion)"
     public static let javaScriptKitRuntimePath = "/__swiftweb/wasm/javascript-kit-runtime.js"
     public static let javaScriptKitRuntimeVersion = "1"
