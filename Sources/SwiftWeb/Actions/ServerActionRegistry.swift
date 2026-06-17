@@ -1,5 +1,6 @@
 import Distributed
 import Foundation
+import SwiftWebActors
 import Synchronization
 import Vapor
 

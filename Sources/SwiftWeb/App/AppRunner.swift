@@ -1,3 +1,4 @@
+import SwiftWebActors
 import Vapor
 
 public struct AppRunner<Definition: App> {
@@ -27,6 +28,7 @@ public struct AppRunner<Definition: App> {
 
         SwiftWebDevHotReload.register(on: application)
         ActionGateway.register(on: application)
+        WebActorGateway.register(on: application)
         do {
             try await (clientRuntime ?? definition.clientRuntime).install(on: application)
             try await definition.services.register(on: application)

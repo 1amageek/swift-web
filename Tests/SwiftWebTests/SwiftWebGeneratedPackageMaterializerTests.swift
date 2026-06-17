@@ -25,11 +25,13 @@ struct SwiftWebGeneratedPackageMaterializerTests {
             let package = Package(
                 name: "swift-web",
                 products: [
+                    .library(name: "SwiftWebActors", targets: ["SwiftWebActors"]),
                     .library(name: "SwiftWebUI", targets: ["SwiftWebUI"]),
                     .library(name: "SwiftWebUIRuntime", targets: ["SwiftWebUIRuntime"]),
                     .library(name: "SwiftWeb", targets: ["SwiftWeb"]),
                 ],
                 targets: [
+                    .target(name: "SwiftWebActors"),
                     .target(name: "SwiftWebUI"),
                     .target(name: "SwiftWebUIRuntime"),
                     .target(name: "SwiftWeb"),
@@ -41,6 +43,10 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         try write(
             "import SwiftHTML\npublic struct Text {}",
             to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Text.swift")
+        )
+        try write(
+            "public struct WebActorSystem {}",
+            to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebActors/WebActorSystem.swift")
         )
         try write(
             "import SwiftHTML\npublic struct RuntimeEntrypoint {}",
@@ -71,6 +77,10 @@ struct SwiftWebGeneratedPackageMaterializerTests {
             "public struct ClientSample: ClientComponent { public init() {} }",
             to: appPackage.appendingPathComponent("Sources/SampleApp/ClientSample.swift")
         )
+        try write(
+            "protocol SampleServiceProtocol {}",
+            to: appPackage.appendingPathComponent("Sources/SampleApp/Services/SampleServiceProtocol.swift")
+        )
         try write("struct Page {}", to: appPackage.appendingPathComponent("Sources/SampleApp/Routes/Page.swift"))
         try write("struct Service {}", to: appPackage.appendingPathComponent("Sources/SampleApp/Actions/Service.swift"))
         try write(
@@ -100,15 +110,28 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         #expect(packageSwift.contains(".executable(name: \"app-server\", targets: [\"AppServerLauncher\"])"))
         #expect(packageSwift.contains(".executable(name: \"sample-wasm-runtime\", targets: [\"SampleWasmRuntime\"])"))
         #expect(packageSwift.contains(".package(path: \"\(swiftWebPackage.path)\""))
-        #expect(packageSwift.contains(".package(url: \"https://github.com/1amageek/swift-html.git\", from: \"0.1.0\")"))
+        #expect(packageSwift.contains(".package(url: \"https://github.com/1amageek/swift-html.git\", from: \"0.2.0\")"))
         #expect(packageSwift.contains(".package(url: \"https://github.com/swiftwasm/JavaScriptKit.git\""))
+        #expect(packageSwift.contains(".package(url: \"https://github.com/1amageek/swift-actor-runtime.git\", exact: \"0.5.0\")"))
         #expect(!packageSwift.contains("let swiftHTMLTarget = Target.target("))
         #expect(!packageSwift.contains("path: \"Sources/SwiftHTML\""))
         #expect(packageSwift.contains(".product(name: \"SwiftHTML\", package: \"swift-html\")"))
+        #expect(packageSwift.contains("let swiftWebActorsTarget = Target.target("))
+        #expect(packageSwift.contains("path: \"Sources/SwiftWebActors\""))
+        #expect(packageSwift.contains(".product(name: \"ActorRuntime\", package: \"swift-actor-runtime\")"))
         #expect(packageSwift.contains("let swiftWebUITarget = Target.target("))
         #expect(packageSwift.contains("let swiftWebUIRuntimeTarget = Target.target("))
         #expect(packageSwift.contains("path: \"Sources/SwiftWebUIRuntime\""))
         #expect(packageSwift.contains(".product(name: \"JavaScriptKit\", package: \"JavaScriptKit\")"))
+        #expect(packageSwift.contains("""
+        let swiftWebUIRuntimeTarget = Target.target(
+            name: "SwiftWebUIRuntime",
+            dependencies: [
+                .product(name: "SwiftHTML", package: "swift-html"),
+                .product(name: "JavaScriptKit", package: "JavaScriptKit"),
+                "SwiftWebActors",
+            ],
+        """))
         #expect(packageSwift.contains("--export=swiftweb_snapshot_state"))
         #expect(packageSwift.contains("--export=swiftweb_restore_state"))
         #expect(!packageSwift.contains("exclude: [\"README.md\"]"))
@@ -124,6 +147,9 @@ struct SwiftWebGeneratedPackageMaterializerTests {
             atPath: generatedSources.appendingPathComponent("SampleApp/ClientSample.swift").path
         ))
         #expect(FileManager.default.fileExists(
+            atPath: generatedSources.appendingPathComponent("SampleApp/Services/SampleServiceProtocol.swift").path
+        ))
+        #expect(FileManager.default.fileExists(
             atPath: generatedSources.appendingPathComponent("SampleWasmRuntime/SampleWasmRuntime.swift").path
         ))
         let wasmEntrypoint = try String(
@@ -134,6 +160,9 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         #expect(wasmEntrypoint.contains("import SwiftWebUIRuntime"))
         #expect(!FileManager.default.fileExists(
             atPath: generatedSources.appendingPathComponent("SwiftHTML").path
+        ))
+        #expect(FileManager.default.fileExists(
+            atPath: generatedSources.appendingPathComponent("SwiftWebActors/WebActorSystem.swift").path
         ))
         #expect(FileManager.default.fileExists(
             atPath: generatedSources.appendingPathComponent("SwiftWebUI/Text.swift").path
@@ -181,11 +210,13 @@ struct SwiftWebGeneratedPackageMaterializerTests {
             let package = Package(
                 name: "swift-web",
                 products: [
+                    .library(name: "SwiftWebActors", targets: ["SwiftWebActors"]),
                     .library(name: "SwiftWebUI", targets: ["SwiftWebUI"]),
                     .library(name: "SwiftWebUIRuntime", targets: ["SwiftWebUIRuntime"]),
                     .library(name: "SwiftWeb", targets: ["SwiftWeb"]),
                 ],
                 targets: [
+                    .target(name: "SwiftWebActors"),
                     .target(name: "SwiftWebUI"),
                     .target(name: "SwiftWebUIRuntime"),
                     .target(name: "SwiftWeb"),
@@ -197,6 +228,10 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         try write(
             "import SwiftHTML\npublic struct Text {}",
             to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Text.swift")
+        )
+        try write(
+            "public struct WebActorSystem {}",
+            to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebActors/WebActorSystem.swift")
         )
         try write(
             "import SwiftHTML\npublic struct RuntimeEntrypoint {}",
@@ -262,6 +297,9 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         ))
         #expect(!FileManager.default.fileExists(
             atPath: generatedSources.appendingPathComponent("SwiftHTML").path
+        ))
+        #expect(FileManager.default.fileExists(
+            atPath: generatedSources.appendingPathComponent("SwiftWebActors/WebActorSystem.swift").path
         ))
         #expect(FileManager.default.fileExists(
             atPath: generatedSources.appendingPathComponent("SwiftWebUI/Text.swift").path

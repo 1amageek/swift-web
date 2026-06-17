@@ -5,6 +5,7 @@ public enum SwiftWebDevRuntimeError: Error, Sendable, CustomStringConvertible {
     case portInUse(host: String, port: Int)
     case processFailed(command: String, status: Int32)
     case executableNotFound(String)
+    case wasmToolchainNotFound(sdkName: String, searched: [String])
 
     public var description: String {
         switch self {
@@ -19,6 +20,13 @@ public enum SwiftWebDevRuntimeError: Error, Sendable, CustomStringConvertible {
             return "dev process failed with status \(status): \(command)"
         case .executableNotFound(let value):
             return "dev executable was not found or is not executable: \(value)"
+        case .wasmToolchainNotFound(let sdkName, let searched):
+            return """
+            Swift WASM toolchain was not found for \(sdkName).
+            Install the matching Swift toolchain with wasm-ld, or set SWIFT_WEB_WASM_SWIFT / SWIFT_WEB_WASM_TOOLCHAIN_BIN.
+            Searched:
+            \(searched.joined(separator: "\n"))
+            """
         }
     }
 
@@ -28,7 +36,7 @@ public enum SwiftWebDevRuntimeError: Error, Sendable, CustomStringConvertible {
             return 66
         case .portInUse:
             return 69
-        case .processFailed, .executableNotFound:
+        case .processFailed, .executableNotFound, .wasmToolchainNotFound:
             return 70
         }
     }

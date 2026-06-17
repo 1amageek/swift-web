@@ -26,7 +26,7 @@ struct SwiftWebClientRuntimeTests {
             runtimeAssetPath: "/assets/swift-web-runtime.wasm"
         )
 
-        #expect(runtime.hostScriptPath == "/__swiftweb/wasm/runtime-host.js?v=17")
+        #expect(runtime.hostScriptPath == "/__swiftweb/wasm/runtime-host.js?v=18")
         #expect(runtime.javaScriptKitRuntimePath == "/__swiftweb/wasm/javascript-kit-runtime.js?v=1")
         #expect(runtime.metricsMode == .summary)
     }

@@ -53,7 +53,7 @@ struct StoryboardProject {
             TemplateFile(path: "README.md", contents: readme),
             TemplateFile(path: "Sources/SwiftWebStoryboard/App.swift", contents: appSwift),
             TemplateFile(path: "Sources/SwiftWebStoryboard/Routes/StoryboardPage.swift", contents: storyboardPageSwift),
-            TemplateFile(path: "Sources/SwiftWebStoryboard/Components/StoryboardInputs.swift", contents: storyboardInputsSwift),
+            TemplateFile(path: "Sources/SwiftWebStoryboard/Components/StoryboardCatalog.swift", contents: storyboardCatalogSwift),
         ]
     }
 
@@ -67,8 +67,8 @@ struct StoryboardProject {
     }
 
     private var packageSwift: String {
-        """
-        // swift-tools-version: 6.4
+        return """
+        // swift-tools-version: 6.3
 
         import PackageDescription
 
@@ -82,7 +82,7 @@ struct StoryboardProject {
             ],
             dependencies: [
                 .package(path: "\(Self.swiftStringLiteral(swiftWebPackageDirectory.path))"),
-                .package(url: "https://github.com/1amageek/swift-html.git", from: "0.1.0"),
+                .package(url: "https://github.com/1amageek/swift-html.git", from: "0.2.0"),
             ],
             targets: [
                 .target(
@@ -149,83 +149,70 @@ struct StoryboardProject {
 
             var description: String? {
                 get async {
-                    "Generated component style storyboard for SwiftWebUI."
+                    "A design-system catalog of every SwiftWebUI component."
                 }
             }
 
+            // The page emits its own chrome CSS, then the catalog. The catalog is a
+            // single ClientComponent so the global appearance/design-style controls
+            // can retheme every entry live by re-applying the environment on change.
             @HTMLBuilder
             func body() -> some HTML {
                 style {
                     rawHTML(storyboardCSS)
                 }
 
-                main(.class("storyboard-page")) {
-                    VStack(spacing: .xlarge) {
-                        StoryboardHeader()
-                        StoryboardMatrix()
-                        StoryboardMaterials()
-                        StoryboardHugFill()
-                        StoryboardTypography()
-                        StoryboardButtons()
-                        StoryboardStates()
-                        StoryboardMedia()
-                        StoryboardStatus()
-                        StoryboardInputs()
-                        StoryboardForms()
-                        StoryboardContainers()
-                        StoryboardCollections()
-                        StoryboardLazy()
-                        StoryboardLayout()
-                        StoryboardNavigation()
-                        StoryboardFooter()
-                    }
-                    .frame(maxWidth: "960px")
-                    .padding(.horizontal, "24px")
-                    .padding(.vertical, "56px")
-                }
-                .environment(\\.theme, .light)
-                .environment(\\.styleSystem, .swiftWeb)
+                StoryboardCatalog()
             }
         }
 
-        // MARK: - Reusable shells
+        let storyboardCSS = \"\"\"
+        html { scroll-behavior: smooth; }
+        .storyboard-page {
+            min-height: 100vh;
+            background:
+                radial-gradient(1200px 520px at 50% -8%, color-mix(in srgb, var(--swui-accent) 10%, transparent), transparent),
+                var(--swui-background);
+            color: var(--swui-text);
+            font-family: var(--swui-font-family);
+        }
 
-        // A full-width section: a leading-aligned title block plus a card body
-        // whose children stack with comfortable spacing. Fills the page column.
-        struct StoryboardSection<Content: HTML>: Component {
-            let heading: String
-            let subtitle: String
-            let content: Content
+        .storyboard-page,
+        .storyboard-page * {
+            box-sizing: border-box;
+        }
 
-            init(_ heading: String, _ subtitle: String, @HTMLBuilder content: () -> Content) {
-                self.heading = heading
-                self.subtitle = subtitle
-                self.content = content()
-            }
+        /* Offset in-page anchor jumps so the sticky control bar never covers a target. */
+        .storyboard-page [id] {
+            scroll-margin-top: 88px;
+        }
+        \"\"\"
+        """
+    }
 
-            var body: some HTML {
-                VStack(alignment: .leading, spacing: .medium) {
-                    VStack(alignment: .leading, spacing: .xsmall) {
-                        Heading(heading, level: .section)
-                        Text(subtitle, tone: .muted)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+    private var storyboardCatalogSwift: String {
+        """
+        import Foundation
+        import SwiftHTML
+        import SwiftWebUI
 
-                    Card {
-                        VStack(alignment: .leading, spacing: .large) {
-                            content
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
+        // MARK: - Style mapping
+
+        private func catalogStyleSystem(for id: String) -> StyleSystem {
+            switch id {
+            case "material":
+                return .material
+            case "liquid-glass":
+                return .liquidGlass
+            default:
+                return .swiftWeb
             }
         }
 
-        // Inline monospace chip. ThemeStylesheet does not style bare `<code>`, so
-        // the chrome is applied explicitly here.
-        struct StoryboardCodeChip: Component {
+        // MARK: - Shells
+
+        // Inline monospace chip naming the call site of the entry's component.
+        private struct CatalogCodeChip: Component {
             let text: String
             init(_ text: String) { self.text = text }
 
@@ -237,215 +224,116 @@ struct StoryboardProject {
                     .style {
                         .border("1px solid var(--swui-border)")
                         .fontFamily("var(--swui-mono-font-family)")
-                        .fontSize("0.85em")
+                        .fontSize("0.82em")
                     }
             }
         }
 
-        // A small labeled panel used inside the layout and lazy galleries.
-        struct StoryboardMiniPanel<Content: HTML>: Component {
-            let heading: String
+        // One catalog record: a name + API signature, a one-line purpose, and a card
+        // "stage" holding the live variants/states/interaction. The anchor makes it a
+        // jump target for the index.
+        private struct CatalogEntry<Content: HTML>: Component {
+            let name: String
+            let anchor: String
+            let summary: String
+            let code: String
             let content: Content
-            init(_ heading: String, @HTMLBuilder content: () -> Content) {
-                self.heading = heading
+
+            init(
+                _ name: String,
+                anchor: String,
+                summary: String,
+                code: String,
+                @HTMLBuilder content: () -> Content
+            ) {
+                self.name = name
+                self.anchor = anchor
+                self.summary = summary
+                self.code = code
                 self.content = content()
             }
 
             var body: some HTML {
                 VStack(alignment: .leading, spacing: .small) {
-                    Text(heading, as: .small, tone: .muted)
+                    HStack(spacing: .small) {
+                        Heading(name, level: .subsection)
+                        Spacer()
+                        CatalogCodeChip(code)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Text(summary, tone: .muted)
+
+                    Card {
+                        VStack(alignment: .leading, spacing: .medium) {
+                            content
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .id(anchor)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+
+        // A category band: a heading + lede, then its entries stacked.
+        private struct CatalogGroup<Content: HTML>: Component {
+            let title: String
+            let anchor: String
+            let summary: String
+            let content: Content
+
+            init(
+                _ title: String,
+                anchor: String,
+                summary: String,
+                @HTMLBuilder content: () -> Content
+            ) {
+                self.title = title
+                self.anchor = anchor
+                self.summary = summary
+                self.content = content()
+            }
+
+            var body: some HTML {
+                VStack(alignment: .leading, spacing: .large) {
+                    VStack(alignment: .leading, spacing: .xsmall) {
+                        Heading(title, level: .section)
+                        Text(summary, tone: .muted)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
                     content
                 }
-                .padding(.all, "16px")
-                .background("var(--swui-surface-raised)")
-                .cornerRadius("12px")
-                .style { .border("1px solid var(--swui-border)") }
+                .id(anchor)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
 
-        // A tinted swatch that either hugs its content or fills the parent, so the
-        // two sizing intents can be compared side by side.
-        struct StoryboardSwatch: Component {
-            enum Mode { case hug, fill }
+        // A captioned slot inside an entry stage, used to label a single variant.
+        private struct CatalogVariant<Content: HTML>: Component {
             let label: String
-            let mode: Mode
+            let content: Content
 
-            var body: some HTML {
-                let chip = HStack(spacing: .small) {
-                    Badge(mode == .hug ? "fixedSize()" : "frame(maxWidth: .infinity)")
-                    Text(label, tone: .muted)
-                }
-                .padding(.all, "12px 16px")
-                .background("color-mix(in srgb, var(--swui-accent) 12%, var(--swui-surface-raised))")
-                .cornerRadius("12px")
-                .style { .border("1px solid color-mix(in srgb, var(--swui-accent) 32%, transparent)") }
-
-                switch mode {
-                case .hug:
-                    chip.fixedSize()
-                case .fill:
-                    chip.frame(maxWidth: .infinity, alignment: .leading)
-                }
+            init(_ label: String, @HTMLBuilder content: () -> Content) {
+                self.label = label
+                self.content = content()
             }
-        }
 
-        // MARK: - Header / Footer
-
-        struct StoryboardHeader: Component {
             var body: some HTML {
-                VStack(alignment: .leading, spacing: .small) {
-                    Badge("SwiftWebUI")
-                    Heading("Component Storyboard", level: .page)
-                    Text(
-                        "A per-component gallery across themes and design styles. Every component either hugs its content or fills the available space \\u{2014} and that intent is always explicit.",
-                        tone: .muted
-                    )
-                    HStack(spacing: .small) {
-                        ButtonLink("View components", href: "#components", prominence: .primary)
-                        Link("Documentation", href: "#")
-                    }
+                VStack(alignment: .leading, spacing: .xsmall) {
+                    Text(label, as: .small, tone: .muted)
+                    content
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
 
-        struct StoryboardFooter: Component {
-            var body: some HTML {
-                VStack(alignment: .center, spacing: .small) {
-                    Divider()
-                    Text("Rendered with SwiftWebUI", as: .small, tone: .muted)
-                }
-                .frame(maxWidth: .infinity, alignment: .center)
-            }
-        }
-
-        // MARK: - Theme x StyleSystem matrix
-
-        // Renders the same sample under every theme/style-system pairing. Each cell
-        // applies its own .environment(\\.theme:)/.environment(\\.styleSystem:) so the
-        // nested ThemeScope rethemes backgrounds, surfaces, and controls independently.
-        struct StoryboardMatrix: Component {
-            var body: some HTML {
-                StoryboardSection(
-                    "Theme \\u{00D7} Design style",
-                    "The same sample under every theme and design style. Each cell is a self-contained scope; backgrounds, surfaces, and controls all retheme."
-                ) {
-                    Grid(minColumnWidth: "280px", spacing: .large) {
-                        StoryboardMatrixCell(theme: .light, themeLabel: "Light", style: .swiftWeb, styleLabel: "SwiftWeb")
-                        StoryboardMatrixCell(theme: .light, themeLabel: "Light", style: .material, styleLabel: "Material")
-                        StoryboardMatrixCell(theme: .light, themeLabel: "Light", style: .liquidGlass, styleLabel: "Liquid Glass")
-                        StoryboardMatrixCell(theme: .dark, themeLabel: "Dark", style: .swiftWeb, styleLabel: "SwiftWeb")
-                        StoryboardMatrixCell(theme: .dark, themeLabel: "Dark", style: .material, styleLabel: "Material")
-                        StoryboardMatrixCell(theme: .dark, themeLabel: "Dark", style: .liquidGlass, styleLabel: "Liquid Glass")
-                    }
-                }
-            }
-        }
-
-        struct StoryboardMatrixCell: Component {
-            let theme: Theme
-            let themeLabel: String
-            let style: StyleSystem
-            let styleLabel: String
-
-            var body: some HTML {
-                VStack(alignment: .leading, spacing: .small) {
-                    // Labels stay outside the scope so they read against the page theme.
-                    HStack(spacing: .small) {
-                        Badge(themeLabel)
-                        Badge(styleLabel)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                    StoryboardMatrixSample()
-                        .environment(\\.theme, theme)
-                        .environment(\\.styleSystem, style)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
-
-        struct StoryboardMatrixSample: Component {
-            var body: some HTML {
-                Card {
-                    VStack(alignment: .leading, spacing: .small) {
-                        Heading("Preview", level: .subsection)
-                        Text("Body copy adopts the theme tokens.", tone: .muted)
-                        HStack(spacing: .small) {
-                            Button("Primary", prominence: .primary)
-                            Button("Secondary")
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        HStack(spacing: .small) {
-                            Badge("Badge")
-                            ValueDisplay(label: "Value", value: 42)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.all, "12px")
-            }
-        }
-
-        // MARK: - Materials & Glass
-
-        // The unified material primitive. Every chrome surface composes one shared
-        // recipe; a level only scales the fill translucency. Under Liquid Glass the
-        // recipe adds backdrop blur, a specular rim, and SVG refraction \\u{2014}
-        // shown here over a vivid backdrop so the blur reads. Solid styles render
-        // the same levels as opaque surfaces (compare the matrix above).
-        struct StoryboardMaterials: Component {
-            var body: some HTML {
-                StoryboardSection(
-                    "Materials & Glass",
-                    "One recipe behind every surface. Levels scale the fill; Liquid Glass adds blur, a specular rim, and refraction. The stages below are scoped to Liquid Glass so the glass reads."
-                ) {
-                    Text("Material levels", as: .strong)
-                    StoryboardGlassStage {
-                        Grid(minColumnWidth: "150px", spacing: .medium) {
-                            StoryboardMaterialSwatch("Ultra thin", code: ".ultraThinMaterial", material: .ultraThinMaterial)
-                            StoryboardMaterialSwatch("Thin", code: ".thinMaterial", material: .thinMaterial)
-                            StoryboardMaterialSwatch("Regular", code: ".regularMaterial", material: .regularMaterial)
-                            StoryboardMaterialSwatch("Thick", code: ".thickMaterial", material: .thickMaterial)
-                            StoryboardMaterialSwatch("Ultra thick", code: ".ultraThickMaterial", material: .ultraThickMaterial)
-                            StoryboardMaterialSwatch("Bar", code: ".bar", material: .bar)
-                        }
-                    }
-
-                    Divider()
-
-                    Text("glassEffect(in:) and glass buttons", as: .strong)
-                    StoryboardGlassStage {
-                        HStack(spacing: .medium) {
-                            Text("Regular glass")
-                                .padding(.all, "12px 18px")
-                                .glassEffect(.regular, in: .capsule)
-                            Text("Tinted + interactive")
-                                .padding(.all, "12px 18px")
-                                .glassEffect(.regular.tint("var(--swui-accent)").interactive(), in: .capsule)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-
-                        HStack(spacing: .small) {
-                            Button("Glass", prominence: .primary)
-                                .buttonStyle(.glass)
-                            Button("Glass prominent", prominence: .primary)
-                                .buttonStyle(.glassProminent)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                }
-                .environment(\\.styleSystem, .liquidGlass)
-            }
-        }
-
-        // A vivid backdrop so a material/glass surface's backdrop-filter blur and
-        // refraction read clearly. The gradient is the stage's own background, so
-        // children blur it through `backdrop-filter`.
-        struct StoryboardGlassStage<Content: HTML>: Component {
+        // A vivid backdrop so a material/glass surface's backdrop blur and refraction
+        // read. The gradient is the stage's own background; children blur it through
+        // `backdrop-filter` when the design style is Liquid Glass.
+        private struct CatalogGlassStage<Content: HTML>: Component {
             let content: Content
             init(@HTMLBuilder content: () -> Content) { self.content = content() }
 
@@ -463,12 +351,12 @@ struct StoryboardProject {
             }
         }
 
-        // A labeled panel filled with a material level. `.background(_:in:)` applies
-        // the shared recipe; the level only changes the fill translucency.
-        struct StoryboardMaterialSwatch: Component {
+        // A labeled panel filled with a material level via `.background(_:in:)`.
+        private struct CatalogMaterialSwatch: Component {
             let title: String
             let code: String
             let material: Material
+
             init(_ title: String, code: String, material: Material) {
                 self.title = title
                 self.code = code
@@ -486,228 +374,348 @@ struct StoryboardProject {
             }
         }
 
-        // MARK: - Hug vs Fill (centerpiece)
+        // MARK: - Chrome: control bar / header / index / footer
 
-        struct StoryboardHugFill: Component {
+        // The sticky global control bar. The theme and design-style controls drive the
+        // catalog's @State; the enclosing scope re-applies `.environment` on every
+        // change, so the whole catalog rethemes live. The bar itself composes the `.bar`
+        // material, so it dogfoods the design style it switches.
+        private struct CatalogControlBar: Component {
+            let theme: Binding<Theme>
+            let styleID: Binding<String>
+
             var body: some HTML {
-                StoryboardSection(
-                    "Hug vs Fill",
-                    "Shrinking and expanding components are completely separate. fixedSize() hugs; frame(maxWidth: .infinity) fills."
-                ) {
-                    Text("In a VStack, fill stretches the cross axis", as: .strong)
-                    VStack(alignment: .leading, spacing: .small) {
-                        StoryboardSwatch(label: "stays at its content width", mode: .hug)
-                        StoryboardSwatch(label: "stretches to the full column width", mode: .fill)
+                HStack(spacing: .large) {
+                    VStack(alignment: .leading, spacing: .xsmall) {
+                        Text("Appearance", as: .small, tone: .muted)
+                        ThemeSwitcher(selection: theme, themes: [.light, .dark, .system])
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                    Divider()
-
-                    Text("In an HStack, fill grows along the main axis", as: .strong)
-                    HStack(spacing: .small) {
-                        StoryboardSwatch(label: "hug", mode: .hug)
-                        StoryboardSwatch(label: "grows", mode: .fill)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                    Divider()
-
-                    Text("Spacer pushes siblings apart", as: .strong)
-                    HStack(spacing: .small) {
-                        Badge("leading")
-                        Spacer()
-                        Badge("trailing")
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            }
-        }
-
-        // MARK: - Typography
-
-        struct StoryboardTypography: Component {
-            var body: some HTML {
-                StoryboardSection(
-                    "Typography",
-                    "Headings and text tones resolve to theme tokens."
-                ) {
-                    Heading("Page heading", level: .page)
-                    Heading("Section heading", level: .section)
-                    Heading("Subsection heading", level: .subsection)
-                    Text("Body copy uses the base text token and a comfortable line height for long-form reading.")
-                    Text("Muted secondary copy for captions and hints.", tone: .muted)
-                    HStack(spacing: .medium) {
-                        Text("Strong", as: .strong)
-                        Text("Small print", as: .small, tone: .muted)
-                        StoryboardCodeChip("inline.code()")
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            }
-        }
-
-        // MARK: - Buttons
-
-        struct StoryboardButtons: Component {
-            var body: some HTML {
-                StoryboardSection(
-                    "Buttons",
-                    "Prominence, button styles, and links. Glass styles read as Liquid Glass under that design style and degrade to a solid surface elsewhere."
-                ) {
-                    Toolbar {
-                        Button("Primary", prominence: .primary)
-                        Button("Secondary")
-                        Button("Glass")
-                            .buttonStyle(.glass)
-                        Button("Glass prominent", prominence: .primary)
-                            .buttonStyle(.glassProminent)
-                        Button("Plain")
-                            .buttonStyle(.plain)
-                        ButtonLink("Link", href: "#", prominence: .secondary)
-                        Link("Anchor", href: "#")
-                    }
-                }
-            }
-        }
-
-        // MARK: - States
-
-        // Control sizes, tint, and disabled. The primary button background resolves
-        // its tint on the button element itself, so .tint(_:) overrides take effect.
-        struct StoryboardStates: Component {
-            var body: some HTML {
-                StoryboardSection(
-                    "States",
-                    "Control sizes, tint, and disabled \\u{2014} the same components under different conditions."
-                ) {
-                    Text("Control sizes", as: .strong)
-                    HStack(spacing: .small) {
-                        Button("Mini", prominence: .primary)
-                            .controlSize(.mini)
-                        Button("Small", prominence: .primary)
-                            .controlSize(.small)
-                        Button("Regular", prominence: .primary)
-                            .controlSize(.regular)
-                        Button("Large", prominence: .primary)
-                            .controlSize(.large)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                    Divider()
-
-                    Text("Tint", as: .strong)
-                    HStack(spacing: .small) {
-                        Button("Accent", prominence: .primary)
-                            .tint(.accent)
-                        Button("Danger", prominence: .primary)
-                            .tint(.danger)
-                        Button("Custom", prominence: .primary)
-                            .tint(.css("#22a06b"))
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                    Divider()
-
-                    Text("Disabled", as: .strong)
-                    HStack(spacing: .small) {
-                        Button("Enabled", prominence: .primary)
-                        Button("Disabled", prominence: .primary)
-                            .disabled()
-                        SubmitButton("Submit")
-                            .disabled()
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            }
-        }
-
-        // MARK: - Media
-
-        struct StoryboardMedia: Component {
-            var body: some HTML {
-                StoryboardSection(
-                    "Media",
-                    "SF Symbol names render as symbol spans; Label pairs an icon with a title."
-                ) {
-                    HStack(spacing: .medium) {
-                        Image(systemName: "star.fill")
-                        Image(systemName: "bell.badge")
-                        Image(systemName: "gearshape")
-                        Image(systemName: "person.crop.circle")
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                    HStack(spacing: .large) {
-                        Label("Verified", systemImage: "checkmark.seal.fill")
-                        Label("Favorite", systemImage: "heart.fill")
-                        Label("Pinned", systemImage: "pin.fill")
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            }
-        }
-
-        // MARK: - Status
-
-        struct StoryboardStatus: Component {
-            var body: some HTML {
-                StoryboardSection(
-                    "Status",
-                    "ProgressView and Gauge compose the ultra-thin material track; DisclosureGroup composes the regular material like Card."
-                ) {
-                    Grid(minColumnWidth: "240px", spacing: .large) {
-                        StoryboardMiniPanel("ProgressView") {
-                            VStack(alignment: .leading, spacing: .medium) {
-                                ProgressView("Uploading", value: 0.35)
-                                ProgressView("Rendering", value: 0.7)
-                                ProgressView("Loading")
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                    VStack(alignment: .leading, spacing: .xsmall) {
+                        Text("Design style", as: .small, tone: .muted)
+                        Picker("Design style", selection: styleID) {
+                            PickerOption("SwiftWeb", value: "swift-web")
+                            PickerOption("Material", value: "material")
+                            PickerOption("Liquid Glass", value: "liquid-glass")
                         }
-                        StoryboardMiniPanel("Gauge") {
-                            VStack(alignment: .leading, spacing: .medium) {
-                                Gauge(value: 0.25, label: "Disk")
-                                Gauge(value: 0.62, label: "CPU")
-                                Gauge(value: 0.9, label: "Memory")
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        }
+                        .pickerStyle(.segmented)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.all, "14px 18px")
+                .background(.bar, in: .rect(cornerRadius: 18))
+                .style {
+                    .custom("position", "sticky")
+                    .custom("top", "12px")
+                    .custom("z-index", "30")
+                }
+            }
+        }
 
-                    DisclosureGroup("Advanced options", isExpanded: true) {
-                        VStack(alignment: .leading, spacing: .small) {
-                            Text("Nested content reveals when expanded.", tone: .muted)
-                            Label("Verbose logging", systemImage: "doc.text")
+        private struct CatalogHeader: Component {
+            var body: some HTML {
+                VStack(alignment: .leading, spacing: .small) {
+                    Badge("SwiftWebUI")
+                    Heading("Component Catalog", level: .page)
+                    Text(
+                        "Every SwiftWebUI component, grouped by role. Change the appearance and design style above and the whole catalog rethemes live. Each entry shows the call site, its variants and states, and — where it is interactive — a working demo.",
+                        tone: .muted
+                    )
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+
+        // One index column: a category link plus links to each component in it.
+        private struct CatalogIndexColumn<Content: HTML>: Component {
+            let title: String
+            let anchor: String
+            let content: Content
+
+            init(_ title: String, anchor: String, @HTMLBuilder content: () -> Content) {
+                self.title = title
+                self.anchor = anchor
+                self.content = content()
+            }
+
+            var body: some HTML {
+                VStack(alignment: .leading, spacing: .xsmall) {
+                    Link(title, href: "#\\(anchor)")
+                        .style { .fontWeight("600") }
+                    content
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+
+        private struct CatalogIndex: Component {
+            var body: some HTML {
+                Card {
+                    VStack(alignment: .leading, spacing: .medium) {
+                        Text("Index", as: .strong)
+                        Grid(minColumnWidth: "190px", spacing: .large) {
+                            CatalogIndexColumn("Foundations", anchor: "foundations") {
+                                Link("Typography", href: "#typography")
+                                Link("Color & tint", href: "#color")
+                                Link("Materials", href: "#materials")
+                                Link("Glass", href: "#glass")
+                            }
+                            CatalogIndexColumn("Buttons & actions", anchor: "buttons") {
+                                Link("Button", href: "#button")
+                                Link("Button styles", href: "#button-styles")
+                                Link("Control sizes", href: "#control-sizes")
+                                Link("Tint & disabled", href: "#button-states")
+                                Link("Links", href: "#links")
+                            }
+                            CatalogIndexColumn("Inputs & controls", anchor: "inputs") {
+                                Link("TextField", href: "#textfield")
+                                Link("SecureField", href: "#securefield")
+                                Link("TextEditor", href: "#texteditor")
+                                Link("Toggle", href: "#toggle")
+                                Link("Slider", href: "#slider")
+                                Link("Stepper", href: "#stepper")
+                                Link("DatePicker", href: "#datepicker")
+                                Link("ColorPicker", href: "#colorpicker")
+                                Link("Form", href: "#form")
+                            }
+                            CatalogIndexColumn("Pickers & menus", anchor: "pickers") {
+                                Link("Picker", href: "#picker")
+                                Link("Menu", href: "#menu")
+                            }
+                            CatalogIndexColumn("Containers", anchor: "containers") {
+                                Link("Card", href: "#card")
+                                Link("Badge", href: "#badge")
+                                Link("ValueDisplay", href: "#valuedisplay")
+                                Link("List", href: "#list")
+                                Link("Section", href: "#section")
+                                Link("DisclosureGroup", href: "#disclosuregroup")
+                                Link("Grid", href: "#grid")
+                                Link("Lazy stacks & grids", href: "#lazy")
+                                Link("ScrollView", href: "#scrollview")
+                            }
+                            CatalogIndexColumn("Status", anchor: "status") {
+                                Link("ProgressView", href: "#progressview")
+                                Link("Gauge", href: "#gauge")
+                            }
+                            CatalogIndexColumn("Navigation & tabs", anchor: "navigation") {
+                                Link("NavigationStack", href: "#navigationstack")
+                                Link("TabView", href: "#tabview")
+                                Link("Searchable", href: "#searchable")
+                            }
+                            CatalogIndexColumn("Presentation", anchor: "presentation") {
+                                Link("Alert & dialog", href: "#alert")
+                                Link("Sheet & popover", href: "#sheet")
+                            }
+                            CatalogIndexColumn("Layout", anchor: "layout") {
+                                Link("Stacks", href: "#stacks")
+                                Link("Spacer & Divider", href: "#spacer")
+                                Link("Hug vs fill", href: "#hug-fill")
+                            }
+                            CatalogIndexColumn("Media", anchor: "media") {
+                                Link("Image", href: "#image")
+                                Link("Label", href: "#label")
+                            }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    DisclosureGroup("Collapsed by default") {
-                        Text("Hidden until toggled.", tone: .muted)
-                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
 
-        // MARK: - Forms
-
-        struct StoryboardForms: Component {
+        private struct CatalogFooter: Component {
             var body: some HTML {
-                StoryboardSection(
-                    "Forms",
-                    "A Form posts to an action. SubmitButtons carry name/value; Labels caption fields."
+                VStack(alignment: .center, spacing: .small) {
+                    Divider()
+                    Text("Rendered with SwiftWebUI", as: .small, tone: .muted)
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
+            }
+        }
+
+        // MARK: - Foundations
+
+        private struct FoundationsGroup: Component {
+            var body: some HTML {
+                CatalogGroup(
+                    "Foundations",
+                    anchor: "foundations",
+                    summary: "Design tokens and the unified surface material. Use the controls above to retheme every entry below live."
                 ) {
-                    Form(action: "/subscribe", method: .post) {
-                        VStack(alignment: .leading, spacing: .medium) {
-                            Label("Email address", systemImage: "envelope")
+                    CatalogEntry(
+                        "Typography",
+                        anchor: "typography",
+                        summary: "Headings and text tones resolve to theme tokens.",
+                        code: "Heading(_:level:) · Text(_:tone:)"
+                    ) {
+                        Heading("Page heading", level: .page)
+                        Heading("Section heading", level: .section)
+                        Heading("Subsection heading", level: .subsection)
+                        Text("Body copy uses the base text token and a comfortable line height for long-form reading.")
+                        Text("Muted secondary copy for captions and hints.", tone: .muted)
+                        HStack(spacing: .medium) {
+                            Text("Strong", as: .strong)
+                            Text("Small print", as: .small, tone: .muted)
+                            CatalogCodeChip("inline.code()")
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    CatalogEntry(
+                        "Color & tint",
+                        anchor: "color",
+                        summary: "tint(_:) recolors a control's accent; semantic and custom colors are available.",
+                        code: ".tint(.accent)"
+                    ) {
+                        HStack(spacing: .small) {
+                            Button("Accent", prominence: .primary)
+                                .tint(.accent)
+                            Button("Danger", prominence: .primary)
+                                .tint(.danger)
+                            Button("Custom", prominence: .primary)
+                                .tint(.css("#22a06b"))
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    CatalogEntry(
+                        "Materials",
+                        anchor: "materials",
+                        summary: "One recipe behind every surface; a level only scales the fill. Liquid Glass adds blur, a specular rim, and refraction.",
+                        code: ".background(.regularMaterial, in:)"
+                    ) {
+                        CatalogGlassStage {
+                            Grid(minColumnWidth: "150px", spacing: .medium) {
+                                CatalogMaterialSwatch("Ultra thin", code: ".ultraThinMaterial", material: .ultraThinMaterial)
+                                CatalogMaterialSwatch("Thin", code: ".thinMaterial", material: .thinMaterial)
+                                CatalogMaterialSwatch("Regular", code: ".regularMaterial", material: .regularMaterial)
+                                CatalogMaterialSwatch("Thick", code: ".thickMaterial", material: .thickMaterial)
+                                CatalogMaterialSwatch("Ultra thick", code: ".ultraThickMaterial", material: .ultraThickMaterial)
+                                CatalogMaterialSwatch("Bar", code: ".bar", material: .bar)
+                            }
+                        }
+                    }
+
+                    CatalogEntry(
+                        "Glass",
+                        anchor: "glass",
+                        summary: "glassEffect(in:) frosts any surface; GlassEffectContainer shares one glass context across siblings.",
+                        code: ".glassEffect(.regular, in:)"
+                    ) {
+                        CatalogGlassStage {
+                            GlassEffectContainer(spacing: .medium) {
+                                Text("Regular glass")
+                                    .padding(.all, "12px 18px")
+                                    .glassEffect(.regular, in: .capsule)
+                                Text("Tinted + interactive")
+                                    .padding(.all, "12px 18px")
+                                    .glassEffect(.regular.tint("var(--swui-accent)").interactive(), in: .capsule)
+                            }
+
                             HStack(spacing: .small) {
-                                SubmitButton("Subscribe", prominence: .primary)
-                                    .name("intent")
-                                    .value("subscribe")
-                                SubmitButton("Unsubscribe")
-                                    .name("intent")
-                                    .value("unsubscribe")
+                                Button("Glass", prominence: .primary)
+                                    .buttonStyle(.glass)
+                                Button("Glass prominent", prominence: .primary)
+                                    .buttonStyle(.glassProminent)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                }
+            }
+        }
+
+        // MARK: - Buttons & actions
+
+        private struct ButtonsGroup: Component {
+            var body: some HTML {
+                CatalogGroup(
+                    "Buttons & actions",
+                    anchor: "buttons",
+                    summary: "Prominence, styles, sizes, and links — the same Button under different conditions."
+                ) {
+                    CatalogEntry(
+                        "Button",
+                        anchor: "button",
+                        summary: "Prominence sets the visual weight.",
+                        code: "Button(_:prominence:)"
+                    ) {
+                        HStack(spacing: .small) {
+                            Button("Primary", prominence: .primary)
+                            Button("Secondary")
+                            Button("Plain")
+                                .buttonStyle(.plain)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    CatalogEntry(
+                        "Button styles",
+                        anchor: "button-styles",
+                        summary: "Glass styles read as Liquid Glass under that design style and degrade to a solid surface elsewhere.",
+                        code: ".buttonStyle(.glass)"
+                    ) {
+                        CatalogGlassStage {
+                            HStack(spacing: .small) {
+                                Button("Glass", prominence: .primary)
+                                    .buttonStyle(.glass)
+                                Button("Glass prominent", prominence: .primary)
+                                    .buttonStyle(.glassProminent)
+                                Button("Plain")
+                                    .buttonStyle(.plain)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+
+                    CatalogEntry(
+                        "Control sizes",
+                        anchor: "control-sizes",
+                        summary: "controlSize(_:) scales padding and type together.",
+                        code: ".controlSize(.large)"
+                    ) {
+                        HStack(spacing: .small) {
+                            Button("Mini", prominence: .primary)
+                                .controlSize(.mini)
+                            Button("Small", prominence: .primary)
+                                .controlSize(.small)
+                            Button("Regular", prominence: .primary)
+                                .controlSize(.regular)
+                            Button("Large", prominence: .primary)
+                                .controlSize(.large)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    CatalogEntry(
+                        "Tint & disabled",
+                        anchor: "button-states",
+                        summary: "tint(_:) recolors; disabled() dims and blocks interaction.",
+                        code: ".disabled()"
+                    ) {
+                        HStack(spacing: .small) {
+                            Button("Enabled", prominence: .primary)
+                            Button("Disabled", prominence: .primary)
+                                .disabled()
+                            SubmitButton("Submit")
+                                .disabled()
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    CatalogEntry(
+                        "Links",
+                        anchor: "links",
+                        summary: "ButtonLink looks like a button; Link is plain inline navigation.",
+                        code: "ButtonLink(_:href:) · Link(_:href:)"
+                    ) {
+                        HStack(spacing: .small) {
+                            ButtonLink("Primary link", href: "#", prominence: .primary)
+                            ButtonLink("Secondary link", href: "#", prominence: .secondary)
+                            Link("Anchor", href: "#")
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
@@ -715,40 +723,261 @@ struct StoryboardProject {
             }
         }
 
-        // MARK: - Containers
+        // MARK: - Inputs & controls
 
-        struct StoryboardContainers: Component {
+        private struct InputsGroup: Component {
+            let name: Binding<String>
+            let email: Binding<String>
+            let secret: Binding<String>
+            let notes: Binding<String>
+            let enabled: Binding<Bool>
+            let volume: Binding<Double>
+            let density: Binding<Int>
+            let due: Binding<Date>
+            let accent: Binding<String>
+
             var body: some HTML {
-                StoryboardSection(
-                    "Containers",
-                    "Badges and value displays \\u{2014} components that hug their content."
+                CatalogGroup(
+                    "Inputs & controls",
+                    anchor: "inputs",
+                    summary: "Client components that hydrate and mutate local state on the page."
                 ) {
-                    HStack(spacing: .small) {
-                        Badge("Default")
-                        Badge("Ready")
-                        Badge("Beta")
+                    CatalogEntry(
+                        "TextField",
+                        anchor: "textfield",
+                        summary: "Text entry with input type, validation, and content-type hints.",
+                        code: "TextField(_:text:)"
+                    ) {
+                        TextField("Name", text: name)
+                        TextField("Email", text: email, .type(.email), .required)
+                            .textContentType(.emailAddress)
+                            .keyboardType(.emailAddress)
+                            .submitLabel(.go)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                    HStack(spacing: .medium) {
-                        ValueDisplay(label: "Score", value: 42)
-                        ValueDisplay(label: "Streak", value: 7)
-                        ValueDisplay(label: "Grade", value: "A+")
+                    CatalogEntry(
+                        "SecureField",
+                        anchor: "securefield",
+                        summary: "Masked entry for secrets.",
+                        code: "SecureField(_:text:)"
+                    ) {
+                        SecureField("Secret", text: secret)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    CatalogEntry(
+                        "TextEditor",
+                        anchor: "texteditor",
+                        summary: "Multi-line text entry that composes the thin material.",
+                        code: "TextEditor(text:)"
+                    ) {
+                        TextEditor(text: notes)
+                    }
+
+                    CatalogEntry(
+                        "Toggle",
+                        anchor: "toggle",
+                        summary: "A boolean switch; the track composes the unified material.",
+                        code: "Toggle(_:isOn:)"
+                    ) {
+                        Toggle("Enabled", isOn: enabled)
+                    }
+
+                    CatalogEntry(
+                        "Slider",
+                        anchor: "slider",
+                        summary: "A continuous value across a range with an optional step.",
+                        code: "Slider(value:in:step:)"
+                    ) {
+                        Slider(value: volume, in: 0...1, step: 0.05)
+                    }
+
+                    CatalogEntry(
+                        "Stepper",
+                        anchor: "stepper",
+                        summary: "Increment or decrement a discrete value within bounds.",
+                        code: "Stepper(_:value:in:)"
+                    ) {
+                        Stepper("Density", value: density, in: 0...8)
+                        ValueDisplay(label: "Density", value: density.wrappedValue)
+                    }
+
+                    CatalogEntry(
+                        "DatePicker",
+                        anchor: "datepicker",
+                        summary: "displayedComponents selects date, time, or both.",
+                        code: "DatePicker(_:selection:displayedComponents:)"
+                    ) {
+                        DatePicker("Due date", selection: due)
+                        DatePicker(
+                            "Starts at",
+                            selection: due,
+                            displayedComponents: [.date, .hourAndMinute]
+                        )
+                    }
+
+                    CatalogEntry(
+                        "ColorPicker",
+                        anchor: "colorpicker",
+                        summary: "A native color well bound to a hex string.",
+                        code: "ColorPicker(_:selection:)"
+                    ) {
+                        ColorPicker("Accent", selection: accent)
+                    }
+
+                    CatalogEntry(
+                        "Form",
+                        anchor: "form",
+                        summary: "A Form posts to an action; SubmitButtons carry name/value.",
+                        code: "Form(action:method:)"
+                    ) {
+                        Form(action: "/subscribe", method: .post) {
+                            VStack(alignment: .leading, spacing: .medium) {
+                                Label("Email address", systemImage: "envelope")
+                                HStack(spacing: .small) {
+                                    SubmitButton("Subscribe", prominence: .primary)
+                                        .name("intent")
+                                        .value("subscribe")
+                                    SubmitButton("Unsubscribe")
+                                        .name("intent")
+                                        .value("unsubscribe")
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
                 }
             }
         }
 
-        // MARK: - Lists & Sections
+        // MARK: - Pickers & menus
 
-        struct StoryboardCollections: Component {
+        private struct PickersGroup: Component {
+            let pick: Binding<String>
+            let segment: Binding<String>
+            let scope: Binding<String>
+            let menuPick: Binding<String>
+
             var body: some HTML {
-                StoryboardSection(
-                    "Lists & Sections",
-                    "Grouped rows fill their container; Spacer separates leading and trailing content."
+                CatalogGroup(
+                    "Pickers & menus",
+                    anchor: "pickers",
+                    summary: "One Picker, four presentations; Menu for an on-demand action list."
                 ) {
-                    Grid(minColumnWidth: "260px", spacing: .large) {
+                    CatalogEntry(
+                        "Picker",
+                        anchor: "picker",
+                        summary: "pickerStyle(_:) chooses dropdown, segmented, inline, or menu.",
+                        code: ".pickerStyle(.segmented)"
+                    ) {
+                        CatalogVariant("Automatic (dropdown)") {
+                            Picker("Export format", selection: pick) {
+                                PickerOption("JSON", value: "json")
+                                PickerOption("CSV", value: "csv")
+                                PickerOption("XML", value: "xml")
+                            }
+                        }
+                        CatalogVariant("Segmented") {
+                            Picker("View", selection: segment) {
+                                PickerOption("List", value: "list")
+                                PickerOption("Grid", value: "grid")
+                                PickerOption("Columns", value: "columns")
+                            }
+                            .pickerStyle(.segmented)
+                        }
+                        CatalogVariant("Inline") {
+                            Picker("Scope", selection: scope) {
+                                PickerOption("All", value: "all")
+                                PickerOption("Unread", value: "unread")
+                                PickerOption("Flagged", value: "flagged")
+                            }
+                            .pickerStyle(.inline)
+                        }
+                        CatalogVariant("Menu") {
+                            Picker("Sort by", selection: menuPick) {
+                                PickerOption("Name", value: "name")
+                                PickerOption("Date", value: "date")
+                                PickerOption("Size", value: "size")
+                            }
+                            .pickerStyle(.menu)
+                        }
+                    }
+
+                    CatalogEntry(
+                        "Menu",
+                        anchor: "menu",
+                        summary: "A pull-down list of actions disclosed on demand.",
+                        code: "Menu(_:content:)"
+                    ) {
+                        Menu("Options") {
+                            Button("Duplicate") {}
+                            Button("Move…") {}
+                            Button("Delete") {}
+                        }
+                    }
+                }
+            }
+        }
+
+        // MARK: - Containers & collections
+
+        private struct ContainersGroup: Component {
+            var body: some HTML {
+                CatalogGroup(
+                    "Containers",
+                    anchor: "containers",
+                    summary: "Surfaces and collections that group and frame content."
+                ) {
+                    CatalogEntry(
+                        "Card",
+                        anchor: "card",
+                        summary: "The primary surface; composes the regular material.",
+                        code: "Card { }"
+                    ) {
+                        Card {
+                            VStack(alignment: .leading, spacing: .small) {
+                                Heading("Card title", level: .subsection)
+                                Text("Cards group related content on the shared surface material.", tone: .muted)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    CatalogEntry(
+                        "Badge",
+                        anchor: "badge",
+                        summary: "A compact status pill that hugs its label.",
+                        code: "Badge(_:)"
+                    ) {
+                        HStack(spacing: .small) {
+                            Badge("Default")
+                            Badge("Ready")
+                            Badge("Beta")
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    CatalogEntry(
+                        "ValueDisplay",
+                        anchor: "valuedisplay",
+                        summary: "A labeled readout for a single metric.",
+                        code: "ValueDisplay(label:value:)"
+                    ) {
+                        HStack(spacing: .medium) {
+                            ValueDisplay(label: "Score", value: 42)
+                            ValueDisplay(label: "Streak", value: 7)
+                            ValueDisplay(label: "Grade", value: "A+")
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    CatalogEntry(
+                        "List",
+                        anchor: "list",
+                        summary: "Grouped rows that fill their container; Spacer splits leading and trailing.",
+                        code: "List { ListRow { } }"
+                    ) {
                         List {
                             ListRow {
                                 Text("Wi-Fi")
@@ -766,7 +995,14 @@ struct StoryboardProject {
                                 Badge("3")
                             }
                         }
+                    }
 
+                    CatalogEntry(
+                        "Section",
+                        anchor: "section",
+                        summary: "A titled group with an optional footer.",
+                        code: "Section(_:footer:)"
+                    ) {
                         Section("Account", footer: "Signed in as ada@example.com") {
                             VStack(alignment: .leading, spacing: .small) {
                                 Text("Profile")
@@ -776,283 +1012,177 @@ struct StoryboardProject {
                             .frame(maxWidth: .infinity, alignment: .leading)
                         }
                     }
-                }
-            }
-        }
 
-        // MARK: - Lazy containers & ScrollView
-
-        struct StoryboardLazy: Component {
-            var body: some HTML {
-                StoryboardSection(
-                    "Lazy containers & ScrollView",
-                    "Lazy stacks and grids mark their scroll axis; ScrollView clips overflow on its axes."
-                ) {
-                    Grid(minColumnWidth: "240px", spacing: .large) {
-                        StoryboardMiniPanel("LazyVStack") {
-                            LazyVStack(alignment: .leading, spacing: .small) {
-                                Badge("Row 1")
-                                Badge("Row 2")
-                                Badge("Row 3")
-                            }
-                        }
-                        StoryboardMiniPanel("LazyHStack") {
-                            LazyHStack(spacing: .small) {
-                                Badge("A")
-                                Badge("B")
-                                Badge("C")
-                            }
-                        }
-                        StoryboardMiniPanel("LazyVGrid") {
-                            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: .small) {
-                                Badge("1")
-                                Badge("2")
-                                Badge("3")
-                                Badge("4")
-                            }
-                        }
-                        StoryboardMiniPanel("LazyHGrid") {
-                            LazyHGrid(rows: [GridItem(.fixed(28)), GridItem(.fixed(28))], spacing: .small) {
-                                Badge("1")
-                                Badge("2")
-                                Badge("3")
-                                Badge("4")
-                            }
-                        }
-                    }
-
-                    Divider()
-
-                    Text("ScrollView (vertical, clipped to 160px)", as: .strong)
-                    ScrollView(.vertical) {
-                        VStack(alignment: .leading, spacing: .small) {
-                            Badge("Item 01")
-                            Badge("Item 02")
-                            Badge("Item 03")
-                            Badge("Item 04")
-                            Badge("Item 05")
-                            Badge("Item 06")
-                            Badge("Item 07")
-                            Badge("Item 08")
-                            Badge("Item 09")
-                            Badge("Item 10")
-                        }
-                        .padding(.all, "8px")
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .frame(maxWidth: .infinity, height: "160px")
-                    .background("var(--swui-surface-raised)")
-                    .cornerRadius("12px")
-                    .style { .border("1px solid var(--swui-border)") }
-                }
-            }
-        }
-
-        // MARK: - Layout primitives
-
-        struct StoryboardLayout: Component {
-            var body: some HTML {
-                StoryboardSection(
-                    "Layout",
-                    "Stacks, grids, and overlays \\u{2014} the primitives the rest is built from."
-                ) {
-                    Grid(minColumnWidth: "200px", spacing: .large) {
-                        StoryboardMiniPanel("VStack") {
+                    CatalogEntry(
+                        "DisclosureGroup",
+                        anchor: "disclosuregroup",
+                        summary: "An expandable region; composes the regular material like Card.",
+                        code: "DisclosureGroup(_:isExpanded:)"
+                    ) {
+                        DisclosureGroup("Advanced options", isExpanded: true) {
                             VStack(alignment: .leading, spacing: .small) {
-                                Badge("Top")
-                                Badge("Middle")
-                                Badge("Bottom")
+                                Text("Nested content reveals when expanded.", tone: .muted)
+                                Label("Verbose logging", systemImage: "doc.text")
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        DisclosureGroup("Collapsed by default") {
+                            Text("Hidden until toggled.", tone: .muted)
+                        }
+                    }
+
+                    CatalogEntry(
+                        "Grid",
+                        anchor: "grid",
+                        summary: "A responsive grid that wraps at a minimum column width.",
+                        code: "Grid(minColumnWidth:spacing:)"
+                    ) {
+                        Grid(minColumnWidth: "120px", spacing: .small) {
+                            Badge("Cell 1")
+                            Badge("Cell 2")
+                            Badge("Cell 3")
+                            Badge("Cell 4")
+                        }
+                    }
+
+                    CatalogEntry(
+                        "Lazy stacks & grids",
+                        anchor: "lazy",
+                        summary: "Lazy containers mark their scroll axis for large collections.",
+                        code: "LazyVStack · LazyVGrid(columns:)"
+                    ) {
+                        Grid(minColumnWidth: "220px", spacing: .large) {
+                            CatalogVariant("LazyVStack") {
+                                LazyVStack(alignment: .leading, spacing: .small) {
+                                    Badge("Row 1")
+                                    Badge("Row 2")
+                                    Badge("Row 3")
+                                }
+                            }
+                            CatalogVariant("LazyHStack") {
+                                LazyHStack(spacing: .small) {
+                                    Badge("A")
+                                    Badge("B")
+                                    Badge("C")
+                                }
+                            }
+                            CatalogVariant("LazyVGrid") {
+                                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: .small) {
+                                    Badge("1")
+                                    Badge("2")
+                                    Badge("3")
+                                    Badge("4")
+                                }
+                            }
+                            CatalogVariant("LazyHGrid") {
+                                LazyHGrid(rows: [GridItem(.fixed(28)), GridItem(.fixed(28))], spacing: .small) {
+                                    Badge("1")
+                                    Badge("2")
+                                    Badge("3")
+                                    Badge("4")
+                                }
                             }
                         }
-                        StoryboardMiniPanel("HStack") {
-                            HStack(spacing: .small) {
-                                Badge("A")
-                                Badge("B")
-                                Badge("C")
+                    }
+
+                    CatalogEntry(
+                        "ScrollView",
+                        anchor: "scrollview",
+                        summary: "Clips overflow on its axis and scrolls within a fixed frame.",
+                        code: "ScrollView(.vertical)"
+                    ) {
+                        ScrollView(.vertical) {
+                            VStack(alignment: .leading, spacing: .small) {
+                                Badge("Item 01")
+                                Badge("Item 02")
+                                Badge("Item 03")
+                                Badge("Item 04")
+                                Badge("Item 05")
+                                Badge("Item 06")
+                                Badge("Item 07")
+                                Badge("Item 08")
                             }
+                            .padding(.all, "8px")
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
-                        StoryboardMiniPanel("ZStack") {
-                            ZStack(alignment: .center) {
-                                Text(" ")
-                                    .frame(width: "180px", height: "72px")
-                                    .background("color-mix(in srgb, var(--swui-accent) 16%, transparent)")
-                                    .cornerRadius("10px")
-                                Badge("Overlay")
-                            }
-                        }
+                        .frame(maxWidth: .infinity, height: "160px")
+                        .background("var(--swui-surface-raised)")
+                        .cornerRadius("12px")
+                        .style { .border("1px solid var(--swui-border)") }
                     }
                 }
             }
         }
 
-        // MARK: - Navigation
+        // MARK: - Status
 
-        struct StoryboardNavigation: Component {
+        private struct StatusGroup: Component {
             var body: some HTML {
-                StoryboardSection(
-                    "Navigation",
-                    "Navigation stacks hug their content and align to the leading edge."
+                CatalogGroup(
+                    "Status",
+                    anchor: "status",
+                    summary: "Determinate and indeterminate progress; both compose the ultra-thin material track."
                 ) {
-                    NavigationStack {
-                        VStack(alignment: .leading, spacing: .small) {
-                            NavigationLink("Overview", href: "#")
-                            NavigationLink("Components", href: "#components")
-                            NavigationLink("Tokens", href: "#tokens")
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    CatalogEntry(
+                        "ProgressView",
+                        anchor: "progressview",
+                        summary: "A determinate bar with a value, or an indeterminate spinner without one.",
+                        code: "ProgressView(_:value:)"
+                    ) {
+                        ProgressView("Uploading", value: 0.35)
+                        ProgressView("Rendering", value: 0.7)
+                        ProgressView("Loading")
+                    }
+
+                    CatalogEntry(
+                        "Gauge",
+                        anchor: "gauge",
+                        summary: "A compact readout of a value within a range.",
+                        code: "Gauge(value:label:)"
+                    ) {
+                        Gauge(value: 0.25, label: "Disk")
+                        Gauge(value: 0.62, label: "CPU")
+                        Gauge(value: 0.9, label: "Memory")
                     }
                 }
             }
         }
 
-        let storyboardCSS = \"\"\"
-        .storyboard-page {
-            min-height: 100vh;
-            background:
-                radial-gradient(1200px 520px at 50% -8%, color-mix(in srgb, var(--swui-accent) 10%, transparent), transparent),
-                var(--swui-background);
-            color: var(--swui-text);
-            font-family: var(--swui-font-family);
-        }
+        // MARK: - Navigation & tabs
 
-        .storyboard-page,
-        .storyboard-page * {
-            box-sizing: border-box;
-        }
-        \"\"\"
-        """
-    }
+        private struct NavigationGroup: Component {
+            let tab: Binding<String>
+            let query: Binding<String>
 
-    private var storyboardInputsSwift: String {
-        """
-        import Foundation
-        import SwiftHTML
-        import SwiftWebUI
-
-        public struct StoryboardInputs: ClientComponent, Sendable {
-            @State private var name = "Ada"
-            @State private var email = "ada@example.com"
-            @State private var secret = "hunter2"
-            @State private var style = "swift-web"
-            @State private var enabled = true
-            @State private var volume = 0.6
-            @State private var density = 3
-            @State private var theme = Theme.light
-            @State private var notes = "Multi-line text editor."
-            @State private var due = Date(timeIntervalSince1970: 1_718_000_000)
-            @State private var accent = "#3366ff"
-            @State private var segment = "list"
-            @State private var scope = "all"
-            @State private var tab = "summary"
-            @State private var query = ""
-            @State private var showsAlert = false
-            @State private var showsConfirmation = false
-            @State private var showsSheet = false
-            @State private var showsPopover = false
-
-            public init() {}
-
-            public var body: some HTML {
-                VStack(alignment: .stretch, spacing: .medium) {
-                    VStack(alignment: .leading, spacing: .xsmall) {
-                        Heading("Inputs")
-                        Text(
-                            "Client components hydrate and mutate local state on the page.",
-                            tone: .muted
-                        )
-                    }
-
-                    Grid(minColumnWidth: "240px", spacing: .large) {
-                        VStack(alignment: .leading, spacing: .medium) {
-                            TextField("Name", text: $name)
-                            TextField("Email", text: $email, .type(.email), .required)
-                                .textContentType(.emailAddress)
-                                .keyboardType(.emailAddress)
-                                .submitLabel(.go)
-                            SecureField("Secret", text: $secret)
-                            Picker("Design style", selection: $style) {
-                                PickerOption("SwiftWeb", value: "swift-web")
-                                PickerOption("Material", value: "material")
-                                PickerOption("Liquid Glass", value: "liquid-glass")
+            var body: some HTML {
+                CatalogGroup(
+                    "Navigation & tabs",
+                    anchor: "navigation",
+                    summary: "Stacks, tabs, and search — the wayfinding primitives."
+                ) {
+                    CatalogEntry(
+                        "NavigationStack",
+                        anchor: "navigationstack",
+                        summary: "A single-column stack; NavigationLink pushes a destination.",
+                        code: "NavigationStack { NavigationLink }"
+                    ) {
+                        NavigationStack {
+                            VStack(alignment: .leading, spacing: .small) {
+                                NavigationLink("Overview", href: "#")
+                                NavigationLink("Components", href: "#components")
+                                NavigationLink("Tokens", href: "#tokens")
                             }
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-
-                        VStack(alignment: .leading, spacing: .medium) {
-                            Toggle("Enabled", isOn: $enabled)
-                            Slider(value: $volume, in: 0...1, step: 0.05)
-                            Stepper("Density", value: $density, in: 0...8)
-                            ValueDisplay(label: "Density", value: density)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
-                    Divider()
-
-                    Grid(minColumnWidth: "240px", spacing: .large) {
-                        VStack(alignment: .leading, spacing: .medium) {
-                            TextEditor(text: $notes)
-                            ColorPicker("Accent", selection: $accent)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-
-                        VStack(alignment: .leading, spacing: .medium) {
-                            DatePicker("Due date", selection: $due)
-                            DatePicker(
-                                "Starts at",
-                                selection: $due,
-                                displayedComponents: [.date, .hourAndMinute]
-                            )
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-
-                    Divider()
-
-                    VStack(alignment: .leading, spacing: .small) {
-                        Text("Theme switcher", as: .small, tone: .muted)
-                        ThemeSwitcher(selection: $theme, themes: [.light, .dark, .system])
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                    Divider()
-
-                    Grid(minColumnWidth: "240px", spacing: .large) {
-                        VStack(alignment: .leading, spacing: .small) {
-                            Text("Picker \\u{2014} segmented", as: .small, tone: .muted)
-                            Picker("View", selection: $segment) {
-                                PickerOption("List", value: "list")
-                                PickerOption("Grid", value: "grid")
-                                PickerOption("Columns", value: "columns")
-                            }
-                            .pickerStyle(.segmented)
-
-                            Text("Picker \\u{2014} inline", as: .small, tone: .muted)
-                            Picker("Scope", selection: $scope) {
-                                PickerOption("All", value: "all")
-                                PickerOption("Unread", value: "unread")
-                                PickerOption("Flagged", value: "flagged")
-                            }
-                            .pickerStyle(.inline)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-
-                        VStack(alignment: .leading, spacing: .small) {
-                            Text("Menu", as: .small, tone: .muted)
-                            Menu("Options") {
-                                Button("Duplicate") {}
-                                Button("Move\\u{2026}") {}
-                                Button("Delete") {}
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-
-                    Divider()
-
-                    VStack(alignment: .leading, spacing: .small) {
-                        Text("TabView", as: .small, tone: .muted)
-                        TabView(selection: $tab) {
+                    CatalogEntry(
+                        "TabView",
+                        anchor: "tabview",
+                        summary: "Switches panels; the tab bar composes interactive glass.",
+                        code: "TabView(selection:) { Tab }"
+                    ) {
+                        TabView(selection: tab) {
                             Tab("Summary", systemImage: "doc.text", value: "summary") {
                                 Text("Summary panel content.", tone: .muted)
                             }
@@ -1064,64 +1194,291 @@ struct StoryboardProject {
                             }
                         }
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                    Divider()
-
-                    VStack(alignment: .leading, spacing: .small) {
-                        Text("Searchable", as: .small, tone: .muted)
+                    CatalogEntry(
+                        "Searchable",
+                        anchor: "searchable",
+                        summary: "Adds a search field bound to a query over a collection.",
+                        code: ".searchable(text:)"
+                    ) {
                         List {
                             ListRow { Text("Inbox") }
                             ListRow { Text("Drafts") }
                             ListRow { Text("Sent") }
                         }
-                        .searchable(text: $query)
+                        .searchable(text: query)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
 
-                    Divider()
+        // MARK: - Presentation
 
-                    VStack(alignment: .leading, spacing: .small) {
-                        Text("Presentation", as: .small, tone: .muted)
-                        HStack(spacing: .small) {
-                            Button("Alert") { showsAlert = true }
-                            Button("Confirm") { showsConfirmation = true }
-                            Button("Sheet") { showsSheet = true }
-                            Button("Popover") { showsPopover = true }
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .alert("Delete this draft?", isPresented: $showsAlert) {
-                        Button("Delete", action: Action.post("/storyboard/delete"))
-                    } message: {
-                        Text("This action cannot be undone.")
-                    }
-                    .confirmationDialog(
-                        "Discard changes?",
-                        isPresented: $showsConfirmation,
-                        titleVisibility: .visible
+        private struct PresentationGroup: Component {
+            let showsAlert: Binding<Bool>
+            let showsConfirmation: Binding<Bool>
+            let showsSheet: Binding<Bool>
+            let showsPopover: Binding<Bool>
+
+            var body: some HTML {
+                CatalogGroup(
+                    "Presentation",
+                    anchor: "presentation",
+                    summary: "Overlays that lift above the page on the top layer."
+                ) {
+                    CatalogEntry(
+                        "Alert & dialog",
+                        anchor: "alert",
+                        summary: "alert(_:isPresented:) and confirmationDialog(...) interrupt for a decision.",
+                        code: ".alert(_:isPresented:)"
                     ) {
-                        Button("Discard", action: Action.post("/storyboard/discard"))
-                        Button("Keep editing") { showsConfirmation = false }
-                    }
-                    .sheet(isPresented: $showsSheet) {
-                        VStack(alignment: .leading, spacing: .medium) {
-                            Heading("Sheet", level: .section)
-                            Text(
-                                "A sheet composes the thick material and lifts to the top layer.",
-                                tone: .muted
-                            )
-                            Button("Done") { showsSheet = false }
+                        HStack(spacing: .small) {
+                            Button("Show alert") { showsAlert.wrappedValue = true }
+                            Button("Show confirmation") { showsConfirmation.wrappedValue = true }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .alert("Delete this draft?", isPresented: showsAlert) {
+                            Button("Delete", action: Action.post("/storyboard/delete"))
+                        } message: {
+                            Text("This action cannot be undone.")
+                        }
+                        .confirmationDialog(
+                            "Discard changes?",
+                            isPresented: showsConfirmation,
+                            titleVisibility: .visible
+                        ) {
+                            Button("Discard", action: Action.post("/storyboard/discard"))
+                            Button("Keep editing") { showsConfirmation.wrappedValue = false }
                         }
                     }
-                    .popover(isPresented: $showsPopover) {
-                        VStack(alignment: .leading, spacing: .small) {
-                            Text("Popover content anchored to its source.", tone: .muted)
-                            Button("Close") { showsPopover = false }
+
+                    CatalogEntry(
+                        "Sheet & popover",
+                        anchor: "sheet",
+                        summary: "sheet(isPresented:) lifts a panel; popover(isPresented:) anchors to its source.",
+                        code: ".sheet(isPresented:)"
+                    ) {
+                        HStack(spacing: .small) {
+                            Button("Show sheet") { showsSheet.wrappedValue = true }
+                            Button("Show popover") { showsPopover.wrappedValue = true }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .sheet(isPresented: showsSheet) {
+                            VStack(alignment: .leading, spacing: .medium) {
+                                Heading("Sheet", level: .section)
+                                Text("A sheet composes the thick material and lifts to the top layer.", tone: .muted)
+                                Button("Done") { showsSheet.wrappedValue = false }
+                            }
+                        }
+                        .popover(isPresented: showsPopover) {
+                            VStack(alignment: .leading, spacing: .small) {
+                                Text("Popover content anchored to its source.", tone: .muted)
+                                Button("Close") { showsPopover.wrappedValue = false }
+                            }
                         }
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+
+        // MARK: - Layout
+
+        private struct LayoutGroup: Component {
+            var body: some HTML {
+                CatalogGroup(
+                    "Layout",
+                    anchor: "layout",
+                    summary: "The primitives the rest is built from. Sizing intent is always explicit."
+                ) {
+                    CatalogEntry(
+                        "Stacks",
+                        anchor: "stacks",
+                        summary: "VStack and HStack arrange along an axis; ZStack overlays.",
+                        code: "VStack · HStack · ZStack"
+                    ) {
+                        Grid(minColumnWidth: "180px", spacing: .large) {
+                            CatalogVariant("VStack") {
+                                VStack(alignment: .leading, spacing: .small) {
+                                    Badge("Top")
+                                    Badge("Middle")
+                                    Badge("Bottom")
+                                }
+                            }
+                            CatalogVariant("HStack") {
+                                HStack(spacing: .small) {
+                                    Badge("A")
+                                    Badge("B")
+                                    Badge("C")
+                                }
+                            }
+                            CatalogVariant("ZStack") {
+                                ZStack(alignment: .center) {
+                                    Text(" ")
+                                        .frame(width: "160px", height: "64px")
+                                        .background("color-mix(in srgb, var(--swui-accent) 16%, transparent)")
+                                        .cornerRadius("10px")
+                                    Badge("Overlay")
+                                }
+                            }
+                        }
+                    }
+
+                    CatalogEntry(
+                        "Spacer & Divider",
+                        anchor: "spacer",
+                        summary: "Spacer pushes siblings apart; Divider draws a hairline rule.",
+                        code: "Spacer() · Divider()"
+                    ) {
+                        HStack(spacing: .small) {
+                            Badge("leading")
+                            Spacer()
+                            Badge("trailing")
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        Divider()
+                        Text("Above and below are separated by a Divider.", as: .small, tone: .muted)
+                    }
+
+                    CatalogEntry(
+                        "Hug vs fill",
+                        anchor: "hug-fill",
+                        summary: "fixedSize() hugs the content; frame(maxWidth: .infinity) fills the column.",
+                        code: ".fixedSize() · .frame(maxWidth: .infinity)"
+                    ) {
+                        HStack(spacing: .small) {
+                            Badge("fixedSize()")
+                            Text("stays at content width", tone: .muted)
+                        }
+                        .padding(.all, "12px 16px")
+                        .background("color-mix(in srgb, var(--swui-accent) 12%, var(--swui-surface-raised))")
+                        .cornerRadius("12px")
+                        .style { .border("1px solid color-mix(in srgb, var(--swui-accent) 32%, transparent)") }
+                        .fixedSize()
+
+                        HStack(spacing: .small) {
+                            Badge("frame(maxWidth: .infinity)")
+                            Text("stretches to the full column", tone: .muted)
+                        }
+                        .padding(.all, "12px 16px")
+                        .background("color-mix(in srgb, var(--swui-accent) 12%, var(--swui-surface-raised))")
+                        .cornerRadius("12px")
+                        .style { .border("1px solid color-mix(in srgb, var(--swui-accent) 32%, transparent)") }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+            }
+        }
+
+        // MARK: - Media
+
+        private struct MediaGroup: Component {
+            var body: some HTML {
+                CatalogGroup(
+                    "Media",
+                    anchor: "media",
+                    summary: "SF Symbol icons and icon-and-title labels."
+                ) {
+                    CatalogEntry(
+                        "Image",
+                        anchor: "image",
+                        summary: "An SF Symbol name renders as a symbol span.",
+                        code: "Image(systemName:)"
+                    ) {
+                        HStack(spacing: .medium) {
+                            Image(systemName: "star.fill")
+                            Image(systemName: "bell.badge")
+                            Image(systemName: "gearshape")
+                            Image(systemName: "person.crop.circle")
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    CatalogEntry(
+                        "Label",
+                        anchor: "label",
+                        summary: "Pairs an icon with a title.",
+                        code: "Label(_:systemImage:)"
+                    ) {
+                        HStack(spacing: .large) {
+                            Label("Verified", systemImage: "checkmark.seal.fill")
+                            Label("Favorite", systemImage: "heart.fill")
+                            Label("Pinned", systemImage: "pin.fill")
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+            }
+        }
+
+        // MARK: - Catalog root
+
+        /// The full component catalog as a single client component. It owns every piece
+        /// of demo state, so the appearance and design-style controls in the control bar
+        /// retheme the entire page live by re-applying the environment on each change.
+        public struct StoryboardCatalog: ClientComponent, Sendable {
+            @State private var theme = Theme.light
+            @State private var styleID = "swift-web"
+            @State private var name = "Ada Lovelace"
+            @State private var email = "ada@example.com"
+            @State private var secret = "hunter2"
+            @State private var notes = "Notes support multiple lines."
+            @State private var enabled = true
+            @State private var volume = 0.6
+            @State private var density = 3
+            @State private var due = Date(timeIntervalSince1970: 1_718_000_000)
+            @State private var accent = "#3366ff"
+            @State private var pick = "json"
+            @State private var segment = "grid"
+            @State private var scope = "all"
+            @State private var menuPick = "name"
+            @State private var tab = "summary"
+            @State private var query = ""
+            @State private var showsAlert = false
+            @State private var showsConfirmation = false
+            @State private var showsSheet = false
+            @State private var showsPopover = false
+
+            public init() {}
+
+            public var body: some HTML {
+                main(.class("storyboard-page")) {
+                    VStack(spacing: .xlarge) {
+                        CatalogControlBar(theme: $theme, styleID: $styleID)
+                        CatalogHeader()
+                        CatalogIndex()
+                        FoundationsGroup()
+                        ButtonsGroup()
+                        InputsGroup(
+                            name: $name,
+                            email: $email,
+                            secret: $secret,
+                            notes: $notes,
+                            enabled: $enabled,
+                            volume: $volume,
+                            density: $density,
+                            due: $due,
+                            accent: $accent
+                        )
+                        PickersGroup(pick: $pick, segment: $segment, scope: $scope, menuPick: $menuPick)
+                        ContainersGroup()
+                        StatusGroup()
+                        NavigationGroup(tab: $tab, query: $query)
+                        PresentationGroup(
+                            showsAlert: $showsAlert,
+                            showsConfirmation: $showsConfirmation,
+                            showsSheet: $showsSheet,
+                            showsPopover: $showsPopover
+                        )
+                        LayoutGroup()
+                        MediaGroup()
+                        CatalogFooter()
+                    }
+                    .frame(maxWidth: "1040px")
+                    .padding(.horizontal, "24px")
+                    .padding(.vertical, "40px")
+                }
+                .environment(\\.theme, theme)
+                .environment(\\.styleSystem, catalogStyleSystem(for: styleID))
             }
         }
         """

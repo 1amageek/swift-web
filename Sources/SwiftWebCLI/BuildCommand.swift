@@ -54,7 +54,15 @@ struct BuildCommand {
         )
         .materialize()
         let productName = try resolvedProductName(from: generatedPackage)
-        var arguments = [
+        let resolvedSwiftSDK = resolvedSwiftSDKName
+        let wasmToolchain = try resolvedWasmToolchain(swiftSDK: resolvedSwiftSDK)
+        var arguments = buildsWasmRuntime ? [
+            "build",
+            "--package-path",
+            generatedPackage.packageDirectory.path,
+            "--product",
+            productName,
+        ] : [
             "swift",
             "build",
             "--package-path",
@@ -67,9 +75,9 @@ struct BuildCommand {
             arguments.append("--scratch-path")
             arguments.append(resolvedScratchDirectory.path)
         }
-        if let swiftSDK {
+        if let resolvedSwiftSDK {
             arguments.append("--swift-sdk")
-            arguments.append(swiftSDK)
+            arguments.append(resolvedSwiftSDK)
         }
         if let configuration {
             arguments.append("-c")
@@ -80,9 +88,12 @@ struct BuildCommand {
         if buildsWasmRuntime {
             environment["SWIFTWEB_WASM_BUILD"] = "1"
             environment["SWIFTWEB_CORE_ONLY"] = "1"
+            if let wasmToolchain {
+                environment = wasmToolchain.applying(to: environment)
+            }
         }
 
-        try runProcess(arguments: arguments, environment: environment)
+        try runProcess(arguments: arguments, environment: environment, wasmToolchain: wasmToolchain)
     }
 
     private func resolvedProductName(from generatedPackage: SwiftWebGeneratedPackage) throws -> String {
@@ -108,11 +119,31 @@ struct BuildCommand {
             .standardizedFileURL
     }
 
-    private func runProcess(arguments: [String], environment: [String: String]) throws {
+    private var resolvedSwiftSDKName: String? {
+        if buildsWasmRuntime {
+            return swiftSDK
+                ?? ProcessInfo.processInfo.environment["SWIFT_WEB_WASM_SDK"]
+                ?? SwiftWebWasmToolchain.defaultSwiftSDKName
+        }
+        return swiftSDK
+    }
+
+    private func resolvedWasmToolchain(swiftSDK: String?) throws -> SwiftWebWasmToolchain? {
+        guard buildsWasmRuntime else {
+            return nil
+        }
+        return try SwiftWebWasmToolchain.resolve(
+            sdkName: swiftSDK ?? SwiftWebWasmToolchain.defaultSwiftSDKName
+        )
+    }
+
+    private func runProcess(
+        arguments: [String],
+        environment: [String: String],
+        wasmToolchain: SwiftWebWasmToolchain?
+    ) throws {
         let process = Process()
-        process.executableURL = buildsWasmRuntime
-            ? URL(fileURLWithPath: "/usr/bin/env")
-            : URL(fileURLWithPath: "/usr/bin/xcrun")
+        process.executableURL = processExecutableURL(wasmToolchain: wasmToolchain)
         process.arguments = arguments
         process.currentDirectoryURL = packageDirectory
         process.environment = environment
@@ -124,14 +155,24 @@ struct BuildCommand {
         process.waitUntilExit()
         guard process.terminationStatus == 0 else {
             throw CLIError(
-                message: "build failed with status \(process.terminationStatus): \(commandDescription(arguments))",
+                message: "build failed with status \(process.terminationStatus): \(commandDescription(arguments, executableURL: process.executableURL))",
                 exitCode: 70
             )
         }
     }
 
-    private func commandDescription(_ arguments: [String]) -> String {
-        let launcher = buildsWasmRuntime ? "env" : "xcrun"
+    private func processExecutableURL(wasmToolchain: SwiftWebWasmToolchain?) -> URL {
+        if let wasmToolchain {
+            return wasmToolchain.swiftExecutableURL
+        }
+        if buildsWasmRuntime {
+            return URL(fileURLWithPath: "/usr/bin/env")
+        }
+        return URL(fileURLWithPath: "/usr/bin/xcrun")
+    }
+
+    private func commandDescription(_ arguments: [String], executableURL: URL?) -> String {
+        let launcher = executableURL?.path ?? (buildsWasmRuntime ? "env" : "xcrun")
         return ([launcher] + arguments).joined(separator: " ")
     }
 }

@@ -102,7 +102,6 @@ struct SwiftWebDevServerProcess {
             "swift",
             "build",
             "--disable-sandbox",
-            "--skip-update",
             "--package-path",
             configuration.packageDirectory.path,
         ]

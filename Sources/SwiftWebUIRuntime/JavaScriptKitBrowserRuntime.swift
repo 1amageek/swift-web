@@ -1,4 +1,5 @@
 #if os(WASI)
+import Foundation
 import JavaScriptKit
 import SwiftHTML
 
@@ -78,13 +79,49 @@ public enum JavaScriptKitBrowserRuntime {
         html: String,
         hydrationIndex: BrowserHydrationIndex
     ) {
+        // A rawHTML node carries no `data-swift-node` marker and may expand to any
+        // number of DOM nodes, so it cannot be selected or replaced directly.
+        // Resolve it through its parent: when the rawHTML is the sole child of an
+        // addressable element, replacing the parent's contents is the unambiguous,
+        // context-correct patch (e.g. a <style> whose CSS changes on re-theme).
+        if let record = hydrationIndex.node(nodeID), record.role == .rawHTML {
+            replaceRawHTMLContents(record, html: html, hydrationIndex: hydrationIndex)
+            return
+        }
         guard let node = resolveDOMNode(nodeID, hydrationIndex: hydrationIndex) else {
+            reportUnresolvedTarget(nodeID, operation: "replaceSubtree")
             return
         }
         let range = document.createRange()
         _ = range.selectNode(node)
         let fragment = range.createContextualFragment(html)
         _ = node.replaceWith(fragment)
+    }
+
+    private static func replaceRawHTMLContents(
+        _ record: BrowserHydrationNodeRecord,
+        html: String,
+        hydrationIndex: BrowserHydrationIndex
+    ) {
+        guard let parentID = record.parentID,
+              let parentRecord = hydrationIndex.node(parentID),
+              parentRecord.childIDs == [record.id],
+              let parent = resolveDOMNode(parentID, hydrationIndex: hydrationIndex)
+        else {
+            // A rawHTML node that shares its parent with siblings, or whose parent
+            // is not an addressable element, cannot be patched in place. Surface it
+            // instead of silently dropping the update.
+            reportUnresolvedRawHTML(record)
+            return
+        }
+        // Parse the replacement in the parent's content context so raw-text parents
+        // (<style>/<script>) keep their CSS/JS verbatim while normal parents parse
+        // the markup as HTML.
+        let range = document.createRange()
+        _ = range.selectNodeContents(parent)
+        _ = range.deleteContents()
+        let fragment = range.createContextualFragment(html)
+        _ = parent.appendChild(fragment)
     }
 
     private static func updateText(
@@ -242,11 +279,21 @@ public enum JavaScriptKitBrowserRuntime {
         guard let parent = resolveDOMNode(parentID, hydrationIndex: hydrationIndex) else {
             return
         }
-        let node = document.querySelector("[data-swift-key=\"\(cssEscape(key.identity))\"]")
+        let node = document.querySelector("[data-swift-key=\"\(cssEscape(domKeyIdentity(for: key)))\"]")
         if node.isNull || node.isUndefined {
             return
         }
         _ = parent.insertBefore(node, childNode(parent: parent, index: destinationIndex) ?? .null)
+    }
+
+    private static func domKeyIdentity(for key: Key) -> String {
+        do {
+            let data = try JSONEncoder().encode(key)
+            let payload = try JSONDecoder().decode(DOMKeyIdentityPayload.self, from: data)
+            return payload.identity ?? payload.rawValue
+        } catch {
+            return key.rawValue
+        }
     }
 
     private static func childNode(parent: JSValue, index: Int) -> JSValue? {
@@ -312,10 +359,28 @@ public enum JavaScriptKitBrowserRuntime {
         }
     }
 
+    private static func reportUnresolvedTarget(_ nodeID: HTMLNodeID, operation: String) {
+        _ = JSObject.global.console.error(
+            "[SwiftWebUI] \(operation): could not resolve DOM node \(nodeID.rawValue); patch dropped."
+        )
+    }
+
+    private static func reportUnresolvedRawHTML(_ record: BrowserHydrationNodeRecord) {
+        _ = JSObject.global.console.error(
+            "[SwiftWebUI] replaceSubtree: rawHTML node \(record.id.rawValue) is not addressable "
+                + "(it must be the sole child of an addressable element); patch dropped."
+        )
+    }
+
     private static func cssEscape(_ value: String) -> String {
         value
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
     }
+}
+
+private struct DOMKeyIdentityPayload: Decodable {
+    let rawValue: String
+    let identity: String?
 }
 #endif

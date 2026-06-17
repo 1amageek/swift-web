@@ -321,7 +321,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
     }
 
     private func copyClientRuntimeSources(from swiftWebPackageDirectory: URL) throws {
-        for targetName in ["SwiftWebUI", "SwiftWebUIRuntime"] {
+        for targetName in ["SwiftWebActors", "SwiftWebUI", "SwiftWebUIRuntime"] {
             let sourceDirectory = swiftWebPackageDirectory
                 .appendingPathComponent("Sources", isDirectory: true)
                 .appendingPathComponent(targetName, isDirectory: true)
@@ -538,7 +538,6 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
         let wasmTargets = (["appClientTarget"] + wasmRuntimeTargetNames.map(Self.variableName(for:)))
             .map { "        \($0)" }
             .joined(separator: ",\n")
-
         return """
         // swift-tools-version: 6.3
 
@@ -588,9 +587,19 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
             name: "\(appProductName)",
             dependencies: [
                 .product(name: "SwiftHTML", package: "swift-html"),
+                "SwiftWebActors",
                 "SwiftWebUI",
             ],
             path: "Sources/\(appProductName)",
+            swiftSettings: swiftSettings
+        )
+
+        let swiftWebActorsTarget = Target.target(
+            name: "SwiftWebActors",
+            dependencies: [
+                .product(name: "ActorRuntime", package: "swift-actor-runtime"),
+            ],
+            path: "Sources/SwiftWebActors",
             swiftSettings: swiftSettings
         )
 
@@ -608,6 +617,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
             dependencies: [
                 .product(name: "SwiftHTML", package: "swift-html"),
                 .product(name: "JavaScriptKit", package: "JavaScriptKit"),
+                "SwiftWebActors",
             ],
             path: "Sources/SwiftWebUIRuntime",
             swiftSettings: swiftSettings
@@ -627,13 +637,15 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
                 .executable(name: "\(serverProductName)", targets: ["AppServerLauncher"]),
             ],
             dependencies: buildsWasmRuntime ? [
-                .package(url: "https://github.com/1amageek/swift-html.git", from: "0.1.0"),
+                .package(url: "https://github.com/1amageek/swift-html.git", from: "0.2.0"),
                 .package(url: "https://github.com/swiftwasm/JavaScriptKit.git", from: "0.55.0"),
+                .package(url: "https://github.com/1amageek/swift-actor-runtime.git", exact: "0.5.0"),
             ] : [
                 .package(path: "\(Self.swiftStringLiteral(appPackageDirectory.path))"),
                 .package(path: "\(Self.swiftStringLiteral(swiftWebPackageDirectory.path))"),
             ],
             targets: buildsWasmRuntime ? [
+                swiftWebActorsTarget,
                 swiftWebUITarget,
                 swiftWebUIRuntimeTarget,
         \(wasmTargets)
@@ -651,6 +663,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
             name: "\(targetName)",
             dependencies: [
                 "\(appProductName)",
+                "SwiftWebActors",
                 .product(name: "SwiftHTML", package: "swift-html"),
                 "SwiftWebUI",
                 "SwiftWebUIRuntime",

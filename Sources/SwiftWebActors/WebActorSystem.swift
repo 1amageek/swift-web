@@ -12,8 +12,11 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
     public static let shared = WebActorSystem()
 
     private let registry = ActorRegistry()
+    private let transport: (any WebActorTransport)?
 
-    public init() {}
+    public init(transport: (any WebActorTransport)? = nil) {
+        self.transport = transport
+    }
 
     public func assignID<Act>(_ actorType: Act.Type) -> ActorID where Act: DistributedActor {
         "\(String(reflecting: actorType)):\(UUID().uuidString)"
@@ -47,7 +50,7 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
     ) async throws -> Res where Act: DistributedActor, Act.ID == ActorID, Err: Error, Res: Codable & Sendable {
         invocation.recordTarget(target)
         let envelope = try invocation.makeInvocationEnvelope(recipientID: actor.id)
-        let response = try await execute(envelope: envelope, target: target)
+        let response = try await dispatch(envelope: envelope, target: target)
 
         switch response.result {
         case .success(let data):
@@ -70,7 +73,7 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
     ) async throws where Act: DistributedActor, Act.ID == ActorID, Err: Error {
         invocation.recordTarget(target)
         let envelope = try invocation.makeInvocationEnvelope(recipientID: actor.id)
-        let response = try await execute(envelope: envelope, target: target)
+        let response = try await dispatch(envelope: envelope, target: target)
 
         switch response.result {
         case .void:
@@ -92,14 +95,32 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
             target: targetIdentifier,
             arguments: arguments
         )
-        return try await execute(
+        return try await invoke(envelope: envelope)
+    }
+
+    public func invoke(envelope: InvocationEnvelope) async throws -> ResponseEnvelope {
+        try await execute(
             envelope: envelope,
-            target: RemoteCallTarget(targetIdentifier)
+            target: RemoteCallTarget(envelope.target)
         )
     }
 
     public func shutdown() {
         registry.clear()
+    }
+
+    private func dispatch(
+        envelope: InvocationEnvelope,
+        target: RemoteCallTarget
+    ) async throws -> ResponseEnvelope {
+        if registry.find(id: envelope.recipientID) != nil {
+            return try await execute(envelope: envelope, target: target)
+        }
+
+        guard let transport else {
+            throw RuntimeError.actorNotFound(envelope.recipientID)
+        }
+        return try await transport.call(envelope)
     }
 
     private func execute(

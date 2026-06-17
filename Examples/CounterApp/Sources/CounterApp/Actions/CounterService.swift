@@ -1,7 +1,7 @@
 import Distributed
 import SwiftWeb
 
-distributed actor CounterService {
+distributed actor CounterService: CounterServiceProtocol {
     typealias ActorSystem = WebActorSystem
     private var value = 0
 
@@ -9,15 +9,25 @@ distributed actor CounterService {
         value
     }
 
+    distributed func increment() async throws -> Int {
+        value += 1
+        return value
+    }
+
+    distributed func decrement() async throws -> Int {
+        value -= 1
+        return value
+    }
+
     @ServerAction
     distributed func increment(_ input: NoActionInput, context: ActionInvocationContext) async throws -> ActionResult {
-        value += 1
+        _ = try await increment()
         return .invalidate(.page)
     }
 
     @ServerAction
     distributed func decrement(_ input: NoActionInput, context: ActionInvocationContext) async throws -> ActionResult {
-        value -= 1
+        _ = try await decrement()
         return .invalidate(.page)
     }
 }

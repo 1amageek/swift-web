@@ -1,4 +1,5 @@
 import Distributed
+import SwiftWebActors
 import Vapor
 
 public enum PageOwnedServices {

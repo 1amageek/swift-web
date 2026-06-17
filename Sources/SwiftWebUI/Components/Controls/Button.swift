@@ -5,7 +5,6 @@ public struct Button<Label: HTML>: WebUIAttributeComponent {
     private let attributes: [HTMLAttribute]
     private let action: (any ActionRepresentable)?
     private let label: Label
-    @Environment(\.actionHiddenFields) private var actionHiddenFields
     @Environment(\.theme) private var theme
     @Environment(\.styleSystem) private var styleSystem
     @Environment(\.colorScheme) private var colorScheme
@@ -152,11 +151,7 @@ public struct Button<Label: HTML>: WebUIAttributeComponent {
                 hiddenInput(field)
             }
             if action.method == .post {
-                for field in actionHiddenFields {
-                    if !action.fields.contains(where: { $0.name == field.name }) {
-                        hiddenInput(field)
-                    }
-                }
+                ButtonActionHiddenFields(excluding: action.fields.map(\.name))
             }
             actionButton(action)
         }
@@ -209,6 +204,32 @@ public struct Button<Label: HTML>: WebUIAttributeComponent {
         }
 
         return attributes
+    }
+}
+
+private struct ButtonActionHiddenFields: ServerComponent {
+    let excludedNames: [String]
+    @Environment(\.actionHiddenFields) private var actionHiddenFields
+
+    init(excluding excludedNames: [String]) {
+        self.excludedNames = excludedNames
+    }
+
+    @HTMLBuilder
+    var body: some HTML {
+        for field in actionHiddenFields {
+            if !excludedNames.contains(field.name) {
+                Element(
+                    "input",
+                    attributes: [
+                        .type(InputType.hidden),
+                        .name(field.name),
+                        .value(field.value),
+                    ],
+                    isVoid: true
+                )
+            }
+        }
     }
 }
 

@@ -47,17 +47,17 @@ struct CommandLineInterface {
         print(
             """
             Usage:
-              swift-web new <AppName> [--output <directory>] [--template hello|basic|roadmap] [--force]
+              swift-web new <AppName> [--output <directory>] [--force]
               swift-web build [--package-path <directory>] [--product <name>] [--wasm] [--swift-sdk <sdk>] [-c debug|release]
               swift-web clean [--package-path <directory>] [--storyboard] [--swiftpm] [--all]
               swift-web dev [--package-path <directory>] [--product <name>] [--host <host>] [--port <port>]
               swift-web storyboard [--package-path <directory>] [--output <directory>] [--host <host>] [--port <port>] [--no-run] [--force]
 
             Commands:
-              new         Create a SwiftWeb app template.
+              new         Create a minimal SwiftWeb app skeleton.
               build       Build the generated server or WASM runtime package.
               clean       Remove SwiftWeb generated build artifacts. Pass --swiftpm to remove the package .build too.
-              dev         Run a SwiftWeb app with rebuild, server restart, and browser hot reload on changes.
+              dev         Run a SwiftWeb app with rebuild, server restart, and dev browser updates on changes.
               storyboard  Generate and run a SwiftWebUI component style storyboard.
             """
         )

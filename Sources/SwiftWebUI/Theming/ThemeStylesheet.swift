@@ -75,6 +75,19 @@ enum ThemeStylesheet {
                 .fontSize("var(--swui-base-size)")
                 .lineHeight("var(--swui-line-height)")
             }
+            // A theme scope nested inside another (`.environment(\.theme,)` applied
+            // to a subtree, e.g. a preview matrix cell) is an inner surface, not the
+            // page canvas. It keeps the themed background so the subtree previews on
+            // its own theme, but drops the page-root fills: it sizes to its content
+            // instead of stretching to `min-height: 100%` (which would overrun
+            // siblings), rounds its corners so the themed fill frames a rounded card
+            // instead of poking square corners past it, and pads its content so a
+            // card's drop shadow is not clipped at a hard background seam.
+            rule(".swui-root .swui-root") {
+                .minHeight("auto")
+                .borderRadius("var(--swui-radius-large)")
+                .padding("var(--swui-space-md)")
+            }
             rule("""
             .swui-vstack,
             .swui-hstack,

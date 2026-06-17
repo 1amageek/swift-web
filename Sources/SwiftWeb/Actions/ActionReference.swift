@@ -1,30 +1,6 @@
 import SwiftHTML
 
-public protocol ActionReferenceResolving: Sendable {
-    func resolve<Input, Output>(
-        _ reference: ActionReference<Input, Output>
-    ) async throws -> RemoteServerAction<Input, Output>
-}
-
-public protocol Resolvable: Sendable, Codable {
-    associatedtype Resolved: Sendable
-
-    func resolve(using resolver: any ActionReferenceResolving) async throws -> Resolved
-}
-
-public struct RemoteServerAction<Input: Codable & Sendable, Output: Sendable>: Sendable, Codable {
-    public let reference: ActionReference<Input, Output>
-    public let endpoint: String
-
-    public init(reference: ActionReference<Input, Output>, endpoint: String) {
-        self.reference = reference
-        self.endpoint = endpoint
-    }
-}
-
-public struct ActionReference<Input: Codable & Sendable, Output: Sendable>: Sendable, Codable, Resolvable, ActionRepresentable {
-    public typealias Resolved = RemoteServerAction<Input, Output>
-
+public struct ActionReference<Input: Codable & Sendable, Output: Sendable>: Sendable, Codable, ActionRepresentable {
     public let actorID: String
     public let actorName: String
     public let methodName: String
@@ -101,9 +77,6 @@ public struct ActionReference<Input: Codable & Sendable, Output: Sendable>: Send
         )
     }
 
-    public func resolve(using resolver: any ActionReferenceResolving) async throws -> RemoteServerAction<Input, Output> {
-        try await resolver.resolve(self)
-    }
 }
 
 public struct NoActionInput: Codable, Sendable {

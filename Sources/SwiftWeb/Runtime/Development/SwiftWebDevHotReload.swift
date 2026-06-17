@@ -304,6 +304,9 @@ enum SwiftWebDevHotReload {
             };
             const handleEvent = (event) => {
               try {
+                if (!event || typeof event.data !== "string" || event.data.length === 0) {
+                  return;
+                }
                 swiftWebHandleDevEvent(JSON.parse(event.data)).catch((error) => {
                   console.error("SwiftWeb HMR event failed", error);
                   swiftWebDevOverlay(String(error && error.message ? error.message : error), "error");
