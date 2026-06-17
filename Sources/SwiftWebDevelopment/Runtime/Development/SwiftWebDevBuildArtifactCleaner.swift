@@ -75,7 +75,7 @@ public struct SwiftWebDevBuildArtifactCleaner: Sendable {
 
     private func shouldRemoveGeneratedBuildArtifact(_ url: URL, _ name: String) -> Bool {
         switch name {
-        case ".build", "dev", "dev-build", "module-cache", "swiftpm-module-cache", "tmp", "wasm-tools":
+        case ".build", "dev-build", "module-cache", "swiftpm-module-cache", "tmp", "wasm-tools":
             return true
         default:
             return false

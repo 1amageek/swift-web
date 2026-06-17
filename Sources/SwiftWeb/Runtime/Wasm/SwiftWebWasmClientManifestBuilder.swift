@@ -8,11 +8,10 @@ enum SwiftWebWasmClientManifestBuilder {
         let bundleID = runtime.runtimeBundleID
         let components = artifact.hydration.components.map { component in
             let additionalBundle = additionalBundle(
-                for: component.typeName,
+                for: component,
                 in: runtime.additionalBundles
             )
             let componentBundleID = additionalBundle?.id
-                ?? component.bundleID
                 ?? bundleID
             return ClientComponentAsset(
                 componentID: component.id,
@@ -34,7 +33,7 @@ enum SwiftWebWasmClientManifestBuilder {
                 id: bundle.id,
                 kind: .component,
                 asset: WasmAsset(path: bundle.assetPath),
-                symbols: [ClientSymbolID(bundle.componentTypeName)],
+                symbols: bundle.componentTypeNames.map { ClientSymbolID($0) },
                 components: componentIDsByBundleID[bundle.id] ?? [],
                 loadPolicy: components.first(where: { $0.bundleID == bundle.id })?.loadPolicy ?? .eager
             )
@@ -58,13 +57,18 @@ enum SwiftWebWasmClientManifestBuilder {
     }
 
     private static func additionalBundle(
-        for typeName: String,
+        for component: HydrationComponentRecord,
         in bundles: [SwiftWebWasmClientBundle]
     ) -> SwiftWebWasmClientBundle? {
         bundles.first { bundle in
-            typeName == bundle.componentTypeName
-                || typeName.hasSuffix(".\(bundle.componentTypeName)")
-                || bundle.componentTypeName.hasSuffix(".\(typeName)")
+            if component.bundleID == bundle.id {
+                return true
+            }
+            return bundle.componentTypeNames.contains { typeName in
+                component.typeName == typeName
+                    || component.typeName.hasSuffix(".\(typeName)")
+                    || typeName.hasSuffix(".\(component.typeName)")
+            }
         }
     }
 }

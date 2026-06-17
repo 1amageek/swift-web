@@ -26,6 +26,36 @@ private struct RuntimeStatefulComponent: ClientComponent {
     }
 }
 
+private struct RuntimeChartComponent: ClientComponent {
+    static let loadPolicy: LoadPolicy = .visible
+
+    var body: some HTML {
+        button(.type(ButtonType.button)) {
+            "Chart"
+        }
+    }
+}
+
+private struct RuntimeEditorComponent: ClientComponent {
+    static let loadPolicy: LoadPolicy = .interaction
+    static let bundle: BundlePolicy = .shared("workspace")
+
+    var body: some HTML {
+        button(.type(ButtonType.button)) {
+            "Editor"
+        }
+    }
+}
+
+private struct RuntimeSplitShell: Component {
+    var body: some HTML {
+        div {
+            RuntimeChartComponent()
+            RuntimeEditorComponent()
+        }
+    }
+}
+
 @Suite
 struct SwiftWebClientRuntimeTests {
     @Test
@@ -103,5 +133,61 @@ struct SwiftWebClientRuntimeTests {
         #expect(asset.environmentSchemaHash == component.environmentSnapshot.schemaHash)
         #expect(bundle.kind == .component)
         #expect(try #require(bundle.asset).path == "/assets/runtime-stateful.wasm")
+    }
+
+    @Test
+    func wasmManifestUsesResolvedSplitBundleContracts() throws {
+        let artifact = RuntimeSplitShell().renderArtifact()
+        let chart = try #require(artifact.hydration.components.first { component in
+            component.typeName.hasSuffix(".RuntimeChartComponent")
+                || component.typeName == "RuntimeChartComponent"
+        })
+        let editor = try #require(artifact.hydration.components.first { component in
+            component.typeName.hasSuffix(".RuntimeEditorComponent")
+                || component.typeName == "RuntimeEditorComponent"
+        })
+        let chartBundleID = try #require(chart.bundleID)
+        let editorBundleID = try #require(editor.bundleID)
+        let chartTypeName = chart.typeName.split(separator: ".").last.map(String.init) ?? chart.typeName
+        let editorTypeName = editor.typeName.split(separator: ".").last.map(String.init) ?? editor.typeName
+
+        #expect(chart.loadPolicy == .visible)
+        #expect(editor.loadPolicy == .interaction)
+        #expect(editorBundleID == ClientBundleID("shared-workspace"))
+
+        let runtime = SwiftWebWasmClientRuntime(
+            manifestPath: "/assets/swift-web-client.json",
+            runtimeAssetPath: "/assets/main.wasm",
+            additionalBundles: [
+                SwiftWebWasmClientBundle(
+                    id: chartBundleID,
+                    componentTypeNames: [chartTypeName],
+                    assetPath: "/assets/chart.wasm"
+                ),
+                SwiftWebWasmClientBundle(
+                    id: editorBundleID,
+                    componentTypeNames: [editorTypeName],
+                    assetPath: "/assets/workspace.wasm"
+                ),
+            ]
+        )
+
+        let manifest = SwiftWebWasmClientManifestBuilder.manifest(
+            from: artifact,
+            runtime: runtime
+        )
+        let chartAsset = try #require(manifest.component(chart.id))
+        let editorAsset = try #require(manifest.component(editor.id))
+        let chartBundle = try #require(manifest.bundle(chartBundleID))
+        let editorBundle = try #require(manifest.bundle(editorBundleID))
+
+        #expect(chartAsset.bundleID == chartBundleID)
+        #expect(chartAsset.loadPolicy == .visible)
+        #expect(editorAsset.bundleID == editorBundleID)
+        #expect(editorAsset.loadPolicy == .interaction)
+        #expect(chartBundle.components == [chart.id])
+        #expect(editorBundle.components == [editor.id])
+        #expect(try #require(chartBundle.asset).path == "/assets/chart.wasm")
+        #expect(try #require(editorBundle.asset).path == "/assets/workspace.wasm")
     }
 }

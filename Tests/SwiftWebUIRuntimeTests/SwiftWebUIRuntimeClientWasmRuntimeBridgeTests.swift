@@ -126,6 +126,17 @@ private struct WasmBridgeMountedRoot: Component, Sendable {
     }
 }
 
+private struct WasmBridgeMountedRootWithEarlierHandler: Component, Sendable {
+    var body: some HTML {
+        div {
+            button(.type(ButtonType.button), .onClick {}) {
+                "server action"
+            }
+            WasmBridgeCounter()
+        }
+    }
+}
+
 private struct WasmBridgeMountedListRoot: Component, Sendable {
     var body: some HTML {
         div {
@@ -137,7 +148,7 @@ private struct WasmBridgeMountedListRoot: Component, Sendable {
     }
 }
 
-@Suite
+@Suite(.serialized)
 struct SwiftWebUIRuntimeClientWasmRuntimeBridgeTests {
     @Test
     func bridgeBootstrapsAndDispatchesClientStateWithoutServerSession() throws {
@@ -204,6 +215,64 @@ struct SwiftWebUIRuntimeClientWasmRuntimeBridgeTests {
         #expect(update.commandBatch?.commands == [
             .updateText(node: serverValueNode.id, value: "1"),
         ])
+    }
+
+    @Test
+    func bridgeTranslatesMountedHandlerIDsWhenServerPageHasEarlierHandlers() throws {
+        let serverArtifact = WasmBridgeMountedRootWithEarlierHandler().renderArtifact()
+        let serverIndex = serverArtifact.browserHydrationIndex()
+        let counterComponent = try #require(serverIndex.components.first { component in
+            component.typeName == String(reflecting: WasmBridgeCounter.self)
+        })
+        let counterHandler = try #require(serverIndex.handlers.first { binding in
+            binding.componentID == counterComponent.id
+        })
+        let serverValueNode = try #require(serverIndex.nodes.first { node in
+            node.role == .text && node.text == "0"
+        })
+        let serverHandlerIDs = Set(serverIndex.handlers.map(\.handlerID))
+        let bridge = ClientWasmRuntimeBridge<WasmBridgeCounter>(
+            componentMount: ClientWasmComponentMount(WasmBridgeCounter.self)
+        ) { _ in
+            WasmBridgeCounter()
+        }
+
+        _ = try bridge.bootstrap(
+            ClientWasmBootstrapRequest(
+                hydrationIndex: serverIndex,
+                location: ClientWasmBootstrapLocation(
+                    href: "http://127.0.0.1:8080/counter",
+                    search: ""
+                )
+            )
+        )
+        let firstUpdate = try bridge.dispatch(
+            ClientWasmEventRequest(
+                handlerID: counterHandler.handlerID,
+                event: DOMEvent()
+            )
+        )
+        let secondUpdate = try bridge.dispatch(
+            ClientWasmEventRequest(
+                handlerID: counterHandler.handlerID,
+                event: DOMEvent()
+            )
+        )
+
+        #expect(firstUpdate.commandBatch?.commands == [
+            .updateText(node: serverValueNode.id, value: "1"),
+        ])
+        #expect(firstUpdate.hydrationIndex?.handlers.contains { binding in
+            binding.handlerID == counterHandler.handlerID
+        } == true)
+        #expect(Set(firstUpdate.hydrationIndex?.handlers.map(\.handlerID) ?? []) == serverHandlerIDs)
+        #expect(secondUpdate.commandBatch?.commands == [
+            .updateText(node: serverValueNode.id, value: "2"),
+        ])
+        #expect(secondUpdate.hydrationIndex?.handlers.contains { binding in
+            binding.handlerID == counterHandler.handlerID
+        } == true)
+        #expect(Set(secondUpdate.hydrationIndex?.handlers.map(\.handlerID) ?? []) == serverHandlerIDs)
     }
 
     @Test
@@ -332,6 +401,73 @@ struct SwiftWebUIRuntimeClientWasmRuntimeBridgeTests {
     }
 
     @Test
+    func bridgeHotReloadRebasesStateWhenComponentIDChangesButSourceMatches() throws {
+        WasmBridgeHotReloadStateFixture.text = "Before"
+        let serverArtifact = WasmBridgeHotReloadStatefulComponent().renderArtifact()
+        let serverIndex = serverArtifact.browserHydrationIndex()
+        let oldBridge = ClientWasmRuntimeBridge<WasmBridgeHotReloadStatefulComponent>(
+            componentMount: ClientWasmComponentMount(WasmBridgeHotReloadStatefulComponent.self)
+        ) { _ in
+            WasmBridgeHotReloadStatefulComponent()
+        }
+
+        _ = try oldBridge.bootstrap(
+            ClientWasmBootstrapRequest(
+                hydrationIndex: serverIndex,
+                location: ClientWasmBootstrapLocation(
+                    href: "http://127.0.0.1:8080/storyboard",
+                    search: ""
+                )
+            )
+        )
+        let handler = try #require(serverIndex.handlers.first)
+        let incremented = try oldBridge.dispatch(
+            ClientWasmEventRequest(
+                handlerID: handler.handlerID,
+                event: DOMEvent()
+            )
+        )
+        let incrementedIndex = try #require(incremented.hydrationIndex)
+        let incrementedTextNode = try #require(incremented.commandBatch?.commands.compactMap(textUpdateNode).first)
+        let snapshot = try oldBridge.snapshotState()
+        let snapshotWithChangedComponentID = ClientWasmStateSnapshot(
+            schemaHash: "legacy-component-id",
+            values: Dictionary(uniqueKeysWithValues: snapshot.values.map { key, value in
+                let sourceSuffix = key.range(of: ":state:").map { range in
+                    String(key[range.lowerBound...])
+                } ?? key
+                return ("legacy-component\(sourceSuffix)", value)
+            })
+        )
+
+        WasmBridgeHotReloadStateFixture.text = "After"
+        let newBridge = ClientWasmRuntimeBridge<WasmBridgeHotReloadStatefulComponent>(
+            componentMount: ClientWasmComponentMount(WasmBridgeHotReloadStatefulComponent.self)
+        ) { _ in
+            WasmBridgeHotReloadStatefulComponent()
+        }
+
+        let response = try newBridge.bootstrap(
+            ClientWasmBootstrapRequest(
+                hydrationIndex: incrementedIndex,
+                location: ClientWasmBootstrapLocation(
+                    href: "http://127.0.0.1:8080/storyboard",
+                    search: ""
+                ),
+                mode: .hotReload,
+                stateSnapshot: snapshotWithChangedComponentID
+            )
+        )
+
+        #expect(response.hydrationIndex?.nodes.contains { node in
+            node.role == .text && node.text == "After 1"
+        } == true)
+        #expect(response.commandBatch?.commands.contains { command in
+            command == .updateText(node: incrementedTextNode, value: "After 1")
+        } == true)
+    }
+
+    @Test
     func bridgeHotReloadDropsStateWhenSchemaMismatches() throws {
         WasmBridgeHotReloadStateFixture.text = "Before"
         let serverArtifact = WasmBridgeHotReloadStatefulComponent().renderArtifact()
@@ -361,9 +497,12 @@ struct SwiftWebUIRuntimeClientWasmRuntimeBridgeTests {
         let incrementedIndex = try #require(incremented.hydrationIndex)
         let incrementedTextNode = try #require(incremented.commandBatch?.commands.compactMap(textUpdateNode).first)
         let snapshot = try oldBridge.snapshotState()
+        let snapshotValue = try #require(snapshot.values.first?.value)
         let incompatibleSnapshot = ClientWasmStateSnapshot(
             schemaHash: "incompatible",
-            values: snapshot.values
+            values: [
+                "legacy-component:state:Other.swift:1:1": snapshotValue,
+            ]
         )
 
         WasmBridgeHotReloadStateFixture.text = "After"

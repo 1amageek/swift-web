@@ -124,7 +124,7 @@ public final class ClientWasmRuntimeEntrypoint<Root: HTML> {
     }
 }
 
-private final class ClientWasmResponseStorage {
+final class ClientWasmResponseStorage {
     private var pointer: UnsafeMutableRawPointer?
     private var byteCount: Int = 0
 

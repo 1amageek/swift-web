@@ -17,7 +17,7 @@ public struct ClientWasmRuntimeConfiguration {
         let additionalRuntimeBundles = additionalBundles.map { bundle in
             SwiftWebWasmClientBundle(
                 id: ClientBundleID(bundle.id),
-                componentTypeName: bundle.componentTypeName,
+                componentTypeNames: bundle.componentTypeNames,
                 assetPath: bundle.assetPath
             )
         }
@@ -47,7 +47,7 @@ public struct ClientWasmRuntimeConfiguration {
         let additionalRuntimeBundles = additionalBundles.map { bundle in
             SwiftWebWasmClientBundle(
                 id: ClientBundleID(bundle.id),
-                componentTypeName: bundle.componentTypeName,
+                componentTypeNames: bundle.componentTypeNames,
                 assetPath: bundle.assetPath
             )
         }
@@ -81,9 +81,13 @@ public struct ClientWasmRuntimeConfiguration {
 
 public struct ClientWasmBundleArtifact {
     public let id: String
-    public let componentTypeName: String
+    public let componentTypeNames: [String]
     public let assetPath: String
     private let resolveFileURL: () throws -> URL
+
+    public var componentTypeName: String {
+        componentTypeNames.first ?? ""
+    }
 
     public init(
         id: String,
@@ -91,8 +95,22 @@ public struct ClientWasmBundleArtifact {
         assetPath: String,
         fileURL: URL
     ) {
+        self.init(
+            id: id,
+            componentTypeNames: [componentTypeName],
+            assetPath: assetPath,
+            fileURL: fileURL
+        )
+    }
+
+    public init(
+        id: String,
+        componentTypeNames: [String],
+        assetPath: String,
+        fileURL: URL
+    ) {
         self.id = id
-        self.componentTypeName = componentTypeName
+        self.componentTypeNames = componentTypeNames.sorted()
         self.assetPath = assetPath
         self.resolveFileURL = { fileURL }
     }
@@ -103,8 +121,22 @@ public struct ClientWasmBundleArtifact {
         assetPath: String,
         artifact: SwiftPMWasmArtifactLocation
     ) {
+        self.init(
+            id: id,
+            componentTypeNames: [componentTypeName],
+            assetPath: assetPath,
+            artifact: artifact
+        )
+    }
+
+    public init(
+        id: String,
+        componentTypeNames: [String],
+        assetPath: String,
+        artifact: SwiftPMWasmArtifactLocation
+    ) {
         self.id = id
-        self.componentTypeName = componentTypeName
+        self.componentTypeNames = componentTypeNames.sorted()
         self.assetPath = assetPath
         self.resolveFileURL = artifact.url
     }

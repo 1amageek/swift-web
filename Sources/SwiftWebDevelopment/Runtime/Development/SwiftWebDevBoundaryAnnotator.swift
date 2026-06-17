@@ -38,7 +38,7 @@ enum SwiftWebDevBoundaryAnnotator {
             uniqueKeysWithValues: hydrationIndex.nodes.map { ($0.id, $0) }
         )
 
-        return manifest.components.filter { component in
+        let candidates = manifest.components.filter { component in
             guard let hydrationComponent = hydrationComponentsByID[component.componentID] else {
                 return false
             }
@@ -49,6 +49,24 @@ enum SwiftWebDevBoundaryAnnotator {
                 componentIDsByNodeID: componentIDsByNodeID,
                 nodesByID: nodesByID
             )
+        }
+        return candidates.sorted { left, right in
+            let leftPath = hydrationComponentsByID[left.componentID]?.path ?? ""
+            let rightPath = hydrationComponentsByID[right.componentID]?.path ?? ""
+            let leftDepth = leftPath.split(separator: "/").count
+            let rightDepth = rightPath.split(separator: "/").count
+            if leftDepth != rightDepth {
+                return leftDepth < rightDepth
+            }
+            if left.bundleID != right.bundleID {
+                if left.bundleID == manifest.runtimeBundleID {
+                    return false
+                }
+                if right.bundleID == manifest.runtimeBundleID {
+                    return true
+                }
+            }
+            return left.componentID.rawValue < right.componentID.rawValue
         }
     }
 
@@ -78,11 +96,22 @@ enum SwiftWebDevBoundaryAnnotator {
             return
         }
 
-        let tag = html[tagRange]
+        let tag = String(html[tagRange])
         guard !tag.contains("data-swift-hmr-boundary=") else {
             return
         }
 
+        let cleanedTag = removingAttributes(
+            [
+                "data-swift-component",
+                "data-swift-hmr-boundary",
+                "data-swift-state-schema",
+                "data-swift-environment-schema",
+                "data-swift-component-type",
+                "data-swift-bundle",
+            ],
+            from: tag
+        )
         let attributes = [
             ("data-swift-component", component.componentID.rawValue),
             ("data-swift-hmr-boundary", "true"),
@@ -96,7 +125,7 @@ enum SwiftWebDevBoundaryAnnotator {
         }
         .joined(separator: " ")
 
-        html.insert(contentsOf: " \(attributes)", at: tagRange.upperBound)
+        html.replaceSubrange(tagRange, with: "\(cleanedTag) \(attributes)")
     }
 
     private static func firstElementTagRange(
@@ -168,6 +197,25 @@ enum SwiftWebDevBoundaryAnnotator {
                 output += "&gt;"
             default:
                 output.append(character)
+            }
+        }
+        return output
+    }
+
+    private static func removingAttributes(_ names: [String], from tag: String) -> String {
+        var output = tag
+        for name in names {
+            do {
+                let escapedName = NSRegularExpression.escapedPattern(for: name)
+                let pattern = #"\s+"# + escapedName + #"(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'>/=`]+))?"#
+                let expression = try NSRegularExpression(pattern: pattern)
+                output = expression.stringByReplacingMatches(
+                    in: output,
+                    range: NSRange(output.startIndex..<output.endIndex, in: output),
+                    withTemplate: ""
+                )
+            } catch {
+                assertionFailure("Failed to compile SwiftWeb dev boundary attribute expression: \(error)")
             }
         }
         return output

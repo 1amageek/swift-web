@@ -2,7 +2,7 @@
 
 SwiftWebCLI provides the `swift-web` executable.
 
-It owns command parsing, project scaffolding, and generated build package preparation. The development server orchestration loop lives in `SwiftWeb` as `SwiftWebDevRuntime`.
+It owns command parsing and project scaffolding. Generated package materialization and development server orchestration live in `SwiftWebDevelopment`.
 
 ## Responsibility
 
@@ -10,8 +10,8 @@ It owns command parsing, project scaffolding, and generated build package prepar
 |---|---|
 | Command parsing | Parses `swift-web` command names and command-line options. |
 | Project creation | Generates minimal named app skeletons through the `new` command. |
-| Generated package | Materializes `.swiftweb/generated/Package.swift` for launchers, server builds, and WASM runtime builds. |
-| Dev command | Parses CLI options and delegates to `SwiftWebDevRuntime`. |
+| Generated package | Delegates `.swiftweb/generated` materialization to `SwiftWebDevelopment`. |
+| Dev command | Parses CLI options and delegates to `SwiftWebDevelopment.SwiftWebDevRuntime`. |
 | Build command | Builds the generated server product or generated WASM runtime product. |
 | Storyboard command | Generates an isolated SwiftWebUI component style board and runs it through the same dev runtime. |
 
@@ -39,15 +39,21 @@ flowchart LR
 ```mermaid
 flowchart TD
   A["User Package.swift"] --> B["App library target"]
-  C["swift-web CLI"] --> D[".swiftweb/generated Package.swift"]
-  D --> E["SwiftWebDevLauncher"]
-  D --> F["AppServerLauncher"]
-  D --> G["WASM runtime target"]
-  F --> B
-  G --> H["Generated client-only source copy"]
+  C["swift-web CLI"] --> D[".swiftweb/generated/server"]
+  C --> E[".swiftweb/generated/dev"]
+  C --> F[".swiftweb/generated/wasm"]
+  D --> G["AppServerLauncher"]
+  E --> H["SwiftWebDevLauncher"]
+  E --> I["AppDevelopmentServerLauncher"]
+  F --> J["WASM runtime target"]
+  G --> B
+  I --> B
+  J --> K["Generated client-only source copy"]
 ```
 
-User packages should stay small: one app library target plus SwiftWeb dependencies. Dev launchers, server launchers, WASM linker flags, client source copies, and client-runtime source copies belong to `.swiftweb/generated`.
+User packages should stay small: one app library target plus SwiftWeb dependencies. Production server launchers, dev launchers, dev child server launchers, WASM linker flags, client source copies, and client-runtime source copies belong to `.swiftweb/generated`.
+
+Client WASM bundle generation follows the contract in [`docs/ClientBundleLoadingDesign.md`](../../docs/ClientBundleLoadingDesign.md). The CLI and generated packages materialize the resolved main bundle plus explicitly declared split bundles; they should not expose automatic bundle planning as a user-facing feature.
 
 ## Dev Command Flow
 
@@ -56,7 +62,7 @@ flowchart LR
   A["swift-web dev"] --> B["DevCommand parse"]
   B --> C["SwiftWebDevRuntime"]
   C --> D["materialize .swiftweb/generated"]
-  D --> E["swift build --package-path generated --product app-server"]
+  D --> E["swift build --package-path generated/dev --product app-server-dev"]
   E --> F["launch executable directly"]
   C --> G["watch package files with FSEvents"]
   G --> H["save event detected"]
@@ -71,7 +77,7 @@ flowchart LR
 
 `SwiftWebDevRuntime` checks the configured host and port before starting the child server. If the port is already occupied, the CLI exits with a clear error before Vapor can fail during bind.
 
-The runtime watches the app package plus local `.package(path:)` dependencies so edits in a checked-out SwiftWeb framework also trigger rebuilds. The child server receives `SWIFT_WEB_DEV_PARENT_PID`; `AppRunner` starts a monitor that exits the child when the dev parent disappears.
+The runtime watches the app package plus local `.package(path:)` dependencies so edits in a checked-out SwiftWeb framework also trigger rebuilds. The dev child server receives `SWIFT_WEB_DEV_PARENT_PID`, imports `SwiftWebDevelopment`, and installs development hooks before `App.run()`.
 
 Startup, ready, reload, child-exit, and shutdown events are emitted through `swift-log` with `codes.swiftweb.dev` as the logger label.
 
@@ -104,30 +110,32 @@ flowchart LR
   A2["swift-web build --wasm"] --> B
   B --> D["WASM build"]
   C --> E["app-server"]
-  D --> F["counter-wasm-runtime"]
+  D --> F["<AppName>WasmRuntime"]
 ```
 
 | Mode | Product | Notes |
 |---|---|---|
 | Server | `app-server` by default | Uses the app library product from the user package. |
-| WASM | First generated `*WasmRuntime` product by default | Sets `SWIFTWEB_WASM_BUILD=1`, uses the shell-selected `swift`, and builds the generated client-only package without reading the user app's server dependencies. |
+| WASM | Main generated `*WasmRuntime` product by default, or a resolved split bundle product when selected | Sets `SWIFTWEB_WASM_BUILD=1`, uses the shell-selected `swift`, and builds the generated client-only package without reading the user app's server dependencies. |
 
 ## Generated Files
 
 | File | Responsibility |
 |---|---|
-| `.swiftweb/generated/Package.swift` | Generated SwiftPM package for dev/server/WASM builds. |
-| `.swiftweb/generated/Sources/AppServerLauncher/ServerLauncher.swift` | Thin server entrypoint that calls `<AppName>.run()`. |
-| `.swiftweb/generated/Sources/SwiftWebDevLauncher/DevLauncher.swift` | Dev entrypoint that delegates to `SwiftWebDevRuntime`. |
-| `.swiftweb/generated/Sources/<AppName>` | Client-only source copy used by WASM runtime targets. |
-| `.swiftweb/generated/Sources/SwiftWebActors` | Generated copy of the shared distributed actor runtime used by WASM runtime targets. |
-| `.swiftweb/generated/Sources/SwiftWebUI` | Client UI component source copy used by WASM runtime targets. |
-| `.swiftweb/generated/Sources/SwiftWebUIRuntime` | JavaScriptKit-backed client runtime source copy used by WASM runtime targets. |
-| `.swiftweb/generated/Sources/*WasmRuntime` | App-specific WASM export entrypoint. |
+| `.swiftweb/generated/server/Package.swift` | Production server package. |
+| `.swiftweb/generated/server/Sources/AppServerLauncher/ServerLauncher.swift` | Thin production entrypoint that calls `<AppName>.run()` without importing `SwiftWebDevelopment`. |
+| `.swiftweb/generated/dev/Package.swift` | Development package for Xcode/CLI launchers. |
+| `.swiftweb/generated/dev/Sources/SwiftWebDevLauncher/DevLauncher.swift` | Dev entrypoint that delegates to `SwiftWebDevRuntime`. |
+| `.swiftweb/generated/dev/Sources/AppDevelopmentServerLauncher/ServerLauncher.swift` | Dev child server entrypoint that installs `SwiftWebDevelopment` hooks before running the app. |
+| `.swiftweb/generated/wasm/Sources/<AppName>` | Client-only source copy used by WASM runtime targets. |
+| `.swiftweb/generated/wasm/Sources/SwiftWebActors` | Generated copy of the shared distributed actor runtime used by WASM runtime targets. |
+| `.swiftweb/generated/wasm/Sources/SwiftWebUI` | Client UI component source copy used by WASM runtime targets. |
+| `.swiftweb/generated/wasm/Sources/SwiftWebUIRuntime` | JavaScriptKit-backed client runtime source copy used by WASM runtime targets. |
+| `.swiftweb/generated/wasm/Sources/*WasmRuntime` | App-specific WASM export entrypoint. |
 | `.swiftweb/storyboard` | Managed app package generated by `swift-web storyboard` for visual component inspection. |
 | `swift-html` package dependency | Client HTML runtime used by generated server and WASM packages. |
 
-Open `.swiftweb/generated` in Xcode to run the generated `<AppName>` scheme. That scheme builds `SwiftWebDevLauncher`, which starts the same `SwiftWebDevRuntime` used by `swift-web dev`.
+Open `.swiftweb/generated/dev` in Xcode to run the generated `<AppName>-dev` scheme. That scheme builds `SwiftWebDevLauncher`, which starts the same `SwiftWebDevRuntime` used by `swift-web dev`.
 
 ## Clean Command
 
@@ -155,8 +163,8 @@ flowchart LR
 | Not owned by SwiftWebCLI | Owner |
 |---|---|
 | HTTP response rendering | `SwiftWeb` and `SwiftHTML` |
-| Development browser runtime injection | `SwiftWeb` |
-| Development watch/restart runtime | `SwiftWeb` |
+| Development browser runtime injection | `SwiftWebDevelopment` |
+| Development watch/restart runtime | `SwiftWebDevelopment` |
 | Component layout and theme behavior | `SwiftWebUI` |
 | Macro expansion | `SwiftWebMacros` |
 | Vapor route registration | `SwiftWeb` |
@@ -164,9 +172,10 @@ flowchart LR
 
 ## Design Notes
 
-- The CLI should parse commands and delegate runtime behavior to `SwiftWeb`.
+- The CLI should parse commands and delegate development runtime behavior to `SwiftWebDevelopment`.
 - The dev command delegates browser update behavior to `SwiftWebDevRuntime`. That runtime prefers typed EventSource HMR events and keeps reload-token waiting as a compatibility fallback.
 - Component-level HMR is a SwiftWeb runtime responsibility. The CLI only starts the runtime and materializes the generated package used by server and WASM builds.
+- Client WASM builds should use stable generated package layouts, write-if-changed materialization, dirty bundle rebuilds, and content-addressed caches keyed by sources, dependencies, toolchain, SDK, and build flags.
 - Child server cleanup is part of the dev runtime contract, not something each app should implement manually.
 - Templates should demonstrate supported features without becoming the source of runtime behavior.
 - The storyboard is generated output for framework authors. It must stay isolated from application source and should cover style regressions broadly enough to make visual changes reviewable.

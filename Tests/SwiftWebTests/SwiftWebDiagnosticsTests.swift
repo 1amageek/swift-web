@@ -1,6 +1,7 @@
 import Foundation
 import SwiftHTML
 @testable import SwiftWeb
+@testable import SwiftWebDevelopment
 import Testing
 
 @Suite
@@ -150,13 +151,18 @@ struct SwiftWebDiagnosticsTests {
         #expect(source.contains("recordFailure(error)"))
         #expect(source.contains("\"fetchingManifest\""))
         #expect(source.contains("\"instantiatingBundle\""))
+        #expect(source.contains("const runtimeWasReady = this.metrics.ready === true"))
+        #expect(source.contains("this.publishStatus(runtimeWasReady, \"bundleLoaded\")"))
         #expect(source.contains("IntersectionObserver"))
+        #expect(source.contains("const seen = new Set()"))
+        #expect(source.contains("this.loadedBundleIDs.has(bundleID)"))
         #expect(source.contains("\"pointerover\""))
         // interactiveDismissDisabled (closedby="none") blocks Esc cross-browser
         // by preventing the modal dialog's cancel default.
         #expect(source.contains("__swuiDismissPolicyBound"))
         #expect(source.contains("addEventListener(\"cancel\""))
         #expect(source.contains("targetInstance = await this.instanceForComponent(componentID)"))
+        #expect(source.contains("const componentID = payload.swiftWebComponentID || this.componentIDForHandler(payload.handlerID.rawValue)"))
         #expect(source.contains("response.appliesDOMCommandsInRuntime !== true"))
         #expect(source.contains("callRuntime(exportName, payload, instance = this.primaryInstance)"))
         #expect(source.contains("const previousBundles = Array.isArray(this.manifest.bundles)"))

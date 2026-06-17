@@ -40,10 +40,16 @@ public typealias ClientWasmStateSnapshot = StateStoreSnapshot
 public struct ClientWasmEventRequest: Sendable, Codable, Equatable {
     public let handlerID: HandlerID
     public let event: DOMEvent
+    public let componentID: ComponentID?
 
-    public init(handlerID: HandlerID, event: DOMEvent) {
+    public init(
+        handlerID: HandlerID,
+        event: DOMEvent,
+        componentID: ComponentID? = nil
+    ) {
         self.handlerID = handlerID
         self.event = event
+        self.componentID = componentID
     }
 }
 
@@ -82,13 +88,16 @@ public enum ClientWasmRuntimeBridgeError: Error, Sendable, CustomStringConvertib
 
 public struct ClientWasmComponentMount: Sendable, Equatable {
     public let typeName: String
+    public let componentID: ComponentID?
 
     public init<Root: HTML>(_ type: Root.Type) {
         self.typeName = String(reflecting: type)
+        self.componentID = nil
     }
 
-    public init(typeName: String) {
+    public init(typeName: String, componentID: ComponentID? = nil) {
         self.typeName = typeName
+        self.componentID = componentID
     }
 }
 
@@ -105,7 +114,7 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
     private let componentEnvironmentFactory: ComponentEnvironmentFactory
     private let componentMount: ClientWasmComponentMount?
     private let domHost: (any BrowserDOMHost)?
-    private let stateStore = StateStore()
+    private let stateStore: StateStore
     private var session: HydrationRuntimeSession<Root>?
     private var mountedHydrationIndex: BrowserHydrationIndex?
     private var mountedNodeMap: [HTMLNodeID: HTMLNodeID] = [:]
@@ -114,11 +123,13 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
         environmentRegistry: ClientEnvironmentRegistry = .empty,
         componentMount: ClientWasmComponentMount? = nil,
         domHost: (any BrowserDOMHost)? = nil,
+        stateStore: StateStore = StateStore(),
         rootFactory: @escaping RootFactory
     ) {
         self.rootFactory = rootFactory
         self.componentMount = componentMount
         self.domHost = domHost
+        self.stateStore = stateStore
         self.environmentFactory = { _ in
             EnvironmentValues()
         }
@@ -130,6 +141,7 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
     public init(
         componentMount: ClientWasmComponentMount? = nil,
         domHost: (any BrowserDOMHost)? = nil,
+        stateStore: StateStore = StateStore(),
         rootFactory: @escaping RootFactory,
         environmentFactory: @escaping EnvironmentFactory,
         componentEnvironmentFactory: @escaping ComponentEnvironmentFactory = { _, _ in [:] }
@@ -137,6 +149,7 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
         self.rootFactory = rootFactory
         self.componentMount = componentMount
         self.domHost = domHost
+        self.stateStore = stateStore
         self.environmentFactory = environmentFactory
         self.componentEnvironmentFactory = componentEnvironmentFactory
     }
@@ -221,11 +234,11 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
 
     public func restoreState(_ snapshot: ClientWasmStateSnapshot) {
         guard let session,
-              snapshot.schemaHash == session.artifact.hydration.stateSchemaHash
+              let rebasedSnapshot = Self.rebasedSnapshot(snapshot, into: session.artifact)
         else {
             return
         }
-        stateStore.restore(snapshot)
+        stateStore.restore(rebasedSnapshot)
     }
 
     public func dispatch(_ request: ClientWasmEventRequest) throws -> ClientWasmRuntimeResponse {
@@ -234,7 +247,7 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
         }
 
         let update = try session.invoke(
-            handlerID: request.handlerID,
+            handlerID: translatedHandlerID(request.handlerID, in: session),
             event: request.event
         )
         self.session = session
@@ -293,12 +306,12 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
             options: options
         )
         guard let snapshot,
-              snapshot.schemaHash == nextSession.artifact.hydration.stateSchemaHash
+              let rebasedSnapshot = Self.rebasedSnapshot(snapshot, into: nextSession.artifact)
         else {
             return nextSession
         }
 
-        stateStore.restore(snapshot)
+        stateStore.restore(rebasedSnapshot)
         nextSession = try HydrationRuntimeSession(
             root: root,
             environment: environment,
@@ -308,15 +321,103 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
         return nextSession
     }
 
+    private func translatedHandlerID(
+        _ mountedHandlerID: HandlerID,
+        in session: HydrationRuntimeSession<Root>
+    ) -> HandlerID {
+        guard componentMount != nil,
+              let mountedHydrationIndex,
+              let mountedBinding = mountedHydrationIndex.handlers.first(where: { binding in
+                  binding.handlerID == mountedHandlerID
+              })
+        else {
+            return mountedHandlerID
+        }
+
+        let mountedToLocalNodeMap = Dictionary(uniqueKeysWithValues: mountedNodeMap.map { localID, mountedID in
+            (mountedID, localID)
+        })
+        guard let localNodeID = mountedToLocalNodeMap[mountedBinding.nodeID] else {
+            return mountedHandlerID
+        }
+
+        let localIndex = session.artifact.browserHydrationIndex()
+        return localIndex.handlers.first { binding in
+            binding.nodeID == localNodeID
+                && binding.eventName == mountedBinding.eventName
+        }?.handlerID ?? mountedHandlerID
+    }
+
+    private static func canRestore(
+        _ snapshot: ClientWasmStateSnapshot,
+        into artifact: RenderArtifact
+    ) -> Bool {
+        snapshot.schemaHash == artifact.hydration.stateSchemaHash
+    }
+
+    private static func rebasedSnapshot(
+        _ snapshot: ClientWasmStateSnapshot,
+        into artifact: RenderArtifact
+    ) -> ClientWasmStateSnapshot? {
+        if canRestore(snapshot, into: artifact) {
+            return snapshot
+        }
+
+        let slotsByStableKey = Dictionary(grouping: artifact.hydration.stateSchema.slots) { slot in
+            stableStateSlotKey(source: slot.source.rawValue, valueType: slot.valueType)
+        }
+        guard !slotsByStableKey.isEmpty else {
+            return nil
+        }
+
+        let snapshotValuesByStableKey = Dictionary(grouping: snapshot.values) { key, value in
+            stableStateSlotKey(source: stateSourceRawValue(from: key), valueType: value.valueType)
+        }
+        var values: [String: StateSnapshotValue] = [:]
+        for (stableKey, slots) in slotsByStableKey {
+            guard let snapshotValues = snapshotValuesByStableKey[stableKey] else {
+                continue
+            }
+            let orderedSlots = slots.sorted { left, right in
+                left.id.rawValue < right.id.rawValue
+            }
+            let orderedValues = snapshotValues.sorted { left, right in
+                left.key < right.key
+            }
+            for (slot, snapshotValue) in zip(orderedSlots, orderedValues) {
+                values[slot.id.rawValue] = snapshotValue.value
+            }
+        }
+
+        guard !values.isEmpty || snapshot.values.isEmpty else {
+            return nil
+        }
+        return StateStoreSnapshot(
+            schemaHash: artifact.hydration.stateSchemaHash,
+            values: values
+        )
+    }
+
+    private static func stateSourceRawValue(from stateSlotID: String) -> String {
+        guard let range = stateSlotID.range(of: ":state:") else {
+            return stateSlotID
+        }
+        return String(stateSlotID[range.upperBound...])
+    }
+
+    private static func stableStateSlotKey(source: String, valueType: String) -> String {
+        "\(source)|\(valueType)"
+    }
+
     private static func nodeMap(
         localIndex: BrowserHydrationIndex,
         mountedIndex: BrowserHydrationIndex,
         mount: ClientWasmComponentMount
     ) throws -> [HTMLNodeID: HTMLNodeID] {
-        guard let localComponent = localIndex.components.first(where: { $0.typeName == mount.typeName }) else {
+        guard let localComponent = Self.component(in: localIndex, matching: mount) else {
             throw ClientWasmRuntimeBridgeError.componentMountNotFound(mount.typeName)
         }
-        guard let mountedComponent = mountedIndex.components.first(where: { $0.typeName == mount.typeName }) else {
+        guard let mountedComponent = Self.component(in: mountedIndex, matching: mount) else {
             throw ClientWasmRuntimeBridgeError.componentMountNotFound(mount.typeName)
         }
 
@@ -339,8 +440,8 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
         mount: ClientWasmComponentMount
     ) -> BrowserDOMCommandBatch {
         guard let localArtifact,
-              let localComponent = localIndex.components.first(where: { $0.typeName == mount.typeName }),
-              let mountedComponent = mountedIndex.components.first(where: { $0.typeName == mount.typeName }),
+              let localComponent = Self.component(in: localIndex, matching: mount),
+              let mountedComponent = Self.component(in: mountedIndex, matching: mount),
               let mountedRoot = nodeMap[localComponent.nodeID],
               mountedRoot == mountedComponent.nodeID
         else {
@@ -360,6 +461,19 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
             commands: &commands
         )
         return BrowserDOMCommandBatch(commands: commands)
+    }
+
+    private static func component(
+        in index: BrowserHydrationIndex,
+        matching mount: ClientWasmComponentMount
+    ) -> BrowserHydrationComponentRecord? {
+        if let componentID = mount.componentID,
+           let component = index.component(componentID) {
+            return component
+        }
+        return index.components.first { component in
+            component.typeName == mount.typeName
+        }
     }
 
     private static func appendHotReloadCommands(
@@ -762,7 +876,8 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
                 node,
                 nodeMap: nodeMap,
                 componentIDMap: componentIDMap,
-                mountedNodesByID: mountedNodesByID
+                mountedNodesByID: mountedNodesByID,
+                mountedIndex: mountedIndex
             )
         }
         let outsideComponents = mountedIndex.components.filter { component in
@@ -782,8 +897,16 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
         let rebasedServerSlots = localIndex.serverSlots.compactMap { slot in
             rebased(slot, nodeMap: nodeMap, componentIDMap: componentIDMap)
         }
+        let outsideHandlers = mountedIndex.handlers.filter { binding in
+            !previousMountedNodes.contains(binding.nodeID)
+        }
         let rebasedHandlers = localIndex.handlers.compactMap { binding in
-            rebased(binding, nodeMap: nodeMap, componentIDMap: componentIDMap)
+            rebaseEventBinding(
+                binding,
+                nodeMap: nodeMap,
+                componentIDMap: componentIDMap,
+                mountedIndex: mountedIndex
+            )
         }
 
         return BrowserHydrationIndex(
@@ -791,7 +914,7 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
             nodes: (outsideNodes + rebasedNodes).sorted { $0.id.rawValue < $1.id.rawValue },
             components: (outsideComponents + rebasedComponents).sorted { $0.path < $1.path },
             serverSlots: (outsideServerSlots + rebasedServerSlots).sorted { $0.id.rawValue < $1.id.rawValue },
-            handlers: rebasedHandlers.sorted { $0.handlerID.rawValue < $1.handlerID.rawValue }
+            handlers: (outsideHandlers + rebasedHandlers).sorted { $0.handlerID.rawValue < $1.handlerID.rawValue }
         )
     }
 
@@ -816,7 +939,8 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
         _ node: BrowserHydrationNodeRecord,
         nodeMap: [HTMLNodeID: HTMLNodeID],
         componentIDMap: [ComponentID: ComponentID],
-        mountedNodesByID: [HTMLNodeID: BrowserHydrationNodeRecord]
+        mountedNodesByID: [HTMLNodeID: BrowserHydrationNodeRecord],
+        mountedIndex: BrowserHydrationIndex
     ) -> BrowserHydrationNodeRecord? {
         guard let mappedID = nodeMap[node.id] else {
             return nil
@@ -834,7 +958,12 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
             serverSlotID: node.serverSlotID,
             attributes: node.attributes,
             eventBindings: node.eventBindings.compactMap {
-                rebased($0, nodeMap: nodeMap, componentIDMap: componentIDMap)
+                rebaseEventBinding(
+                    $0,
+                    nodeMap: nodeMap,
+                    componentIDMap: componentIDMap,
+                    mountedIndex: mountedIndex
+                )
             },
             key: node.key,
             fingerprint: node.fingerprint
@@ -893,17 +1022,22 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
         )
     }
 
-    private static func rebased(
+    private static func rebaseEventBinding(
         _ binding: BrowserHydrationEventBinding,
         nodeMap: [HTMLNodeID: HTMLNodeID],
-        componentIDMap: [ComponentID: ComponentID]
+        componentIDMap: [ComponentID: ComponentID],
+        mountedIndex: BrowserHydrationIndex
     ) -> BrowserHydrationEventBinding? {
         guard let mappedNodeID = nodeMap[binding.nodeID] else {
             return nil
         }
+        let mountedHandlerID = mountedIndex.handlers.first { mountedBinding in
+            mountedBinding.nodeID == mappedNodeID
+                && mountedBinding.eventName == binding.eventName
+        }?.handlerID ?? binding.handlerID
         return BrowserHydrationEventBinding(
             nodeID: mappedNodeID,
-            handlerID: binding.handlerID,
+            handlerID: mountedHandlerID,
             eventName: binding.eventName,
             componentID: binding.componentID.flatMap { componentIDMap[$0] }
         )

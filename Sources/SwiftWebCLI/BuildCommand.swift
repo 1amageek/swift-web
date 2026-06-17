@@ -1,5 +1,6 @@
 import Foundation
 import SwiftWeb
+import SwiftWebDevelopment
 
 struct BuildCommand {
     let packageDirectory: URL
@@ -56,17 +57,20 @@ struct BuildCommand {
         let productName = try resolvedProductName(from: generatedPackage)
         let resolvedSwiftSDK = resolvedSwiftSDKName
         let wasmToolchain = try resolvedWasmToolchain(swiftSDK: resolvedSwiftSDK)
+        let buildPackageDirectory = buildsWasmRuntime
+            ? generatedPackage.wasmPackageDirectory
+            : generatedPackage.packageDirectory
         var arguments = buildsWasmRuntime ? [
             "build",
             "--package-path",
-            generatedPackage.packageDirectory.path,
+            buildPackageDirectory.path,
             "--product",
             productName,
         ] : [
             "swift",
             "build",
             "--package-path",
-            generatedPackage.packageDirectory.path,
+            buildPackageDirectory.path,
             "--product",
             productName,
         ]
@@ -110,12 +114,10 @@ struct BuildCommand {
     }
 
     private func defaultScratchDirectory(from generatedPackage: SwiftWebGeneratedPackage) -> URL? {
-        guard !buildsWasmRuntime else {
-            return nil
-        }
-        return generatedPackage.packageDirectory
+        let child = buildsWasmRuntime ? "wasm" : "server"
+        return generatedPackage.rootDirectory
             .appendingPathComponent(".build", isDirectory: true)
-            .appendingPathComponent("server", isDirectory: true)
+            .appendingPathComponent(child, isDirectory: true)
             .standardizedFileURL
     }
 

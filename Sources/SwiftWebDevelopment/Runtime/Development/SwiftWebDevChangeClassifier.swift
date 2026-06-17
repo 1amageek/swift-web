@@ -79,7 +79,7 @@ struct SwiftWebDevChangeClassifier: Sendable {
         }
         let source = try String(contentsOf: url, encoding: .utf8)
         return generatedPackage.wasmRuntimes.first { runtime in
-            source.contains(runtime.componentTypeName)
+            runtime.componentTypeNames.contains { source.contains($0) }
                 && source.contains("ClientComponent")
         }
     }

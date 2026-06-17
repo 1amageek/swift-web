@@ -260,9 +260,16 @@ class SwiftWebWasmRuntime {
       return;
     }
 
-    const events = ["pointerover", "focusin", "touchstart"];
+    const events = ["pointerover", "mouseover", "focusin", "touchstart", "pointerdown", "mousedown", "click"];
     const listener = (event) => {
+      if (!(event.target instanceof Node)) {
+        return;
+      }
       for (const component of components) {
+        const bundleID = rawValue(component.bundleID);
+        if (this.loadedBundleIDs.has(bundleID)) {
+          continue;
+        }
         const element = this.componentElement(component);
         if (!element || !element.contains(event.target)) {
           continue;
@@ -270,13 +277,20 @@ class SwiftWebWasmRuntime {
         this.recordMetric("bundles.interaction.triggered", {
           eventName: event.type,
           componentID: rawValue(component.componentID),
-          bundleID: rawValue(component.bundleID)
+          bundleID
         });
         this.loadBundles([component.bundleID]).catch((error) => {
           console.error("SwiftWeb interaction WASM load failed", error);
         });
       }
     };
+
+    for (const component of components) {
+      const element = this.componentElement(component);
+      if (element) {
+        element.setAttribute("data-swift-component", rawValue(component.componentID));
+      }
+    }
 
     for (const eventName of events) {
       document.addEventListener(eventName, listener, true);
@@ -312,11 +326,49 @@ class SwiftWebWasmRuntime {
   }
 
   componentsForPolicy(policy) {
-    return (this.manifest.components || []).filter((component) => component.loadPolicy === policy);
+    const seen = new Set();
+    return (this.manifest.components || []).filter((component) => {
+      if (component.loadPolicy !== policy) {
+        return false;
+      }
+      const bundleID = rawValue(component.bundleID);
+      if (!bundleID || this.loadedBundleIDs.has(bundleID)) {
+        return false;
+      }
+      const key = `${rawValue(component.componentID)}|${bundleID}`;
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
   }
 
   componentElement(component) {
     const componentID = rawValue(component.componentID);
+    const directElement = document.querySelector(`[data-swift-component="${componentID}"]`);
+    if (directElement instanceof Element) {
+      return directElement;
+    }
+
+    const bundleID = rawValue(component.bundleID);
+    const typeName = component.typeName || "";
+    const typedElements = Array.from(document.querySelectorAll("[data-swift-component-type]"));
+    const typedBundleElement = typedElements.find((element) =>
+      element.getAttribute("data-swift-component-type") === typeName &&
+      element.getAttribute("data-swift-bundle") === bundleID
+    );
+    if (typedBundleElement instanceof Element) {
+      return typedBundleElement;
+    }
+
+    const typedElement = typedElements.find((element) =>
+      element.getAttribute("data-swift-component-type") === typeName
+    );
+    if (typedElement instanceof Element) {
+      return typedElement;
+    }
+
     const componentRecord = (this.hydrationIndex?.components || []).find((record) => rawValue(record.id) === componentID);
     const nodeRecordValue = componentRecord ? nodeRecord(rawValue(componentRecord.nodeID), this) : null;
     const childID = nodeRecordValue && nodeRecordValue.childIDs && nodeRecordValue.childIDs.length > 0
@@ -379,14 +431,15 @@ class SwiftWebWasmRuntime {
       return await this.loading.get(rawBundleID);
     }
 
-    this.publishStatus(false, "instantiatingBundle", [rawBundleID]);
+    const runtimeWasReady = this.metrics.ready === true;
+    this.publishStatus(runtimeWasReady, "instantiatingBundle", [rawBundleID]);
     const promise = this.instantiateBundle(rawBundleID);
     this.loading.set(rawBundleID, promise);
     try {
       const instance = await promise;
       this.instances.set(rawBundleID, instance);
       this.loadedBundleIDs.add(rawBundleID);
-      this.publishStatus(false, "bundleLoaded");
+      this.publishStatus(runtimeWasReady, "bundleLoaded");
       this.publishMetrics();
       this.loading.delete(rawBundleID);
       return instance;
@@ -574,7 +627,8 @@ class SwiftWebWasmRuntime {
         }
         const payload = {
           handlerID: { rawValue: handlerID },
-          event: domEventPayload(event)
+          event: domEventPayload(event),
+          swiftWebComponentID: this.componentForEventTarget(target)?.componentID || null
         };
         this.eventQueue = this.eventQueue.then(() => this.dispatchEvent(payload)).catch((error) => {
           console.error("SwiftWeb WASM event dispatch failed", error);
@@ -833,6 +887,19 @@ class SwiftWebWasmRuntime {
   protectedClientNodeIDs() {
     const hydrationIndex = this.documentHydrationIndex || this.hydrationIndex;
     const protectedNodeIDs = new Set();
+    const knownBoundaries = new Set(
+      (this.manifest?.components || []).map((component) =>
+        `${component.typeName || ""}|${rawValue(component.bundleID)}`
+      )
+    );
+    for (const element of document.querySelectorAll("[data-swift-hmr-boundary='true'][data-swift-node]")) {
+      const typeName = element.getAttribute("data-swift-component-type") || "";
+      const bundleID = element.getAttribute("data-swift-bundle") || "";
+      if (knownBoundaries.size > 0 && !knownBoundaries.has(`${typeName}|${bundleID}`)) {
+        continue;
+      }
+      addSwiftDOMSubtree(element, protectedNodeIDs);
+    }
     const clientComponentIDs = new Set(
       (this.manifest?.components || []).map((component) => rawValue(component.componentID))
     );
@@ -881,12 +948,17 @@ class SwiftWebWasmRuntime {
 
   async dispatchEvent(payload) {
     const startedAt = this.now();
-    const componentID = this.componentIDForHandler(payload.handlerID.rawValue);
+    const componentID = payload.swiftWebComponentID || this.componentIDForHandler(payload.handlerID.rawValue);
     let targetInstance = this.primaryInstance;
     if (componentID) {
       targetInstance = await this.instanceForComponent(componentID);
     }
-    const response = this.callRuntime("swiftweb_dispatch_event", payload, targetInstance);
+    const runtimePayload = {
+      handlerID: payload.handlerID,
+      event: payload.event,
+      componentID: componentID ? { rawValue: componentID } : null
+    };
+    const response = this.callRuntime("swiftweb_dispatch_event", runtimePayload, targetInstance);
     if (response && response.hydrationIndex) {
       this.hydrationIndex = response.hydrationIndex;
     }
@@ -929,12 +1001,55 @@ class SwiftWebWasmRuntime {
     return this.primaryInstance;
   }
 
+  componentForEventTarget(target) {
+    if (!(target instanceof Element)) {
+      return null;
+    }
+    const boundary = target.closest("[data-swift-component-type][data-swift-bundle]");
+    if (boundary) {
+      const typeName = boundary.getAttribute("data-swift-component-type") || "";
+      const bundleID = boundary.getAttribute("data-swift-bundle") || "";
+      const component = (this.manifest.components || []).find((record) =>
+        record.typeName === typeName && rawValue(record.bundleID) === bundleID
+      );
+      if (component) {
+        return {
+          componentID: rawValue(component.componentID),
+          bundleID: rawValue(component.bundleID),
+          typeName: component.typeName
+        };
+      }
+    }
+
+    const componentElement = target.closest("[data-swift-component]");
+    const componentID = componentElement ? componentElement.getAttribute("data-swift-component") : null;
+    const component = (this.manifest.components || []).find((record) => rawValue(record.componentID) === componentID);
+    if (!component) {
+      return null;
+    }
+    return {
+      componentID: rawValue(component.componentID),
+      bundleID: rawValue(component.bundleID),
+      typeName: component.typeName
+    };
+  }
+
+  cacheBustedAssetPath(assetPath, contentHash) {
+    if (!assetPath || !contentHash) {
+      return assetPath;
+    }
+    const url = new URL(assetPath, window.location.href);
+    url.searchParams.set("swiftweb-hmr", contentHash);
+    return `${url.pathname}${url.search}${url.hash}`;
+  }
+
   async applyHotUpdate(update) {
     if (!update || !update.bundleID || !update.assetPath) {
       throw new Error("SwiftWeb HMR client component update is missing bundle metadata");
     }
 
     const bundleID = rawValue(update.bundleID);
+    const assetPath = this.cacheBustedAssetPath(update.assetPath, update.contentHash);
     let bundle = this.bundle(bundleID);
     const previousBundles = Array.isArray(this.manifest.bundles) ? [...this.manifest.bundles] : [];
     const hadBundle = !!bundle;
@@ -951,7 +1066,7 @@ class SwiftWebWasmRuntime {
         bundle = {
           id: { rawValue: bundleID },
           kind: "component",
-          asset: { path: update.assetPath },
+          asset: { path: assetPath },
           symbols: [],
           dependencies: [],
           components: [],
@@ -960,7 +1075,7 @@ class SwiftWebWasmRuntime {
         };
         this.manifest.bundles = [...(this.manifest.bundles || []), bundle];
       } else {
-        bundle.asset = { ...(bundle.asset || {}), path: update.assetPath };
+        bundle.asset = { ...(bundle.asset || {}), path: assetPath };
       }
 
       const stateSnapshot = previousInstance ? this.snapshotState(previousInstance) : null;
@@ -1442,6 +1557,19 @@ function addSwiftNodeSubtree(nodeID, output, runtime, hydrationIndex = runtime.h
   }
   for (const childID of record.childIDs || []) {
     addSwiftNodeSubtree(rawValue(childID), output, runtime, hydrationIndex);
+  }
+}
+
+function addSwiftDOMSubtree(root, output) {
+  const rootNodeID = root.getAttribute("data-swift-node");
+  if (rootNodeID) {
+    output.add(rootNodeID);
+  }
+  for (const descendant of root.querySelectorAll("[data-swift-node]")) {
+    const descendantID = descendant.getAttribute("data-swift-node");
+    if (descendantID) {
+      output.add(descendantID);
+    }
   }
 }
 

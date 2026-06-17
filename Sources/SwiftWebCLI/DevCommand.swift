@@ -1,5 +1,5 @@
 import Foundation
-import SwiftWeb
+import SwiftWebDevelopment
 
 struct DevCommand {
     let packageDirectory: URL

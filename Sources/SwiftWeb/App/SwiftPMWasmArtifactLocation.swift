@@ -6,6 +6,7 @@ public struct SwiftPMWasmArtifactLocation {
     public let artifactName: String?
     public let configuration: String
     public let triple: String
+    public let scratchDirectory: URL?
 
     public func url() throws -> URL {
         try SwiftPMWasmArtifact.url(
@@ -13,7 +14,8 @@ public struct SwiftPMWasmArtifactLocation {
             target: target,
             artifactName: artifactName,
             configuration: configuration,
-            triple: triple
+            triple: triple,
+            scratchDirectory: scratchDirectory
         )
     }
 }

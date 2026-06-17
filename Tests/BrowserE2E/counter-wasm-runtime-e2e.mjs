@@ -1,13 +1,15 @@
 import { createRequire } from "node:module";
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 
 const require = createRequire(import.meta.url);
+const execFileAsync = promisify(execFile);
 
 if (process.env.SWIFTWEB_BROWSER_E2E !== "1") {
   console.log("Skipping SwiftWeb browser E2E. Set SWIFTWEB_BROWSER_E2E=1 to run.");
@@ -15,8 +17,9 @@ if (process.env.SWIFTWEB_BROWSER_E2E !== "1") {
 }
 
 let chromium;
+let webkit;
 try {
-  ({ chromium } = require("playwright"));
+  ({ chromium, webkit } = require("playwright"));
 } catch (error) {
   console.error("Playwright is required. Run `npm install` in Tests/BrowserE2E first.");
   console.error(String(error && error.message ? error.message : error));
@@ -35,6 +38,7 @@ const report = {
   consoleErrors: [],
   browserErrors: [],
   serverLogTail: [],
+  wasmResponses: [],
 };
 
 function recordPhase(name, detail = {}) {
@@ -100,7 +104,7 @@ async function prepareAppCopy(root) {
     recursive: true,
     filter(source) {
       const name = path.basename(source);
-      return name !== ".build" && name !== ".swiftweb" && name !== "Package.resolved";
+      return name !== ".build" && name !== ".swiftweb";
     },
   });
 
@@ -114,17 +118,230 @@ async function prepareAppCopy(root) {
     throw new Error("Failed to rewrite CounterApp package dependencies to local swift-web and swift-html paths.");
   }
   await writeFile(packageFile, manifest);
+
+  await writeFile(
+    path.join(appRoot, "Sources", "CounterApp", "ClientDeferredCounter.swift"),
+    `import SwiftHTML
+import SwiftWebUI
+
+public struct ClientDeferredCounter: ClientComponent, Sendable {
+    public static let loadPolicy: LoadPolicy = .interaction
+    @State private var value = 0
+
+    public init() {}
+
+    public var body: some HTML {
+        Card(.class("deferred-counter")) {
+            VStack(spacing: .large) {
+                Heading("Deferred Client Counter")
+                Text(
+                    "This counter hydrates only after user interaction.",
+                    tone: .muted
+                )
+                ValueDisplay(label: "Deferred value", value: value)
+                Button("Increment deferred") {
+                    value += 1
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .top)
+    }
+}
+`
+  );
+
+  await writeFile(
+    path.join(appRoot, "Sources", "CounterApp", "ClientLoadingPolicyCounters.swift"),
+    `import SwiftHTML
+import SwiftWebUI
+
+public struct ClientVisibleCounter: ClientComponent, Sendable {
+    public static let loadPolicy: LoadPolicy = .visible
+    @State private var value = 0
+
+    public init() {}
+
+    public var body: some HTML {
+        Card(.class("visible-counter")) {
+            VStack(spacing: .large) {
+                Heading("Visible Client Counter")
+                Text("This counter hydrates when it enters the viewport.", tone: .muted)
+                ValueDisplay(label: "Visible value", value: value)
+                Button("Increment visible") {
+                    value += 1
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .top)
+    }
+}
+
+public struct ClientIdleCounter: ClientComponent, Sendable {
+    public static let loadPolicy: LoadPolicy = .idle
+    @State private var value = 0
+
+    public init() {}
+
+    public var body: some HTML {
+        Card(.class("idle-counter")) {
+            VStack(spacing: .large) {
+                Heading("Idle Client Counter")
+                Text("This counter hydrates during the browser idle stage.", tone: .muted)
+                ValueDisplay(label: "Idle value", value: value)
+                Button("Increment idle") {
+                    value += 1
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .top)
+    }
+}
+
+public struct ClientManualCounter: ClientComponent, Sendable {
+    public static let loadPolicy: LoadPolicy = .manual
+    @State private var value = 0
+
+    public init() {}
+
+    public var body: some HTML {
+        Card(.class("manual-counter")) {
+            VStack(spacing: .large) {
+                Heading("Manual Client Counter")
+                Text("This counter hydrates only when the runtime explicitly loads its bundle.", tone: .muted)
+                ValueDisplay(label: "Manual value", value: value)
+                Button("Increment manual") {
+                    value += 1
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .top)
+    }
+}
+
+public struct ClientSharedBadgeA: ClientComponent, Sendable {
+    public static let loadPolicy: LoadPolicy = .manual
+    public static let bundle: BundlePolicy = .shared("badges")
+    @State private var value = 0
+
+    public init() {}
+
+    public var body: some HTML {
+        Card(.class("shared-badge-a")) {
+            VStack(spacing: .small) {
+                Heading("Shared Badge A")
+                ValueDisplay(label: "Badge A", value: value)
+                Button("Increment shared A") {
+                    value += 1
+                }
+            }
+        }
+    }
+}
+
+public struct ClientSharedBadgeB: ClientComponent, Sendable {
+    public static let loadPolicy: LoadPolicy = .manual
+    public static let bundle: BundlePolicy = .shared("badges")
+    @State private var value = 0
+
+    public init() {}
+
+    public var body: some HTML {
+        Card(.class("shared-badge-b")) {
+            VStack(spacing: .small) {
+                Heading("Shared Badge B")
+                ValueDisplay(label: "Badge B", value: value)
+                Button("Increment shared B") {
+                    value += 1
+                }
+            }
+        }
+    }
+}
+
+public struct ClientNamedToolA: ClientComponent, Sendable {
+    public static let loadPolicy: LoadPolicy = .manual
+    public static let bundle: BundlePolicy = .named("tools")
+    @State private var value = 0
+
+    public init() {}
+
+    public var body: some HTML {
+        Card(.class("named-tool-a")) {
+            VStack(spacing: .small) {
+                Heading("Named Tool A")
+                ValueDisplay(label: "Tool A", value: value)
+                Button("Increment named A") {
+                    value += 1
+                }
+            }
+        }
+    }
+}
+
+public struct ClientNamedToolB: ClientComponent, Sendable {
+    public static let loadPolicy: LoadPolicy = .manual
+    public static let bundle: BundlePolicy = .named("tools")
+    @State private var value = 0
+
+    public init() {}
+
+    public var body: some HTML {
+        Card(.class("named-tool-b")) {
+            VStack(spacing: .small) {
+                Heading("Named Tool B")
+                ValueDisplay(label: "Tool B", value: value)
+                Button("Increment named B") {
+                    value += 1
+                }
+            }
+        }
+    }
+}
+`
+  );
+
+  const counterPageFile = path.join(appRoot, "Sources", "CounterApp", "Routes", "CounterPage.swift");
+  const counterPage = await readFile(counterPageFile, "utf8");
+  let updatedCounterPage = counterPage.replace(
+    "ClientCounter()\n\n                Card(.class(\"server-counter\"))",
+    "ClientCounter()\n                ClientDeferredCounter()\n\n                Card(.class(\"server-counter\"))"
+  );
+  const insertedDeferredCounter = updatedCounterPage !== counterPage;
+  updatedCounterPage = updatedCounterPage.replace(
+    "            Link(\"Reload page\", href: \"/counter\")",
+    `            Card(.class("visible-policy-spacer")) {
+                VStack(spacing: .small) {
+                    Heading("Loading Policy E2E Spacer")
+                    Text("The visible counter sits below this spacer so IntersectionObserver is required.")
+                }
+            }
+            .style {
+                .minHeight("960px")
+            }
+
+            ClientVisibleCounter()
+            ClientIdleCounter()
+            ClientManualCounter()
+            ClientSharedBadgeA()
+            ClientSharedBadgeB()
+            ClientNamedToolA()
+            ClientNamedToolB()
+
+            Link("Reload page", href: "/counter")`
+  );
+  const insertedLoadingPolicyCounters = updatedCounterPage.includes("ClientManualCounter()");
+  if (!insertedDeferredCounter || !insertedLoadingPolicyCounters) {
+    throw new Error("Failed to inject E2E ClientComponents into CounterPage.swift.");
+  }
+  await writeFile(counterPageFile, updatedCounterPage);
   return appRoot;
 }
 
 async function launchDevServer(appRoot, scratchRoot, port) {
+  const swiftWebExecutable = await resolveSwiftWebExecutable();
   const child = spawn(
-    "swift",
+    swiftWebExecutable,
     [
-      "run",
-      "--package-path",
-      swiftWebRoot,
-      "swift-web",
       "dev",
       "--package-path",
       appRoot,
@@ -161,7 +378,68 @@ async function launchDevServer(appRoot, scratchRoot, port) {
     report.serverExit = { code, signal };
   });
 
+  report.swiftWebExecutable = swiftWebExecutable;
   return child;
+}
+
+async function resolveSwiftWebExecutable() {
+  const configuredExecutable = process.env.SWIFTWEB_CLI_EXECUTABLE;
+  if (configuredExecutable) {
+    if (!existsSync(configuredExecutable)) {
+      throw new Error(`SWIFTWEB_CLI_EXECUTABLE does not exist: ${configuredExecutable}`);
+    }
+    return configuredExecutable;
+  }
+
+  recordPhase("cli.build");
+  await execFileAsync(
+    "xcrun",
+    [
+      "swift",
+      "build",
+      "--disable-sandbox",
+      "--package-path",
+      swiftWebRoot,
+      "--product",
+      "swift-web",
+    ],
+    {
+      cwd: swiftWebRoot,
+      env: process.env,
+      maxBuffer: 100 * 1024 * 1024,
+    }
+  );
+
+  const { stdout } = await execFileAsync(
+    "xcrun",
+    [
+      "swift",
+      "build",
+      "--disable-sandbox",
+      "--package-path",
+      swiftWebRoot,
+      "--show-bin-path",
+    ],
+    {
+      cwd: swiftWebRoot,
+      env: process.env,
+      maxBuffer: 10 * 1024 * 1024,
+    }
+  );
+  const binPath = stdout
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .at(-1);
+  if (!binPath) {
+    throw new Error("Unable to resolve swift-web binary path.");
+  }
+
+  const executable = path.join(binPath, "swift-web");
+  if (!existsSync(executable)) {
+    throw new Error(`Resolved swift-web executable does not exist: ${executable}`);
+  }
+  return executable;
 }
 
 async function stopProcess(child) {
@@ -169,9 +447,9 @@ async function stopProcess(child) {
     return;
   }
   try {
-    process.kill(-child.pid, "SIGTERM");
-  } catch {
     child.kill("SIGTERM");
+  } catch {
+    // The process may have already exited between the status check and signal.
   }
   const exited = await Promise.race([
     new Promise((resolve) => child.once("exit", resolve)),
@@ -185,6 +463,38 @@ async function stopProcess(child) {
     }
     await new Promise((resolve) => child.once("exit", resolve));
   }
+}
+
+async function processLinesMatching(pattern) {
+  if (process.platform !== "darwin" && process.platform !== "linux") {
+    return [];
+  }
+  try {
+    const { stdout } = await execFileAsync("pgrep", ["-fl", pattern]);
+    return stdout
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .filter((line) => !line.includes("pgrep -fl"));
+  } catch (error) {
+    if (error && error.code === 1) {
+      return [];
+    }
+    throw error;
+  }
+}
+
+async function waitForNoProcessLines(pattern, timeout = 10_000) {
+  const deadline = Date.now() + timeout;
+  let remainingProcesses = [];
+  while (Date.now() < deadline) {
+    remainingProcesses = await processLinesMatching(pattern);
+    if (remainingProcesses.length === 0) {
+      return [];
+    }
+    await delay(250);
+  }
+  return remainingProcesses;
 }
 
 async function removeTemporaryRoot(root) {
@@ -233,6 +543,51 @@ async function launchBrowser() {
   }
 }
 
+async function runWebKitSmoke(baseURL) {
+  if (!webkit) {
+    const reason = "Playwright WebKit is not available in this installation.";
+    report.webkitSmoke = { skipped: true, reason };
+    recordPhase("webkit.smoke.skipped", { reason });
+    if (process.env.SWIFTWEB_E2E_REQUIRE_WEBKIT === "1") {
+      throw new Error(reason);
+    }
+    return;
+  }
+
+  const headless = process.env.SWIFTWEB_E2E_HEADFUL !== "1";
+  let browser;
+  try {
+    browser = await webkit.launch({ headless });
+  } catch (error) {
+    const reason = String(error && error.message ? error.message : error);
+    report.webkitSmoke = { skipped: true, reason };
+    recordPhase("webkit.smoke.skipped", { reason });
+    if (process.env.SWIFTWEB_E2E_REQUIRE_WEBKIT === "1") {
+      throw error;
+    }
+    return;
+  }
+
+  try {
+    const page = await browser.newPage();
+    recordPhase("webkit.smoke.goto");
+    await page.goto(`${baseURL}/counter`, { waitUntil: "domcontentloaded", timeout: timeoutMs });
+    await page.waitForFunction(
+      () => document.documentElement.getAttribute("data-swift-web-wasm-ready") === "true",
+      undefined,
+      { timeout: timeoutMs }
+    );
+    await expectCardValue(page, ".client-counter", 0);
+    report.webkitSmoke = {
+      skipped: false,
+      runtime: await browserRuntimeState(page),
+    };
+    recordPhase("webkit.smoke.passed");
+  } finally {
+    await browser.close();
+  }
+}
+
 async function cardValue(page, selector) {
   const text = await page.locator(`${selector} .swui-value`).first().innerText();
   return Number(text.trim());
@@ -265,10 +620,69 @@ async function browserRuntimeState(page) {
   }));
 }
 
+async function runtimeManifestSnapshot(page) {
+  return await page.evaluate(() => {
+    const rawValue = (value) => {
+      if (!value) {
+        return null;
+      }
+      return typeof value === "string" ? value : value.rawValue;
+    };
+    const runtime = window.__swiftWebWasmRuntime;
+    const manifest = runtime?.manifest || {};
+    const components = (manifest.components || []).map((component) => ({
+      componentID: rawValue(component.componentID),
+      typeName: component.typeName,
+      bundleID: rawValue(component.bundleID),
+      loadPolicy: component.loadPolicy,
+      stateSchemaHash: component.stateSchemaHash || null,
+      environmentSchemaHash: component.environmentSchemaHash || null,
+    }));
+    const bundles = (manifest.bundles || []).map((bundle) => ({
+      id: rawValue(bundle.id),
+      assetPath: bundle.asset?.path || null,
+      loadPolicy: bundle.loadPolicy || null,
+      components: (bundle.components || []).map(rawValue),
+    }));
+    const loadedBundleIDs = window.__swiftWebWasmRuntimeStatus?.loadedBundleIDs || [];
+    return { components, bundles, loadedBundleIDs };
+  });
+}
+
+function componentBySuffix(snapshot, suffix) {
+  const component = snapshot.components.find((record) => record.typeName.endsWith(suffix));
+  if (!component) {
+    throw new Error(`ClientComponent ${suffix} was not present in manifest: ${JSON.stringify(snapshot.components)}`);
+  }
+  return component;
+}
+
+function bundleForComponent(snapshot, component) {
+  const bundle = snapshot.bundles.find((record) => record.id === component.bundleID);
+  if (!bundle || !bundle.assetPath) {
+    throw new Error(`Bundle asset was not present for ${component.typeName}: ${JSON.stringify(snapshot.bundles)}`);
+  }
+  return bundle;
+}
+
 async function runBrowserAssertions(baseURL, appRoot) {
   const browser = await launchBrowser();
   try {
     const page = await browser.newPage();
+    const wasmResponses = [];
+    page.on("response", (response) => {
+      const url = new URL(response.url());
+      if (url.pathname.endsWith(".wasm")) {
+        const entry = {
+          url: response.url(),
+          path: url.pathname,
+          status: response.status(),
+          at: new Date().toISOString(),
+        };
+        wasmResponses.push(entry);
+        report.wasmResponses.push(entry);
+      }
+    });
     page.on("console", (message) => {
       if (message.type() === "error") {
         report.consoleErrors.push(message.text());
@@ -300,14 +714,84 @@ async function runBrowserAssertions(baseURL, appRoot) {
     if (!runtime.metrics || !Array.isArray(runtime.metrics.bundles) || runtime.metrics.bundles.length === 0) {
       throw new Error("WASM runtime metrics did not record any loaded bundle.");
     }
-    if (!String(runtime.loadedAttribute || "").includes("counter-wasm-runtime")) {
-      throw new Error(`counter-wasm-runtime was not loaded: ${runtime.loadedAttribute || ""}`);
+    if (!String(runtime.loadedAttribute || "").includes("counter-app-wasm-runtime")) {
+      throw new Error(`counter-app-wasm-runtime was not loaded: ${runtime.loadedAttribute || ""}`);
     }
     report.initialRuntime = runtime;
     recordPhase("wasm.ready", {
       loaded: runtime.loadedAttribute,
       bytes: runtime.metrics.summary && runtime.metrics.summary.totalWasmBytes,
     });
+
+    const splitSnapshot = await runtimeManifestSnapshot(page);
+    const deferredComponent = componentBySuffix(splitSnapshot, "ClientDeferredCounter");
+    if (deferredComponent.loadPolicy !== "interaction") {
+      throw new Error(`Deferred ClientComponent should use interaction policy: ${JSON.stringify(deferredComponent)}`);
+    }
+    if (splitSnapshot.loadedBundleIDs.includes(deferredComponent.bundleID)) {
+      throw new Error(`Deferred bundle loaded during initial eager phase: ${JSON.stringify(splitSnapshot)}`);
+    }
+    const deferredBundle = bundleForComponent(splitSnapshot, deferredComponent);
+    if (wasmResponses.some((response) => response.path === deferredBundle.assetPath)) {
+      throw new Error(`Deferred bundle was fetched before interaction: ${deferredBundle.assetPath}`);
+    }
+    const visibleComponent = componentBySuffix(splitSnapshot, "ClientVisibleCounter");
+    const idleComponent = componentBySuffix(splitSnapshot, "ClientIdleCounter");
+    const manualComponent = componentBySuffix(splitSnapshot, "ClientManualCounter");
+    const sharedBadgeA = componentBySuffix(splitSnapshot, "ClientSharedBadgeA");
+    const sharedBadgeB = componentBySuffix(splitSnapshot, "ClientSharedBadgeB");
+    const namedToolA = componentBySuffix(splitSnapshot, "ClientNamedToolA");
+    const namedToolB = componentBySuffix(splitSnapshot, "ClientNamedToolB");
+    if (visibleComponent.loadPolicy !== "visible") {
+      throw new Error(`Visible component should use visible policy: ${JSON.stringify(visibleComponent)}`);
+    }
+    if (idleComponent.loadPolicy !== "idle") {
+      throw new Error(`Idle component should use idle policy: ${JSON.stringify(idleComponent)}`);
+    }
+    if (manualComponent.loadPolicy !== "manual") {
+      throw new Error(`Manual component should use manual policy: ${JSON.stringify(manualComponent)}`);
+    }
+    if (sharedBadgeA.bundleID !== sharedBadgeB.bundleID || !sharedBadgeA.bundleID.startsWith("shared-badges")) {
+      throw new Error(`Shared components did not resolve to one shared bundle: ${JSON.stringify([sharedBadgeA, sharedBadgeB])}`);
+    }
+    if (namedToolA.bundleID !== namedToolB.bundleID || !namedToolA.bundleID.startsWith("named-tools")) {
+      throw new Error(`Named components did not resolve to one named bundle: ${JSON.stringify([namedToolA, namedToolB])}`);
+    }
+    const visibleBundle = bundleForComponent(splitSnapshot, visibleComponent);
+    const idleBundle = bundleForComponent(splitSnapshot, idleComponent);
+    const manualBundle = bundleForComponent(splitSnapshot, manualComponent);
+    const sharedBundle = bundleForComponent(splitSnapshot, sharedBadgeA);
+    const namedBundle = bundleForComponent(splitSnapshot, namedToolA);
+    const delayedBundleIDs = [
+      visibleComponent.bundleID,
+      manualComponent.bundleID,
+      sharedBadgeA.bundleID,
+      namedToolA.bundleID,
+    ];
+    const prematurelyLoaded = delayedBundleIDs.filter((bundleID) => splitSnapshot.loadedBundleIDs.includes(bundleID));
+    if (prematurelyLoaded.length > 0) {
+      throw new Error(`Delayed bundles loaded during initial eager phase: ${JSON.stringify(prematurelyLoaded)}`);
+    }
+    const delayedAssetPaths = [visibleBundle, manualBundle, sharedBundle, namedBundle].map((bundle) => bundle.assetPath);
+    const prematureFetches = wasmResponses.filter((response) => delayedAssetPaths.includes(response.path));
+    if (prematureFetches.length > 0) {
+      throw new Error(`Delayed bundle assets fetched before trigger: ${JSON.stringify(prematureFetches)}`);
+    }
+    report.splitInitial = {
+      deferredComponent,
+      deferredBundle,
+      visibleComponent,
+      visibleBundle,
+      idleComponent,
+      idleBundle,
+      manualComponent,
+      manualBundle,
+      sharedBundle,
+      namedBundle,
+      loadedBundleIDs: splitSnapshot.loadedBundleIDs,
+      wasmResponses: wasmResponses.slice(),
+    };
+
     try {
       await page.waitForFunction(
         () => !!globalThis.__swiftWebDevReload?.connectedAt && !!globalThis.__swiftWebDevReload?.eventSource,
@@ -322,6 +806,98 @@ async function runBrowserAssertions(baseURL, appRoot) {
 
     await expectCardValue(page, ".client-counter", 0);
     await expectCardValue(page, ".server-counter", 0);
+    await expectCardValue(page, ".deferred-counter", 0);
+    await expectCardValue(page, ".visible-counter", 0);
+    await expectCardValue(page, ".idle-counter", 0);
+    await expectCardValue(page, ".manual-counter", 0);
+    await expectCardValue(page, ".shared-badge-a", 0);
+    await expectCardValue(page, ".shared-badge-b", 0);
+    await expectCardValue(page, ".named-tool-a", 0);
+    await expectCardValue(page, ".named-tool-b", 0);
+
+    recordPhase("idle.auto-load");
+    await page.waitForFunction(
+      (bundleID) => (window.__swiftWebWasmRuntimeStatus?.loadedBundleIDs || []).includes(bundleID),
+      idleComponent.bundleID,
+      { timeout: timeoutMs }
+    );
+
+    recordPhase("visible.viewport-load");
+    const visibleBeforeScroll = await page.locator(".visible-counter").evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return {
+        top: rect.top,
+        viewportHeight: window.innerHeight,
+        loaded: (window.__swiftWebWasmRuntimeStatus?.loadedBundleIDs || []).includes(element.getAttribute("data-swift-bundle")),
+      };
+    });
+    if (visibleBeforeScroll.top <= visibleBeforeScroll.viewportHeight + 200) {
+      throw new Error(`Visible counter setup is invalid; component is already near the viewport: ${JSON.stringify(visibleBeforeScroll)}`);
+    }
+    if (visibleBeforeScroll.loaded) {
+      throw new Error(`Visible bundle loaded before entering viewport: ${JSON.stringify(visibleBeforeScroll)}`);
+    }
+    await page.locator(".visible-counter").scrollIntoViewIfNeeded();
+    await page.waitForFunction(
+      (bundleID) => (window.__swiftWebWasmRuntimeStatus?.loadedBundleIDs || []).includes(bundleID),
+      visibleComponent.bundleID,
+      { timeout: timeoutMs }
+    );
+    await page.locator(".visible-counter").getByRole("button", { name: "Increment visible" }).click();
+    await expectCardValue(page, ".visible-counter", 1);
+    await page.locator(".idle-counter").getByRole("button", { name: "Increment idle" }).click();
+    await expectCardValue(page, ".idle-counter", 1);
+
+    recordPhase("manual.explicit-load");
+    await delay(1_000);
+    const manualBeforeLoad = await runtimeManifestSnapshot(page);
+    const autoLoadedManualBundles = [
+      manualComponent.bundleID,
+      sharedBadgeA.bundleID,
+      namedToolA.bundleID,
+    ].filter((bundleID) => manualBeforeLoad.loadedBundleIDs.includes(bundleID));
+    if (autoLoadedManualBundles.length > 0) {
+      throw new Error(`Manual bundles loaded before explicit request: ${JSON.stringify(autoLoadedManualBundles)}`);
+    }
+    await page.evaluate(
+      async (bundleIDs) => {
+        await window.__swiftWebWasmRuntime.loadBundles(bundleIDs);
+      },
+      [manualComponent.bundleID, sharedBadgeA.bundleID, namedToolA.bundleID]
+    );
+    for (const bundleID of [manualComponent.bundleID, sharedBadgeA.bundleID, namedToolA.bundleID]) {
+      await page.waitForFunction(
+        (loadedBundleID) => (window.__swiftWebWasmRuntimeStatus?.loadedBundleIDs || []).includes(loadedBundleID),
+        bundleID,
+        { timeout: timeoutMs }
+      );
+    }
+    await page.locator(".manual-counter").getByRole("button", { name: "Increment manual" }).click();
+    await page.locator(".shared-badge-b").getByRole("button", { name: "Increment shared B" }).click();
+    await page.locator(".named-tool-a").getByRole("button", { name: "Increment named A" }).click();
+    await expectCardValue(page, ".manual-counter", 1);
+    await expectCardValue(page, ".shared-badge-b", 1);
+    await expectCardValue(page, ".named-tool-a", 1);
+    report.loadingPolicyAfterExplicitLoad = await runtimeManifestSnapshot(page);
+
+    recordPhase("deferred.interaction-load");
+    await page.locator(".deferred-counter").hover();
+    await page.waitForFunction(
+      (bundleID) => (window.__swiftWebWasmRuntimeStatus?.loadedBundleIDs || []).includes(bundleID),
+      deferredComponent.bundleID,
+      { timeout: timeoutMs }
+    );
+    const splitAfterInteraction = await page.evaluate((bundleID) => ({
+      loadedBundleIDs: window.__swiftWebWasmRuntimeStatus?.loadedBundleIDs || [],
+      metricEvents: (window.__swiftWebWasmRuntimeMetrics?.events || [])
+        .filter((event) => JSON.stringify(event).includes(bundleID)),
+    }), deferredComponent.bundleID);
+    if (!wasmResponses.some((response) => response.path === deferredBundle.assetPath && response.status >= 200 && response.status < 300)) {
+      throw new Error(`Deferred WASM asset was not fetched after interaction: ${deferredBundle.assetPath}`);
+    }
+    report.splitAfterInteraction = splitAfterInteraction;
+    await page.locator(".deferred-counter").getByRole("button", { name: "Increment deferred" }).click();
+    await expectCardValue(page, ".deferred-counter", 1);
 
     recordPhase("client.increment");
     await page.locator(".client-counter").getByRole("button", { name: "Increment" }).click();
@@ -384,12 +960,57 @@ async function runBrowserAssertions(baseURL, appRoot) {
     report.hmrMetrics = hmrMetrics;
     recordPhase("client.hmr.state-preserved");
 
+    recordPhase("client.hmr.failure-rollback");
+    await writeFile(clientCounterFile, `${updatedSource}
+
+public let swiftWebE2EInjectedCompilerError =
+`);
+    await page.waitForFunction(
+      () => {
+        const applied = globalThis.__swiftWebDevReload?.lastAppliedEvent;
+        return applied?.kind === "error" && String(applied.message || "").includes("Client WASM HMR failed");
+      },
+      undefined,
+      { timeout: hmrTimeoutMs }
+    );
+    await expectCardValue(page, ".client-counter", 1);
+    await expectCardValue(page, ".server-counter", 1);
+    await expectCardValue(page, ".deferred-counter", 1);
+    await expectCardValue(page, ".visible-counter", 1);
+    await expectCardValue(page, ".idle-counter", 1);
+    await expectCardValue(page, ".manual-counter", 1);
+    await expectCardValue(page, ".shared-badge-b", 1);
+    await expectCardValue(page, ".named-tool-a", 1);
+    const markerAfterHMRFailure = await page.evaluate(() => window.__swiftWebE2EMarker);
+    if (markerAfterHMRFailure !== initialMarker) {
+      throw new Error("Failed ClientComponent HMR caused a full page reload.");
+    }
+    report.hmrFailure = await browserRuntimeState(page);
+    if (!report.hmrFailure.devReload.lastAppliedEventKind || report.hmrFailure.devReload.lastAppliedEventKind !== "error") {
+      throw new Error(`Failed ClientComponent HMR did not report an error event: ${JSON.stringify(report.hmrFailure)}`);
+    }
+
     const finalValues = {
       client: await cardValue(page, ".client-counter"),
       server: await cardValue(page, ".server-counter"),
+      deferred: await cardValue(page, ".deferred-counter"),
+      visible: await cardValue(page, ".visible-counter"),
+      idle: await cardValue(page, ".idle-counter"),
+      manual: await cardValue(page, ".manual-counter"),
+      sharedB: await cardValue(page, ".shared-badge-b"),
+      namedA: await cardValue(page, ".named-tool-a"),
     };
     report.finalValues = finalValues;
-    if (finalValues.client !== 1 || finalValues.server !== 1) {
+    if (
+      finalValues.client !== 1 ||
+      finalValues.server !== 1 ||
+      finalValues.deferred !== 1 ||
+      finalValues.visible !== 1 ||
+      finalValues.idle !== 1 ||
+      finalValues.manual !== 1 ||
+      finalValues.sharedB !== 1 ||
+      finalValues.namedA !== 1
+    ) {
       throw new Error(`Unexpected final values: ${JSON.stringify(finalValues)}`);
     }
   } finally {
@@ -420,6 +1041,7 @@ try {
   recordPhase("server.ready");
 
   await runBrowserAssertions(baseURL, appRoot);
+  await runWebKitSmoke(baseURL);
   recordPhase("passed");
 } catch (error) {
   report.error = String(error && error.stack ? error.stack : error);
@@ -427,6 +1049,27 @@ try {
   process.exitCode = 1;
 } finally {
   await stopProcess(devServer);
+  if (tempRoot) {
+    try {
+      const remainingProcesses = await waitForNoProcessLines(tempRoot);
+      report.postStopProcessCheck = {
+        pattern: tempRoot,
+        remainingProcesses,
+      };
+      if (remainingProcesses.length > 0 && !report.error) {
+        report.error = `SwiftWeb dev left child processes after stop: ${remainingProcesses.join("\n")}`;
+        process.exitCode = 1;
+      }
+    } catch (error) {
+      report.postStopProcessCheck = {
+        error: String(error && error.message ? error.message : error),
+      };
+      if (!report.error) {
+        report.error = `SwiftWeb dev post-stop process check failed: ${report.postStopProcessCheck.error}`;
+        process.exitCode = 1;
+      }
+    }
+  }
   if (tempRoot && process.env.SWIFTWEB_E2E_KEEP_TEMP !== "1") {
     await removeTemporaryRoot(tempRoot);
   }

@@ -6,14 +6,16 @@ public enum SwiftPMWasmArtifact {
         target: String,
         artifactName: String? = nil,
         configuration: String = "release",
-        triple: String = "wasm32-unknown-wasip1"
+        triple: String = "wasm32-unknown-wasip1",
+        scratchDirectory: URL? = nil
     ) -> SwiftPMWasmArtifactLocation {
         SwiftPMWasmArtifactLocation(
             anchorFile: anchorFile,
             target: target,
             artifactName: artifactName,
             configuration: configuration,
-            triple: triple
+            triple: triple,
+            scratchDirectory: scratchDirectory
         )
     }
 
@@ -22,12 +24,19 @@ public enum SwiftPMWasmArtifact {
         target: String,
         artifactName: String? = nil,
         configuration: String = "release",
-        triple: String = "wasm32-unknown-wasip1"
+        triple: String = "wasm32-unknown-wasip1",
+        scratchDirectory: URL? = nil
     ) throws -> URL {
         let packageRoot = try findPackageRoot(containing: URL(fileURLWithPath: anchorFile))
         let candidates = artifactNameCandidates(target: target, artifactName: artifactName)
 
-        for outputDirectory in outputDirectories(for: packageRoot, triple: triple, configuration: configuration) {
+        let outputDirectories = outputDirectories(
+            for: packageRoot,
+            triple: triple,
+            configuration: configuration,
+            scratchDirectory: scratchDirectory
+        )
+        for outputDirectory in outputDirectories {
             for candidate in candidates {
                 let url = outputDirectory.appendingPathComponent("\(candidate).wasm")
                 if FileManager.default.fileExists(atPath: url.path) {
@@ -36,7 +45,7 @@ public enum SwiftPMWasmArtifact {
             }
         }
 
-        return outputDirectories(for: packageRoot, triple: triple, configuration: configuration)[0]
+        return outputDirectories[0]
             .appendingPathComponent("\(candidates[0]).wasm")
     }
 
@@ -75,15 +84,57 @@ public enum SwiftPMWasmArtifact {
     private static func outputDirectories(
         for packageRoot: URL,
         triple: String,
-        configuration: String
+        configuration: String,
+        scratchDirectory: URL?
     ) -> [URL] {
-        let roots = artifactSearchRoots(for: packageRoot)
-        return roots.map {
-            $0.appendingPathComponent(".build")
-                .appendingPathComponent(triple)
-                .appendingPathComponent(configuration)
-                .standardizedFileURL
+        var directories: [URL] = []
+        var seen = Set<String>()
+
+        func append(_ directory: URL) {
+            let standardizedDirectory = directory.standardizedFileURL
+            if seen.insert(standardizedDirectory.path).inserted {
+                directories.append(standardizedDirectory)
+            }
         }
+
+        if let scratchDirectory {
+            append(
+                scratchDirectory
+                    .appendingPathComponent(triple)
+                    .appendingPathComponent(configuration)
+            )
+        }
+
+        for scratchRoot in conventionalScratchRoots(for: packageRoot) {
+            append(
+                scratchRoot
+                    .appendingPathComponent(triple)
+                    .appendingPathComponent(configuration)
+            )
+        }
+
+        for root in artifactSearchRoots(for: packageRoot) {
+            append(
+                root.appendingPathComponent(".build")
+                    .appendingPathComponent(triple)
+                    .appendingPathComponent(configuration)
+            )
+        }
+
+        return directories
+    }
+
+    private static func conventionalScratchRoots(for packageRoot: URL) -> [URL] {
+        guard packageRoot.lastPathComponent == "wasm" else {
+            return []
+        }
+
+        return [
+            packageRoot
+                .deletingLastPathComponent()
+                .appendingPathComponent(".build", isDirectory: true)
+                .appendingPathComponent("wasm", isDirectory: true),
+        ]
     }
 
     private static func artifactSearchRoots(for packageRoot: URL) -> [URL] {
@@ -99,9 +150,12 @@ public enum SwiftPMWasmArtifact {
 
         append(packageRoot)
         append(packageRoot.appendingPathComponent(".swiftweb/generated", isDirectory: true))
+        append(packageRoot.appendingPathComponent(".swiftweb/generated/wasm", isDirectory: true))
+        append(packageRoot.appendingPathComponent(".swiftweb/generated/server", isDirectory: true))
 
         for dependencyRoot in localPackageDependencyRoots(for: packageRoot) {
             append(dependencyRoot)
+            append(dependencyRoot.appendingPathComponent(".swiftweb/generated/wasm", isDirectory: true))
         }
 
         return roots

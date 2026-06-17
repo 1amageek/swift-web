@@ -58,16 +58,32 @@ public struct SwiftWebWasmClientRuntime: Sendable, Codable, Equatable {
 
 public struct SwiftWebWasmClientBundle: Sendable, Codable, Equatable {
     public let id: ClientBundleID
-    public let componentTypeName: String
+    public let componentTypeNames: [String]
     public let assetPath: String
+
+    public var componentTypeName: String {
+        componentTypeNames.first ?? ""
+    }
 
     public init(
         id: ClientBundleID,
         componentTypeName: String,
         assetPath: String
     ) {
+        self.init(
+            id: id,
+            componentTypeNames: [componentTypeName],
+            assetPath: assetPath
+        )
+    }
+
+    public init(
+        id: ClientBundleID,
+        componentTypeNames: [String],
+        assetPath: String
+    ) {
         self.id = id
-        self.componentTypeName = componentTypeName
+        self.componentTypeNames = componentTypeNames.sorted()
         self.assetPath = assetPath
     }
 }

@@ -21,7 +21,7 @@ flowchart TD
 | Component graph | `SwiftHTML` | Component identity, child traversal, state slot registration, environment reads, hydration boundaries, diagnostics |
 | DynamicProperty | `SwiftHTML` | Runtime-backed property wrappers used during render, hydration, and client updates |
 | Modifier graph | `SwiftHTML` core + `SwiftWebUI` modifiers | Ordered modifier composition and lowering to attributes, wrappers, environment scopes, handlers, or layout metadata |
-| Style abstraction | `SwiftWebUI` | SwiftUI-like style values resolved through `EnvironmentValues`, `Theme`, and `DesignStyle` into web-safe CSS output |
+| Style abstraction | `SwiftWebUI` | SwiftUI-like style values resolved through `EnvironmentValues`, `Theme`, and `StyleSystem` into web-safe CSS output |
 
 `SwiftWebUI` must not introduce a second renderer. It produces components and modifiers that lower into the existing `SwiftHTML` graph.
 
@@ -169,7 +169,7 @@ flowchart LR
     B --> C["StyleResolver"]
     C --> D["EnvironmentValues"]
     D --> E["Theme"]
-    D --> F["DesignStyle"]
+    D --> F["StyleSystem"]
     C --> G["ResolvedStyle"]
     G --> H["CSS declarations / classes"]
 ```
@@ -183,7 +183,7 @@ public protocol WebShapeStyle: Sendable {
 
 public struct StyleResolutionContext: Sendable {
     public let theme: Theme
-    public let designStyle: DesignStyle
+    public let styleSystem: StyleSystem
     public let colorScheme: ColorScheme
     public let layoutDirection: LayoutDirection
     public let controlState: ControlState
@@ -212,7 +212,7 @@ public struct ResolvedStyle: Sendable, Equatable {
 
 Raw CSS strings should remain as escape hatches, not the primary API. When SwiftWebUI needs to emit concrete CSS properties, it should use SwiftHTML `Style` helpers so standard CSS property names remain autocompleteable and shared across inline styles and stylesheet rules.
 
-## Environment, Theme, And DesignStyle
+## Environment, Theme, And StyleSystem
 
 Theme is an environment value:
 
@@ -220,10 +220,10 @@ Theme is an environment value:
 content.environment(\.theme, .system)
 ```
 
-DesignStyle is also an environment value:
+StyleSystem is also an environment value:
 
 ```swift
-let style = DesignStyle(id: "brand") {
+let style = StyleSystem(id: "brand") {
     .surface {
         .cardRadius("18px")
         .cardShadow("none")
@@ -235,33 +235,33 @@ let style = DesignStyle(id: "brand") {
 
 content
     .environment(\.theme, .system)
-    .environment(\.designStyle, style)
+    .environment(\.styleSystem, style)
 ```
 
-There should be no `ThemeProvider`, `DesignStyleProvider`, or separate context modifier. Environment is the single propagation mechanism for values used by both server rendering and client hydration.
+There should be no `ThemeProvider`, `StyleSystemProvider`, or separate context modifier. Environment is the single propagation mechanism for values used by both server rendering and client hydration.
 
 | Value | Responsibility | Defaulting model |
 |---|---|---|
 | `Theme` | Semantic color mode and color role values | Built-in `.system`, `.light`, and `.dark` values |
-| `DesignStyle` | Component-wide shape, spacing, material, control, and motion values | Complete `.default`; third-party styles override only changed token groups |
+| `StyleSystem` | Component-wide shape, spacing, material, control, and motion values | Complete `.default`; third-party styles override only changed token groups |
 
-`Theme` and `DesignStyle` are intentionally separate. Dark and light mode change color roles. DesignStyle changes component language, such as Material-like controls or glass-like surfaces. A custom DesignStyle must be built by overriding `DesignStyle.default`, so every component keeps a defined fallback token.
+`Theme` and `StyleSystem` are intentionally separate. Dark and light mode change color roles. StyleSystem changes component language, such as Material-like controls or glass-like surfaces. A custom StyleSystem must be built by overriding `StyleSystem.default`, so every component keeps a defined fallback token.
 
 ```mermaid
 flowchart LR
     A["Theme"] --> B["color role CSS variables"]
-    C["DesignStyle"] --> D["component CSS variables"]
+    C["StyleSystem"] --> D["component CSS variables"]
     B --> E["ThemeStylesheet"]
     D --> E
     E --> F["SwiftWebUI component classes"]
 ```
 
-When both values are set through modifiers, place `designStyle` outside the theme scope:
+When both values are set through modifiers, place `styleSystem` outside the theme scope:
 
 ```swift
 content
     .environment(\.theme, .dark)
-    .environment(\.designStyle, .liquidGlass)
+    .environment(\.styleSystem, .liquidGlass)
 ```
 
 Modifier order is semantic. The stylesheet scope created by `theme` reads outer environment values, then renders the scoped content.
@@ -281,7 +281,7 @@ Modifier order is semantic. The stylesheet scope created by `theme` reads outer 
 5. Add `WebShapeStyle`, `ResolvedStyle`, and `StyleResolutionContext`.
 6. Replace public `foregroundColor` with `foregroundStyle`.
 7. Keep raw `HTMLAttribute`, `Style.custom(_:_:)`, and `Stylesheet` APIs as escape hooks below the SwiftWebUI layer.
-8. Keep `DesignStyle.default` complete and make presets or third-party styles override that default through the builder DSL.
+8. Keep `StyleSystem.default` complete and make presets or third-party styles override that default through the builder DSL.
 
 ## Current Implementation
 
@@ -291,7 +291,7 @@ Modifier order is semantic. The stylesheet scope created by `theme` reads outer 
 | Style abstraction | `WebShapeStyle`, `SemanticShapeStyle`, `CSSShapeStyle`, `ResolvedStyle`, and style modifiers live in `SwiftWebUI`. |
 | Style modifiers | `foregroundStyle`, `backgroundStyle`, `tint`, and `border` are available on all `HTML`. |
 | Stylesheet output | SwiftHTML owns `Style`, generated standard CSS property helpers, `Stylesheet`, `CSSRule`, and `@StylesheetBuilder`; SwiftWebUI uses them for typed theme CSS. |
-| Design style | `DesignStyle`, built-in presets, environment propagation, and builder-based overrides live in `SwiftWebUI`. |
+| Style system | `StyleSystem`, built-in presets, environment propagation, and builder-based overrides live in `SwiftWebUI`. |
 | Control environment | `isEnabled`, `controlSize`, `controlState`, `tint`, and `buttonStyle` are environment values. |
 | Control styles | `ButtonStyleKind` provides built-in `automatic`, `bordered`, `borderedProminent`, and `plain` styles. |
 | Binding-first controls | `TextField`, `Toggle`, `Slider`, `Stepper`, and `Picker` accept `Binding` values. |

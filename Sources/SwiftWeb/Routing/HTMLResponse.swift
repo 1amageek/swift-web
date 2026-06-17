@@ -23,6 +23,7 @@ extension HTML {
         let baseOptions = SwiftWebRenderOptions.current
         let runtime = request.application.swiftWebClientRuntime
         let securityContext = request.securityContext
+        let developmentHooks = await SwiftWebDevelopmentSupport.shared.currentHooks()
 
         let options = baseOptions
             .withClientHandlerClosures(runtime.capturesClientHandlerClosures)
@@ -36,9 +37,9 @@ extension HTML {
 
         switch runtime {
         case .disabled:
-            let html = SwiftWebDevHotReload.inject(into: artifact.html, nonce: securityContext?.cspNonce)
+            let html = developmentHooks.injectHTML(artifact.html, securityContext?.cspNonce)
             return Response(
-                headers: SwiftWebDevHotReload.headers(),
+                headers: developmentHooks.htmlHeaders(),
                 body: .init(string: html)
             )
         case .wasm(let wasmRuntime):
@@ -53,19 +54,19 @@ extension HTML {
                 wasm: wasmRuntime,
                 security: request.clientSecurityDescriptor
             )
-            let annotatedHTML = SwiftWebDevBoundaryAnnotator.annotate(
+            let annotatedHTML = developmentHooks.annotateClientRuntimeHTML(
                 artifact.html,
-                manifest: manifest,
-                hydrationIndex: descriptor.hydrationIndex
+                manifest,
+                descriptor.hydrationIndex
             )
             let runtimeHTML = try SwiftWebClientRuntimeHTMLInjector().inject(
                 into: annotatedHTML,
                 descriptor: descriptor,
                 nonce: securityContext?.cspNonce
             )
-            let html = SwiftWebDevHotReload.inject(into: runtimeHTML, nonce: securityContext?.cspNonce)
+            let html = developmentHooks.injectHTML(runtimeHTML, securityContext?.cspNonce)
             return Response(
-                headers: SwiftWebDevHotReload.headers(),
+                headers: developmentHooks.htmlHeaders(),
                 body: .init(string: html)
             )
         }

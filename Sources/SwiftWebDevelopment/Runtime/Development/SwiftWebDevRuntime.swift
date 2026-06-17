@@ -37,10 +37,10 @@ public struct SwiftWebDevRuntime {
         )
         let generatedPackage = try materializer.materialize()
         let serverConfiguration = SwiftWebDevRuntimeConfiguration(
-            packageDirectory: generatedPackage.packageDirectory,
+            packageDirectory: generatedPackage.devPackageDirectory,
             scratchDirectory: configuration.scratchDirectory
                 ?? Self.defaultServerScratchDirectory(for: generatedPackage),
-            product: generatedPackage.serverProductName,
+            product: generatedPackage.developmentServerProductName,
             host: configuration.host,
             port: configuration.port,
             readinessTimeout: configuration.readinessTimeout
@@ -61,7 +61,10 @@ public struct SwiftWebDevRuntime {
         logger.info(
             "SwiftWeb dev server starting at \(url)",
                 metadata: metadata([
-                    "generatedPackage": .string(generatedPackage.packageDirectory.path),
+                    "generatedPackage": .string(generatedPackage.rootDirectory.path),
+                    "serverPackage": .string(generatedPackage.packageDirectory.path),
+                    "devPackage": .string(generatedPackage.devPackageDirectory.path),
+                    "wasmPackage": .string(generatedPackage.wasmPackageDirectory.path),
                     "watchRootCount": .string(String(watchRoots.count)),
                     "watchRoots": .string(watchRoots.map(\.path).joined(separator: ",")),
                 ])
@@ -342,7 +345,7 @@ public struct SwiftWebDevRuntime {
     }
 
     private static func defaultServerScratchDirectory(for generatedPackage: SwiftWebGeneratedPackage) -> URL {
-        generatedPackage.packageDirectory
+        generatedPackage.rootDirectory
             .appendingPathComponent(".build", isDirectory: true)
             .appendingPathComponent("server", isDirectory: true)
             .standardizedFileURL

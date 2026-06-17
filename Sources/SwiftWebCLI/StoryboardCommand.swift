@@ -1,5 +1,5 @@
 import Foundation
-import SwiftWeb
+import SwiftWebDevelopment
 
 struct StoryboardCommand {
     let packageDirectory: URL

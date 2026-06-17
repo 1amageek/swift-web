@@ -13,8 +13,13 @@ The test copies `Examples/CounterApp` into a temporary directory, rewrites its d
 - browser WASM runtime readiness
 - WASM asset fetch and instantiation metrics
 - ClientComponent `@State` updates through WASM event dispatch
+- `.visible`, `.idle`, `.interaction`, and `.manual` ClientComponent loading policies
+- named/shared split bundle contracts
 - ServerAction page invalidation without full navigation
 - ClientComponent HMR patching while preserving state
+- ClientComponent HMR build failure rollback without replacing the old UI
+- dev process shutdown cleanup
+- optional WebKit smoke when Playwright WebKit is installed
 
 Environment variables:
 
@@ -26,3 +31,4 @@ Environment variables:
 | `SWIFTWEB_E2E_TIMEOUT_MS` | Overall wait timeout for server, runtime, and HMR phases. |
 | `SWIFTWEB_E2E_SWIFT_HTML_ROOT` | Override the local `swift-html` path. Defaults to `../swift-html` next to the repo. |
 | `SWIFTWEB_E2E_BROWSER_EXECUTABLE_PATH` | Use a specific Chromium-compatible browser executable. |
+| `SWIFTWEB_E2E_REQUIRE_WEBKIT` | Set to `1` to fail when the optional WebKit smoke cannot run. |

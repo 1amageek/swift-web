@@ -1,6 +1,7 @@
 import Foundation
 import HTTPTypes
 import SwiftHTML
+import SwiftWeb
 import Vapor
 
 enum SwiftWebDevHotReload {

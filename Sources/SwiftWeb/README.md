@@ -2,7 +2,7 @@
 
 SwiftWeb is the Vapor integration layer and page runtime for SwiftHTML.
 
-It owns page routing, request context, route actions, streaming, uploads, WebSocket/SSE registration, HTML responses, development browser updates, and the hosted WASM runtime assets. It does not own the visual component library or the HTML graph engine.
+It owns page routing, request context, route actions, streaming, uploads, WebSocket/SSE registration, HTML responses, production runtime hooks, and the hosted WASM runtime assets. It does not own the visual component library, the HTML graph engine, or the development watch/HMR implementation.
 
 ## Responsibility
 
@@ -20,9 +20,7 @@ It owns page routing, request context, route actions, streaming, uploads, WebSoc
 | Uploads | Provides upload route registration and upload context types. |
 | WebSockets | Provides WebSocket route registration and context wrappers. |
 | WASM hosting | Serves runtime host scripts, JavaScriptKit runtime support, manifests, and WASM assets. |
-| Dev browser runtime | Injects a development browser runtime that prefers typed EventSource events and falls back to reload-token waiting when streaming is unavailable. |
-| Dev runtime | Provides `SwiftWebDevRuntime`, the shared watch/classify/build/restart parent process used by CLI and Xcode launchers. |
-| Dev logging | Emits structured startup, ready, reload, child-exit, and shutdown logs through `swift-log`. |
+| Development hook boundary | Provides no-op production hooks that `SwiftWebDevelopment` can install during `swift-web dev`. |
 
 ## Directory Layout
 
@@ -35,7 +33,7 @@ It owns page routing, request context, route actions, streaming, uploads, WebSoc
 | `Streaming/` | Streaming pages, stream writer, SSE route registration, and SSE event/context types. |
 | `Realtime/` | WebSocket route registration and socket context wrappers. |
 | `Runtime/Client/` | Client runtime descriptors, render options, and rendered HTML runtime injection. |
-| `Runtime/Development/` | FSEvents file watching, change classification, typed dev events, EventSource/reload fallback injection, artifact cleanup, parent-process monitoring, and shared dev server orchestration. |
+| `Runtime/DevelopmentSupport/` | No-op production hook registry used by `SwiftWebDevelopment` when a dev child server is launched. |
 | `Runtime/Wasm/` | Hosted WASM runtime routes, host script, JavaScriptKit runtime support, and asset serving. |
 | `Runtime/Diagnostics/` | Debug diagnostics emitted during rendering and hydration setup. |
 
@@ -131,44 +129,29 @@ struct CounterPage {
 | `Page.cache` | Declare response cache behavior for the page. |
 | `.environment(...)` | Pass client-visible UI context such as theme, locale, and color scheme. |
 
-## Development Runtime Lifecycle
+## Development Boundary
 
-`swift-web dev` and generated dev launchers both delegate to `SwiftWebDevRuntime`. The runtime materializes `.swiftweb/generated/Package.swift`, builds the generated server product, launches the executable directly, watches the app package plus local package dependencies, classifies changes, emits typed dev events, and restarts the child server only when the change cannot be handled more narrowly.
+The development runtime lives in the `SwiftWebDevelopment` product, not in the production `SwiftWeb` product. `SwiftWeb` only exposes a no-op hook registry. A dev child server calls `SwiftWebDevelopment.install()` before `App.run()`, which installs HMR routes, HTML injection, boundary annotation, route logging, and the parent-process monitor.
 
 ```mermaid
 flowchart LR
-  A["swift-web dev / generated dev launcher"] --> B["SwiftWebDevRuntime"]
-  B --> C["materialize .swiftweb/generated"]
-  C --> D["swift build --package-path generated --product app-server"]
-  D --> E["launch child server"]
-  E --> F["Vapor app"]
-  B --> G["FSEvents watcher"]
-  G --> H["ChangeClassifier"]
-  H --> I{"change kind"}
-  I --> S["stylePatch"]
-  I --> W["clientComponentUpdate"]
-  I --> R["serverBuildStarted / serverRestarted"]
-  R --> C
-  E --> P["SWIFT_WEB_DEV_PARENT_PID"]
-  P --> M["child exits if parent disappears"]
-  F --> N["/__swiftweb/dev/events EventSource"]
-  F --> O["/__swiftweb/dev/reload fallback"]
+  A["production app"] --> B["SwiftWeb"]
+  B --> C["no-op development hooks"]
+  D["swift-web dev child"] --> E["SwiftWebDevelopment.install()"]
+  E --> F["SwiftWeb development hooks"]
+  F --> G["HMR routes / HTML injection / parent monitor"]
 ```
 
 | Mechanism | Responsibility |
 |---|---|
-| Generated package | Keeps launchers, server executable packaging, and WASM runtime packaging out of the user app package. |
-| FSEvents watcher | Detects file saves in the app package and local package dependencies. |
-| Change classifier | Separates style-only changes, client component runtime changes, page/server changes, and unknown changes. |
-| Typed dev event | Carries `stylePatch`, `clientComponentUpdate`, `serverBuildStarted`, `serverRestarted`, `pagePatch`, `fullReload`, and `error` envelopes. |
-| EventSource endpoint | Target transport for component-level HMR events at `/__swiftweb/dev/events`. |
-| Reload-token fallback | Lets the browser wait for the next restart token through `/__swiftweb/dev/reload` when streaming events are unavailable. |
-| Parent PID monitor | Stops the child server when the dev parent process is killed from Xcode or the terminal. |
-| `swift-log` | Emits startup, ready, reload, child-exit, and shutdown events. |
+| Production `SwiftWeb` product | Contains route/action/page/WASM hosting runtime and no development watcher/HMR implementation. |
+| `SwiftWebDevelopment` product | Contains generated package materialization, FSEvents watching, HMR events, reload fallback, artifact cleanup, and dev process supervision. |
+| Generated server package | Builds the production `app-server` product without linking `SwiftWebDevelopment`. |
+| Generated dev package | Builds the dev launcher and the dev child server product that installs `SwiftWebDevelopment` hooks. |
 
 ### Current Streaming Limitation
 
-`StreamingPage`, `SSERoute`, and the dev EventSource endpoint are modeled as streaming responses. In the current Vapor 5 alpha HTTP runtime used by this package, streaming response bodies are not yet forwarded by the HTTP server handler. Until that is implemented upstream or wired locally, browser development updates use the reload-token fallback as the reliable transport, and application SSE routes are API-complete but not yet end-to-end streaming-complete.
+`StreamingPage`, `SSERoute`, and the `SwiftWebDevelopment` EventSource endpoint are modeled as streaming responses. In the current Vapor 5 alpha HTTP runtime used by this package, streaming response bodies are not yet forwarded by the HTTP server handler. Until that is implemented upstream or wired locally, browser development updates use the reload-token fallback as the reliable transport, and application SSE routes are API-complete but not yet end-to-end streaming-complete.
 
 ```mermaid
 flowchart LR
@@ -181,6 +164,8 @@ flowchart LR
 WASM builds use the same generated package boundary but switch to a client-only graph: the generated package copies the app's client components plus `SwiftWebUI` and `SwiftWebUIRuntime` sources, and resolves `SwiftHTML` from the `swift-html` package dependency. `SwiftHTML` and `SwiftWebUI` stay browser-runtime neutral, while `SwiftWebUIRuntime` carries the JavaScriptKit-backed browser adapter used by the generated WASM runtime targets.
 
 `SwiftPMWasmArtifact.location(target:)` resolves the served `.wasm` file from the user app package root, the app's `.swiftweb/generated` package root, and local `.package(path:)` dependency roots. This lets `swift-web build --wasm` write into the shared SwiftWeb scratch directory while the app still declares the asset from its own `clientRuntime`.
+
+Client bundle loading is contract-first and documented in [`docs/ClientBundleLoadingDesign.md`](../../docs/ClientBundleLoadingDesign.md). `SwiftWeb` hosts resolved manifests and content-hashed WASM assets; `ClientComponent` contracts and modifiers decide bundle/load policy, while the runtime validates those contracts and serves the resulting assets.
 
 ## Server Interaction Methods
 

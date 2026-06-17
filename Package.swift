@@ -39,6 +39,7 @@ let package = Package(
         .library(name: "SwiftWebUI", targets: ["SwiftWebUI"]),
         .library(name: "SwiftWebUIRuntime", targets: ["SwiftWebUIRuntime"]),
         .library(name: "SwiftWeb", targets: ["SwiftWeb"]),
+        .library(name: "SwiftWebDevelopment", targets: ["SwiftWebDevelopment"]),
         .executable(name: "swift-web", targets: ["SwiftWebCLI"]),
     ],
     dependencies: [
@@ -118,12 +119,24 @@ let package = Package(
             dependencies: swiftWebUIRuntimeDependencies,
             swiftSettings: swiftWebSwiftSettings
         ),
+        .target(
+            name: "SwiftWebDevelopment",
+            dependencies: [
+                swiftHTMLDependency,
+                .product(name: "Vapor", package: "vapor"),
+                .product(name: "HTTPTypes", package: "swift-http-types"),
+                .product(name: "Logging", package: "swift-log"),
+                "SwiftWeb",
+            ],
+            swiftSettings: swiftWebSwiftSettings
+        ),
         .executableTarget(
             name: "SwiftWebCLI",
             dependencies: [
                 swiftHTMLDependency,
                 "SwiftWeb",
                 "SwiftWebUI",
+                "SwiftWebDevelopment",
             ],
             swiftSettings: swiftWebSwiftSettings
         ),
@@ -147,6 +160,7 @@ let package = Package(
             name: "SwiftWebTests",
             dependencies: [
                 "SwiftWeb",
+                "SwiftWebDevelopment",
                 .product(name: "VaporTesting", package: "vapor"),
             ],
             swiftSettings: swiftWebSwiftSettings

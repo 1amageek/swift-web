@@ -1,5 +1,5 @@
 import Foundation
-import SwiftWeb
+import SwiftWebDevelopment
 
 struct NewCommand {
     let appName: String

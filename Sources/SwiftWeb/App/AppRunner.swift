@@ -12,7 +12,8 @@ public struct AppRunner<Definition: App> {
 
     public func run() async throws {
         let application = try await Application()
-        let devParentMonitor = SwiftWebDevParentProcessMonitor.startIfNeeded(logger: application.logger)
+        let developmentHooks = await SwiftWebDevelopmentSupport.shared.currentHooks()
+        let devParentMonitor = developmentHooks.startParentMonitor(application.logger)
         defer {
             devParentMonitor?.cancel()
         }
@@ -20,13 +21,11 @@ public struct AppRunner<Definition: App> {
         application.securityConfiguration = definition.security
         var middlewares = Middlewares()
         definition.security.installMiddleware(on: &middlewares)
-        if SwiftWebDevHotReload.isEnabled {
-            middlewares.use(SwiftWebDevRouteLoggingMiddleware(logLevel: .info))
-        }
+        developmentHooks.installMiddlewares(&middlewares)
         middlewares.use(ErrorMiddleware.default(environment: application.environment))
         application.middleware = middlewares
 
-        SwiftWebDevHotReload.register(on: application)
+        developmentHooks.registerRoutes(application)
         ActionGateway.register(on: application)
         WebActorGateway.register(on: application)
         do {

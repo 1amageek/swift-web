@@ -1,4 +1,4 @@
-@testable import SwiftWeb
+@testable import SwiftWebDevelopment
 import Foundation
 import SwiftHTML
 import Testing
@@ -62,6 +62,111 @@ struct SwiftWebDevHMRTests {
             SwiftWebDevFileChange(path: "Package.swift", url: packageFile, kind: .modified),
         ])
         #expect(serverPlan.requiresServerRestart)
+    }
+
+    @Test
+    func changeClassifierMapsAnyComponentInABundleToThatRuntime() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("SwiftWebDevMultiComponentHMRTests-\(UUID().uuidString)", isDirectory: true)
+        defer {
+            do {
+                try FileManager.default.removeItem(at: root)
+            } catch {}
+        }
+
+        let shellFile = root.appendingPathComponent("Sources/App/ClientShell.swift")
+        let badgeFile = root.appendingPathComponent("Sources/App/ClientBadge.swift")
+        try write("public struct ClientShell: ClientComponent {}", to: shellFile)
+        try write("public struct ClientBadge: ClientComponent {}", to: badgeFile)
+
+        let generated = SwiftWebGeneratedPackage(
+            appPackageDirectory: root,
+            packageDirectory: root.appendingPathComponent(".swiftweb/generated", isDirectory: true),
+            swiftWebPackageDirectory: root.appendingPathComponent("swift-web", isDirectory: true),
+            appProductName: "App",
+            serverProductName: "app-server",
+            devProductName: "App",
+            wasmProductNames: ["app-wasm-runtime"],
+            wasmRuntimes: [
+                SwiftWebGeneratedWasmRuntime(
+                    targetName: "AppWasmRuntime",
+                    productName: "app-wasm-runtime",
+                    componentTypeNames: ["ClientShell", "ClientBadge"],
+                    assetPath: "/assets/app-wasm-runtime.wasm"
+                ),
+            ]
+        )
+        let classifier = SwiftWebDevChangeClassifier(
+            appPackageDirectory: root,
+            generatedPackage: generated
+        )
+
+        let shellPlan = classifier.classify([
+            SwiftWebDevFileChange(path: "Sources/App/ClientShell.swift", url: shellFile, kind: .modified),
+        ])
+        let badgePlan = classifier.classify([
+            SwiftWebDevFileChange(path: "Sources/App/ClientBadge.swift", url: badgeFile, kind: .modified),
+        ])
+
+        #expect(shellPlan.clientRuntimes.map(\.productName) == ["app-wasm-runtime"])
+        #expect(badgePlan.clientRuntimes.map(\.productName) == ["app-wasm-runtime"])
+        #expect(!shellPlan.requiresServerRestart)
+        #expect(!badgePlan.requiresServerRestart)
+    }
+
+    @Test
+    func wasmBuildInputHashChangesOnlyForBuildInputs() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("SwiftWebWasmBuildInputHasherTests-\(UUID().uuidString)", isDirectory: true)
+        defer {
+            do {
+                try FileManager.default.removeItem(at: root)
+            } catch {}
+        }
+
+        try write("// package", to: root.appendingPathComponent("Package.swift"))
+        try write(
+            "public struct ClientCounter: ClientComponent {}",
+            to: root.appendingPathComponent("Sources/App/ClientCounter.swift")
+        )
+        try write("not a build input", to: root.appendingPathComponent("README.md"))
+        let runtime = SwiftWebGeneratedWasmRuntime(
+            packageDirectory: root,
+            targetName: "AppWasmRuntime",
+            productName: "app-wasm-runtime",
+            componentTypeNames: ["ClientCounter"],
+            assetPath: "/assets/app-wasm-runtime.wasm"
+        )
+
+        let firstHash = try SwiftWebWasmBuildInputHasher.hash(
+            runtime: runtime,
+            sdkName: "swift-6.3.1-RELEASE_wasm",
+            swiftExecutablePath: "/usr/bin/swift"
+        )
+        let secondHash = try SwiftWebWasmBuildInputHasher.hash(
+            runtime: runtime,
+            sdkName: "swift-6.3.1-RELEASE_wasm",
+            swiftExecutablePath: "/usr/bin/swift"
+        )
+        try write("changed but ignored", to: root.appendingPathComponent("README.md"))
+        let afterIgnoredFileHash = try SwiftWebWasmBuildInputHasher.hash(
+            runtime: runtime,
+            sdkName: "swift-6.3.1-RELEASE_wasm",
+            swiftExecutablePath: "/usr/bin/swift"
+        )
+        try write(
+            "public struct ClientCounter: ClientComponent { public init() {} }",
+            to: root.appendingPathComponent("Sources/App/ClientCounter.swift")
+        )
+        let afterSourceChangeHash = try SwiftWebWasmBuildInputHasher.hash(
+            runtime: runtime,
+            sdkName: "swift-6.3.1-RELEASE_wasm",
+            swiftExecutablePath: "/usr/bin/swift"
+        )
+
+        #expect(firstHash == secondHash)
+        #expect(firstHash == afterIgnoredFileHash)
+        #expect(firstHash != afterSourceChangeHash)
     }
 
     @Test
@@ -226,6 +331,100 @@ struct SwiftWebDevHMRTests {
     }
 
     @Test
+    func boundaryAnnotatorPrefersOuterSplitBoundaryWhenManifestListsInnerComponentFirst() {
+        let componentID = ComponentID("manual-counter")
+        let nestedComponentID = ComponentID("manual-card")
+        let runtimeBundleID = ClientBundleID("main-runtime")
+        let html = """
+        <main><!--swift-html-component:manual-counter:begin--><!--swift-html-component:manual-card:begin--><div data-swift-node="3" data-swift-component="manual-card">Manual</div><!--swift-html-component:manual-card:end--><!--swift-html-component:manual-counter:end--></main>
+        """
+        let manifest = ClientBundleManifest(
+            runtimeBundleID: runtimeBundleID,
+            bundles: [],
+            components: [
+                ClientComponentAsset(
+                    componentID: nestedComponentID,
+                    typeName: "SwiftWebUI.Card",
+                    bundleID: runtimeBundleID,
+                    loadPolicy: .manual,
+                    entrySymbols: [ClientSymbolID("SwiftWebUI.Card")]
+                ),
+                ClientComponentAsset(
+                    componentID: componentID,
+                    typeName: "Demo.ClientManualCounter",
+                    bundleID: ClientBundleID("component-manual"),
+                    loadPolicy: .manual,
+                    entrySymbols: [ClientSymbolID("Demo.ClientManualCounter")]
+                ),
+            ]
+        )
+        let index = BrowserHydrationIndex(
+            rootID: HTMLNodeID(1),
+            nodes: [
+                BrowserHydrationNodeRecord(
+                    id: HTMLNodeID(1),
+                    parentID: nil,
+                    childIDs: [HTMLNodeID(2)],
+                    role: .component,
+                    componentID: componentID,
+                    fingerprint: NodeFingerprint(1)
+                ),
+                BrowserHydrationNodeRecord(
+                    id: HTMLNodeID(2),
+                    parentID: HTMLNodeID(1),
+                    childIDs: [HTMLNodeID(3)],
+                    role: .component,
+                    componentID: nestedComponentID,
+                    fingerprint: NodeFingerprint(2)
+                ),
+                BrowserHydrationNodeRecord(
+                    id: HTMLNodeID(3),
+                    parentID: HTMLNodeID(2),
+                    childIDs: [],
+                    role: .element,
+                    name: "div",
+                    fingerprint: NodeFingerprint(3)
+                ),
+            ],
+            components: [
+                BrowserHydrationComponentRecord(
+                    id: nestedComponentID,
+                    typeName: "SwiftWebUI.Card",
+                    path: "document:0/child:0",
+                    nodeID: HTMLNodeID(2),
+                    bundleID: runtimeBundleID,
+                    loadPolicy: .manual,
+                    serverSlotIDs: []
+                ),
+                BrowserHydrationComponentRecord(
+                    id: componentID,
+                    typeName: "Demo.ClientManualCounter",
+                    path: "document:0",
+                    nodeID: HTMLNodeID(1),
+                    bundleID: ClientBundleID("component-manual"),
+                    loadPolicy: .manual,
+                    serverSlotIDs: []
+                ),
+            ],
+            serverSlots: [],
+            handlers: []
+        )
+
+        let annotated = SwiftWebDevBoundaryAnnotator.annotate(
+            html,
+            manifest: manifest,
+            hydrationIndex: index,
+            isEnabled: true
+        )
+
+        #expect(annotated.contains(#"data-swift-component="manual-counter""#))
+        #expect(annotated.contains(#"data-swift-component-type="Demo.ClientManualCounter""#))
+        #expect(annotated.contains(#"data-swift-bundle="component-manual""#))
+        #expect(!annotated.contains(#"data-swift-component="manual-card""#))
+        #expect(!annotated.contains(#"data-swift-component-type="SwiftWebUI.Card""#))
+    }
+
+    @Test
     func buildArtifactCleanerRemovesGeneratedBuildCachesOnly() throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("SwiftWebDevCleanerTests-\(UUID().uuidString)", isDirectory: true)
@@ -238,12 +437,14 @@ struct SwiftWebDevHMRTests {
         let generatedBuild = root.appendingPathComponent(".swiftweb/generated/.build")
         let storyboardBuild = root.appendingPathComponent(".swiftweb/storyboard/.swiftweb/generated/.build")
         let storyboardSource = root.appendingPathComponent(".swiftweb/storyboard/Sources/App/App.swift")
+        let generatedDevSource = root.appendingPathComponent(".swiftweb/generated/dev/Sources/AppDevelopmentServerLauncher/ServerLauncher.swift")
         let devLog = root.appendingPathComponent(".swiftweb/generated/.build/server/hmr-events.jsonl")
         let regularFile = root.appendingPathComponent(".swiftweb/generated/Sources/AppServerLauncher/ServerLauncher.swift")
         try write("build", to: generatedBuild.appendingPathComponent("debug/app-server"))
         try write("build", to: storyboardBuild.appendingPathComponent("release/runtime.wasm"))
         try write("event", to: devLog)
         try write("source", to: storyboardSource)
+        try write("source", to: generatedDevSource)
         try write("source", to: regularFile)
 
         let report = try SwiftWebDevBuildArtifactCleaner().cleanGeneratedArtifacts(in: root)
@@ -253,6 +454,7 @@ struct SwiftWebDevHMRTests {
         #expect(!FileManager.default.fileExists(atPath: generatedBuild.path))
         #expect(!FileManager.default.fileExists(atPath: storyboardBuild.path))
         #expect(FileManager.default.fileExists(atPath: storyboardSource.path))
+        #expect(FileManager.default.fileExists(atPath: generatedDevSource.path))
         #expect(FileManager.default.fileExists(atPath: regularFile.path))
     }
 }

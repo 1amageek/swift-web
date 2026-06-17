@@ -6,6 +6,8 @@ It owns reusable visual components, layout primitives, theme propagation, and de
 
 The core architecture is documented in [`docs/SwiftWebUICoreDesign.md`](../../docs/SwiftWebUICoreDesign.md). That document defines the component graph, dynamic property lifecycle, modifier graph, and style abstraction boundaries.
 
+Client WASM loading is documented in [`docs/ClientBundleLoadingDesign.md`](../../docs/ClientBundleLoadingDesign.md). That document defines the `ClientComponent` loading contract, modifier precedence, nested island ownership, and bundle policy rules.
+
 ## Responsibility
 
 | Area | Responsibility |
@@ -29,7 +31,7 @@ The core architecture is documented in [`docs/SwiftWebUICoreDesign.md`](../../do
 | `Components/Navigation/` | Navigation containers, navigation links, paths, and title metadata hooks. |
 | `Components/Containers/` | Structural UI components such as cards, sections, lists, toolbars, badges, and value displays. |
 | `Components/Media/` | Media-oriented components such as `Image`. |
-| `Theming/` | Theme values, design style values, typed stylesheet defaults, environment integration, scoped overrides, and theme switching controls. |
+| `Theming/` | Theme values, `StyleSystem` values, typed stylesheet defaults, environment integration, scoped overrides, and theme switching controls. |
 
 ## Boundaries
 
@@ -72,6 +74,7 @@ flowchart LR
 - Action buttons consume SwiftHTML action contracts. They should not capture server closures or own distributed actor resolution.
 - Action buttons are user intents. They may render form-compatible transport markup for progressive enhancement, but the public concept is still `ActionRepresentable`, not a separate `ServerButton`.
 - Use `SubmitButton` inside `Form` only when a custom form owns multiple controls.
+- `ClientComponent` uses contract-first WASM loading. The default joins the main eager bundle; explicit split loading uses `.loadPolicy(...)` and `.bundle(...)` modifiers at the outermost client island.
 - Components may wrap SwiftHTML primitives but should not introduce a second rendering model.
 - Components should not create `html`, `head`, `title`, or document-level metadata; those belong to SwiftWeb `Page`.
 
@@ -90,7 +93,7 @@ flowchart LR
 
 `StyleSystem.default` is complete. Custom styles should start from that default and override only the parts that differ, so every component always has a fallback token.
 
-Every chrome surface — card, toolbar, badge, field, toggle track, and the bordered/glass buttons — composes one shared material recipe instead of hand-rolling its own translucency. A design style tunes that single recipe through the `material` block: `opacity` (with the per-level `opacityStep`), `blur`, `saturate`, the specular `rim`, and the SVG `refraction`. Components pick a *level* (`.regularMaterial`, `.thinMaterial`, `.bar`, …) and the CSS derives the level's fill from these knobs, so the glass stays consistent across the whole UI.
+Every chrome surface — card, toolbar, badge, field, toggle track, and the bordered/glass buttons — composes one shared material recipe instead of hand-rolling its own translucency. A `StyleSystem` tunes that single recipe through the `material` block: `opacity` (with the per-level `opacityStep`), `blur`, `saturate`, the specular `rim`, and the SVG `refraction`. Components pick a *level* (`.regularMaterial`, `.thinMaterial`, `.bar`, …) and the CSS derives the level's fill from these knobs, so the glass stays consistent across the whole UI.
 
 ```swift
 let glass = StyleSystem(id: "glass") {

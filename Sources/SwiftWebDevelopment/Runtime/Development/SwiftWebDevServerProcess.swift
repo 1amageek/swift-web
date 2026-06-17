@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 struct SwiftWebDevServerProcess {
@@ -34,6 +35,9 @@ struct SwiftWebDevServerProcess {
             .fileURL(for: configuration)
             .path
         environment[SwiftWebDevParentProcessMonitor.parentPIDEnvironmentKey] = String(ProcessInfo.processInfo.processIdentifier)
+        if let wasmScratchDirectory {
+            environment["SWIFTWEB_WASM_SCRATCH_PATH"] = wasmScratchDirectory.path
+        }
 
         let process = Process()
         process.executableURL = executableURL
@@ -53,10 +57,7 @@ struct SwiftWebDevServerProcess {
             return
         }
 
-        if process.isRunning {
-            process.terminate()
-            process.waitUntilExit()
-        }
+        terminate(process)
 
         self.process = nil
     }
@@ -162,6 +163,29 @@ struct SwiftWebDevServerProcess {
         (["xcrun"] + arguments).joined(separator: " ")
     }
 
+    private func terminate(_ process: Process, gracePeriod: TimeInterval = 2) {
+        guard process.isRunning else {
+            return
+        }
+
+        process.terminate()
+        waitForExit(process, timeout: gracePeriod)
+
+        guard process.isRunning else {
+            return
+        }
+
+        Darwin.kill(process.processIdentifier, SIGKILL)
+        process.waitUntilExit()
+    }
+
+    private func waitForExit(_ process: Process, timeout: TimeInterval) {
+        let deadline = Date().addingTimeInterval(timeout)
+        while process.isRunning && Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.05)
+        }
+    }
+
     private func processEnvironment() throws -> [String: String] {
         let moduleCacheDirectory = self.moduleCacheDirectory
         let temporaryDirectory = self.temporaryDirectory
@@ -206,6 +230,12 @@ struct SwiftWebDevServerProcess {
         return configuration.packageDirectory
             .appendingPathComponent(".swiftweb", isDirectory: true)
             .appendingPathComponent("tmp", isDirectory: true)
+            .standardizedFileURL
+    }
+
+    private var wasmScratchDirectory: URL? {
+        configuration.scratchDirectory?
+            .appendingPathComponent("wasm", isDirectory: true)
             .standardizedFileURL
     }
 }
