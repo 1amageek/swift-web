@@ -420,6 +420,75 @@ class SwiftWebWasmRuntime {
     return (this.manifest.bundles || []).find((bundle) => rawValue(bundle.id) === bundleID) || null;
   }
 
+  assetPathForBundleID(bundleID) {
+    const bundle = this.bundle(bundleID);
+    return bundle && bundle.asset && bundle.asset.path ? bundle.asset.path : "";
+  }
+
+  loadedBundleIDForAssetPath(assetPath, excludingBundleID = "") {
+    if (!assetPath) {
+      return "";
+    }
+    for (const loadedBundleID of this.loadedBundleIDs) {
+      if (loadedBundleID === excludingBundleID) {
+        continue;
+      }
+      if (this.assetPathForBundleID(loadedBundleID) === assetPath && this.instances.has(loadedBundleID)) {
+        return loadedBundleID;
+      }
+    }
+    return "";
+  }
+
+  loadingBundleIDForAssetPath(assetPath, excludingBundleID = "") {
+    if (!assetPath) {
+      return "";
+    }
+    for (const loadingBundleID of this.loading.keys()) {
+      if (loadingBundleID === excludingBundleID) {
+        continue;
+      }
+      if (this.assetPathForBundleID(loadingBundleID) === assetPath) {
+        return loadingBundleID;
+      }
+    }
+    return "";
+  }
+
+  bootstrappedBundleIDForAssetPath(assetPath, excludingBundleID = "") {
+    if (!assetPath) {
+      return "";
+    }
+    for (const bootstrappedBundleID of this.bootstrappedBundleIDs) {
+      if (bootstrappedBundleID === excludingBundleID) {
+        continue;
+      }
+      if (this.assetPathForBundleID(bootstrappedBundleID) === assetPath) {
+        return bootstrappedBundleID;
+      }
+    }
+    return "";
+  }
+
+  aliasLoadedBundle(rawBundleID, sourceBundleID, instance) {
+    this.instances.set(rawBundleID, instance);
+    const swiftRuntime = this.swiftRuntimes.get(sourceBundleID);
+    if (swiftRuntime) {
+      this.swiftRuntimes.set(rawBundleID, swiftRuntime);
+    }
+    if (this.bootstrappedBundleIDs.has(sourceBundleID)) {
+      this.bootstrappedBundleIDs.add(rawBundleID);
+    }
+    this.loadedBundleIDs.add(rawBundleID);
+    this.recordMetric("bundle.assetAliasHit", {
+      bundleID: rawBundleID,
+      sourceBundleID
+    });
+    this.publishStatus(this.metrics.ready === true, "bundleLoaded");
+    this.publishMetrics();
+    return instance;
+  }
+
   async loadBundle(bundleID) {
     const rawBundleID = rawValue(bundleID);
     if (this.loadedBundleIDs.has(rawBundleID)) {
@@ -429,6 +498,21 @@ class SwiftWebWasmRuntime {
     if (this.loading.has(rawBundleID)) {
       this.recordMetric("bundle.awaitExistingLoad", { bundleID: rawBundleID });
       return await this.loading.get(rawBundleID);
+    }
+
+    const assetPath = this.assetPathForBundleID(rawBundleID);
+    const loadedAliasBundleID = this.loadedBundleIDForAssetPath(assetPath, rawBundleID);
+    if (loadedAliasBundleID) {
+      return this.aliasLoadedBundle(rawBundleID, loadedAliasBundleID, this.instances.get(loadedAliasBundleID));
+    }
+    const loadingAliasBundleID = this.loadingBundleIDForAssetPath(assetPath, rawBundleID);
+    if (loadingAliasBundleID) {
+      this.recordMetric("bundle.awaitAssetAliasLoad", {
+        bundleID: rawBundleID,
+        sourceBundleID: loadingAliasBundleID
+      });
+      const instance = await this.loading.get(loadingAliasBundleID);
+      return this.aliasLoadedBundle(rawBundleID, loadingAliasBundleID, instance);
     }
 
     const runtimeWasReady = this.metrics.ready === true;
@@ -582,6 +666,16 @@ class SwiftWebWasmRuntime {
       this.recordMetric("bundle.bootstrap.cacheHit", { bundleID: rawBundleID });
       return null;
     }
+    const assetPath = this.assetPathForBundleID(rawBundleID);
+    const bootstrappedAliasBundleID = this.bootstrappedBundleIDForAssetPath(assetPath, rawBundleID);
+    if (bootstrappedAliasBundleID) {
+      this.bootstrappedBundleIDs.add(rawBundleID);
+      this.recordMetric("bundle.bootstrap.assetAliasHit", {
+        bundleID: rawBundleID,
+        sourceBundleID: bootstrappedAliasBundleID
+      });
+      return null;
+    }
     if (!instance || typeof instance.exports.swiftweb_bootstrap !== "function") {
       throw new Error(`SwiftWeb WASM bundle ${rawBundleID} does not export swiftweb_bootstrap`);
     }
@@ -601,6 +695,11 @@ class SwiftWebWasmRuntime {
       applyCommandBatch(response.commandBatch, this);
     }
     this.bootstrappedBundleIDs.add(rawBundleID);
+    for (const loadedBundleID of this.loadedBundleIDs) {
+      if (loadedBundleID !== rawBundleID && this.assetPathForBundleID(loadedBundleID) === assetPath) {
+        this.bootstrappedBundleIDs.add(loadedBundleID);
+      }
+    }
     this.recordMetric("bundle.bootstrap.complete", {
       bundleID: rawBundleID,
       durationMs: this.durationSince(startedAt)

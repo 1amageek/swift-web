@@ -16,7 +16,9 @@ It is intentionally separate from the `SwiftWeb` production runtime. Application
 | Cleanup | Removes generated build caches through `swift-web clean`. |
 | WASM tooling | Resolves the configured Swift WASM SDK and builds generated client runtime products. |
 
-Client WASM builds use generated-package inputs plus the selected Swift executable and Swift WASM SDK as a build-stamp key. When the stamp and artifact hash still match, the dev runtime reuses the existing WASM artifact and emits the same client update manifest without invoking SwiftPM again.
+Client WASM builds use generated-package inputs plus the selected Swift executable, Swift WASM SDK, and artifact-processing signature as a build-stamp key. When the stamp and artifact hash still match, the dev runtime reuses the existing WASM artifact and emits the same client update manifest without invoking SwiftPM again.
+
+Dev artifact processing strips debug/producers custom sections and writes `<artifact>.wasm.size.json` so size attribution is available during framework work. It does not write gzip or Brotli sidecars by default, because local HMR should not spend seconds recompressing every standalone Swift/WASM product. Production `swift-web build --wasm` owns precompressed sidecars.
 
 ```mermaid
 flowchart LR
@@ -24,6 +26,7 @@ flowchart LR
   B --> C["input hash + artifact stamp"]
   C -->|match| D["reuse existing WASM"]
   C -->|miss| E["swift build --product"]
+  E --> F["strip + size report"]
 ```
 
 ## Runtime Boundary

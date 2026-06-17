@@ -35,6 +35,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
             """,
             to: swiftHTMLPackage.appendingPathComponent("Package.swift")
         )
+        try writeSwiftHTMLRuntimeSources(in: swiftHTMLPackage)
         try write(
             """
             // swift-tools-version: 6.4
@@ -73,6 +74,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
             "import SwiftHTML\npublic struct RuntimeEntrypoint {}",
             to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUIRuntime/RuntimeEntrypoint.swift")
         )
+        try writeJavaScriptKitRuntimeCheckout(in: swiftWebPackage)
         try write(
             """
             // swift-tools-version: 6.4
@@ -151,7 +153,8 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         try write("legacy", to: appPackage.appendingPathComponent(".swiftweb/generated/.materialize.lock"))
 
         let generatedPackage = try SwiftWebGeneratedPackageMaterializer(
-            appPackageDirectory: appPackage
+            appPackageDirectory: appPackage,
+            wasmSplitBuildStrategy: .resolvedBundles
         )
         .materialize()
 
@@ -192,8 +195,8 @@ struct SwiftWebGeneratedPackageMaterializerTests {
             contentsOf: generatedPackage.wasmPackageDirectory.appendingPathComponent("Package.resolved"),
             encoding: .utf8
         )
-        #expect(wasmPackageResolved.contains("javascriptkit"))
-        #expect(wasmPackageResolved.contains("swift-syntax"))
+        #expect(!wasmPackageResolved.contains("javascriptkit"))
+        #expect(!wasmPackageResolved.contains("swift-syntax"))
         #expect(!wasmPackageResolved.contains("vapor"))
         #expect(serverPackageSwift.contains(".executable(name: \"app-server\", targets: [\"AppServerLauncher\"])"))
         #expect(serverPackageSwift.contains(".package(path: \"\(appPackage.path)\""))
@@ -214,29 +217,36 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         #expect(!devPackageSwift.contains("sample-wasm-runtime"))
 
         #expect(wasmPackageSwift.contains(".executable(name: \"sample-app-wasm-runtime\", targets: [\"SampleAppWasmRuntime\"])"))
-        #expect(wasmPackageSwift.contains(".package(path: \"\(swiftHTMLPackage.path)\""))
-        #expect(wasmPackageSwift.contains(".package(url: \"https://github.com/swiftwasm/JavaScriptKit.git\""))
+        #expect(!wasmPackageSwift.contains(".package(path: \"\(swiftHTMLPackage.path)\""))
+        #expect(!wasmPackageSwift.contains(".package(url: \"https://github.com/1amageek/swift-html.git\""))
+        #expect(!wasmPackageSwift.contains(".package(url: \"https://github.com/swiftwasm/JavaScriptKit.git\""))
+        #expect(!wasmPackageSwift.contains("swift-syntax"))
+        #expect(!wasmPackageSwift.contains("BridgeJSMacros"))
         #expect(wasmPackageSwift.contains(".package(url: \"https://github.com/1amageek/swift-actor-runtime.git\", exact: \"0.5.0\")"))
         #expect(!wasmPackageSwift.contains(".package(path: \"\(swiftWebPackage.path)\""))
         #expect(!wasmPackageSwift.contains(".package(path: \"\(appPackage.path)\""))
         #expect(!wasmPackageSwift.contains("AppServerLauncher"))
         #expect(!wasmPackageSwift.contains("SwiftWebDevLauncher"))
-        #expect(!wasmPackageSwift.contains("let swiftHTMLTarget = Target.target("))
-        #expect(!wasmPackageSwift.contains("path: \"Sources/SwiftHTML\""))
-        #expect(wasmPackageSwift.contains(".product(name: \"SwiftHTML\", package: \"swift-html\")"))
+        #expect(wasmPackageSwift.contains("let swiftHTMLTarget = Target.target("))
+        #expect(wasmPackageSwift.contains("path: \"Sources/SwiftHTML\""))
+        #expect(!wasmPackageSwift.contains(".product(name: \"SwiftHTML\", package: \"swift-html\")"))
         #expect(wasmPackageSwift.contains("let swiftWebActorsTarget = Target.target("))
         #expect(wasmPackageSwift.contains("path: \"Sources/SwiftWebActors\""))
         #expect(wasmPackageSwift.contains(".product(name: \"ActorRuntime\", package: \"swift-actor-runtime\")"))
         #expect(wasmPackageSwift.contains("let swiftWebUITarget = Target.target("))
+        #expect(wasmPackageSwift.contains("let cJavaScriptKitTarget = Target.target("))
+        #expect(wasmPackageSwift.contains("let javaScriptKitTarget = Target.target("))
         #expect(wasmPackageSwift.contains("let swiftWebUIRuntimeTarget = Target.target("))
         #expect(wasmPackageSwift.contains("path: \"Sources/SwiftWebUIRuntime\""))
-        #expect(wasmPackageSwift.contains(".product(name: \"JavaScriptKit\", package: \"JavaScriptKit\")"))
+        #expect(wasmPackageSwift.contains("path: \"Sources/JavaScriptKit\""))
+        #expect(wasmPackageSwift.contains("path: \"Sources/_CJavaScriptKit\""))
+        #expect(wasmPackageSwift.contains("\"JavaScriptKit\""))
         #expect(wasmPackageSwift.contains("""
         let swiftWebUIRuntimeTarget = Target.target(
             name: "SwiftWebUIRuntime",
             dependencies: [
-                .product(name: "SwiftHTML", package: "swift-html"),
-                .product(name: "JavaScriptKit", package: "JavaScriptKit"),
+                "SwiftHTML",
+                "JavaScriptKit",
                 "SwiftWebActors",
             ],
         """))
@@ -303,8 +313,14 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         #expect(wasmEntrypoint.contains("ClientWasmComponentRegistration("))
         #expect(wasmEntrypoint.contains("ClientSample.self"))
         #expect(wasmEntrypoint.contains("ClientBadge.self"))
+        #expect(FileManager.default.fileExists(
+            atPath: wasmSources.appendingPathComponent("SwiftHTML/Core/HTML.swift").path
+        ))
+        #expect(FileManager.default.fileExists(
+            atPath: wasmSources.appendingPathComponent("SwiftHTML/Rendering/HTMLRenderer.swift").path
+        ))
         #expect(!FileManager.default.fileExists(
-            atPath: wasmSources.appendingPathComponent("SwiftHTML").path
+            atPath: wasmSources.appendingPathComponent("SwiftHTML/SwiftHTML.docc").path
         ))
         #expect(FileManager.default.fileExists(
             atPath: wasmSources.appendingPathComponent("SwiftWebActors/WebActorSystem.swift").path
@@ -314,6 +330,21 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         ))
         #expect(FileManager.default.fileExists(
             atPath: wasmSources.appendingPathComponent("SwiftWebUIRuntime/RuntimeEntrypoint.swift").path
+        ))
+        #expect(FileManager.default.fileExists(
+            atPath: wasmSources.appendingPathComponent("JavaScriptKit/FundamentalObjects/JSObject.swift").path
+        ))
+        #expect(FileManager.default.fileExists(
+            atPath: wasmSources.appendingPathComponent("_CJavaScriptKit/include/_CJavaScriptKit.h").path
+        ))
+        #expect(!FileManager.default.fileExists(
+            atPath: wasmSources.appendingPathComponent("JavaScriptKit/Macros.swift").path
+        ))
+        #expect(!FileManager.default.fileExists(
+            atPath: wasmSources.appendingPathComponent("JavaScriptKit/Runtime").path
+        ))
+        #expect(!FileManager.default.fileExists(
+            atPath: wasmSources.appendingPathComponent("JavaScriptKit/Documentation.docc").path
         ))
         #expect(!FileManager.default.fileExists(
             atPath: wasmSources.appendingPathComponent("SwiftWebUI/README.md").path
@@ -349,7 +380,26 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         }
 
         let swiftWebPackage = root.appendingPathComponent("swift-web", isDirectory: true)
+        let swiftHTMLPackage = root.appendingPathComponent("swift-html", isDirectory: true)
         let appPackage = root.appendingPathComponent("SampleApp", isDirectory: true)
+        try write(
+            """
+            // swift-tools-version: 6.4
+            import PackageDescription
+
+            let package = Package(
+                name: "swift-html",
+                products: [
+                    .library(name: "SwiftHTML", targets: ["SwiftHTML"]),
+                ],
+                targets: [
+                    .target(name: "SwiftHTML"),
+                ]
+            )
+            """,
+            to: swiftHTMLPackage.appendingPathComponent("Package.swift")
+        )
+        try writeSwiftHTMLRuntimeSources(in: swiftHTMLPackage)
         try write(
             """
             // swift-tools-version: 6.4
@@ -362,6 +412,9 @@ struct SwiftWebGeneratedPackageMaterializerTests {
                     .library(name: "SwiftWebUI", targets: ["SwiftWebUI"]),
                     .library(name: "SwiftWebUIRuntime", targets: ["SwiftWebUIRuntime"]),
                     .library(name: "SwiftWeb", targets: ["SwiftWeb"]),
+                ],
+                dependencies: [
+                    .package(path: "\(swiftHTMLPackage.path)"),
                 ],
                 targets: [
                     .target(name: "SwiftWebActors"),
@@ -385,6 +438,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
             "import SwiftHTML\npublic struct RuntimeEntrypoint {}",
             to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUIRuntime/RuntimeEntrypoint.swift")
         )
+        try writeJavaScriptKitRuntimeCheckout(in: swiftWebPackage)
         try write(
             """
             // swift-tools-version: 6.4
@@ -443,8 +497,8 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         #expect(FileManager.default.fileExists(
             atPath: generatedSources.appendingPathComponent("SampleAppWasmRuntime/SampleAppWasmRuntime.swift").path
         ))
-        #expect(!FileManager.default.fileExists(
-            atPath: generatedSources.appendingPathComponent("SwiftHTML").path
+        #expect(FileManager.default.fileExists(
+            atPath: generatedSources.appendingPathComponent("SwiftHTML/Core/HTML.swift").path
         ))
         #expect(FileManager.default.fileExists(
             atPath: generatedSources.appendingPathComponent("SwiftWebActors/WebActorSystem.swift").path
@@ -454,6 +508,12 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         ))
         #expect(FileManager.default.fileExists(
             atPath: generatedSources.appendingPathComponent("SwiftWebUIRuntime/RuntimeEntrypoint.swift").path
+        ))
+        #expect(FileManager.default.fileExists(
+            atPath: generatedSources.appendingPathComponent("JavaScriptKit/FundamentalObjects/JSObject.swift").path
+        ))
+        #expect(!FileManager.default.fileExists(
+            atPath: generatedSources.appendingPathComponent("JavaScriptKit/Macros.swift").path
         ))
     }
 
@@ -487,6 +547,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
             """,
             to: swiftHTMLPackage.appendingPathComponent("Package.swift")
         )
+        try writeSwiftHTMLRuntimeSources(in: swiftHTMLPackage)
         try write(
             """
             // swift-tools-version: 6.4
@@ -525,6 +586,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
             "import SwiftHTML\npublic struct RuntimeEntrypoint {}",
             to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUIRuntime/RuntimeEntrypoint.swift")
         )
+        try writeJavaScriptKitRuntimeCheckout(in: swiftWebPackage)
         try write(
             """
             // swift-tools-version: 6.4
@@ -571,7 +633,8 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         )
 
         let generatedPackage = try SwiftWebGeneratedPackageMaterializer(
-            appPackageDirectory: appPackage
+            appPackageDirectory: appPackage,
+            wasmSplitBuildStrategy: .resolvedBundles
         )
         .materialize()
 
@@ -626,9 +689,9 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     }
 
     @Test
-    func repeatedMaterializationPreservesUnchangedGeneratedFiles() throws {
+    func coalescesPolicyBundlesWhenStaticLinkFallbackIsSelected() throws {
         let root = FileManager.default.temporaryDirectory
-            .appendingPathComponent("SwiftWebGeneratedPackageIncrementalTests-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("SwiftWebGeneratedPackageCoalescedTests-\(UUID().uuidString)", isDirectory: true)
         defer {
             do {
                 try FileManager.default.removeItem(at: root)
@@ -655,6 +718,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
             """,
             to: swiftHTMLPackage.appendingPathComponent("Package.swift")
         )
+        try writeSwiftHTMLRuntimeSources(in: swiftHTMLPackage)
         try write(
             """
             // swift-tools-version: 6.4
@@ -693,6 +757,220 @@ struct SwiftWebGeneratedPackageMaterializerTests {
             "import SwiftHTML\npublic struct RuntimeEntrypoint {}",
             to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUIRuntime/RuntimeEntrypoint.swift")
         )
+        try writeJavaScriptKitRuntimeCheckout(in: swiftWebPackage)
+        try write(
+            """
+            // swift-tools-version: 6.4
+            import PackageDescription
+
+            let package = Package(
+                name: "SampleApp",
+                products: [
+                    .library(name: "SampleApp", targets: ["SampleApp"]),
+                ],
+                dependencies: [
+                    .package(path: "\(swiftWebPackage.path)"),
+                ],
+                targets: [
+                    .target(name: "SampleApp"),
+                ]
+            )
+            """,
+            to: appPackage.appendingPathComponent("Package.swift")
+        )
+        try write("public struct SampleApp {}", to: appPackage.appendingPathComponent("Sources/SampleApp/App.swift"))
+        try write(
+            "public struct ClientShell: ClientComponent { public init() {} }",
+            to: appPackage.appendingPathComponent("Sources/SampleApp/ClientShell.swift")
+        )
+        try write(
+            """
+            public struct ClientChart: ClientComponent {
+                public static let loadPolicy: LoadPolicy = .visible
+                public init() {}
+            }
+            """,
+            to: appPackage.appendingPathComponent("Sources/SampleApp/ClientChart.swift")
+        )
+        try write(
+            """
+            public struct ClientEditor: ClientComponent {
+                public static let loadPolicy: LoadPolicy = .interaction
+                public static let bundle: BundlePolicy = .named("editing")
+                public init() {}
+            }
+            """,
+            to: appPackage.appendingPathComponent("Sources/SampleApp/ClientEditor.swift")
+        )
+        try write(
+            """
+            public struct ClientInspector: ClientComponent {
+                public static let loadPolicy: LoadPolicy = .manual
+                public static let bundle: BundlePolicy = .shared("tools")
+                public init() {}
+            }
+            """,
+            to: appPackage.appendingPathComponent("Sources/SampleApp/ClientInspector.swift")
+        )
+
+        let generatedPackage = try SwiftWebGeneratedPackageMaterializer(
+            appPackageDirectory: appPackage,
+            wasmSplitBuildStrategy: .coalescedPolicyBundles
+        )
+        .materialize()
+
+        #expect(generatedPackage.wasmProductNames == [
+            "sample-app-wasm-runtime",
+            "sample-app-visible-wasm-runtime",
+            "sample-app-interaction-wasm-runtime",
+            "sample-app-manual-wasm-runtime",
+        ])
+        #expect(generatedPackage.wasmRuntimes.count == 4)
+        #expect(generatedPackage.wasmRuntimes[0].linkMode == .standalone)
+        #expect(generatedPackage.wasmRuntimes.dropFirst().allSatisfy { $0.linkMode == .coalescedStaticFallback })
+        #expect(generatedPackage.wasmRuntimes.flatMap(\.componentTypeNames).sorted() == [
+            "ClientChart",
+            "ClientEditor",
+            "ClientInspector",
+            "ClientShell",
+        ])
+
+        let wasmPackageSwift = try String(
+            contentsOf: generatedPackage.wasmPackageDirectory.appendingPathComponent("Package.swift"),
+            encoding: .utf8
+        )
+        #expect(wasmPackageSwift.contains(
+            ".executable(name: \"sample-app-visible-wasm-runtime\", targets: [\"SampleAppVisibleWasmRuntime\"])"
+        ))
+        #expect(wasmPackageSwift.contains(
+            ".executable(name: \"sample-app-interaction-wasm-runtime\", targets: [\"SampleAppInteractionWasmRuntime\"])"
+        ))
+        #expect(wasmPackageSwift.contains(
+            ".executable(name: \"sample-app-manual-wasm-runtime\", targets: [\"SampleAppManualWasmRuntime\"])"
+        ))
+        #expect(!wasmPackageSwift.contains("named-editing-wasm-runtime"))
+        #expect(!wasmPackageSwift.contains("shared-tools-wasm-runtime"))
+
+        let serverLauncher = try String(
+            contentsOf: generatedPackage.packageDirectory
+                .appendingPathComponent("Sources/AppServerLauncher/ServerLauncher.swift"),
+            encoding: .utf8
+        )
+        #expect(serverLauncher.contains("id: \"named-editing\""))
+        #expect(serverLauncher.contains("id: \"shared-tools\""))
+        #expect(serverLauncher.contains("id: \"component-"))
+        #expect(serverLauncher.contains(
+            "componentTypeNames: [\"ClientEditor\"]"
+        ))
+        #expect(serverLauncher.contains(
+            "componentTypeNames: [\"ClientInspector\"]"
+        ))
+        #expect(serverLauncher.contains(
+            "componentTypeNames: [\"ClientChart\"]"
+        ))
+        #expect(serverLauncher.contains("assetPath: \"/assets/sample-app-visible-wasm-runtime.wasm\""))
+        #expect(serverLauncher.contains("assetPath: \"/assets/sample-app-interaction-wasm-runtime.wasm\""))
+        #expect(serverLauncher.contains("assetPath: \"/assets/sample-app-manual-wasm-runtime.wasm\""))
+
+        let visibleEntrypoint = try String(
+            contentsOf: generatedPackage.wasmPackageDirectory
+                .appendingPathComponent(
+                    "Sources/SampleAppVisibleWasmRuntime/SampleAppVisibleWasmRuntime.swift"
+                ),
+            encoding: .utf8
+        )
+        let interactionEntrypoint = try String(
+            contentsOf: generatedPackage.wasmPackageDirectory
+                .appendingPathComponent(
+                    "Sources/SampleAppInteractionWasmRuntime/SampleAppInteractionWasmRuntime.swift"
+                ),
+            encoding: .utf8
+        )
+        let manualEntrypoint = try String(
+            contentsOf: generatedPackage.wasmPackageDirectory
+                .appendingPathComponent(
+                    "Sources/SampleAppManualWasmRuntime/SampleAppManualWasmRuntime.swift"
+                ),
+            encoding: .utf8
+        )
+        #expect(visibleEntrypoint.contains("ClientChart.self"))
+        #expect(!visibleEntrypoint.contains("ClientEditor.self"))
+        #expect(interactionEntrypoint.contains("ClientEditor.self"))
+        #expect(!interactionEntrypoint.contains("ClientChart.self"))
+        #expect(manualEntrypoint.contains("ClientInspector.self"))
+        #expect(!manualEntrypoint.contains("ClientShell.self"))
+    }
+
+    @Test
+    func repeatedMaterializationPreservesUnchangedGeneratedFiles() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("SwiftWebGeneratedPackageIncrementalTests-\(UUID().uuidString)", isDirectory: true)
+        defer {
+            do {
+                try FileManager.default.removeItem(at: root)
+            } catch {}
+        }
+
+        let swiftWebPackage = root.appendingPathComponent("swift-web", isDirectory: true)
+        let swiftHTMLPackage = root.appendingPathComponent("swift-html", isDirectory: true)
+        let appPackage = root.appendingPathComponent("SampleApp", isDirectory: true)
+        try write(
+            """
+            // swift-tools-version: 6.4
+            import PackageDescription
+
+            let package = Package(
+                name: "swift-html",
+                products: [
+                    .library(name: "SwiftHTML", targets: ["SwiftHTML"]),
+                ],
+                targets: [
+                    .target(name: "SwiftHTML"),
+                ]
+            )
+            """,
+            to: swiftHTMLPackage.appendingPathComponent("Package.swift")
+        )
+        try writeSwiftHTMLRuntimeSources(in: swiftHTMLPackage)
+        try write(
+            """
+            // swift-tools-version: 6.4
+            import PackageDescription
+
+            let package = Package(
+                name: "swift-web",
+                products: [
+                    .library(name: "SwiftWebActors", targets: ["SwiftWebActors"]),
+                    .library(name: "SwiftWebUI", targets: ["SwiftWebUI"]),
+                    .library(name: "SwiftWebUIRuntime", targets: ["SwiftWebUIRuntime"]),
+                    .library(name: "SwiftWeb", targets: ["SwiftWeb"]),
+                ],
+                dependencies: [
+                    .package(path: "\(swiftHTMLPackage.path)"),
+                ],
+                targets: [
+                    .target(name: "SwiftWebActors"),
+                    .target(name: "SwiftWebUI"),
+                    .target(name: "SwiftWebUIRuntime"),
+                    .target(name: "SwiftWeb"),
+                ]
+            )
+            """,
+            to: swiftWebPackage.appendingPathComponent("Package.swift")
+        )
+        try write(
+            "import SwiftHTML\npublic struct Text {}",
+            to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Text.swift")
+        )
+        try write(
+            "public struct WebActorSystem {}",
+            to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebActors/WebActorSystem.swift")
+        )
+        try write(
+            "import SwiftHTML\npublic struct RuntimeEntrypoint {}",
+            to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUIRuntime/RuntimeEntrypoint.swift")
+        )
+        try writeJavaScriptKitRuntimeCheckout(in: swiftWebPackage)
         try write(
             """
             // swift-tools-version: 6.4
@@ -748,5 +1026,46 @@ struct SwiftWebGeneratedPackageMaterializerTests {
             withIntermediateDirectories: true
         )
         try contents.write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    private func writeJavaScriptKitRuntimeCheckout(in swiftWebPackage: URL) throws {
+        let sourceRoot = swiftWebPackage
+            .appendingPathComponent(".build/checkouts/JavaScriptKit/Sources", isDirectory: true)
+        try write(
+            "public final class JSObject {}",
+            to: sourceRoot.appendingPathComponent("JavaScriptKit/FundamentalObjects/JSObject.swift")
+        )
+        try write(
+            "public macro JS() = #externalMacro(module: \"BridgeJSMacros\", type: \"JSMacro\")",
+            to: sourceRoot.appendingPathComponent("JavaScriptKit/Macros.swift")
+        )
+        try write(
+            "runtime",
+            to: sourceRoot.appendingPathComponent("JavaScriptKit/Runtime/runtime.mjs")
+        )
+        try write(
+            "# Documentation",
+            to: sourceRoot.appendingPathComponent("JavaScriptKit/Documentation.docc/Documentation.md")
+        )
+        try write(
+            "#pragma once",
+            to: sourceRoot.appendingPathComponent("_CJavaScriptKit/include/_CJavaScriptKit.h")
+        )
+    }
+
+    private func writeSwiftHTMLRuntimeSources(in swiftHTMLPackage: URL) throws {
+        let sourceRoot = swiftHTMLPackage.appendingPathComponent("Sources/SwiftHTML", isDirectory: true)
+        try write(
+            "public protocol HTML {}",
+            to: sourceRoot.appendingPathComponent("Core/HTML.swift")
+        )
+        try write(
+            "public struct HTMLRenderer {}",
+            to: sourceRoot.appendingPathComponent("Rendering/HTMLRenderer.swift")
+        )
+        try write(
+            "# Documentation",
+            to: sourceRoot.appendingPathComponent("SwiftHTML.docc/SwiftHTML.md")
+        )
     }
 }

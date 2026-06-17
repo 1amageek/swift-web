@@ -55,11 +55,14 @@ struct BuildCommand {
         )
         .materialize()
         let productName = try resolvedProductName(from: generatedPackage)
+        let wasmRuntime = try resolvedWasmRuntime(productName: productName, from: generatedPackage)
         let resolvedSwiftSDK = resolvedSwiftSDKName
         let wasmToolchain = try resolvedWasmToolchain(swiftSDK: resolvedSwiftSDK)
         let buildPackageDirectory = buildsWasmRuntime
             ? generatedPackage.wasmPackageDirectory
             : generatedPackage.packageDirectory
+        let resolvedScratchDirectory = scratchDirectory ?? defaultScratchDirectory(from: generatedPackage)
+        let resolvedConfiguration = configuration ?? (buildsWasmRuntime ? "release" : nil)
         var arguments = buildsWasmRuntime ? [
             "build",
             "--package-path",
@@ -75,7 +78,7 @@ struct BuildCommand {
             productName,
         ]
 
-        if let resolvedScratchDirectory = scratchDirectory ?? defaultScratchDirectory(from: generatedPackage) {
+        if let resolvedScratchDirectory {
             arguments.append("--scratch-path")
             arguments.append(resolvedScratchDirectory.path)
         }
@@ -83,9 +86,9 @@ struct BuildCommand {
             arguments.append("--swift-sdk")
             arguments.append(resolvedSwiftSDK)
         }
-        if let configuration {
+        if let resolvedConfiguration {
             arguments.append("-c")
-            arguments.append(configuration)
+            arguments.append(resolvedConfiguration)
         }
 
         var environment = ProcessInfo.processInfo.environment
@@ -98,6 +101,13 @@ struct BuildCommand {
         }
 
         try runProcess(arguments: arguments, environment: environment, wasmToolchain: wasmToolchain)
+        if let wasmRuntime {
+            try processWasmArtifact(
+                runtime: wasmRuntime,
+                scratchDirectory: resolvedScratchDirectory,
+                configuration: resolvedConfiguration ?? "debug"
+            )
+        }
     }
 
     private func resolvedProductName(from generatedPackage: SwiftWebGeneratedPackage) throws -> String {
@@ -111,6 +121,19 @@ struct BuildCommand {
             return wasmProduct
         }
         return generatedPackage.serverProductName
+    }
+
+    private func resolvedWasmRuntime(
+        productName: String,
+        from generatedPackage: SwiftWebGeneratedPackage
+    ) throws -> SwiftWebGeneratedWasmRuntime? {
+        guard buildsWasmRuntime else {
+            return nil
+        }
+        guard let runtime = generatedPackage.wasmRuntimes.first(where: { $0.productName == productName }) else {
+            throw CLIError(message: "no generated WASM runtime matched product \(productName)", exitCode: 66)
+        }
+        return runtime
     }
 
     private func defaultScratchDirectory(from generatedPackage: SwiftWebGeneratedPackage) -> URL? {
@@ -160,6 +183,39 @@ struct BuildCommand {
                 message: "build failed with status \(process.terminationStatus): \(commandDescription(arguments, executableURL: process.executableURL))",
                 exitCode: 70
             )
+        }
+    }
+
+    private func processWasmArtifact(
+        runtime: SwiftWebGeneratedWasmRuntime,
+        scratchDirectory: URL?,
+        configuration: String
+    ) throws {
+        let artifactURL = try SwiftPMWasmArtifact.url(
+            anchorFile: runtime.packageDirectory
+                .appendingPathComponent("Package.swift")
+                .path,
+            target: runtime.targetName,
+            configuration: configuration,
+            scratchDirectory: scratchDirectory
+        )
+        let result = try SwiftWebWasmArtifactProcessor(options: .production())
+            .process(fileURL: artifactURL)
+        let gzipDescription = result.gzipBytes.map(String.init) ?? "unavailable"
+        let brotliDescription = result.brotliBytes.map(String.init) ?? "unavailable"
+        print(
+            """
+            SwiftWeb WASM artifact:
+              path: \(result.artifactURL.path)
+              original: \(result.originalBytes) bytes
+              final: \(result.finalBytes) bytes
+              gzip: \(gzipDescription) bytes
+              brotli: \(brotliDescription) bytes
+              report: \(result.reportURL?.path ?? "unavailable")
+            """
+        )
+        for warning in result.warnings {
+            print("SwiftWeb WASM warning: \(warning)")
         }
     }
 

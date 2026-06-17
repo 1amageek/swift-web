@@ -29,10 +29,12 @@ public struct ClientWasmRuntimeConfiguration {
             metricsMode: metricsMode
         )
         self.assets = {
-            [ClientWasmRuntimeAsset(path: assetPath, fileURL: fileURL)]
-                + (try additionalBundles.map { bundle in
+            Self.uniqueAssets(
+                [ClientWasmRuntimeAsset(path: assetPath, fileURL: fileURL)]
+                    + (try additionalBundles.map { bundle in
                     ClientWasmRuntimeAsset(path: bundle.assetPath, fileURL: try bundle.fileURL())
-                })
+                    })
+            )
         }
     }
 
@@ -59,10 +61,12 @@ public struct ClientWasmRuntimeConfiguration {
             metricsMode: metricsMode
         )
         self.assets = {
-            [ClientWasmRuntimeAsset(path: assetPath, fileURL: try artifact.url())]
-                + (try additionalBundles.map { bundle in
+            Self.uniqueAssets(
+                [ClientWasmRuntimeAsset(path: assetPath, fileURL: try artifact.url())]
+                    + (try additionalBundles.map { bundle in
                     ClientWasmRuntimeAsset(path: bundle.assetPath, fileURL: try bundle.fileURL())
-                })
+                    })
+            )
         }
     }
 
@@ -75,6 +79,13 @@ public struct ClientWasmRuntimeConfiguration {
                 path: asset.path,
                 fileURL: asset.fileURL
             )
+        }
+    }
+
+    private static func uniqueAssets(_ assets: [ClientWasmRuntimeAsset]) -> [ClientWasmRuntimeAsset] {
+        var seenPaths = Set<String>()
+        return assets.filter { asset in
+            seenPaths.insert(asset.path).inserted
         }
     }
 }

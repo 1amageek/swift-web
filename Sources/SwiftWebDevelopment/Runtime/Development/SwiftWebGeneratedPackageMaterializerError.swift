@@ -5,6 +5,8 @@ public enum SwiftWebGeneratedPackageMaterializerError: Error, Sendable, CustomSt
     case packageNameNotFound(URL)
     case localDependencyNotFound(package: String, in: URL)
     case clientSourceDirectoryNotFound(URL)
+    case swiftHTMLRuntimeSourcesNotFound([URL])
+    case javaScriptKitRuntimeSourcesNotFound([URL])
     case invalidPackageResolved(URL)
     case materializationLockOpenFailed(URL, Int32)
     case materializationLockFailed(URL, Int32)
@@ -19,6 +21,12 @@ public enum SwiftWebGeneratedPackageMaterializerError: Error, Sendable, CustomSt
             return "local dependency \(package) was not found in \(directory.path)"
         case .clientSourceDirectoryNotFound(let directory):
             return "client source directory was not found at \(directory.path)"
+        case .swiftHTMLRuntimeSourcesNotFound(let candidates):
+            let paths = candidates.map(\.path).joined(separator: ", ")
+            return "SwiftHTML runtime sources were not found. Checked: \(paths)"
+        case .javaScriptKitRuntimeSourcesNotFound(let candidates):
+            let paths = candidates.map(\.path).joined(separator: ", ")
+            return "JavaScriptKit runtime sources were not found. Checked: \(paths)"
         case .invalidPackageResolved(let file):
             return "Package.resolved is invalid at \(file.path)"
         case .materializationLockOpenFailed(let lockFile, let code):

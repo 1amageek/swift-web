@@ -8,13 +8,15 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
     public var appProductName: String?
     public var serverProductName: String
     public var devProductName: String?
+    public var wasmSplitBuildStrategy: SwiftWebWasmSplitBuildStrategy
 
     public init(
         appPackageDirectory: URL,
         generatedPackageDirectory: URL? = nil,
         appProductName: String? = nil,
         serverProductName: String = "app-server",
-        devProductName: String? = nil
+        devProductName: String? = nil,
+        wasmSplitBuildStrategy: SwiftWebWasmSplitBuildStrategy = .defaultValue()
     ) {
         let standardizedAppPackageDirectory = appPackageDirectory.standardizedFileURL
         self.appPackageDirectory = standardizedAppPackageDirectory
@@ -26,6 +28,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
         self.appProductName = appProductName
         self.serverProductName = serverProductName
         self.devProductName = devProductName
+        self.wasmSplitBuildStrategy = wasmSplitBuildStrategy
     }
 
     private var serverPackageDirectory: URL {
@@ -125,7 +128,8 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
                 productName: Self.productName(forWasmRuntimeTarget: target.targetName),
                 componentTypeNames: target.componentTypeNames,
                 bundleID: target.bundleID,
-                assetPath: Self.assetPath(forWasmRuntimeTarget: target.targetName)
+                assetPath: Self.assetPath(forWasmRuntimeTarget: target.targetName),
+                linkMode: target.linkMode
             )
         }
 
@@ -144,10 +148,27 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
             wasmRuntimeTargets: wasmRuntimeTargets
         )
         try copyClientSources(appProductName: appProductName, to: wasmPackageDirectory)
+        try copySwiftHTMLRuntimeSources(
+            swiftHTMLPackageDirectory: swiftHTMLPackageDirectory,
+            swiftWebPackageDirectory: swiftWebPackageDirectory,
+            to: wasmPackageDirectory
+        )
         try copyClientRuntimeSources(from: swiftWebPackageDirectory, to: wasmPackageDirectory)
+        try copyJavaScriptKitRuntimeSources(
+            swiftWebPackageDirectory: swiftWebPackageDirectory,
+            to: wasmPackageDirectory
+        )
         try removeStaleWasmSourceTargets(
             keeping: Set(
-                [appProductName, "SwiftWebActors", "SwiftWebUI", "SwiftWebUIRuntime"]
+                [
+                    appProductName,
+                    "_CJavaScriptKit",
+                    "JavaScriptKit",
+                    "SwiftHTML",
+                    "SwiftWebActors",
+                    "SwiftWebUI",
+                    "SwiftWebUIRuntime",
+                ]
                     + wasmRuntimeTargetNames
             )
         )
@@ -167,7 +188,6 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
         let wasmPackageSwiftContents = wasmPackageSwift(
             appPackageName: packageName,
             appProductName: appProductName,
-            swiftHTMLPackageDirectory: swiftHTMLPackageDirectory,
             wasmRuntimeTargetNames: wasmRuntimeTargetNames
         )
         try removeGeneratedBuildDirectoryIfPackageChanged(
@@ -198,7 +218,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
         try syncPackageResolved(to: devPackageDirectory)
         try syncPackageResolved(
             to: wasmPackageDirectory,
-            keepingIdentities: ["javascriptkit", "swift-actor-runtime", "swift-syntax"]
+            keepingIdentities: ["swift-actor-runtime"]
         )
 
         return SwiftWebGeneratedPackage(
@@ -514,7 +534,8 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
                 bundleID: mainBundleID,
                 componentTypeNames: clientComponents
                     .filter { Self.resolvedBundleID(for: $0) == nil }
-                    .map(\.typeName)
+                    .map(\.typeName),
+                linkMode: .standalone
             ),
         ]
 
@@ -525,6 +546,42 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
             return (bundleID, component)
         }) { item in
             item.0
+        }
+
+        if wasmSplitBuildStrategy == .coalescedPolicyBundles {
+            let splitPairs = splitComponents.values
+                .flatMap { $0.map(\.1) }
+            for loadPolicy in Self.coalescedPolicyOrder {
+                let policyPairs = splitPairs
+                    .filter { $0.loadPolicy == loadPolicy }
+                    .sorted { left, right in
+                        left.typeName < right.typeName
+                    }
+                guard !policyPairs.isEmpty else {
+                    continue
+                }
+
+                let targetName = "\(appProductName)\(Self.wasmRuntimeTargetSuffix(for: loadPolicy))WasmRuntime"
+                let policyBundleGroups = Dictionary(grouping: policyPairs) { component in
+                    Self.resolvedBundleID(for: component) ?? ClientBundleID(Self.productName(forWasmRuntimeTarget: targetName))
+                }
+                targets.append(WasmRuntimeTargetDeclaration(
+                    targetName: targetName,
+                    bundleID: ClientBundleID(Self.productName(forWasmRuntimeTarget: targetName)),
+                    componentTypeNames: policyPairs.map(\.typeName),
+                    bundleArtifacts: policyBundleGroups.keys.sorted().map { bundleID in
+                        let components = policyBundleGroups[bundleID, default: []].sorted { left, right in
+                            left.typeName < right.typeName
+                        }
+                        return WasmRuntimeBundleArtifactDeclaration(
+                            bundleID: bundleID,
+                            componentTypeNames: components.map(\.typeName)
+                        )
+                    },
+                    linkMode: .coalescedStaticFallback
+                ))
+            }
+            return targets
         }
 
         var usedTargetNames = Set<String>()
@@ -542,7 +599,14 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
             targets.append(WasmRuntimeTargetDeclaration(
                 targetName: targetName,
                 bundleID: bundleID,
-                componentTypeNames: components.map(\.typeName)
+                componentTypeNames: components.map(\.typeName),
+                bundleArtifacts: [
+                    WasmRuntimeBundleArtifactDeclaration(
+                        bundleID: bundleID,
+                        componentTypeNames: components.map(\.typeName)
+                    ),
+                ],
+                linkMode: .standalone
             ))
         }
         return targets
@@ -688,6 +752,91 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
         )
     }
 
+    private func copySwiftHTMLRuntimeSources(
+        swiftHTMLPackageDirectory: URL?,
+        swiftWebPackageDirectory: URL,
+        to packageDirectory: URL
+    ) throws {
+        let sourceDirectory = try swiftHTMLSourceDirectory(
+            swiftHTMLPackageDirectory: swiftHTMLPackageDirectory,
+            swiftWebPackageDirectory: swiftWebPackageDirectory
+        )
+        let destinationDirectory = packageDirectory
+            .appendingPathComponent("Sources", isDirectory: true)
+            .appendingPathComponent("SwiftHTML", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: destinationDirectory,
+            withIntermediateDirectories: true
+        )
+        try mirrorDirectoryContents(
+            from: sourceDirectory,
+            to: destinationDirectory,
+            relativePath: "",
+            shouldSkip: Self.shouldSkipSwiftHTMLRuntimeSource(relativePath:)
+        )
+    }
+
+    private func swiftHTMLSourceDirectory(
+        swiftHTMLPackageDirectory: URL?,
+        swiftWebPackageDirectory: URL
+    ) throws -> URL {
+        let candidates = Self.swiftHTMLSourceDirectoryCandidates(
+            swiftHTMLPackageDirectory: swiftHTMLPackageDirectory,
+            appPackageDirectory: appPackageDirectory,
+            swiftWebPackageDirectory: swiftWebPackageDirectory
+        )
+        for candidate in candidates where Self.isSwiftHTMLSourceDirectory(candidate) {
+            return candidate
+        }
+        throw SwiftWebGeneratedPackageMaterializerError.swiftHTMLRuntimeSourcesNotFound(candidates)
+    }
+
+    private static func swiftHTMLSourceDirectoryCandidates(
+        swiftHTMLPackageDirectory: URL?,
+        appPackageDirectory: URL,
+        swiftWebPackageDirectory: URL
+    ) -> [URL] {
+        let compiledPackageDirectory = packageDirectoryContainingThisFile()
+        let explicitCandidates = swiftHTMLPackageDirectory.map {
+            [$0.appendingPathComponent("Sources/SwiftHTML", isDirectory: true)]
+        } ?? []
+        let checkoutParents = [
+            appPackageDirectory.appendingPathComponent(".build/checkouts", isDirectory: true),
+            swiftWebPackageDirectory.appendingPathComponent(".build/checkouts", isDirectory: true),
+            swiftWebPackageDirectory.deletingLastPathComponent(),
+            compiledPackageDirectory.appendingPathComponent(".build/checkouts", isDirectory: true),
+            compiledPackageDirectory.deletingLastPathComponent(),
+        ]
+
+        var candidates = explicitCandidates
+        for parent in checkoutParents {
+            candidates.append(parent.appendingPathComponent("swift-html/Sources/SwiftHTML", isDirectory: true))
+            candidates.append(parent.appendingPathComponent("SwiftHTML/Sources/SwiftHTML", isDirectory: true))
+        }
+
+        var seen = Set<String>()
+        return candidates.filter { candidate in
+            let path = candidate.standardizedFileURL.path
+            guard !seen.contains(path) else {
+                return false
+            }
+            seen.insert(path)
+            return true
+        }
+    }
+
+    private static func isSwiftHTMLSourceDirectory(_ sourceDirectory: URL) -> Bool {
+        let htmlSource = sourceDirectory.appendingPathComponent("Core/HTML.swift")
+        let rendererSource = sourceDirectory.appendingPathComponent("Rendering/HTMLRenderer.swift")
+        return FileManager.default.fileExists(atPath: htmlSource.path)
+            && FileManager.default.fileExists(atPath: rendererSource.path)
+    }
+
+    private static func shouldSkipSwiftHTMLRuntimeSource(relativePath: String) -> Bool {
+        let firstComponent = relativePath.split(separator: "/", maxSplits: 1).first.map(String.init)
+        return relativePath == "README.md" || firstComponent == "SwiftHTML.docc"
+    }
+
     private func copyClientRuntimeSources(from swiftWebPackageDirectory: URL, to packageDirectory: URL) throws {
         for targetName in ["SwiftWebActors", "SwiftWebUI", "SwiftWebUIRuntime"] {
             let sourceDirectory = swiftWebPackageDirectory
@@ -707,6 +856,116 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
                 shouldSkip: { $0 == "README.md" }
             )
         }
+    }
+
+    private func copyJavaScriptKitRuntimeSources(
+        swiftWebPackageDirectory: URL,
+        to packageDirectory: URL
+    ) throws {
+        let sourceRoot = try javaScriptKitSourceRoot(swiftWebPackageDirectory: swiftWebPackageDirectory)
+        let sourcesDirectory = packageDirectory.appendingPathComponent("Sources", isDirectory: true)
+
+        let javaScriptKitSourceDirectory = sourceRoot.appendingPathComponent("JavaScriptKit", isDirectory: true)
+        let javaScriptKitDestinationDirectory = sourcesDirectory.appendingPathComponent(
+            "JavaScriptKit",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: javaScriptKitDestinationDirectory,
+            withIntermediateDirectories: true
+        )
+        try mirrorDirectoryContents(
+            from: javaScriptKitSourceDirectory,
+            to: javaScriptKitDestinationDirectory,
+            relativePath: "",
+            shouldSkip: Self.shouldSkipJavaScriptKitRuntimeSource(relativePath:)
+        )
+
+        let cJavaScriptKitSourceDirectory = sourceRoot.appendingPathComponent("_CJavaScriptKit", isDirectory: true)
+        let cJavaScriptKitDestinationDirectory = sourcesDirectory.appendingPathComponent(
+            "_CJavaScriptKit",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: cJavaScriptKitDestinationDirectory,
+            withIntermediateDirectories: true
+        )
+        try mirrorDirectoryContents(
+            from: cJavaScriptKitSourceDirectory,
+            to: cJavaScriptKitDestinationDirectory,
+            relativePath: "",
+            shouldSkip: { _ in false }
+        )
+    }
+
+    private func javaScriptKitSourceRoot(swiftWebPackageDirectory: URL) throws -> URL {
+        let candidates = Self.javaScriptKitSourceRootCandidates(
+            appPackageDirectory: appPackageDirectory,
+            swiftWebPackageDirectory: swiftWebPackageDirectory
+        )
+        for candidate in candidates where Self.isJavaScriptKitSourceRoot(candidate) {
+            return candidate
+        }
+        throw SwiftWebGeneratedPackageMaterializerError.javaScriptKitRuntimeSourcesNotFound(candidates)
+    }
+
+    private static func javaScriptKitSourceRootCandidates(
+        appPackageDirectory: URL,
+        swiftWebPackageDirectory: URL
+    ) -> [URL] {
+        let compiledPackageDirectory = packageDirectoryContainingThisFile()
+        let checkoutParents = [
+            appPackageDirectory.appendingPathComponent(".build/checkouts", isDirectory: true),
+            swiftWebPackageDirectory.appendingPathComponent(".build/checkouts", isDirectory: true),
+            swiftWebPackageDirectory.deletingLastPathComponent(),
+            compiledPackageDirectory.appendingPathComponent(".build/checkouts", isDirectory: true),
+            compiledPackageDirectory.deletingLastPathComponent(),
+        ]
+
+        var candidates: [URL] = []
+        for parent in checkoutParents {
+            candidates.append(parent.appendingPathComponent("JavaScriptKit/Sources", isDirectory: true))
+            candidates.append(parent.appendingPathComponent("javascriptkit/Sources", isDirectory: true))
+        }
+
+        var seen = Set<String>()
+        return candidates.filter { candidate in
+            let path = candidate.standardizedFileURL.path
+            guard !seen.contains(path) else {
+                return false
+            }
+            seen.insert(path)
+            return true
+        }
+    }
+
+    private static func packageDirectoryContainingThisFile() -> URL {
+        var directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        while directory.lastPathComponent != "Sources" && directory.path != "/" {
+            directory.deleteLastPathComponent()
+        }
+        if directory.lastPathComponent == "Sources" {
+            return directory.deletingLastPathComponent()
+        }
+        return URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+    }
+
+    private static func isJavaScriptKitSourceRoot(_ sourceRoot: URL) -> Bool {
+        let javaScriptKitDirectory = sourceRoot.appendingPathComponent("JavaScriptKit", isDirectory: true)
+        let cJavaScriptKitDirectory = sourceRoot.appendingPathComponent("_CJavaScriptKit", isDirectory: true)
+        let jsObjectSource = javaScriptKitDirectory
+            .appendingPathComponent("FundamentalObjects/JSObject.swift")
+        let cHeader = cJavaScriptKitDirectory
+            .appendingPathComponent("include/_CJavaScriptKit.h")
+        return FileManager.default.fileExists(atPath: jsObjectSource.path)
+            && FileManager.default.fileExists(atPath: cHeader.path)
+    }
+
+    private static func shouldSkipJavaScriptKitRuntimeSource(relativePath: String) -> Bool {
+        let firstComponent = relativePath.split(separator: "/", maxSplits: 1).first.map(String.init)
+        return relativePath == "Macros.swift"
+            || firstComponent == "Runtime"
+            || firstComponent == "Documentation.docc"
     }
 
     private func mirrorDirectoryContents(
@@ -849,13 +1108,14 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
         let wasmPackageManifestPath = wasmPackageDirectory
             .appendingPathComponent("Package.swift")
             .path
-        let additionalBundles = wasmRuntimeTargets.dropFirst().map { target in
-            let componentTypeNames = target.componentTypeNames
+        let additionalBundles = wasmRuntimeTargets.dropFirst().flatMap { target in
+            target.bundleArtifacts.map { bundleArtifact in
+                let componentTypeNames = bundleArtifact.componentTypeNames
                 .map { "\"\(Self.swiftStringLiteral($0))\"" }
                 .joined(separator: ", ")
-            return """
+                return """
                                 ClientWasmBundleArtifact(
-                                    id: "\(target.bundleID.rawValue)",
+                                    id: "\(bundleArtifact.bundleID.rawValue)",
                                     componentTypeNames: [\(componentTypeNames)],
                                     assetPath: "\(Self.assetPath(forWasmRuntimeTarget: target.targetName))",
                                     artifact: SwiftPMWasmArtifact.location(
@@ -865,6 +1125,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
                                     )
                                 )
             """
+            }
         }
         .joined(separator: ",\n")
         let additionalBundlesArgument = additionalBundles.isEmpty
@@ -1057,7 +1318,6 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
     private func wasmPackageSwift(
         appPackageName: String,
         appProductName: String,
-        swiftHTMLPackageDirectory: URL?,
         wasmRuntimeTargetNames: [String]
     ) -> String {
         let wasmTargetDeclarations = wasmRuntimeTargetNames.map { targetName in
@@ -1072,9 +1332,6 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
         let wasmTargets = (["appClientTarget"] + wasmRuntimeTargetNames.map(Self.variableName(for:)))
             .map { "        \($0)" }
             .joined(separator: ",\n")
-        let swiftHTMLPackageDependency = swiftHTMLPackageDirectory.map {
-            ".package(path: \"\(Self.swiftStringLiteral($0.path))\")"
-        } ?? ".package(url: \"https://github.com/1amageek/swift-html.git\", from: \"0.3.0\")"
         return """
         // swift-tools-version: 6.3
 
@@ -1103,11 +1360,17 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
         let appClientTarget = Target.target(
             name: "\(appProductName)",
             dependencies: [
-                .product(name: "SwiftHTML", package: "swift-html"),
+                "SwiftHTML",
                 "SwiftWebActors",
                 "SwiftWebUI",
             ],
             path: "Sources/\(appProductName)",
+            swiftSettings: swiftSettings
+        )
+
+        let swiftHTMLTarget = Target.target(
+            name: "SwiftHTML",
+            path: "Sources/SwiftHTML",
             swiftSettings: swiftSettings
         )
 
@@ -1123,17 +1386,33 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
         let swiftWebUITarget = Target.target(
             name: "SwiftWebUI",
             dependencies: [
-                .product(name: "SwiftHTML", package: "swift-html"),
+                "SwiftHTML",
             ],
             path: "Sources/SwiftWebUI",
             swiftSettings: swiftSettings
         )
 
+        let cJavaScriptKitTarget = Target.target(
+            name: "_CJavaScriptKit",
+            path: "Sources/_CJavaScriptKit"
+        )
+
+        let javaScriptKitTarget = Target.target(
+            name: "JavaScriptKit",
+            dependencies: [
+                "_CJavaScriptKit",
+            ],
+            path: "Sources/JavaScriptKit",
+            swiftSettings: [
+                .enableExperimentalFeature("Extern"),
+            ]
+        )
+
         let swiftWebUIRuntimeTarget = Target.target(
             name: "SwiftWebUIRuntime",
             dependencies: [
-                .product(name: "SwiftHTML", package: "swift-html"),
-                .product(name: "JavaScriptKit", package: "JavaScriptKit"),
+                "SwiftHTML",
+                "JavaScriptKit",
                 "SwiftWebActors",
             ],
             path: "Sources/SwiftWebUIRuntime",
@@ -1151,11 +1430,12 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
                 \(wasmProductDeclarations)
             ],
             dependencies: [
-                \(swiftHTMLPackageDependency),
-                .package(url: "https://github.com/swiftwasm/JavaScriptKit.git", from: "0.55.0"),
                 .package(url: "https://github.com/1amageek/swift-actor-runtime.git", exact: "0.5.0"),
             ],
             targets: [
+                cJavaScriptKitTarget,
+                javaScriptKitTarget,
+                swiftHTMLTarget,
                 swiftWebActorsTarget,
                 swiftWebUITarget,
                 swiftWebUIRuntimeTarget,
@@ -1173,7 +1453,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
             dependencies: [
                 "\(appProductName)",
                 "SwiftWebActors",
-                .product(name: "SwiftHTML", package: "swift-html"),
+                "SwiftHTML",
                 "SwiftWebUI",
                 "SwiftWebUIRuntime",
             ],
@@ -1213,6 +1493,25 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
             }
             .joined()
         return "\(parts)WasmRuntime"
+    }
+
+    private static var coalescedPolicyOrder: [LoadPolicy] {
+        [.visible, .interaction, .idle, .manual]
+    }
+
+    private static func wasmRuntimeTargetSuffix(for loadPolicy: LoadPolicy) -> String {
+        switch loadPolicy {
+        case .eager:
+            return ""
+        case .visible:
+            return "Visible"
+        case .interaction:
+            return "Interaction"
+        case .idle:
+            return "Idle"
+        case .manual:
+            return "Manual"
+        }
     }
 
     private static func variableName(for targetName: String) -> String {
@@ -1395,8 +1694,15 @@ private struct WasmRuntimeTargetDeclaration: Sendable {
     let targetName: String
     let bundleID: ClientBundleID
     let componentTypeNames: [String]
+    var bundleArtifacts: [WasmRuntimeBundleArtifactDeclaration] = []
+    let linkMode: SwiftWebGeneratedWasmRuntimeLinkMode
 
     var componentTypeName: String {
         componentTypeNames.first ?? targetName
     }
+}
+
+private struct WasmRuntimeBundleArtifactDeclaration: Sendable {
+    let bundleID: ClientBundleID
+    let componentTypeNames: [String]
 }

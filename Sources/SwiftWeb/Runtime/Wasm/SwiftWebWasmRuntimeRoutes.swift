@@ -1,4 +1,5 @@
 import Foundation
+import HTTPTypes
 import SwiftHTML
 import Vapor
 
@@ -87,19 +88,67 @@ public enum SwiftWebWasmRuntimeRoutes {
             guard FileManager.default.fileExists(atPath: fileURL.path) else {
                 throw Abort(.notFound, reason: "WASM asset was not found at \(fileURL.path)")
             }
+            let asset = selectedWasmAsset(
+                fileURL: fileURL,
+                acceptEncoding: req.headers[HTTPField.Name("Accept-Encoding")!] ?? ""
+            )
             let data = try Data(
-                contentsOf: fileURL,
+                contentsOf: asset.fileURL,
                 options: [.mappedIfSafe]
             )
+            var headers: HTTPFields = [
+                .contentType: "application/wasm",
+                .cacheControl: "no-cache",
+                .acceptRanges: "bytes",
+                HTTPField.Name("Vary")!: "Accept-Encoding",
+            ]
+            if let contentEncoding = asset.contentEncoding {
+                headers[HTTPField.Name("Content-Encoding")!] = contentEncoding
+            }
             return Response(
-                headers: [
-                    .contentType: "application/wasm",
-                    .cacheControl: "no-cache",
-                    .acceptRanges: "bytes",
-                ],
+                headers: headers,
                 body: .init(data: data)
             )
         }
+    }
+
+    private static func selectedWasmAsset(
+        fileURL: URL,
+        acceptEncoding: String
+    ) -> (fileURL: URL, contentEncoding: String?) {
+        let brotliURL = URL(fileURLWithPath: fileURL.path + ".br")
+        if acceptsEncoding("br", in: acceptEncoding),
+           FileManager.default.fileExists(atPath: brotliURL.path)
+        {
+            return (brotliURL, "br")
+        }
+
+        let gzipURL = URL(fileURLWithPath: fileURL.path + ".gz")
+        if acceptsEncoding("gzip", in: acceptEncoding),
+           FileManager.default.fileExists(atPath: gzipURL.path)
+        {
+            return (gzipURL, "gzip")
+        }
+
+        return (fileURL, nil)
+    }
+
+    private static func acceptsEncoding(_ encoding: String, in header: String) -> Bool {
+        header
+            .lowercased()
+            .split(separator: ",")
+            .contains { value in
+                let parts = value
+                    .split(separator: ";")
+                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                guard let name = parts.first else {
+                    return false
+                }
+                if parts.contains("q=0") || parts.contains("q=0.0") {
+                    return false
+                }
+                return name == encoding || name == "*"
+            }
     }
 }
 

@@ -10,6 +10,7 @@ struct SwiftWebDevBuildProcess: Sendable {
         _ runtime: SwiftWebGeneratedWasmRuntime
     ) throws -> ClientWasmHMRManifest {
         let toolchain = try SwiftWebWasmToolchain.resolve(sdkName: wasmSwiftSDK)
+        let artifactProcessingOptions = SwiftWebWasmArtifactProcessor.Options.development()
         let packageDirectory = runtime.packageDirectory
         let scratchDirectory = wasmScratchDirectory
         let existingArtifactURL = try SwiftPMWasmArtifact.url(
@@ -22,12 +23,14 @@ struct SwiftWebDevBuildProcess: Sendable {
         let inputHash = try SwiftWebWasmBuildInputHasher.hash(
             runtime: runtime,
             sdkName: wasmSwiftSDK,
-            swiftExecutablePath: toolchain.swiftExecutableURL.path
+            swiftExecutablePath: toolchain.swiftExecutableURL.path,
+            artifactProcessingSignature: artifactProcessingOptions.inputSignature
         )
         if let cachedManifest = try cachedWasmManifest(
             runtime: runtime,
             artifactURL: existingArtifactURL,
-            inputHash: inputHash
+            inputHash: inputHash,
+            artifactProcessingOptions: artifactProcessingOptions
         ) {
             return cachedManifest
         }
@@ -63,8 +66,9 @@ struct SwiftWebDevBuildProcess: Sendable {
             target: runtime.targetName,
             scratchDirectory: scratchDirectory
         )
-        let data = try Data(contentsOf: artifactURL, options: [.mappedIfSafe])
-        let hash = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+        let processingResult = try SwiftWebWasmArtifactProcessor(options: artifactProcessingOptions)
+            .process(fileURL: artifactURL)
+        let hash = processingResult.contentHash
         try writeBuildStamp(
             SwiftWebWasmBuildStamp(inputHash: inputHash, artifactHash: hash),
             for: runtime
@@ -83,7 +87,8 @@ struct SwiftWebDevBuildProcess: Sendable {
     private func cachedWasmManifest(
         runtime: SwiftWebGeneratedWasmRuntime,
         artifactURL: URL,
-        inputHash: String
+        inputHash: String,
+        artifactProcessingOptions: SwiftWebWasmArtifactProcessor.Options
     ) throws -> ClientWasmHMRManifest? {
         guard FileManager.default.fileExists(atPath: artifactURL.path) else {
             return nil
@@ -96,11 +101,22 @@ struct SwiftWebDevBuildProcess: Sendable {
         guard stamp.artifactHash == artifactHash else {
             return nil
         }
+        let processingResult = try SwiftWebWasmArtifactProcessor(options: artifactProcessingOptions)
+            .process(fileURL: artifactURL)
+        if processingResult.contentHash != artifactHash {
+            try writeBuildStamp(
+                SwiftWebWasmBuildStamp(
+                    inputHash: inputHash,
+                    artifactHash: processingResult.contentHash
+                ),
+                for: runtime
+            )
+        }
         return ClientWasmHMRManifest(
             componentTypeName: runtime.componentTypeName,
             bundleID: runtime.bundleID,
-            assetPath: "\(runtime.assetPath)?v=\(artifactHash)",
-            contentHash: artifactHash,
+            assetPath: "\(runtime.assetPath)?v=\(processingResult.contentHash)",
+            contentHash: processingResult.contentHash,
             stateSchemaHash: "",
             environmentSchemaHash: ""
         )

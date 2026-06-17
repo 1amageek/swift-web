@@ -15,21 +15,55 @@ The default is intentionally conservative: all client components join one eager 
 | Public API shape | `LoadPolicy` and `BundlePolicy` on `ClientComponent`, with call-site modifiers as the preferred override. |
 | Explicit non-goal | Automatic planner-driven component splitting is not part of the public model. |
 
-## Open Size Optimization Issue
+## Size Optimization Direction
 
-The current split-loading implementation validates the loading contract and improves first-load timing, but it does not yet minimize total transferred bytes. Each generated split WASM product still statically links the Swift runtime, SwiftHTML, SwiftWebUIRuntime, and JavaScriptKit-facing runtime glue. In the browser E2E run on 2026-06-17, the eager main bundle was about 70 MB uncompressed and each staged component bundle was also about 70 MB uncompressed.
+The split-loading contract optimizes the first interactive surface by delaying selected client islands. The current Swift/WASI toolchain still links each executable WASM product as a standalone artifact, so a naive one-product-per-split implementation duplicates the Swift runtime, SwiftHTML, SwiftWebUIRuntime, and JavaScriptKit-facing runtime glue in every split bundle. After removing macro-only dependencies and stripping debug/producers custom sections, the browser E2E run on 2026-06-17 loaded an eager main bundle of about 56.5 MB uncompressed.
 
-This is an accepted follow-up issue, not a blocker for the contract model. The next optimization pass should focus on these layers:
+SwiftWeb therefore separates the developer contract from the physical build strategy:
+
+| Layer | Contract |
+|---|---|
+| Developer API | Components declare `LoadPolicy` and `BundlePolicy`. This remains stable. |
+| Manifest | Each island keeps its resolved logical bundle and loading policy. |
+| Build strategy | The materializer may lower multiple logical split contracts into fewer physical WASM products when the toolchain cannot produce thin component modules. |
+| Future toolchain path | When stable thin component modules are available, the same manifest contract can map each logical split to a thin module loaded over a shared base runtime. |
+
+### Current Build Strategies
+
+| Strategy | Physical output | When to use |
+|---|---|---|
+| `coalescedPolicyBundles` | Main runtime plus up to one standalone WASM product per non-eager load policy. | Default for the current Swift/WASI toolchain because it avoids multiplying the full runtime by every split bundle while preserving load timing. |
+| `resolvedBundles` | Main runtime plus one standalone WASM product per resolved split bundle. | Precise incremental rebuilds and diagnostics when byte duplication is acceptable. |
+
+The selected strategy is internal to generation. Apps still express priority with `.loadPolicy(...)` and `.bundle(...)`; SwiftWeb decides how many physical artifacts can safely realize that contract.
+
+`SWIFTWEB_WASM_SPLIT_BUILD_STRATEGY=resolved-bundles` can force the precise standalone split shape for diagnostics. Without that override, generated packages use `coalescedPolicyBundles`.
+
+### Current Artifact Processing
+
+SwiftWeb separates dev responsiveness from production transfer optimization:
+
+| Mode | Artifact processing | Compression sidecars |
+|---|---|---|
+| `swift-web dev` / Storyboard dev | Strip debug, `name`, `producers`, and `sourceMappingURL` custom sections; write `<artifact>.wasm.size.json`; include the processing signature in the build stamp. | Disabled by default to keep local HMR builds fast. Stale `.gz` and `.br` sidecars are removed. |
+| `swift-web build --wasm` | Strip the same custom sections; run `wasm-opt -Oz` when Binaryen is available; write `<artifact>.wasm.size.json`. | Writes `.gz` and `.br` sidecars. Brotli defaults to quality 11 and can be changed with `SWIFTWEB_WASM_BROTLI_QUALITY`. |
+| Runtime asset route | Serves raw `.wasm` unless the request accepts an available `.br` or `.gz` sidecar. | Adds `Content-Encoding` and `Vary: Accept-Encoding` for sidecar responses. |
+
+`SWIFTWEB_WASM_OPTIMIZE=0` disables `wasm-opt` even for production builds. `SWIFTWEB_WASM_OPTIMIZE=1` enables it for dev builds when the tool is available, but this is intended for diagnostics because it slows HMR.
+
+### Remaining Optimization Work
+
+The next optimization pass should focus on these layers:
 
 | Priority | Work | Expected impact |
 |---:|---|---|
-| 1 | Remove macro, development, and SwiftSyntax dependencies from all generated WASM products. | Reduce cold build time and avoid avoidable code in runtime artifacts. |
-| 2 | Add a production artifact optimizer step such as `wasm-opt -Oz` plus debug/producers section stripping when Binaryen is available. | Reduce uncompressed WASM size without changing public API. |
-| 3 | Serve precompressed gzip/Brotli variants for production WASM assets. | Reduce network transfer size immediately. |
-| 4 | Keep the default shape as one page-level client runtime bundle unless a component explicitly opts into staged loading. | Avoid accidental duplication from unnecessary split products. |
-| 5 | Design a shared base runtime plus thin component modules if Swift/Wasm linking support can make that reliable. | Address the root duplication problem across split bundles. |
+| Done | Remove macro, development, and SwiftSyntax dependencies from generated WASM products. | Reduced avoidable code in runtime artifacts and lowered the eager bundle from about 70 MB to about 56.5 MB in E2E. |
+| Done | Add artifact processing: debug/producers section stripping, optional `wasm-opt -Oz`, and size reports. | Gives a deterministic artifact pass and size attribution without changing public API. |
+| Done | Serve precompressed gzip/Brotli variants when production sidecars exist. | Reduces network transfer size for production artifacts. |
+| Done | Use `coalescedPolicyBundles` while thin component modules are unavailable. | Avoids accidental duplication from unnecessary split products without breaking `visible` / `interaction` / `idle` / `manual` timing. |
+| Next | Implement a shared base runtime plus thin component modules once Swift/Wasm linking support exposes a stable browser-ready contract. | Address the root duplication problem across split bundles. |
 
-The release-quality requirement for this document is therefore: split loading must remain deterministic and correct, while byte-size optimization remains tracked as a performance follow-up.
+The release-quality requirement is therefore: split loading must remain deterministic and correct, while the physical output is allowed to use the least duplicative strategy supported by the selected toolchain.
 
 ## Scope
 
@@ -330,7 +364,7 @@ flowchart TD
   E --> F["hosted WASM assets"]
 ```
 
-### Generated Product Shape
+### Logical Product Shape
 
 | Resolved contract | Generated product |
 |---|---|
@@ -342,6 +376,31 @@ flowchart TD
 
 The main bundle is the baseline. Split products are created only when a resolved contract requires staged loading. A bundle can contain more than one root component type when the contract intentionally groups those islands.
 
+### Physical Product Shape
+
+The logical product shape is the target model for a toolchain that can produce thin component modules. Until that is reliable for browser Swift/Wasm, the materializer supports a static-link fallback:
+
+```mermaid
+flowchart LR
+  A["main eager runtime"] --> B["initial hydration"]
+  C["visible split"]
+  D["interaction split"]
+  E["manual split"]
+  C --> F["coalesced visible runtime"]
+  D --> G["coalesced interaction runtime"]
+  E --> H["coalesced manual runtime"]
+  F --> I["staged hydration"]
+  G --> I
+  H --> I
+```
+
+| Build strategy | Main runtime | Deferred runtime | Tradeoff |
+|---|---|---|---|
+| `resolvedBundles` | Contains eager `.main` islands. | One standalone artifact per logical split. | Best rebuild locality, worst duplicated bytes. |
+| `coalescedPolicyBundles` | Contains eager `.main` islands. | One standalone artifact per non-eager load policy. | Less duplicated runtime code while preserving policy-level download timing. |
+
+`coalescedPolicyBundles` preserves both logical bundle IDs and load-policy timing. Multiple `.visible` islands may share one visible artifact, and multiple `.manual` islands may share one manual artifact, but a visible or idle load must not fetch interaction-only or manual code.
+
 Build-speed requirements:
 
 | Requirement | Reason |
@@ -351,6 +410,7 @@ Build-speed requirements:
 | Rebuild dirty resolved bundles only | Editing one split island should not rebuild unrelated bundles. |
 | Content-addressed artifact cache | Reuses artifacts across dev, storyboard, and production build commands. |
 | Cache key includes toolchain, SDK, dependencies, and build flags | Prevents incompatible artifacts from being reused. |
+| Runtime-only generated source targets | Keeps SwiftHTML preview macros, JavaScriptKit BridgeJS macros, and `swift-syntax` out of the WASM package graph. |
 | No automatic component target explosion | Keeps normal development fast and package graphs understandable. |
 | Build metrics | Makes slow paths measurable before changing policy. |
 

@@ -190,4 +190,52 @@ struct SwiftWebClientRuntimeTests {
         #expect(try #require(chartBundle.asset).path == "/assets/chart.wasm")
         #expect(try #require(editorBundle.asset).path == "/assets/workspace.wasm")
     }
+
+    @Test
+    func wasmManifestPreservesLogicalBundleIDsWhenPhysicalAssetIsShared() throws {
+        let artifact = RuntimeSplitShell().renderArtifact()
+        let chart = try #require(artifact.hydration.components.first { component in
+            component.typeName.hasSuffix(".RuntimeChartComponent")
+                || component.typeName == "RuntimeChartComponent"
+        })
+        let editor = try #require(artifact.hydration.components.first { component in
+            component.typeName.hasSuffix(".RuntimeEditorComponent")
+                || component.typeName == "RuntimeEditorComponent"
+        })
+        let chartBundleID = try #require(chart.bundleID)
+        let editorBundleID = try #require(editor.bundleID)
+        let chartTypeName = chart.typeName.split(separator: ".").last.map(String.init) ?? chart.typeName
+        let editorTypeName = editor.typeName.split(separator: ".").last.map(String.init) ?? editor.typeName
+
+        let runtime = SwiftWebWasmClientRuntime(
+            manifestPath: "/assets/swift-web-client.json",
+            runtimeAssetPath: "/assets/main.wasm",
+            additionalBundles: [
+                SwiftWebWasmClientBundle(
+                    id: chartBundleID,
+                    componentTypeNames: [chartTypeName],
+                    assetPath: "/assets/deferred.wasm"
+                ),
+                SwiftWebWasmClientBundle(
+                    id: editorBundleID,
+                    componentTypeNames: [editorTypeName],
+                    assetPath: "/assets/deferred.wasm"
+                ),
+            ]
+        )
+
+        let manifest = SwiftWebWasmClientManifestBuilder.manifest(
+            from: artifact,
+            runtime: runtime
+        )
+        let chartAsset = try #require(manifest.component(chart.id))
+        let editorAsset = try #require(manifest.component(editor.id))
+        let chartBundle = try #require(manifest.bundle(chartBundleID))
+        let editorBundle = try #require(manifest.bundle(editorBundleID))
+
+        #expect(chartAsset.bundleID == chartBundleID)
+        #expect(editorAsset.bundleID == editorBundleID)
+        #expect(try #require(chartBundle.asset).path == "/assets/deferred.wasm")
+        #expect(try #require(editorBundle.asset).path == "/assets/deferred.wasm")
+    }
 }

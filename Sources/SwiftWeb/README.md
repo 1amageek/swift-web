@@ -161,11 +161,13 @@ flowchart LR
   C -->|after support lands| E["EventSource / SSE delivery"]
 ```
 
-WASM builds use the same generated package boundary but switch to a client-only graph: the generated package copies the app's client components plus `SwiftWebUI` and `SwiftWebUIRuntime` sources, and resolves `SwiftHTML` from the `swift-html` package dependency. `SwiftHTML` and `SwiftWebUI` stay browser-runtime neutral, while `SwiftWebUIRuntime` carries the JavaScriptKit-backed browser adapter used by the generated WASM runtime targets.
+WASM builds use the same generated package boundary but switch to a client-only graph. The generated package copies the app's client components plus runtime-only `SwiftHTML`, `SwiftWebActors`, `SwiftWebUI`, `SwiftWebUIRuntime`, and JavaScriptKit source targets. It intentionally excludes SwiftHTML preview macros, JavaScriptKit BridgeJS macros, and their `swift-syntax` toolchain dependencies from the WASM package graph. `SwiftHTML` and `SwiftWebUI` stay browser-runtime neutral, while `SwiftWebUIRuntime` carries the JavaScriptKit-backed browser adapter used by the generated WASM runtime targets.
 
 `SwiftPMWasmArtifact.location(target:)` resolves the served `.wasm` file from the user app package root, the app's `.swiftweb/generated` package root, and local `.package(path:)` dependency roots. This lets `swift-web build --wasm` write into the shared SwiftWeb scratch directory while the app still declares the asset from its own `clientRuntime`.
 
 Client bundle loading is contract-first and documented in [`docs/ClientBundleLoadingDesign.md`](../../docs/ClientBundleLoadingDesign.md). `SwiftWeb` hosts resolved manifests and content-hashed WASM assets; `ClientComponent` contracts and modifiers decide bundle/load policy, while the runtime validates those contracts and serves the resulting assets.
+
+WASM asset routes are sidecar-aware. If a built artifact has `.wasm.br` or `.wasm.gz` siblings, `SwiftWeb` selects the best accepted variant from `Accept-Encoding` and sets `Content-Encoding` plus `Vary: Accept-Encoding`. The production artifact processor that creates those sidecars lives in `SwiftWebDevelopment` / `swift-web build --wasm`; `SwiftWeb` only owns HTTP serving.
 
 ## Server Interaction Methods
 

@@ -51,6 +51,7 @@ public struct SwiftWebGeneratedWasmRuntime: Sendable, Equatable {
     public let componentTypeNames: [String]
     public let bundleID: ClientBundleID
     public let assetPath: String
+    public let linkMode: SwiftWebGeneratedWasmRuntimeLinkMode
 
     public var componentTypeName: String {
         componentTypeNames.first ?? targetName
@@ -62,7 +63,8 @@ public struct SwiftWebGeneratedWasmRuntime: Sendable, Equatable {
         productName: String,
         componentTypeName: String,
         bundleID: ClientBundleID? = nil,
-        assetPath: String
+        assetPath: String,
+        linkMode: SwiftWebGeneratedWasmRuntimeLinkMode = .standalone
     ) {
         self.init(
             packageDirectory: packageDirectory,
@@ -70,7 +72,8 @@ public struct SwiftWebGeneratedWasmRuntime: Sendable, Equatable {
             productName: productName,
             componentTypeNames: [componentTypeName],
             bundleID: bundleID,
-            assetPath: assetPath
+            assetPath: assetPath,
+            linkMode: linkMode
         )
     }
 
@@ -80,7 +83,8 @@ public struct SwiftWebGeneratedWasmRuntime: Sendable, Equatable {
         productName: String,
         componentTypeNames: [String],
         bundleID: ClientBundleID? = nil,
-        assetPath: String
+        assetPath: String,
+        linkMode: SwiftWebGeneratedWasmRuntimeLinkMode = .standalone
     ) {
         self.packageDirectory = packageDirectory.standardizedFileURL
         self.targetName = targetName
@@ -88,5 +92,6 @@ public struct SwiftWebGeneratedWasmRuntime: Sendable, Equatable {
         self.componentTypeNames = componentTypeNames.sorted()
         self.bundleID = bundleID ?? ClientBundleID(productName)
         self.assetPath = assetPath
+        self.linkMode = linkMode
     }
 }
