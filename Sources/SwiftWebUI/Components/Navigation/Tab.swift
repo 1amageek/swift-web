@@ -2,14 +2,14 @@ import SwiftHTML
 
 // The selected tab value, carried from `TabView` to its `Tab` children so each
 // tab can mark its radio `checked` when it is the active selection.
-private struct TabSelectionEnvironmentKey: ClientEnvironmentKey {
+struct TabSelectionEnvironmentKey: ClientEnvironmentKey {
     static let defaultValue: String? = nil
 }
 
 // The shared radio-group `name`, carried from `TabView` to its `Tab` children so
 // the tabs are mutually exclusive natively. The change handler lives on the
 // `TabView` container (change events bubble), so tabs only need the group name.
-private struct TabGroupNameEnvironmentKey: ClientEnvironmentKey {
+struct TabGroupNameEnvironmentKey: ClientEnvironmentKey {
     static let defaultValue: String? = nil
 }
 

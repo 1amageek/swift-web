@@ -637,7 +637,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
                 .executable(name: "\(serverProductName)", targets: ["AppServerLauncher"]),
             ],
             dependencies: buildsWasmRuntime ? [
-                .package(url: "https://github.com/1amageek/swift-html.git", from: "0.2.0"),
+                .package(url: "https://github.com/1amageek/swift-html.git", from: "0.2.2"),
                 .package(url: "https://github.com/swiftwasm/JavaScriptKit.git", from: "0.55.0"),
                 .package(url: "https://github.com/1amageek/swift-actor-runtime.git", exact: "0.5.0"),
             ] : [
@@ -744,6 +744,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
         import SwiftWebUIRuntime
 
         nonisolated(unsafe) private let \(runtimeVariableName) = ClientWasmRuntimeEntrypoint(
+            environmentRegistry: .swiftWebUI,
             componentMount: ClientWasmComponentMount(\(target.componentTypeName).self)
         ) { _ in
             \(target.componentTypeName)()

@@ -1,6 +1,6 @@
 import SwiftHTML
 
-private struct PickerSelectionEnvironmentKey: ClientEnvironmentKey {
+struct PickerSelectionEnvironmentKey: ClientEnvironmentKey {
     static let defaultValue: String? = nil
 }
 
@@ -8,7 +8,7 @@ private struct PickerSelectionEnvironmentKey: ClientEnvironmentKey {
 // children when the picker lowers to a radio group. The change handler lives on
 // the group container (change events bubble), so options only need the group
 // name to be mutually exclusive natively.
-private struct PickerGroupNameEnvironmentKey: ClientEnvironmentKey {
+struct PickerGroupNameEnvironmentKey: ClientEnvironmentKey {
     static let defaultValue: String? = nil
 }
 

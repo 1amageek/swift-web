@@ -139,8 +139,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/1amageek/swift-html.git",
       "state" : {
-        "revision" : "eecab0f2344769833b3d3571309f38db9e4b0a13",
-        "version" : "0.2.1"
+        "revision" : "e4de91c337f47e57231214438a85a84ea217e20d",
+        "version" : "0.2.2"
       }
     },
     {

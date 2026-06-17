@@ -1,6 +1,6 @@
 import SwiftHTML
 
-private struct StyleSystemEnvironmentKey: ClientEnvironmentKey {
+struct StyleSystemEnvironmentKey: ClientEnvironmentKey {
     static let defaultValue = StyleSystem.default
 }
 

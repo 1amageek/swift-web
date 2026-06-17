@@ -1,30 +1,30 @@
 import SwiftHTML
 
-private struct IsEnabledEnvironmentKey: ClientEnvironmentKey {
+struct IsEnabledEnvironmentKey: ClientEnvironmentKey {
     static let defaultValue = true
 }
 
-private struct ControlSizeEnvironmentKey: ClientEnvironmentKey {
+struct ControlSizeEnvironmentKey: ClientEnvironmentKey {
     static let defaultValue = ControlSize.regular
 }
 
-private struct ControlStateEnvironmentKey: ClientEnvironmentKey {
+struct ControlStateEnvironmentKey: ClientEnvironmentKey {
     static let defaultValue = ControlState.enabled
 }
 
-private struct TintEnvironmentKey: ClientEnvironmentKey {
+struct TintEnvironmentKey: ClientEnvironmentKey {
     static let defaultValue = "var(--swui-accent)"
 }
 
-private struct ButtonStyleEnvironmentKey: ClientEnvironmentKey {
+struct ButtonStyleEnvironmentKey: ClientEnvironmentKey {
     static let defaultValue = ButtonStyleKind.automatic
 }
 
-private struct PickerStyleEnvironmentKey: ClientEnvironmentKey {
+struct PickerStyleEnvironmentKey: ClientEnvironmentKey {
     static let defaultValue = PickerStyleKind.automatic
 }
 
-private struct IsInsideFormEnvironmentKey: ClientEnvironmentKey {
+struct IsInsideFormEnvironmentKey: ClientEnvironmentKey {
     static let defaultValue = false
 }
 

@@ -1,6 +1,6 @@
 import SwiftHTML
 
-private struct ThemeEnvironmentKey: ClientEnvironmentKey {
+struct ThemeEnvironmentKey: ClientEnvironmentKey {
     static let defaultValue = Theme.system
 }
 

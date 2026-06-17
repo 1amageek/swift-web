@@ -110,7 +110,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         #expect(packageSwift.contains(".executable(name: \"app-server\", targets: [\"AppServerLauncher\"])"))
         #expect(packageSwift.contains(".executable(name: \"sample-wasm-runtime\", targets: [\"SampleWasmRuntime\"])"))
         #expect(packageSwift.contains(".package(path: \"\(swiftWebPackage.path)\""))
-        #expect(packageSwift.contains(".package(url: \"https://github.com/1amageek/swift-html.git\", from: \"0.2.0\")"))
+        #expect(packageSwift.contains(".package(url: \"https://github.com/1amageek/swift-html.git\", from: \"0.2.2\")"))
         #expect(packageSwift.contains(".package(url: \"https://github.com/swiftwasm/JavaScriptKit.git\""))
         #expect(packageSwift.contains(".package(url: \"https://github.com/1amageek/swift-actor-runtime.git\", exact: \"0.5.0\")"))
         #expect(!packageSwift.contains("let swiftHTMLTarget = Target.target("))
