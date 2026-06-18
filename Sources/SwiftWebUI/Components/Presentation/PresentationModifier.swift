@@ -6,7 +6,7 @@ import SwiftHTML
 /// It lowers to a native `<dialog>` rendered as a sibling of the anchor view.
 /// The dialog is `display: none` until presented, so it costs no layout while
 /// hidden. When `isPresented` is true the server renders the `open` attribute and
-/// a `data-swui-presented="true"` marker; the client runtime upgrades that
+/// a `data-presented="true"` marker; the client runtime upgrades that
 /// in-flow open dialog to a true top-layer modal via `showModal()` (see the
 /// runtime's presentation reconciler). Native dismissal (Esc, outside tap, or the
 /// platform close affordance) fires the `close` event, which syncs the binding
@@ -65,7 +65,7 @@ public struct PresentationModifier<PresentedContent: HTML>: ComponentModifier {
         var attributes: [HTMLAttribute] = [
             .class("swui-presentation \(kind.cssClass) \(MaterialClass.material) \(MaterialClass.thick)"),
             .role(kind.role),
-            HTMLAttribute("data-swui-presented", isPresented.wrappedValue ? "true" : "false"),
+            HTMLAttribute("data-presented", isPresented.wrappedValue ? "true" : "false"),
             .closedby(effectiveClosedBy),
             .event("close") { _ in
                 // React only to a real close so the idempotent reconciliation

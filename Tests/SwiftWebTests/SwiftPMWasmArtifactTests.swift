@@ -22,7 +22,7 @@ struct SwiftPMWasmArtifactTests {
 
         try write(
             """
-            // swift-tools-version: 6.4
+            // swift-tools-version: 6.3
             import PackageDescription
 
             let package = Package(
@@ -40,7 +40,7 @@ struct SwiftPMWasmArtifactTests {
         try write("public struct CounterApp {}", to: appSource)
         try write(
             """
-            // swift-tools-version: 6.4
+            // swift-tools-version: 6.3
             import PackageDescription
 
             let package = Package(name: "swift-web")
@@ -75,7 +75,7 @@ struct SwiftPMWasmArtifactTests {
 
         try write(
             """
-            // swift-tools-version: 6.4
+            // swift-tools-version: 6.3
             import PackageDescription
 
             let package = Package(name: "WasmPackage")
@@ -112,7 +112,7 @@ struct SwiftPMWasmArtifactTests {
 
         try write(
             """
-            // swift-tools-version: 6.4
+            // swift-tools-version: 6.3
             import PackageDescription
 
             let package = Package(name: "GeneratedWasm")

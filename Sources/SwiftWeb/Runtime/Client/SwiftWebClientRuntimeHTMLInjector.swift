@@ -2,7 +2,7 @@ import Foundation
 import SwiftHTML
 
 struct SwiftWebClientRuntimeHTMLInjector {
-    static let descriptorElementID = "swift-web-client-runtime"
+    static let descriptorElementID = "client-runtime"
 
     private let encoder: JSONEncoder
 

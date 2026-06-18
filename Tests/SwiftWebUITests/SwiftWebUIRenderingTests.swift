@@ -27,13 +27,13 @@ struct SwiftWebUIRenderingTests {
         .environment(\.theme, .system)
         .render()
 
-        #expect(rendered.contains("[data-swift-web-ui-theme=\"system\"]"))
-        #expect(rendered.contains("[data-swift-web-ui-style-system=\"swift-web\"]"))
+        #expect(rendered.contains("[data-theme=\"system\"]"))
+        #expect(rendered.contains("[data-style-system=\"swift-web\"]"))
         #expect(rendered.contains("--swui-background: #f7f8fa;"))
         #expect(rendered.contains("--swui-button-radius: var(--swui-radius-medium);"))
         #expect(rendered.contains("class=\"swui-root\""))
-        #expect(rendered.contains("data-swift-web-ui-theme=\"system\""))
-        #expect(rendered.contains("data-swift-web-ui-style-system=\"swift-web\""))
+        #expect(rendered.contains("data-theme=\"system\""))
+        #expect(rendered.contains("data-style-system=\"swift-web\""))
         #expect(rendered.contains("class=\"swui-page\""))
         #expect(rendered.contains("class=\"swui-card swui-material swui-material-regular client-counter\""))
         #expect(rendered.contains("<output class=\"swui-value\" aria-live=\"polite\">0</output>"))
@@ -63,9 +63,9 @@ struct SwiftWebUIRenderingTests {
         .environment(\.styleSystem, style)
         .render()
 
-        #expect(rendered.contains("data-swift-web-ui-theme=\"dark\""))
-        #expect(rendered.contains("data-swift-web-ui-style-system=\"brand\""))
-        #expect(rendered.contains("[data-swift-web-ui-style-system=\"brand\"]"))
+        #expect(rendered.contains("data-theme=\"dark\""))
+        #expect(rendered.contains("data-style-system=\"brand\""))
+        #expect(rendered.contains("[data-style-system=\"brand\"]"))
         #expect(rendered.contains("--swui-page-inline-padding: 40px;"))
         #expect(rendered.contains("--swui-stack-spacing: 24px;"))
         #expect(rendered.contains("--swui-card-radius: 18px;"))
@@ -85,7 +85,7 @@ struct SwiftWebUIRenderingTests {
         .environment(\.styleSystem, .liquidGlass)
         .render()
 
-        #expect(rendered.contains("data-swift-web-ui-style-system=\"liquid-glass\""))
+        #expect(rendered.contains("data-style-system=\"liquid-glass\""))
         // The liquid-glass knobs feed the single shared material recipe: a
         // translucent surface tint scaled per level, a wide saturated backdrop
         // blur, and the SVG displacement refraction.
@@ -169,7 +169,7 @@ struct SwiftWebUIRenderingTests {
 
         #expect(rendered.contains("<form class=\"swui-form\" action=\"/counter\" method=\"post\">"))
         #expect(rendered.contains("class=\"swui-lazy-hstack\""))
-        #expect(rendered.contains("data-swift-web-ui-lazy=\"horizontal\""))
+        #expect(rendered.contains("data-lazy=\"horizontal\""))
         #expect(rendered.contains("<button class=\"swui-button swui-button-secondary swui-material swui-material-thin\" type=\"submit\" name=\"delta\" value=\"-1\">Decrement</button>"))
         #expect(rendered.contains("<output class=\"swui-value\" aria-live=\"polite\">4</output>"))
         #expect(rendered.contains("<button class=\"swui-button swui-button-secondary swui-material swui-material-thin\" type=\"submit\" name=\"delta\" value=\"1\">Increment</button>"))
@@ -187,11 +187,11 @@ struct SwiftWebUIRenderingTests {
         )
         .render()
 
-        #expect(rendered.contains("<form class=\"swui-form swui-button-action-form\" action=\"/counter\" method=\"post\" data-swift-server-action=\"true\">"))
+        #expect(rendered.contains("<form class=\"swui-form swui-button-action-form\" action=\"/counter\" method=\"post\" data-server-action=\"true\">"))
         #expect(rendered.contains("<input type=\"hidden\" name=\"delta\" value=\"1\">"))
         #expect(rendered.contains("class=\"swui-button swui-button-secondary swui-material swui-material-thin swui-control-regular swui-control-enabled\""))
         #expect(rendered.contains("type=\"submit\""))
-        #expect(rendered.contains("data-swift-server-action-button=\"true\""))
+        #expect(rendered.contains("data-server-action-button=\"true\""))
     }
 
     @Test
@@ -207,7 +207,7 @@ struct SwiftWebUIRenderingTests {
         )
         .render()
 
-        #expect(rendered.contains("<form class=\"swui-form swui-button-action-form\" action=\"/search\" method=\"get\" data-swift-server-action=\"true\">"))
+        #expect(rendered.contains("<form class=\"swui-form swui-button-action-form\" action=\"/search\" method=\"get\" data-server-action=\"true\">"))
         #expect(rendered.contains("<input type=\"hidden\" name=\"q\" value=\"swift\">"))
         #expect(rendered.contains("type=\"submit\""))
         #expect(!rendered.contains("name=\"_csrf\""))
@@ -246,11 +246,11 @@ struct SwiftWebUIRenderingTests {
         let rendered = Button("Increment", action: action)
             .render()
 
-        #expect(rendered.contains("<form class=\"swui-form swui-button-action-form\" action=\"/counter/increment\" method=\"post\" data-swift-server-action=\"true\">"))
+        #expect(rendered.contains("<form class=\"swui-form swui-button-action-form\" action=\"/counter/increment\" method=\"post\" data-server-action=\"true\">"))
         #expect(rendered.contains("<input type=\"hidden\" name=\"delta\" value=\"1\">"))
         #expect(rendered.contains("<input type=\"hidden\" name=\"source\" value=\"button\">"))
         #expect(rendered.contains("class=\"swui-button swui-button-secondary swui-material swui-material-thin swui-control-regular swui-control-enabled\""))
-        #expect(rendered.contains("data-swift-server-action-button=\"true\""))
+        #expect(rendered.contains("data-server-action-button=\"true\""))
     }
 
     @Test
@@ -273,7 +273,7 @@ struct SwiftWebUIRenderingTests {
         #expect(rendered.contains("formmethod=\"post\""))
         #expect(rendered.contains("name=\"delta\""))
         #expect(rendered.contains("value=\"1\""))
-        #expect(rendered.contains("data-swift-server-action-button=\"true\""))
+        #expect(rendered.contains("data-server-action-button=\"true\""))
     }
 
     @Test
@@ -290,7 +290,7 @@ struct SwiftWebUIRenderingTests {
 
         #expect(!rendered.contains("swui-modifier"))
         #expect(rendered.contains("<nav class=\"swui-navigation-stack\""))
-        #expect(rendered.contains("data-swui-navigation-title=\"Counter\""))
+        #expect(rendered.contains("data-navigation-title=\"Counter\""))
         #expect(rendered.contains("<h1 class=\"swui-text\""))
         #expect(rendered.contains("font-size: 3rem"))
         #expect(rendered.contains("color: var(--swui-text)"))
@@ -340,7 +340,7 @@ struct SwiftWebUIRenderingTests {
 
         #expect(rendered.contains("class=\"swui-scroll-view swui-scroll-view-hidden-indicators swui-fill-v\""))
         #expect(rendered.contains("class=\"swui-lazy-vstack\""))
-        #expect(rendered.contains("data-swift-web-ui-lazy=\"vertical\""))
+        #expect(rendered.contains("data-lazy=\"vertical\""))
         #expect(rendered.contains("class=\"swui-section swui-fill-h\""))
         #expect(rendered.contains("role=\"list\""))
         #expect(rendered.contains("role=\"listitem\""))
@@ -413,10 +413,10 @@ struct SwiftWebUIRenderingTests {
         let rendered = ThemeSwitcher(selection: $theme, themes: [.system, .dark])
             .render()
 
-        #expect(rendered.contains("data-swift-web-ui-theme-option=\"system\""))
-        #expect(rendered.contains("data-swift-web-ui-theme-option=\"dark\""))
-        #expect(rendered.contains("data-swift-web-ui-theme-selected=\"true\""))
-        #expect(rendered.contains("data-swift-web-ui-theme-selected=\"false\""))
+        #expect(rendered.contains("data-theme-option=\"system\""))
+        #expect(rendered.contains("data-theme-option=\"dark\""))
+        #expect(rendered.contains("data-theme-selected=\"true\""))
+        #expect(rendered.contains("data-theme-selected=\"false\""))
         #expect(rendered.contains("role=\"switch\""))
         #expect(rendered.contains("aria-valuetext=\"on\""))
         #expect(rendered.contains("aria-valuetext=\"off\""))
@@ -447,7 +447,7 @@ struct SwiftWebUIRenderingTests {
         .render()
 
         #expect(rendered.contains("class=\"swui-navigation-stack\""))
-        #expect(rendered.contains("data-swui-navigation-title=\"Counter\""))
+        #expect(rendered.contains("data-navigation-title=\"Counter\""))
         #expect(rendered.contains("class=\"swui-button swui-button-primary swui-control-large swui-control-enabled\""))
         #expect(rendered.contains("--swui-control-tint: var(--swui-accent)"))
         #expect(rendered.contains("aria-label=\"Counter title\""))
@@ -678,13 +678,13 @@ struct SwiftWebUIRenderingTests {
         #expect(rendered.contains("<dialog class=\"swui-presentation swui-presentation-alert swui-material swui-material-thick\""))
         #expect(rendered.contains("role=\"alertdialog\""))
         // The binding drives the SSR marker and the `open` attribute together.
-        #expect(rendered.contains("data-swui-presented=\"true\""))
+        #expect(rendered.contains("data-presented=\"true\""))
         #expect(rendered.contains("open"))
         // Every presentation kind light-dismisses on an outside tap; for an
         // alert the backdrop tap is a safe cancel that runs no action.
         #expect(rendered.contains("closedby=\"any\""))
         // The close event syncs the binding back when the dialog is dismissed.
-        #expect(rendered.contains("data-swift-event-close="))
+        #expect(rendered.contains("data-event-close="))
         #expect(rendered.contains("class=\"swui-presentation-surface\""))
         #expect(rendered.contains("<h2 class=\"swui-presentation-title\">Delete file?</h2>"))
         // The message wrapper is a flow container so it can legally hold block
@@ -707,7 +707,7 @@ struct SwiftWebUIRenderingTests {
         // but carries neither the `open` attribute nor a presented marker.
         #expect(rendered.contains("<dialog class=\"swui-presentation swui-presentation-sheet swui-material swui-material-thick\""))
         #expect(rendered.contains("role=\"dialog\""))
-        #expect(rendered.contains("data-swui-presented=\"false\""))
+        #expect(rendered.contains("data-presented=\"false\""))
         #expect(!rendered.contains(" open"))
         // Sheets and popovers dismiss on any light-dismiss gesture.
         #expect(rendered.contains("closedby=\"any\""))

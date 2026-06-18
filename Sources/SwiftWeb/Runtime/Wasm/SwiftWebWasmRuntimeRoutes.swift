@@ -83,13 +83,25 @@ public enum SwiftWebWasmRuntimeRoutes {
         path: String,
         fileURL: URL
     ) -> Route {
+        registerWasmAsset(on: routes, path: path) {
+            fileURL
+        }
+    }
+
+    @discardableResult
+    public static func registerWasmAsset(
+        on routes: any RoutesBuilder,
+        path: String,
+        fileURL: @escaping @Sendable () throws -> URL
+    ) -> Route {
         let routePath = RoutePath(path)
         return routes.on(.get, routePath.vaporComponents) { req async throws -> Response in
-            guard FileManager.default.fileExists(atPath: fileURL.path) else {
-                throw Abort(.notFound, reason: "WASM asset was not found at \(fileURL.path)")
+            let resolvedFileURL = try fileURL()
+            guard FileManager.default.fileExists(atPath: resolvedFileURL.path) else {
+                throw Abort(.notFound, reason: "WASM asset was not found at \(resolvedFileURL.path)")
             }
             let asset = selectedWasmAsset(
-                fileURL: fileURL,
+                fileURL: resolvedFileURL,
                 acceptEncoding: req.headers[HTTPField.Name("Accept-Encoding")!] ?? ""
             )
             let data = try Data(

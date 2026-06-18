@@ -21,8 +21,8 @@ struct ThemeScope<Content: HTML>: Component {
         // ignores `url()` backdrop-filters and falls back to the base blur.
         rawHTML(ThemeScopeAssets.refractionFilterMarkup)
         div(
-            .data("swift-web-ui-theme", theme.name),
-            .data("swift-web-ui-style-system", styleSystem.id),
+            .data("theme", theme.name),
+            .data("style-system", styleSystem.id),
             .class("swui-root")
         ) {
             content

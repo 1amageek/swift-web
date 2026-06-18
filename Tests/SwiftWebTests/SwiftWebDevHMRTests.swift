@@ -310,7 +310,7 @@ struct SwiftWebDevHMRTests {
         let componentID = ComponentID("component-1")
         let nestedComponentID = ComponentID("nested")
         let html = """
-        <main><!--swift-html-component:component-1:begin--><!--swift-html-component:nested:begin--><div data-swift-node="3">Counter</div><!--swift-html-component:nested:end--><!--swift-html-component:component-1:end--></main>
+        <main><!--component:component-1:begin--><!--component:nested:begin--><div data-node="3">Counter</div><!--component:nested:end--><!--component:component-1:end--></main>
         """
         let manifest = ClientBundleManifest(
             runtimeBundleID: ClientBundleID("runtime"),
@@ -391,12 +391,12 @@ struct SwiftWebDevHMRTests {
             isEnabled: true
         )
 
-        #expect(annotated.contains(#"data-swift-component="component-1""#))
-        #expect(annotated.contains(#"data-swift-hmr-boundary="true""#))
-        #expect(annotated.contains(#"data-swift-state-schema=""#))
-        #expect(annotated.contains(#"data-swift-component-type="Demo.Counter""#))
-        #expect(annotated.contains(#"data-swift-bundle="counter-runtime""#))
-        #expect(!annotated.contains(#"data-swift-component="nested""#))
+        #expect(annotated.contains(#"data-component="component-1""#))
+        #expect(annotated.contains(#"data-hmr-boundary="true""#))
+        #expect(annotated.contains(#"data-state-schema=""#))
+        #expect(annotated.contains(#"data-component-type="Demo.Counter""#))
+        #expect(annotated.contains(#"data-bundle="counter-runtime""#))
+        #expect(!annotated.contains(#"data-component="nested""#))
     }
 
     @Test
@@ -405,7 +405,7 @@ struct SwiftWebDevHMRTests {
         let nestedComponentID = ComponentID("manual-card")
         let runtimeBundleID = ClientBundleID("main-runtime")
         let html = """
-        <main><!--swift-html-component:manual-counter:begin--><!--swift-html-component:manual-card:begin--><div data-swift-node="3" data-swift-component="manual-card">Manual</div><!--swift-html-component:manual-card:end--><!--swift-html-component:manual-counter:end--></main>
+        <main><!--component:manual-counter:begin--><!--component:manual-card:begin--><div data-node="3" data-component="manual-card">Manual</div><!--component:manual-card:end--><!--component:manual-counter:end--></main>
         """
         let manifest = ClientBundleManifest(
             runtimeBundleID: runtimeBundleID,
@@ -486,11 +486,11 @@ struct SwiftWebDevHMRTests {
             isEnabled: true
         )
 
-        #expect(annotated.contains(#"data-swift-component="manual-counter""#))
-        #expect(annotated.contains(#"data-swift-component-type="Demo.ClientManualCounter""#))
-        #expect(annotated.contains(#"data-swift-bundle="component-manual""#))
-        #expect(!annotated.contains(#"data-swift-component="manual-card""#))
-        #expect(!annotated.contains(#"data-swift-component-type="SwiftWebUI.Card""#))
+        #expect(annotated.contains(#"data-component="manual-counter""#))
+        #expect(annotated.contains(#"data-component-type="Demo.ClientManualCounter""#))
+        #expect(annotated.contains(#"data-bundle="component-manual""#))
+        #expect(!annotated.contains(#"data-component="manual-card""#))
+        #expect(!annotated.contains(#"data-component-type="SwiftWebUI.Card""#))
     }
 
     @Test

@@ -269,7 +269,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
     private func removeLegacyMaterializationLockFile() throws {
         let lockFile = generatedPackageDirectory.appendingPathComponent(".materialize.lock")
         if FileManager.default.fileExists(atPath: lockFile.path) {
-            try FileManager.default.removeItem(at: lockFile)
+            try removeGeneratedItem(at: lockFile)
         }
     }
 
@@ -277,14 +277,14 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
         for name in ["Package.swift", "Package.resolved"] {
             let url = generatedPackageDirectory.appendingPathComponent(name)
             if FileManager.default.fileExists(atPath: url.path) {
-                try FileManager.default.removeItem(at: url)
+                try removeGeneratedItem(at: url)
             }
         }
 
         for name in ["Sources", ".build"] {
             let url = generatedPackageDirectory.appendingPathComponent(name, isDirectory: true)
             if FileManager.default.fileExists(atPath: url.path) {
-                try FileManager.default.removeItem(at: url)
+                try removeGeneratedItem(at: url)
             }
         }
     }
@@ -462,7 +462,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
 
         let buildDirectory = packageDirectory.appendingPathComponent(".build", isDirectory: true)
         if FileManager.default.fileExists(atPath: buildDirectory.path) {
-            try FileManager.default.removeItem(at: buildDirectory)
+            try removeGeneratedItem(at: buildDirectory)
         }
     }
 
@@ -874,7 +874,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
             options: [.skipsHiddenFiles]
         )
         for child in destinationChildren where !expectedNames.contains(child.lastPathComponent) {
-            try FileManager.default.removeItem(at: child)
+            try removeGeneratedItem(at: child)
         }
     }
 
@@ -908,7 +908,30 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
             options: [.skipsHiddenFiles]
         )
         for child in children where !names.contains(child.lastPathComponent) {
-            try FileManager.default.removeItem(at: child)
+            try removeGeneratedItem(at: child)
+        }
+    }
+
+    private func removeGeneratedItem(at url: URL) throws {
+        do {
+            try FileManager.default.removeItem(at: url)
+        } catch {
+            try removeGeneratedItemWithRM(at: url, originalError: error)
+        }
+    }
+
+    private func removeGeneratedItemWithRM(at url: URL, originalError: any Error) throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/rm")
+        process.arguments = ["-rf", url.path]
+        process.standardOutput = FileHandle.standardOutput
+        process.standardError = FileHandle.standardError
+
+        try process.run()
+        process.waitUntilExit()
+
+        if process.terminationStatus != 0 || FileManager.default.fileExists(atPath: url.path) {
+            throw originalError
         }
     }
 

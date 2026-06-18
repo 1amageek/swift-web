@@ -15,7 +15,7 @@ struct SwiftWebWasmBuildInputHasherTests {
         }
         try write(
             """
-            // swift-tools-version: 6.4
+            // swift-tools-version: 6.3
             import PackageDescription
             let package = Package(name: "Runtime", targets: [.target(name: "Runtime")])
             """,

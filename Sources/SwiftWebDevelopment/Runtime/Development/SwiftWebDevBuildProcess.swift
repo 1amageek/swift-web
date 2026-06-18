@@ -246,7 +246,7 @@ struct SwiftWebDevBuildProcess: Sendable {
     }
 
     private var wasmSwiftSDK: String {
-        ProcessInfo.processInfo.environment["SWIFT_WEB_WASM_SDK"] ?? "swift-6.3.1-RELEASE_wasm"
+        ProcessInfo.processInfo.environment["SWIFT_WEB_WASM_SDK"] ?? SwiftWebWasmToolchain.defaultSwiftSDKName
     }
 
     private var wasmScratchDirectory: URL? {

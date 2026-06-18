@@ -33,6 +33,59 @@ private struct WasmBridgeAppendList: ClientComponent, Sendable {
     }
 }
 
+private struct WasmBridgeProperty: Identifiable, Sendable {
+    let id: String
+    let name: String
+    let values: String
+}
+
+private struct WasmBridgePropertyRow: Component, Sendable {
+    let property: WasmBridgeProperty
+
+    var body: some HTML {
+        article {
+            h3 {
+                property.name
+            }
+            code {
+                property.values
+            }
+        }
+    }
+}
+
+private struct WasmBridgePropertySelectionOwner: ClientComponent, Sendable {
+    @State private var selection = "typography"
+
+    private var properties: [WasmBridgeProperty] {
+        if selection == "button" {
+            return [
+                WasmBridgeProperty(id: "title", name: "title", values: "String"),
+                WasmBridgeProperty(id: "prominence", name: "prominence", values: ".primary / .secondary"),
+                WasmBridgeProperty(id: "action", name: "action", values: "closure / Action"),
+            ]
+        }
+        return [
+            WasmBridgeProperty(id: "level", name: "level", values: ".page / .section"),
+            WasmBridgeProperty(id: "as", name: "as", values: ".p / .small"),
+            WasmBridgeProperty(id: "tone", name: "tone", values: ".normal / .muted"),
+        ]
+    }
+
+    var body: some HTML {
+        button(.type(ButtonType.button), .onClick {
+            selection = "button"
+        }) {
+            "Button"
+        }
+        section {
+            ForEach(properties) { property in
+                WasmBridgePropertyRow(property: property)
+            }
+        }
+    }
+}
+
 private struct WasmBridgeEnvironmentKey: ClientEnvironmentKey {
     static let defaultValue = "default"
 }
@@ -115,6 +168,88 @@ private struct WasmBridgeHotReloadStructuralComponent: ClientComponent, Sendable
     }
 }
 
+private struct WasmBridgeReplacementBefore: Component, Sendable {
+    var body: some HTML {
+        section {
+            p {
+                "Before replacement"
+            }
+        }
+    }
+}
+
+private struct WasmBridgeReplacementAfter: Component, Sendable {
+    var body: some HTML {
+        section {
+            p {
+                "After replacement"
+            }
+        }
+    }
+}
+
+private struct WasmBridgeComponentReplacement: ClientComponent, Sendable {
+    @State private var showsAfter = false
+
+    var body: some HTML {
+        button(.type(ButtonType.button), .onClick {
+            showsAfter = true
+        }) {
+            "Switch"
+        }
+        if showsAfter {
+            WasmBridgeReplacementAfter()
+        } else {
+            WasmBridgeReplacementBefore()
+        }
+    }
+}
+
+private struct WasmBridgeSelectionOwner: ClientComponent, Sendable {
+    @State private var selection = "typography"
+
+    @HTMLBuilder
+    var body: some HTML {
+        button(.type(ButtonType.button), .onClick {
+            selection = "color"
+        }) {
+            "Color & tint"
+        }
+        h1 {
+            selection
+        }
+        WasmBridgeSelectionChild(selection: selection)
+    }
+}
+
+private struct WasmBridgeSelectionChild: Component, Sendable {
+    let selection: String
+
+    @HTMLBuilder
+    var body: some HTML {
+        switch selection {
+        case "color":
+            div {
+                button {
+                    "Accent"
+                }
+                button {
+                    "Danger"
+                }
+            }
+        default:
+            div {
+                h2 {
+                    "Page heading"
+                }
+                p {
+                    "Body copy"
+                }
+            }
+        }
+    }
+}
+
 private struct WasmBridgeMountedRoot: Component, Sendable {
     var body: some HTML {
         div {
@@ -122,6 +257,28 @@ private struct WasmBridgeMountedRoot: Component, Sendable {
                 "server prefix"
             }
             WasmBridgeCounter()
+        }
+    }
+}
+
+private struct WasmBridgeMountedReplacementRoot: Component, Sendable {
+    var body: some HTML {
+        div {
+            span {
+                "server prefix"
+            }
+            WasmBridgeComponentReplacement()
+        }
+    }
+}
+
+private struct WasmBridgeMountedSelectionRoot: Component, Sendable {
+    var body: some HTML {
+        div {
+            span {
+                "server prefix"
+            }
+            WasmBridgeSelectionOwner()
         }
     }
 }
@@ -144,6 +301,17 @@ private struct WasmBridgeMountedListRoot: Component, Sendable {
                 "server prefix"
             }
             WasmBridgeAppendList()
+        }
+    }
+}
+
+private struct WasmBridgeMountedPropertySelectionRoot: Component, Sendable {
+    var body: some HTML {
+        div {
+            span {
+                "server prefix"
+            }
+            WasmBridgePropertySelectionOwner()
         }
     }
 }
@@ -273,6 +441,99 @@ struct SwiftWebUIRuntimeClientWasmRuntimeBridgeTests {
             binding.handlerID == counterHandler.handlerID
         } == true)
         #expect(Set(secondUpdate.hydrationIndex?.handlers.map(\.handlerID) ?? []) == serverHandlerIDs)
+    }
+
+    @Test
+    func bridgeRebasesReplacementSubtreeHydrationMarkersForMountedComponent() throws {
+        let serverArtifact = WasmBridgeMountedReplacementRoot().renderArtifact()
+        let serverIndex = serverArtifact.browserHydrationIndex()
+        let component = try #require(serverIndex.components.first { component in
+            component.typeName == String(reflecting: WasmBridgeComponentReplacement.self)
+        })
+        let handler = try #require(serverIndex.handlers.first { binding in
+            binding.componentID == component.id
+        })
+        let bridge = ClientWasmRuntimeBridge<WasmBridgeComponentReplacement>(
+            componentMount: ClientWasmComponentMount(WasmBridgeComponentReplacement.self)
+        ) { _ in
+            WasmBridgeComponentReplacement()
+        }
+
+        _ = try bridge.bootstrap(
+            ClientWasmBootstrapRequest(
+                hydrationIndex: serverIndex,
+                location: ClientWasmBootstrapLocation(
+                    href: "http://127.0.0.1:8080/replacement",
+                    search: ""
+                )
+            )
+        )
+        let update = try bridge.dispatch(
+            ClientWasmEventRequest(
+                handlerID: handler.handlerID,
+                event: DOMEvent()
+            )
+        )
+        let nextIndex = try #require(update.hydrationIndex)
+        let replacement = try #require(update.commandBatch?.commands.compactMap(replacementSubtree).first { item in
+            item.html.contains("After replacement")
+        })
+        let afterText = try #require(nextIndex.nodes.first { node in
+            node.role == .text && node.text == "After replacement"
+        })
+        let afterParent = try #require(afterText.parentID)
+
+        #expect(nextIndex.node(replacement.node)?.role == .component)
+        #expect(replacement.html.contains("data-node=\"\(afterParent.rawValue)\""))
+        try assertCommandTargetsResolve(update)
+    }
+
+    @Test
+    func bridgeRebasesNestedChildComponentConditionalReplacement() throws {
+        let serverArtifact = WasmBridgeMountedSelectionRoot().renderArtifact()
+        let serverIndex = serverArtifact.browserHydrationIndex()
+        let component = try #require(serverIndex.components.first { component in
+            component.typeName == String(reflecting: WasmBridgeSelectionOwner.self)
+        })
+        let handler = try #require(serverIndex.handlers.first { binding in
+            binding.componentID == component.id
+        })
+        let bridge = ClientWasmRuntimeBridge<WasmBridgeSelectionOwner>(
+            componentMount: ClientWasmComponentMount(WasmBridgeSelectionOwner.self)
+        ) { _ in
+            WasmBridgeSelectionOwner()
+        }
+
+        _ = try bridge.bootstrap(
+            ClientWasmBootstrapRequest(
+                hydrationIndex: serverIndex,
+                location: ClientWasmBootstrapLocation(
+                    href: "http://127.0.0.1:8080/storyboard",
+                    search: ""
+                )
+            )
+        )
+        let update = try bridge.dispatch(
+            ClientWasmEventRequest(
+                handlerID: handler.handlerID,
+                event: DOMEvent()
+            )
+        )
+        let nextIndex = try #require(update.hydrationIndex)
+        let replacementHTML = (update.commandBatch?.commands ?? []).compactMap(replacementSubtree).map(\.html).joined()
+
+        #expect(nextIndex.nodes.contains { node in
+            node.role == .text && node.text == "Accent"
+        })
+        #expect(nextIndex.nodes.contains { node in
+            node.role == .text && node.text == "Danger"
+        })
+        #expect(!nextIndex.nodes.contains { node in
+            node.role == .text && node.text == "Page heading"
+        })
+        #expect(replacementHTML.contains("Accent"))
+        #expect(replacementHTML.contains("Danger"))
+        try assertCommandTargetsResolve(update, currentIndex: serverIndex)
     }
 
     @Test
@@ -587,6 +848,67 @@ struct SwiftWebUIRuntimeClientWasmRuntimeBridgeTests {
     }
 
     @Test
+    func bridgeRebasesKeyedForEachComponentRowsAcrossDisjointKeys() throws {
+        let serverArtifact = WasmBridgeMountedPropertySelectionRoot().renderArtifact()
+        let serverIndex = serverArtifact.browserHydrationIndex()
+        let component = try #require(serverIndex.components.first { component in
+            component.typeName == String(reflecting: WasmBridgePropertySelectionOwner.self)
+        })
+        let handler = try #require(serverIndex.handlers.first { binding in
+            binding.componentID == component.id
+        })
+        let bridge = ClientWasmRuntimeBridge<WasmBridgePropertySelectionOwner>(
+            componentMount: ClientWasmComponentMount(WasmBridgePropertySelectionOwner.self)
+        ) { _ in
+            WasmBridgePropertySelectionOwner()
+        }
+
+        _ = try bridge.bootstrap(
+            ClientWasmBootstrapRequest(
+                hydrationIndex: serverIndex,
+                location: ClientWasmBootstrapLocation(
+                    href: "http://127.0.0.1:8080/storyboard",
+                    search: ""
+                )
+            )
+        )
+        let update = try bridge.dispatch(
+            ClientWasmEventRequest(
+                handlerID: handler.handlerID,
+                event: DOMEvent()
+            )
+        )
+        let nextIndex = try #require(update.hydrationIndex)
+        let commands = update.commandBatch?.commands ?? []
+
+        #expect(nextIndex.nodes.contains { node in
+            node.role == .text && node.text == "title"
+        })
+        #expect(nextIndex.nodes.contains { node in
+            node.role == .text && node.text == "prominence"
+        })
+        #expect(nextIndex.nodes.contains { node in
+            node.role == .text && node.text == "action"
+        })
+        #expect(!nextIndex.nodes.contains { node in
+            node.role == .text && node.text == "level"
+        })
+        #expect(commands.contains { command in
+            if case .remove(let parent, _, _) = command {
+                return serverIndex.node(parent)?.role == .fragment
+            }
+            return false
+        })
+        #expect(commands.contains { command in
+            if case .insertHTML(let parent, _, let html) = command {
+                return serverIndex.node(parent)?.role == .fragment && html.contains("title")
+            }
+            return false
+        })
+        try assertCommandTargetsResolve(update, currentIndex: serverIndex)
+    }
+
+    @Test
     func bridgeRestoresClientEnvironmentSnapshotFromBootstrapIndex() throws {
         let serverArtifact = WasmBridgeEnvironmentReader()
             .environment(\.wasmBridgeValue, "server")
@@ -652,12 +974,15 @@ struct SwiftWebUIRuntimeClientWasmRuntimeBridgeTests {
         #expect(!textValues.contains("client-right"))
     }
 
-    private func assertCommandTargetsResolve(_ response: ClientWasmRuntimeResponse) throws {
+    private func assertCommandTargetsResolve(
+        _ response: ClientWasmRuntimeResponse,
+        currentIndex: BrowserHydrationIndex? = nil
+    ) throws {
         let index = try #require(response.hydrationIndex)
         let commands = response.commandBatch?.commands ?? []
         #expect(!commands.isEmpty)
         for id in commands.flatMap(targetNodeIDs) {
-            _ = try #require(index.node(id))
+            #expect(index.node(id) != nil || currentIndex?.node(id) != nil)
         }
     }
 
@@ -691,6 +1016,13 @@ struct SwiftWebUIRuntimeClientWasmRuntimeBridgeTests {
     private func textUpdateNode(_ command: BrowserDOMCommand) -> HTMLNodeID? {
         if case .updateText(let node, _) = command {
             return node
+        }
+        return nil
+    }
+
+    private func replacementSubtree(_ command: BrowserDOMCommand) -> (node: HTMLNodeID, html: String)? {
+        if case .replaceSubtree(let node, let html) = command {
+            return (node, html)
         }
         return nil
     }

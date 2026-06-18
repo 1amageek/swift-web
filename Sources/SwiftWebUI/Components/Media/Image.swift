@@ -40,7 +40,7 @@ public struct Image: WebUIAttributeComponent {
                 "span",
                 attributes: mergedAttributes(
                     class: "swui-image swui-symbol",
-                    extra: [.role("img"), .aria("label", name), .data("swift-web-ui-system-image", name)] + attributes
+                    extra: [.role("img"), .aria("label", name), .data("system-image", name)] + attributes
                 )
             ) {
                 name

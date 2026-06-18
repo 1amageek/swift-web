@@ -1,6 +1,6 @@
 import Foundation
 
-public struct SwiftPMWasmArtifactLocation {
+public struct SwiftPMWasmArtifactLocation: Sendable {
     public let anchorFile: String
     public let target: String
     public let artifactName: String?

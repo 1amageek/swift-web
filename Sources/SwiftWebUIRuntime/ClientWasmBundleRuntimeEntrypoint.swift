@@ -192,7 +192,7 @@ public final class ClientWasmBundleRuntimeEntrypoint {
     }
 
     private func dispatch(_ request: ClientWasmEventRequest) throws -> ClientWasmRuntimeResponse {
-        guard let componentID = request.componentID ?? componentIDByHandlerID[request.handlerID],
+        guard let componentID = resolveRuntimeComponentID(for: request),
               let runtime = runtimesByComponentID[componentID]
         else {
             throw ClientWasmRuntimeBridgeError.notBootstrapped
@@ -204,6 +204,25 @@ public final class ClientWasmBundleRuntimeEntrypoint {
             rebuildHandlerIndex()
         }
         return response
+    }
+
+    /// Resolves the registered runtime component that should handle an event.
+    ///
+    /// The browser host addresses the event by the handler's immediate component,
+    /// which is often a nested, non-registered component (e.g. a `Button`). Only
+    /// top-level client components have a registered runtime, so prefer the
+    /// requested component only when it actually has one, and otherwise fall back
+    /// to the handler-to-registered-component index built during bootstrap.
+    private func resolveRuntimeComponentID(
+        for request: ClientWasmEventRequest
+    ) -> ComponentID? {
+        if let requested = request.componentID, runtimesByComponentID[requested] != nil {
+            return requested
+        }
+        if let mapped = componentIDByHandlerID[request.handlerID] {
+            return mapped
+        }
+        return request.componentID
     }
 
     private func makeRuntime(

@@ -1,4 +1,4 @@
-// swift-tools-version: 6.4
+// swift-tools-version: 6.3
 
 import CompilerPluginSupport
 import PackageDescription
@@ -136,7 +136,9 @@ let package = Package(
         .target(
             name: "SwiftWebStoryboard",
             dependencies: [
-                "SwiftWebDevelopment",
+                swiftHTMLDependency,
+                "SwiftWeb",
+                "SwiftWebUI",
             ],
             swiftSettings: swiftWebSwiftSettings
         ),
@@ -147,7 +149,6 @@ let package = Package(
                 "SwiftWeb",
                 "SwiftWebUI",
                 "SwiftWebDevelopment",
-                "SwiftWebStoryboard",
             ],
             swiftSettings: swiftWebSwiftSettings
         ),
@@ -156,6 +157,7 @@ let package = Package(
             dependencies: [
                 swiftHTMLDependency,
                 "SwiftWebUI",
+                "SwiftWebStoryboard",
             ],
             swiftSettings: swiftWebSwiftSettings
         ),

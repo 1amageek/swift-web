@@ -5,10 +5,10 @@ enum ThemeStylesheet {
         Stylesheet {
             baseStylesheet
             materialStylesheet
-            rule("[data-swift-web-ui-theme=\"\(cssAttributeString(theme.name))\"]") {
+            rule("[data-theme=\"\(cssAttributeString(theme.name))\"]") {
                 theme.cssVariableStyle
             }
-            rule("[data-swift-web-ui-style-system=\"\(cssAttributeString(styleSystem.id))\"]") {
+            rule("[data-style-system=\"\(cssAttributeString(styleSystem.id))\"]") {
                 styleSystem.cssVariableStyle
             }
         }

@@ -145,7 +145,7 @@ public struct Button<Label: HTML>: WebUIAttributeComponent {
         Form(
             action: action.path,
             method: action.method,
-            HTMLAttribute("data-swift-server-action", "true")
+            HTMLAttribute("data-server-action", "true")
         ) {
             for field in action.fields {
                 hiddenInput(field)
@@ -189,17 +189,17 @@ public struct Button<Label: HTML>: WebUIAttributeComponent {
             .type(ButtonType.submit),
             .formaction(action.path),
             .formmethod(action.method),
-            HTMLAttribute("data-swift-server-action-button", "true"),
+            HTMLAttribute("data-server-action-button", "true"),
         ]
 
         if action.fields.count == 1, let field = action.fields.first {
             attributes.append(.name(field.name))
             attributes.append(.value(field.value))
         } else if !action.fields.isEmpty {
-            attributes.append(HTMLAttribute("data-swift-action-field-count", String(action.fields.count)))
+            attributes.append(HTMLAttribute("data-action-field-count", String(action.fields.count)))
             for (index, field) in action.fields.enumerated() {
-                attributes.append(HTMLAttribute("data-swift-action-field-\(index)-name", field.name))
-                attributes.append(HTMLAttribute("data-swift-action-field-\(index)-value", field.value))
+                attributes.append(HTMLAttribute("data-action-field-\(index)-name", field.name))
+                attributes.append(HTMLAttribute("data-action-field-\(index)-value", field.value))
             }
         }
 

@@ -8,9 +8,9 @@ public struct JavaScriptKitBrowserDOMHost: BrowserDOMHost {
 
     public func apply(
         _ batch: BrowserDOMCommandBatch,
-        updatedIndex: BrowserHydrationIndex
+        currentIndex: BrowserHydrationIndex
     ) {
-        JavaScriptKitBrowserRuntime.apply(batch, hydrationIndex: updatedIndex)
+        JavaScriptKitBrowserRuntime.apply(batch, hydrationIndex: currentIndex)
     }
 }
 
@@ -79,15 +79,26 @@ public enum JavaScriptKitBrowserRuntime {
         html: String,
         hydrationIndex: BrowserHydrationIndex
     ) {
-        // A rawHTML node carries no `data-swift-node` marker and may expand to any
+        if let record = hydrationIndex.node(nodeID) {
+            switch record.role {
+            case .component, .serverSlot, .fragment, .document:
+                if replaceRenderedRange(record, html: html, hydrationIndex: hydrationIndex) {
+                    return
+                }
+                reportUnresolvedTarget(nodeID, operation: "replaceSubtree")
+                return
+            case .rawHTML:
+                replaceRawHTMLContents(record, html: html, hydrationIndex: hydrationIndex)
+                return
+            default:
+                break
+            }
+        }
+        // A rawHTML node carries no `data-node` marker and may expand to any
         // number of DOM nodes, so it cannot be selected or replaced directly.
         // Resolve it through its parent: when the rawHTML is the sole child of an
         // addressable element, replacing the parent's contents is the unambiguous,
         // context-correct patch (e.g. a <style> whose CSS changes on re-theme).
-        if let record = hydrationIndex.node(nodeID), record.role == .rawHTML {
-            replaceRawHTMLContents(record, html: html, hydrationIndex: hydrationIndex)
-            return
-        }
         guard let node = resolveDOMNode(nodeID, hydrationIndex: hydrationIndex) else {
             reportUnresolvedTarget(nodeID, operation: "replaceSubtree")
             return
@@ -96,6 +107,89 @@ public enum JavaScriptKitBrowserRuntime {
         _ = range.selectNode(node)
         let fragment = range.createContextualFragment(html)
         _ = node.replaceWith(fragment)
+    }
+
+    private static func replaceRenderedRange(
+        _ record: BrowserHydrationNodeRecord,
+        html: String,
+        hydrationIndex: BrowserHydrationIndex
+    ) -> Bool {
+        guard let boundary = renderedBoundary(for: record, hydrationIndex: hydrationIndex) else {
+            return false
+        }
+        let range = document.createRange()
+        _ = range.setStartBefore(boundary.first)
+        _ = range.setEndAfter(boundary.last)
+        let fragment = range.createContextualFragment(html)
+        _ = range.deleteContents()
+        _ = range.insertNode(fragment)
+        return true
+    }
+
+    private static func renderedBoundary(
+        for record: BrowserHydrationNodeRecord,
+        hydrationIndex: BrowserHydrationIndex
+    ) -> (first: JSValue, last: JSValue)? {
+        switch record.role {
+        case .component, .serverSlot:
+            return boundaryComments(for: record)
+        case .fragment, .document:
+            guard let firstChild = record.childIDs.first,
+                  let lastChild = record.childIDs.last,
+                  let firstRecord = hydrationIndex.node(firstChild),
+                  let lastRecord = hydrationIndex.node(lastChild),
+                  let first = renderedBoundary(for: firstRecord, hydrationIndex: hydrationIndex)?.first
+                    ?? resolveDOMNode(firstChild, hydrationIndex: hydrationIndex),
+                  let last = renderedBoundary(for: lastRecord, hydrationIndex: hydrationIndex)?.last
+                    ?? resolveDOMNode(lastChild, hydrationIndex: hydrationIndex)
+            else {
+                return nil
+            }
+            return (first, last)
+        default:
+            guard let node = resolveDOMNode(record.id, hydrationIndex: hydrationIndex) else {
+                return nil
+            }
+            return (node, node)
+        }
+    }
+
+    private static func boundaryComments(
+        for record: BrowserHydrationNodeRecord
+    ) -> (first: JSValue, last: JSValue)? {
+        let prefix: String
+        switch record.role {
+        case .component:
+            guard let componentID = record.componentID else {
+                return nil
+            }
+            prefix = "component:\(componentID.rawValue)"
+        case .serverSlot:
+            guard let serverSlotID = record.serverSlotID else {
+                return nil
+            }
+            prefix = "server-slot:\(serverSlotID.rawValue)"
+        default:
+            return nil
+        }
+
+        let walker = document.createTreeWalker(document, 128)
+        var begin: JSValue?
+        while true {
+            let node = walker.nextNode()
+            if node.isNull || node.isUndefined {
+                break
+            }
+            guard let value = node.nodeValue.string else {
+                continue
+            }
+            if value == "\(prefix):begin" {
+                begin = node
+            } else if value == "\(prefix):end", let begin {
+                return (begin, node)
+            }
+        }
+        return nil
     }
 
     private static func replaceRawHTMLContents(
@@ -147,8 +241,8 @@ public enum JavaScriptKitBrowserRuntime {
         }
         let nodeValue = JSValue.object(object)
 
-        let internalNode = nodeValue.getAttribute("data-swift-node").string
-        let internalKey = nodeValue.getAttribute("data-swift-key").string
+        let internalNode = nodeValue.getAttribute("data-node").string
+        let internalKey = nodeValue.getAttribute("data-key").string
         let names = Set(attributes.map(\.name))
         let existing = object.attributes
         let count = Int(existing.length.number ?? 0)
@@ -156,8 +250,8 @@ public enum JavaScriptKitBrowserRuntime {
         for index in 0..<count {
             let attribute = existing[index]
             guard let name = attribute.name.string,
-                  name != "data-swift-node",
-                  name != "data-swift-key",
+                  name != "data-node",
+                  name != "data-key",
                   !names.contains(name)
             else {
                 continue
@@ -171,10 +265,10 @@ public enum JavaScriptKitBrowserRuntime {
             _ = nodeValue.setAttribute(attribute.name, attribute.value ?? "")
         }
         if let internalNode {
-            _ = nodeValue.setAttribute("data-swift-node", internalNode)
+            _ = nodeValue.setAttribute("data-node", internalNode)
         }
         if let internalKey {
-            _ = nodeValue.setAttribute("data-swift-key", internalKey)
+            _ = nodeValue.setAttribute("data-key", internalKey)
         }
     }
 
@@ -217,12 +311,12 @@ public enum JavaScriptKitBrowserRuntime {
         node nodeID: HTMLNodeID,
         hydrationIndex: BrowserHydrationIndex
     ) {
-        guard let parent = resolveDOMNode(parentID, hydrationIndex: hydrationIndex),
+        guard let context = mutationContext(parent: parentID, index: index, hydrationIndex: hydrationIndex),
               let node = resolveDOMNode(nodeID, hydrationIndex: hydrationIndex)
         else {
             return
         }
-        _ = parent.insertBefore(node, childNode(parent: parent, index: index) ?? .null)
+        _ = context.parent.insertBefore(node, context.reference ?? .null)
     }
 
     private static func insertHTML(
@@ -231,13 +325,12 @@ public enum JavaScriptKitBrowserRuntime {
         html: String,
         hydrationIndex: BrowserHydrationIndex
     ) {
-        guard let parent = resolveDOMNode(parentID, hydrationIndex: hydrationIndex) else {
+        guard let context = mutationContext(parent: parentID, index: index, hydrationIndex: hydrationIndex) else {
             return
         }
         let range = document.createRange()
-        _ = range.setStart(parent, index)
         let fragment = range.createContextualFragment(html)
-        _ = parent.insertBefore(fragment, childNode(parent: parent, index: index) ?? .null)
+        _ = context.parent.insertBefore(fragment, context.reference ?? .null)
     }
 
     private static func removeNode(
@@ -246,14 +339,19 @@ public enum JavaScriptKitBrowserRuntime {
         node nodeID: HTMLNodeID,
         hydrationIndex: BrowserHydrationIndex
     ) {
-        guard let parent = resolveDOMNode(parentID, hydrationIndex: hydrationIndex) else {
+        if let record = hydrationIndex.node(nodeID),
+           removeRenderedNode(record, hydrationIndex: hydrationIndex) {
             return
         }
-        let node = resolveDOMNode(nodeID, hydrationIndex: hydrationIndex) ?? childNode(parent: parent, index: index)
+        guard let context = mutationContext(parent: parentID, index: index, hydrationIndex: hydrationIndex) else {
+            return
+        }
+        let node = resolveDOMNode(nodeID, hydrationIndex: hydrationIndex)
+            ?? childNode(parent: context.parent, index: index)
         guard let node else {
             return
         }
-        _ = parent.removeChild(node)
+        _ = context.parent.removeChild(node)
     }
 
     private static func moveNode(
@@ -262,12 +360,24 @@ public enum JavaScriptKitBrowserRuntime {
         to destinationIndex: Int,
         hydrationIndex: BrowserHydrationIndex
     ) {
-        guard let parent = resolveDOMNode(parentID, hydrationIndex: hydrationIndex),
-              let node = childNode(parent: parent, index: sourceIndex)
+        if let parentRecord = hydrationIndex.node(parentID),
+           parentRecord.childIDs.indices.contains(sourceIndex),
+           let childRecord = hydrationIndex.node(parentRecord.childIDs[sourceIndex]),
+           moveRenderedNode(
+            parentRecord: parentRecord,
+            record: childRecord,
+            destinationIndex: destinationIndex,
+            hydrationIndex: hydrationIndex
+           ) {
+            return
+        }
+        guard let context = mutationContext(parent: parentID, index: sourceIndex, hydrationIndex: hydrationIndex),
+              let node = childNode(parent: context.parent, index: sourceIndex)
         else {
             return
         }
-        _ = parent.insertBefore(node, childNode(parent: parent, index: destinationIndex) ?? .null)
+        let destination = mutationContext(parent: parentID, index: destinationIndex, hydrationIndex: hydrationIndex)
+        _ = context.parent.insertBefore(node, destination?.reference ?? .null)
     }
 
     private static func moveKeyedNode(
@@ -276,14 +386,191 @@ public enum JavaScriptKitBrowserRuntime {
         to destinationIndex: Int,
         hydrationIndex: BrowserHydrationIndex
     ) {
-        guard let parent = resolveDOMNode(parentID, hydrationIndex: hydrationIndex) else {
+        let identity = domKeyIdentity(for: key)
+        if let parentRecord = hydrationIndex.node(parentID),
+           let childRecord = parentRecord.childIDs
+            .compactMap({ hydrationIndex.node($0) })
+            .first(where: { record in
+                guard let key = record.key else {
+                    return false
+                }
+                return domKeyIdentity(for: key) == identity
+            }),
+           moveRenderedNode(
+            parentRecord: parentRecord,
+            record: childRecord,
+            destinationIndex: destinationIndex,
+            hydrationIndex: hydrationIndex
+           ) {
             return
         }
-        let node = document.querySelector("[data-swift-key=\"\(cssEscape(domKeyIdentity(for: key)))\"]")
+        guard let context = mutationContext(parent: parentID, index: destinationIndex, hydrationIndex: hydrationIndex) else {
+            return
+        }
+        let node = document.querySelector("[data-key=\"\(cssEscape(identity))\"]")
         if node.isNull || node.isUndefined {
             return
         }
-        _ = parent.insertBefore(node, childNode(parent: parent, index: destinationIndex) ?? .null)
+        _ = context.parent.insertBefore(node, context.reference ?? .null)
+    }
+
+    private static func mutationContext(
+        parent parentID: HTMLNodeID,
+        index: Int,
+        hydrationIndex: BrowserHydrationIndex
+    ) -> (parent: JSValue, reference: JSValue?)? {
+        guard let record = hydrationIndex.node(parentID) else {
+            guard let parent = resolveDOMNode(parentID, hydrationIndex: hydrationIndex) else {
+                return nil
+            }
+            return (parent, childNode(parent: parent, index: index))
+        }
+
+        switch record.role {
+        case .element:
+            guard let parent = resolveDOMNode(record.id, hydrationIndex: hydrationIndex) else {
+                return nil
+            }
+            return (
+                parent,
+                referenceNode(forLogicalIndex: index, in: record, hydrationIndex: hydrationIndex)
+            )
+        case .component, .serverSlot:
+            guard let boundary = boundaryComments(for: record),
+                  let parent = resolvedNode(boundary.first.parentNode)
+            else {
+                return nil
+            }
+            return (
+                parent,
+                referenceNode(forLogicalIndex: index, in: record, hydrationIndex: hydrationIndex) ?? boundary.last
+            )
+        case .fragment, .document:
+            if let boundary = renderedBoundary(for: record, hydrationIndex: hydrationIndex),
+               let parent = resolvedNode(boundary.first.parentNode) {
+                return (
+                    parent,
+                    referenceNode(forLogicalIndex: index, in: record, hydrationIndex: hydrationIndex)
+                        ?? resolvedNode(boundary.last.nextSibling)
+                )
+            }
+            return transparentContainerContext(record, hydrationIndex: hydrationIndex)
+        default:
+            guard let parent = resolveDOMNode(record.id, hydrationIndex: hydrationIndex) else {
+                return nil
+            }
+            return (parent, childNode(parent: parent, index: index))
+        }
+    }
+
+    private static func referenceNode(
+        forLogicalIndex index: Int,
+        in record: BrowserHydrationNodeRecord,
+        hydrationIndex: BrowserHydrationIndex
+    ) -> JSValue? {
+        for childID in record.childIDs.dropFirst(Swift.max(0, index)) {
+            guard let childRecord = hydrationIndex.node(childID) else {
+                continue
+            }
+            if let boundary = renderedBoundary(for: childRecord, hydrationIndex: hydrationIndex),
+               resolvedNode(boundary.first.parentNode) != nil {
+                return boundary.first
+            }
+            if let node = resolveDOMNode(childID, hydrationIndex: hydrationIndex),
+               resolvedNode(node.parentNode) != nil {
+                return node
+            }
+        }
+        return nil
+    }
+
+    private static func transparentContainerContext(
+        _ record: BrowserHydrationNodeRecord,
+        hydrationIndex: BrowserHydrationIndex
+    ) -> (parent: JSValue, reference: JSValue?)? {
+        if record.role == .document {
+            let body: JSValue = document.body
+            if !body.isNull && !body.isUndefined {
+                return (body, nil)
+            }
+            let documentElement: JSValue = document.documentElement
+            guard let resolvedElement = resolvedNode(documentElement) else {
+                return nil
+            }
+            return (resolvedElement, nil)
+        }
+        guard let parentID = record.parentID,
+              let parentRecord = hydrationIndex.node(parentID),
+              let index = parentRecord.childIDs.firstIndex(of: record.id)
+        else {
+            return nil
+        }
+        return mutationContext(parent: parentID, index: index + 1, hydrationIndex: hydrationIndex)
+    }
+
+    private static func removeRenderedNode(
+        _ record: BrowserHydrationNodeRecord,
+        hydrationIndex: BrowserHydrationIndex
+    ) -> Bool {
+        if let boundary = renderedBoundary(for: record, hydrationIndex: hydrationIndex) {
+            let range = document.createRange()
+            _ = range.setStartBefore(boundary.first)
+            _ = range.setEndAfter(boundary.last)
+            _ = range.deleteContents()
+            return true
+        }
+        guard let node = resolveDOMNode(record.id, hydrationIndex: hydrationIndex),
+              let parent = resolvedNode(node.parentNode)
+        else {
+            return false
+        }
+        _ = parent.removeChild(node)
+        return true
+    }
+
+    private static func moveRenderedNode(
+        parentRecord: BrowserHydrationNodeRecord,
+        record: BrowserHydrationNodeRecord,
+        destinationIndex: Int,
+        hydrationIndex: BrowserHydrationIndex
+    ) -> Bool {
+        guard let boundary = renderedBoundary(for: record, hydrationIndex: hydrationIndex),
+              let context = mutationContext(
+                parent: parentRecord.id,
+                index: destinationIndex,
+                hydrationIndex: hydrationIndex
+              )
+        else {
+            return false
+        }
+        if let reference = context.reference,
+           renderedRange(boundary, contains: reference) {
+            return true
+        }
+        let range = document.createRange()
+        _ = range.setStartBefore(boundary.first)
+        _ = range.setEndAfter(boundary.last)
+        let fragment = range.extractContents()
+        _ = context.parent.insertBefore(fragment, context.reference ?? .null)
+        return true
+    }
+
+    private static func renderedRange(
+        _ boundary: (first: JSValue, last: JSValue),
+        contains target: JSValue
+    ) -> Bool {
+        var current: JSValue? = boundary.first
+        while let node = current, !node.isNull, !node.isUndefined {
+            if node.isSameNode(target).boolean == true {
+                return true
+            }
+            if node.isSameNode(boundary.last).boolean == true {
+                return false
+            }
+            let next: JSValue = node.nextSibling
+            current = next.isNull || next.isUndefined ? nil : next
+        }
+        return false
     }
 
     private static func domKeyIdentity(for key: Key) -> String {
@@ -301,11 +588,15 @@ public enum JavaScriptKitBrowserRuntime {
         return value.isNull || value.isUndefined ? nil : value
     }
 
+    private static func resolvedNode(_ value: JSValue) -> JSValue? {
+        value.isNull || value.isUndefined ? nil : value
+    }
+
     private static func resolveDOMNode(
         _ nodeID: HTMLNodeID,
         hydrationIndex: BrowserHydrationIndex
     ) -> JSValue? {
-        let direct = document.querySelector("[data-swift-node=\"\(nodeID.rawValue)\"]")
+        let direct = document.querySelector("[data-node=\"\(nodeID.rawValue)\"]")
         if !direct.isNull && !direct.isUndefined {
             return direct
         }

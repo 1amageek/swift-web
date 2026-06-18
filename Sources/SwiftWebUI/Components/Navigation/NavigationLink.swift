@@ -23,7 +23,7 @@ public struct NavigationLink<Label: HTML>: WebUIAttributeComponent {
                 class: "swui-navigation-link",
                 extra: [
                     .href(href),
-                    HTMLAttribute("data-swui-navigation-link", "true"),
+                    HTMLAttribute("data-navigation-link", "true"),
                 ] + attributes
             )
         ) {

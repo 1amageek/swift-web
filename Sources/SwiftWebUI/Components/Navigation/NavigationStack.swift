@@ -40,11 +40,11 @@ public struct NavigationStack<Content: HTML>: WebUIAttributeComponent {
 
     private var navigationAttributes: [HTMLAttribute] {
         guard let path else {
-            return [HTMLAttribute("data-swui-navigation-stack", "true")]
+            return [HTMLAttribute("data-navigation-stack", "true")]
         }
         return [
-            HTMLAttribute("data-swui-navigation-stack", "true"),
-            HTMLAttribute("data-swui-navigation-path", path.wrappedValue.components.joined(separator: "/")),
+            HTMLAttribute("data-navigation-stack", "true"),
+            HTMLAttribute("data-navigation-path", path.wrappedValue.components.joined(separator: "/")),
         ]
     }
 }

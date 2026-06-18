@@ -59,7 +59,7 @@ public struct SwiftWebDevBuildArtifactCleaner: Sendable {
                 continue
             }
 
-            try FileManager.default.removeItem(at: url)
+            try removeGeneratedItem(at: url)
             report.removedPaths.append(url.path)
             enumerator.skipDescendants()
         }
@@ -69,8 +69,31 @@ public struct SwiftWebDevBuildArtifactCleaner: Sendable {
         guard FileManager.default.fileExists(atPath: directory.path) else {
             return CleanupReport()
         }
-        try FileManager.default.removeItem(at: directory)
+        try removeGeneratedItem(at: directory)
         return CleanupReport(removedPaths: [directory.path])
+    }
+
+    private func removeGeneratedItem(at url: URL) throws {
+        do {
+            try FileManager.default.removeItem(at: url)
+        } catch {
+            try removeGeneratedItemWithRM(at: url, originalError: error)
+        }
+    }
+
+    private func removeGeneratedItemWithRM(at url: URL, originalError: any Error) throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/rm")
+        process.arguments = ["-rf", url.path]
+        process.standardOutput = FileHandle.standardOutput
+        process.standardError = FileHandle.standardError
+
+        try process.run()
+        process.waitUntilExit()
+
+        if process.terminationStatus != 0 || FileManager.default.fileExists(atPath: url.path) {
+            throw originalError
+        }
     }
 
     private func shouldRemoveGeneratedBuildArtifact(_ url: URL, _ name: String) -> Bool {

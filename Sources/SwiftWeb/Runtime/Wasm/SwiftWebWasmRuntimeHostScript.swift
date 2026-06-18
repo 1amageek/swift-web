@@ -228,7 +228,7 @@ class SwiftWebWasmRuntime {
         if (!entry.isIntersecting) {
           continue;
         }
-        const componentID = entry.target.getAttribute("data-swift-component");
+        const componentID = entry.target.getAttribute("data-component");
         const component = components.find((record) => rawValue(record.componentID) === componentID);
         if (!component) {
           continue;
@@ -249,7 +249,7 @@ class SwiftWebWasmRuntime {
       if (!element) {
         continue;
       }
-      element.setAttribute("data-swift-component", rawValue(component.componentID));
+      element.setAttribute("data-component", rawValue(component.componentID));
       observer.observe(element);
     }
   }
@@ -288,7 +288,7 @@ class SwiftWebWasmRuntime {
     for (const component of components) {
       const element = this.componentElement(component);
       if (element) {
-        element.setAttribute("data-swift-component", rawValue(component.componentID));
+        element.setAttribute("data-component", rawValue(component.componentID));
       }
     }
 
@@ -346,24 +346,24 @@ class SwiftWebWasmRuntime {
 
   componentElement(component) {
     const componentID = rawValue(component.componentID);
-    const directElement = document.querySelector(`[data-swift-component="${componentID}"]`);
+    const directElement = document.querySelector(`[data-component="${componentID}"]`);
     if (directElement instanceof Element) {
       return directElement;
     }
 
     const bundleID = rawValue(component.bundleID);
     const typeName = component.typeName || "";
-    const typedElements = Array.from(document.querySelectorAll("[data-swift-component-type]"));
+    const typedElements = Array.from(document.querySelectorAll("[data-component-type]"));
     const typedBundleElement = typedElements.find((element) =>
-      element.getAttribute("data-swift-component-type") === typeName &&
-      element.getAttribute("data-swift-bundle") === bundleID
+      element.getAttribute("data-component-type") === typeName &&
+      element.getAttribute("data-bundle") === bundleID
     );
     if (typedBundleElement instanceof Element) {
       return typedBundleElement;
     }
 
     const typedElement = typedElements.find((element) =>
-      element.getAttribute("data-swift-component-type") === typeName
+      element.getAttribute("data-component-type") === typeName
     );
     if (typedElement instanceof Element) {
       return typedElement;
@@ -688,11 +688,11 @@ class SwiftWebWasmRuntime {
         search: window.location.search
       }
     }, instance);
-    if (response && response.hydrationIndex) {
-      this.hydrationIndex = response.hydrationIndex;
-    }
     if (response && response.commandBatch && response.appliesDOMCommandsInRuntime !== true) {
       applyCommandBatch(response.commandBatch, this);
+    }
+    if (response && response.hydrationIndex) {
+      this.hydrationIndex = response.hydrationIndex;
     }
     this.bootstrappedBundleIDs.add(rawBundleID);
     for (const loadedBundleID of this.loadedBundleIDs) {
@@ -720,7 +720,7 @@ class SwiftWebWasmRuntime {
         if (eventName === "submit") {
           event.preventDefault();
         }
-        const handlerID = target.getAttribute(`data-swift-event-${eventName}`);
+        const handlerID = target.getAttribute(`data-event-${eventName}`);
         if (!handlerID) {
           return;
         }
@@ -765,18 +765,18 @@ class SwiftWebWasmRuntime {
 
   // Upgrades server-rendered presentation dialogs to true top-layer modals.
   //
-  // The server renders `<dialog data-swui-presented>` with the `open` attribute
+  // The server renders `<dialog data-presented>` with the `open` attribute
   // toggled by the binding. An `open` attribute alone yields a non-modal, in-flow
   // dialog (no top layer, no ::backdrop, no focus trap). This reconciler observes
-  // the `data-swui-presented` marker and the subtree, then drives the imperative
+  // the `data-presented` marker and the subtree, then drives the imperative
   // `showModal()` / `close()` lifecycle so the dialog is lifted to the browser top
   // layer. `close()` (not attribute removal) fires the native `close` event, which
   // the Swift-side handler uses to sync the binding back to `false`.
   installPresentationReconciler() {
     const reconcile = () => {
-      const dialogs = document.querySelectorAll("dialog[data-swui-presented]");
+      const dialogs = document.querySelectorAll("dialog[data-presented]");
       for (const dialog of dialogs) {
-        const shouldPresent = dialog.getAttribute("data-swui-presented") === "true";
+        const shouldPresent = dialog.getAttribute("data-presented") === "true";
         const isModal = typeof dialog.matches === "function" && dialog.matches(":modal");
         if (shouldPresent && !isModal) {
           if (typeof dialog.showModal === "function") {
@@ -807,7 +807,7 @@ class SwiftWebWasmRuntime {
     const observer = new MutationObserver(() => reconcile());
     observer.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ["data-swui-presented"],
+      attributeFilter: ["data-presented"],
       childList: true,
       subtree: true
     });
@@ -945,7 +945,7 @@ class SwiftWebWasmRuntime {
   mergeServerDocument(html) {
     const nextDocument = new DOMParser().parseFromString(html, "text/html");
     const protectedNodeIDs = this.protectedClientNodeIDs();
-    const currentNodes = Array.from(document.querySelectorAll("[data-swift-node]"));
+    const currentNodes = Array.from(document.querySelectorAll("[data-node]"));
     const replacedNodeIDs = [];
     let replacementCount = 0;
     for (const current of currentNodes) {
@@ -955,11 +955,11 @@ class SwiftWebWasmRuntime {
       if (isDocumentShellElement(current)) {
         continue;
       }
-      const nodeID = current.getAttribute("data-swift-node");
+      const nodeID = current.getAttribute("data-node");
       if (!nodeID || protectedNodeIDs.has(nodeID) || containsProtectedSwiftNode(current, protectedNodeIDs)) {
         continue;
       }
-      const next = nextDocument.querySelector(`[data-swift-node="${nodeID}"]`);
+      const next = nextDocument.querySelector(`[data-node="${nodeID}"]`);
       if (!next || next.tagName !== current.tagName) {
         continue;
       }
@@ -991,9 +991,9 @@ class SwiftWebWasmRuntime {
         `${component.typeName || ""}|${rawValue(component.bundleID)}`
       )
     );
-    for (const element of document.querySelectorAll("[data-swift-hmr-boundary='true'][data-swift-node]")) {
-      const typeName = element.getAttribute("data-swift-component-type") || "";
-      const bundleID = element.getAttribute("data-swift-bundle") || "";
+    for (const element of document.querySelectorAll("[data-hmr-boundary='true'][data-node]")) {
+      const typeName = element.getAttribute("data-component-type") || "";
+      const bundleID = element.getAttribute("data-bundle") || "";
       if (knownBoundaries.size > 0 && !knownBoundaries.has(`${typeName}|${bundleID}`)) {
         continue;
       }
@@ -1011,8 +1011,8 @@ class SwiftWebWasmRuntime {
   }
 
   updateDescriptorFromDocument(nextDocument) {
-    const currentDescriptorElement = document.getElementById("swift-web-client-runtime");
-    const nextDescriptorElement = nextDocument.getElementById("swift-web-client-runtime");
+    const currentDescriptorElement = document.getElementById("client-runtime");
+    const nextDescriptorElement = nextDocument.getElementById("client-runtime");
     if (!currentDescriptorElement || !nextDescriptorElement || !nextDescriptorElement.textContent) {
       return;
     }
@@ -1029,9 +1029,9 @@ class SwiftWebWasmRuntime {
   }
 
   publishStatus(ready, phase = ready ? "ready" : "loading", loadingBundleIDs = []) {
-    document.documentElement.setAttribute("data-swift-web-wasm-ready", ready ? "true" : "false");
-    document.documentElement.setAttribute("data-swift-web-wasm-phase", phase);
-    document.documentElement.setAttribute("data-swift-web-wasm-loaded", Array.from(this.loadedBundleIDs).join(","));
+    document.documentElement.setAttribute("data-wasm-ready", ready ? "true" : "false");
+    document.documentElement.setAttribute("data-wasm-phase", phase);
+    document.documentElement.setAttribute("data-wasm-loaded", Array.from(this.loadedBundleIDs).join(","));
     window.__swiftWebWasmRuntimeStatus = {
       ready,
       phase,
@@ -1058,11 +1058,11 @@ class SwiftWebWasmRuntime {
       componentID: componentID ? { rawValue: componentID } : null
     };
     const response = this.callRuntime("swiftweb_dispatch_event", runtimePayload, targetInstance);
-    if (response && response.hydrationIndex) {
-      this.hydrationIndex = response.hydrationIndex;
-    }
     if (response && response.commandBatch && response.appliesDOMCommandsInRuntime !== true) {
       applyCommandBatch(response.commandBatch, this);
+    }
+    if (response && response.hydrationIndex) {
+      this.hydrationIndex = response.hydrationIndex;
     }
     const durationMs = this.durationSince(startedAt);
     const dispatchMetrics = {
@@ -1104,10 +1104,10 @@ class SwiftWebWasmRuntime {
     if (!(target instanceof Element)) {
       return null;
     }
-    const boundary = target.closest("[data-swift-component-type][data-swift-bundle]");
+    const boundary = target.closest("[data-component-type][data-bundle]");
     if (boundary) {
-      const typeName = boundary.getAttribute("data-swift-component-type") || "";
-      const bundleID = boundary.getAttribute("data-swift-bundle") || "";
+      const typeName = boundary.getAttribute("data-component-type") || "";
+      const bundleID = boundary.getAttribute("data-bundle") || "";
       const component = (this.manifest.components || []).find((record) =>
         record.typeName === typeName && rawValue(record.bundleID) === bundleID
       );
@@ -1120,8 +1120,8 @@ class SwiftWebWasmRuntime {
       }
     }
 
-    const componentElement = target.closest("[data-swift-component]");
-    const componentID = componentElement ? componentElement.getAttribute("data-swift-component") : null;
+    const componentElement = target.closest("[data-component]");
+    const componentID = componentElement ? componentElement.getAttribute("data-component") : null;
     const component = (this.manifest.components || []).find((record) => rawValue(record.componentID) === componentID);
     if (!component) {
       return null;
@@ -1202,10 +1202,12 @@ class SwiftWebWasmRuntime {
       }, instance);
       if (response && response.hydrationIndex) {
         this.updateComponentSchemasFromHydrationIndex(response.hydrationIndex, bundleID, update);
-        this.hydrationIndex = response.hydrationIndex;
       }
       if (response && response.commandBatch && response.appliesDOMCommandsInRuntime !== true) {
         applyCommandBatch(response.commandBatch, this);
+      }
+      if (response && response.hydrationIndex) {
+        this.hydrationIndex = response.hydrationIndex;
       }
       this.bootstrappedBundleIDs.add(bundleID);
       this.recordMetric("hmr.clientComponent.complete", {
@@ -1484,8 +1486,8 @@ class SwiftWebWasmRuntime {
     if (!document.documentElement) {
       return;
     }
-    document.documentElement.setAttribute("data-swift-web-wasm-metrics-mode", this.metrics.mode);
-    document.documentElement.setAttribute("data-swift-web-wasm-metrics-version", String(this.metrics.version));
+    document.documentElement.setAttribute("data-wasm-metrics-mode", this.metrics.mode);
+    document.documentElement.setAttribute("data-wasm-metrics-version", String(this.metrics.version));
     this.setMetricAttribute("ready-ms", this.metrics.summary.readyMs);
     this.setMetricAttribute("initial-bytes", this.metrics.summary.initialBytes);
     this.setMetricAttribute("total-wasm-bytes", this.metrics.summary.totalWasmBytes);
@@ -1504,15 +1506,15 @@ class SwiftWebWasmRuntime {
     if (value === null || value === undefined || Number.isNaN(Number(value))) {
       return;
     }
-    document.documentElement.setAttribute(`data-swift-web-wasm-${name}`, String(value));
+    document.documentElement.setAttribute(`data-wasm-${name}`, String(value));
   }
 
   publishMetricsElement() {
-    let element = document.getElementById("swift-web-wasm-runtime-metrics");
+    let element = document.getElementById("wasm-runtime-metrics");
     if (!element) {
       element = document.createElement("script");
       element.type = "application/json";
-      element.id = "swift-web-wasm-runtime-metrics";
+      element.id = "wasm-runtime-metrics";
       const parent = document.head || document.body || document.documentElement;
       parent.appendChild(element);
     }
@@ -1631,7 +1633,7 @@ function findEventTarget(start, eventName) {
   if (!(start instanceof Element)) {
     return null;
   }
-  return start.closest(`[data-swift-event-${eventName}]`);
+  return start.closest(`[data-event-${eventName}]`);
 }
 
 function addSwiftNodeSubtree(nodeID, output, runtime, hydrationIndex = runtime.hydrationIndex) {
@@ -1640,10 +1642,10 @@ function addSwiftNodeSubtree(nodeID, output, runtime, hydrationIndex = runtime.h
   }
   const id = String(rawValue(nodeID));
   output.add(id);
-  const root = document.querySelector(`[data-swift-node="${nodeID}"]`);
+  const root = document.querySelector(`[data-node="${nodeID}"]`);
   if (root) {
-    for (const descendant of root.querySelectorAll("[data-swift-node]")) {
-      const descendantID = descendant.getAttribute("data-swift-node");
+    for (const descendant of root.querySelectorAll("[data-node]")) {
+      const descendantID = descendant.getAttribute("data-node");
       if (descendantID) {
         output.add(descendantID);
       }
@@ -1660,12 +1662,12 @@ function addSwiftNodeSubtree(nodeID, output, runtime, hydrationIndex = runtime.h
 }
 
 function addSwiftDOMSubtree(root, output) {
-  const rootNodeID = root.getAttribute("data-swift-node");
+  const rootNodeID = root.getAttribute("data-node");
   if (rootNodeID) {
     output.add(rootNodeID);
   }
-  for (const descendant of root.querySelectorAll("[data-swift-node]")) {
-    const descendantID = descendant.getAttribute("data-swift-node");
+  for (const descendant of root.querySelectorAll("[data-node]")) {
+    const descendantID = descendant.getAttribute("data-node");
     if (descendantID) {
       output.add(descendantID);
     }
@@ -1673,8 +1675,8 @@ function addSwiftDOMSubtree(root, output) {
 }
 
 function containsProtectedSwiftNode(element, protectedNodeIDs) {
-  for (const descendant of element.querySelectorAll("[data-swift-node]")) {
-    const nodeID = descendant.getAttribute("data-swift-node");
+  for (const descendant of element.querySelectorAll("[data-node]")) {
+    const nodeID = descendant.getAttribute("data-node");
     if (nodeID && protectedNodeIDs.has(nodeID)) {
       return true;
     }
@@ -1695,7 +1697,7 @@ function isDocumentShellElement(element) {
   if (element === document.documentElement || element === document.head || element === document.body) {
     return true;
   }
-  if (element.id === "swift-web-client-runtime" || element.id === "swift-web-wasm-runtime-metrics") {
+  if (element.id === "client-runtime" || element.id === "wasm-runtime-metrics") {
     return true;
   }
   return ["HTML", "HEAD", "BODY", "SCRIPT", "STYLE", "META", "TITLE", "LINK"].includes(element.tagName);
@@ -1782,6 +1784,17 @@ function replaceNode(nodeID, replacementID, runtime) {
 }
 
 function replaceSubtree(nodeID, html, runtime) {
+  const record = nodeRecord(rawValue(nodeID), runtime);
+  if (record && (
+    record.role === "component"
+    || record.role === "serverSlot"
+    || record.role === "fragment"
+    || record.role === "document"
+  )) {
+    if (replaceRenderedRange(record, html, runtime)) {
+      return;
+    }
+  }
   const node = resolveDOMNode(nodeID, runtime);
   if (!node || !node.parentNode) {
     return;
@@ -1792,6 +1805,74 @@ function replaceSubtree(nodeID, html, runtime) {
     return;
   }
   node.replaceWith(...nodes);
+}
+
+function replaceRenderedRange(record, html, runtime) {
+  const boundary = renderedBoundary(record, runtime);
+  if (!boundary) {
+    return false;
+  }
+  const range = document.createRange();
+  range.setStartBefore(boundary.first);
+  range.setEndAfter(boundary.last);
+  const fragment = range.createContextualFragment(html || "");
+  range.deleteContents();
+  range.insertNode(fragment);
+  return true;
+}
+
+function renderedBoundary(record, runtime) {
+  if (record.role === "component" || record.role === "serverSlot") {
+    return boundaryComments(record);
+  }
+  if (record.role === "fragment" || record.role === "document") {
+    const children = record.childIDs || [];
+    if (children.length === 0) {
+      return null;
+    }
+    const firstRecord = nodeRecord(rawValue(children[0]), runtime);
+    const lastRecord = nodeRecord(rawValue(children[children.length - 1]), runtime);
+    if (!firstRecord || !lastRecord) {
+      return null;
+    }
+    const firstBoundary = renderedBoundary(firstRecord, runtime);
+    const lastBoundary = renderedBoundary(lastRecord, runtime);
+    const first = firstBoundary ? firstBoundary.first : resolveDOMNode(firstRecord.id, runtime);
+    const last = lastBoundary ? lastBoundary.last : resolveDOMNode(lastRecord.id, runtime);
+    return first && last ? { first, last } : null;
+  }
+  const node = resolveDOMNode(record.id, runtime);
+  return node ? { first: node, last: node } : null;
+}
+
+function boundaryComments(record) {
+  const prefix = boundaryPrefix(record);
+  if (!prefix) {
+    return null;
+  }
+  const walker = document.createTreeWalker(document, NodeFilter.SHOW_COMMENT);
+  let begin = null;
+  while (true) {
+    const node = walker.nextNode();
+    if (!node) {
+      return null;
+    }
+    if (node.nodeValue === `${prefix}:begin`) {
+      begin = node;
+    } else if (node.nodeValue === `${prefix}:end` && begin) {
+      return { first: begin, last: node };
+    }
+  }
+}
+
+function boundaryPrefix(record) {
+  if (record.role === "component" && record.componentID) {
+    return `component:${rawValue(record.componentID)}`;
+  }
+  if (record.role === "serverSlot" && record.serverSlotID) {
+    return `server-slot:${rawValue(record.serverSlotID)}`;
+  }
+  return null;
 }
 
 function updateText(nodeID, value, runtime) {
@@ -1813,11 +1894,11 @@ function updateAttributes(nodeID, attributes, runtime) {
   if (!node) {
     return;
   }
-  const internalNode = node.getAttribute("data-swift-node");
-  const internalKey = node.getAttribute("data-swift-key");
+  const internalNode = node.getAttribute("data-node");
+  const internalKey = node.getAttribute("data-key");
   const nextNames = new Set(attributes.map((attribute) => attribute.name));
   for (const attribute of Array.from(node.attributes)) {
-    if (attribute.name === "data-swift-node" || attribute.name === "data-swift-key") {
+    if (attribute.name === "data-node" || attribute.name === "data-key") {
       continue;
     }
     if (!nextNames.has(attribute.name)) {
@@ -1832,10 +1913,10 @@ function updateAttributes(nodeID, attributes, runtime) {
     }
   }
   if (internalNode !== null) {
-    node.setAttribute("data-swift-node", internalNode);
+    node.setAttribute("data-node", internalNode);
   }
   if (internalKey !== null) {
-    node.setAttribute("data-swift-key", internalKey);
+    node.setAttribute("data-key", internalKey);
   }
 }
 
@@ -1862,56 +1943,76 @@ function setProperty(nodeID, name, value, runtime) {
 }
 
 function insertNode(parentID, index, nodeID, runtime) {
-  const parent = resolveElement(parentID, runtime);
+  const context = mutationContext(parentID, index, runtime);
   const node = resolveDOMNode(nodeID, runtime);
-  if (!parent || !node) {
+  if (!context || !node) {
     return;
   }
-  parent.insertBefore(node, parent.childNodes[index] || null);
+  context.parent.insertBefore(node, context.reference || null);
 }
 
 function insertHTML(parentID, index, html, runtime) {
-  const parent = resolveElement(parentID, runtime);
-  if (!parent) {
+  const context = mutationContext(parentID, index, runtime);
+  if (!context) {
     return;
   }
   const nodes = parseHTML(html);
-  const reference = parent.childNodes[index] || null;
   for (const node of nodes) {
-    parent.insertBefore(node, reference);
+    context.parent.insertBefore(node, context.reference || null);
   }
 }
 
 function removeNode(parentID, index, nodeID, runtime) {
-  const parent = resolveElement(parentID, runtime);
-  const node = resolveDOMNode(nodeID, runtime) || (parent ? parent.childNodes[index] : null);
-  if (parent && node && node.parentNode === parent) {
-    parent.removeChild(node);
+  const record = nodeRecord(rawValue(nodeID), runtime);
+  if (record && removeRenderedNode(record, runtime)) {
+    return;
+  }
+  const context = mutationContext(parentID, index, runtime);
+  const node = resolveDOMNode(nodeID, runtime) || (context ? context.parent.childNodes[index] : null);
+  if (context && node && node.parentNode === context.parent) {
+    context.parent.removeChild(node);
   }
 }
 
 function moveNode(parentID, from, to, runtime) {
-  const parent = resolveElement(parentID, runtime);
-  if (!parent) {
+  const parentRecord = nodeRecord(rawValue(parentID), runtime);
+  if (parentRecord) {
+    const childID = (parentRecord.childIDs || [])[from];
+    const childRecord = childID === undefined ? null : nodeRecord(rawValue(childID), runtime);
+    if (childRecord && moveRenderedNode(parentRecord, childRecord, to, runtime)) {
+      return;
+    }
+  }
+  const context = mutationContext(parentID, from, runtime);
+  if (!context) {
     return;
   }
-  const node = parent.childNodes[from];
+  const node = context.parent.childNodes[from];
   if (node) {
-    parent.removeChild(node);
-    parent.insertBefore(node, parent.childNodes[to] || null);
+    const destination = mutationContext(parentID, to, runtime);
+    context.parent.removeChild(node);
+    context.parent.insertBefore(node, destination ? destination.reference || null : null);
   }
 }
 
 function moveKeyedNode(parentID, key, to, runtime) {
-  const parent = resolveElement(parentID, runtime);
-  if (!parent || !key) {
+  const parentRecord = nodeRecord(rawValue(parentID), runtime);
+  const identity = domKeyIdentity(key);
+  if (parentRecord && identity) {
+    const childRecord = (parentRecord.childIDs || [])
+      .map((childID) => nodeRecord(rawValue(childID), runtime))
+      .find((record) => record && record.key && domKeyIdentity(record.key) === identity);
+    if (childRecord && moveRenderedNode(parentRecord, childRecord, to, runtime)) {
+      return;
+    }
+  }
+  const context = mutationContext(parentID, to, runtime);
+  if (!context || !identity) {
     return;
   }
-  const identity = key.identity || key.rawValue;
-  const node = Array.from(parent.children).find((child) => child.getAttribute("data-swift-key") === identity);
+  const node = Array.from(context.parent.children).find((child) => child.getAttribute("data-key") === identity);
   if (node) {
-    parent.removeChild(node);
-    parent.insertBefore(node, parent.children[to] || null);
+    context.parent.insertBefore(node, context.reference || null);
   }
 }
 
@@ -1921,6 +2022,139 @@ function parseHTML(html) {
   return Array.from(template.content.childNodes);
 }
 
+function mutationContext(parentID, index, runtime) {
+  const record = nodeRecord(rawValue(parentID), runtime);
+  if (!record) {
+    const parent = resolveElement(parentID, runtime);
+    return parent ? { parent, reference: parent.childNodes[index] || null } : null;
+  }
+
+  if (record.role === "element") {
+    const parent = resolveElement(record.id, runtime);
+    return parent ? { parent, reference: referenceNodeForLogicalIndex(record, index, runtime) } : null;
+  }
+
+  if (record.role === "component" || record.role === "serverSlot") {
+    const boundary = boundaryComments(record);
+    if (!boundary || !boundary.first.parentNode) {
+      return null;
+    }
+    return {
+      parent: boundary.first.parentNode,
+      reference: referenceNodeForLogicalIndex(record, index, runtime) || boundary.last
+    };
+  }
+
+  if (record.role === "fragment" || record.role === "document") {
+    const boundary = renderedBoundary(record, runtime);
+    if (boundary && boundary.first.parentNode) {
+      return {
+        parent: boundary.first.parentNode,
+        reference: referenceNodeForLogicalIndex(record, index, runtime) || boundary.last.nextSibling
+      };
+    }
+    return transparentContainerContext(record, runtime);
+  }
+
+  const parent = resolveElement(record.id, runtime);
+  return parent ? { parent, reference: parent.childNodes[index] || null } : null;
+}
+
+function referenceNodeForLogicalIndex(record, index, runtime) {
+  const children = record.childIDs || [];
+  for (let cursor = Math.max(0, index); cursor < children.length; cursor += 1) {
+    const childRecord = nodeRecord(rawValue(children[cursor]), runtime);
+    if (!childRecord) {
+      continue;
+    }
+    const boundary = renderedBoundary(childRecord, runtime);
+    if (boundary && boundary.first.parentNode) {
+      return boundary.first;
+    }
+    const node = resolveDOMNode(childRecord.id, runtime);
+    if (node && node.parentNode) {
+      return node;
+    }
+  }
+  return null;
+}
+
+function transparentContainerContext(record, runtime) {
+  if (record.role === "document") {
+    const parent = document.body || document.documentElement;
+    return parent ? { parent, reference: null } : null;
+  }
+  if (!record.parentID) {
+    return null;
+  }
+  const parentRecord = nodeRecord(rawValue(record.parentID), runtime);
+  if (!parentRecord) {
+    return null;
+  }
+  const index = (parentRecord.childIDs || [])
+    .map((childID) => rawValue(childID))
+    .indexOf(rawValue(record.id));
+  if (index < 0) {
+    return null;
+  }
+  return mutationContext(parentRecord.id, index + 1, runtime);
+}
+
+function removeRenderedNode(record, runtime) {
+  const boundary = renderedBoundary(record, runtime);
+  if (boundary) {
+    const range = document.createRange();
+    range.setStartBefore(boundary.first);
+    range.setEndAfter(boundary.last);
+    range.deleteContents();
+    return true;
+  }
+  const node = resolveDOMNode(record.id, runtime);
+  if (node && node.parentNode) {
+    node.parentNode.removeChild(node);
+    return true;
+  }
+  return false;
+}
+
+function moveRenderedNode(parentRecord, record, destinationIndex, runtime) {
+  const boundary = renderedBoundary(record, runtime);
+  const context = mutationContext(parentRecord.id, destinationIndex, runtime);
+  if (!boundary || !context) {
+    return false;
+  }
+  if (context.reference && renderedRangeContains(boundary, context.reference)) {
+    return true;
+  }
+  const range = document.createRange();
+  range.setStartBefore(boundary.first);
+  range.setEndAfter(boundary.last);
+  const fragment = range.extractContents();
+  context.parent.insertBefore(fragment, context.reference || null);
+  return true;
+}
+
+function renderedRangeContains(boundary, target) {
+  let node = boundary.first;
+  while (node) {
+    if (node === target) {
+      return true;
+    }
+    if (node === boundary.last) {
+      return false;
+    }
+    node = node.nextSibling;
+  }
+  return false;
+}
+
+function domKeyIdentity(key) {
+  if (!key) {
+    return null;
+  }
+  return key.identity || key.rawValue || String(key);
+}
+
 function resolveElement(nodeID, runtime) {
   const node = resolveDOMNode(nodeID, runtime);
   return node instanceof Element ? node : null;
@@ -1928,7 +2162,7 @@ function resolveElement(nodeID, runtime) {
 
 function resolveDOMNode(nodeID, runtime) {
   const id = rawValue(nodeID);
-  const direct = document.querySelector(`[data-swift-node="${id}"]`);
+  const direct = document.querySelector(`[data-node="${id}"]`);
   if (direct) {
     return direct;
   }
@@ -2055,7 +2289,7 @@ function findServerActionSubmitter(event) {
     if (!(item instanceof Element)) {
       continue;
     }
-    if (item.matches("[data-swift-server-action-button=\"true\"]")) {
+    if (item.matches("[data-server-action-button=\"true\"]")) {
       return item;
     }
     if (item.matches("button[type=\"submit\"], input[type=\"submit\"]")) {
@@ -2067,19 +2301,19 @@ function findServerActionSubmitter(event) {
 
 function findServerActionForm(event, submitter) {
   if (submitter instanceof Element) {
-    const submitterForm = submitter.closest("form[data-swift-server-action=\"true\"]");
+    const submitterForm = submitter.closest("form[data-server-action=\"true\"]");
     if (submitterForm) {
       return submitterForm;
     }
   }
   const path = eventPath(event);
   for (const item of path) {
-    if (item instanceof Element && item.matches("form[data-swift-server-action=\"true\"]")) {
+    if (item instanceof Element && item.matches("form[data-server-action=\"true\"]")) {
       return item;
     }
   }
   const target = event.target instanceof Element ? event.target : null;
-  return target ? target.closest("form[data-swift-server-action=\"true\"]") : null;
+  return target ? target.closest("form[data-server-action=\"true\"]") : null;
 }
 
 function appendFormDataToURL(formData, url) {
@@ -2106,7 +2340,7 @@ function eventPath(event) {
   return path;
 }
 
-const descriptorElement = document.getElementById("swift-web-client-runtime");
+const descriptorElement = document.getElementById("client-runtime");
 
 if (descriptorElement) {
   const descriptor = JSON.parse(descriptorElement.textContent || "{}");

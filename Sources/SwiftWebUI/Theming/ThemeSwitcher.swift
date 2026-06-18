@@ -17,8 +17,8 @@ public struct ThemeSwitcher: ClientComponent {
                 Button(theme.name) {
                     selection.wrappedValue = theme
                 }
-                    .data("swift-web-ui-theme-option", theme.name)
-                    .data("swift-web-ui-theme-selected", isSelected ? "true" : "false")
+                    .data("theme-option", theme.name)
+                    .data("theme-selected", isSelected ? "true" : "false")
                     .accessibilityRole("switch")
                     .accessibilityValue(isSelected ? "on" : "off")
             }

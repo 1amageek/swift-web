@@ -457,7 +457,7 @@ State preservation uses a two-step compatibility check. Exact schema matches are
 
 The loader can keep multiple component runtimes in one physical bundle. This is required for the main bundle and for named/shared bundles that contain more than one client island type.
 
-Server page invalidation must preserve client islands. The browser merge algorithm treats `data-swift-hmr-boundary`, `data-swift-component-type`, and `data-swift-bundle` as protected runtime boundaries, so a server patch updates server-owned DOM while leaving active WASM-owned subtrees and their `@State` stores intact.
+Server page invalidation must preserve client islands. The browser merge algorithm treats `data-hmr-boundary`, `data-component-type`, and `data-bundle` as protected runtime boundaries, so a server patch updates server-owned DOM while leaving active WASM-owned subtrees and their `@State` stores intact.
 
 ## Development And Production Boundary
 

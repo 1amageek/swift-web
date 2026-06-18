@@ -4,7 +4,7 @@ import Vapor
 
 public struct ClientWasmRuntimeConfiguration {
     private let runtime: SwiftWebWasmClientRuntime
-    private let assets: () throws -> [ClientWasmRuntimeAsset]
+    private let assets: @Sendable () throws -> [ClientWasmRuntimeAsset]
 
     public init(
         id: String = "runtime",
@@ -30,10 +30,10 @@ public struct ClientWasmRuntimeConfiguration {
         )
         self.assets = {
             Self.uniqueAssets(
-                [ClientWasmRuntimeAsset(path: assetPath, fileURL: fileURL)]
-                    + (try additionalBundles.map { bundle in
-                    ClientWasmRuntimeAsset(path: bundle.assetPath, fileURL: try bundle.fileURL())
-                    })
+                [ClientWasmRuntimeAsset(path: assetPath, fileURL: { fileURL })]
+                    + additionalBundles.map { bundle in
+                    ClientWasmRuntimeAsset(path: bundle.assetPath, fileURL: { try bundle.fileURL() })
+                    }
             )
         }
     }
@@ -62,10 +62,10 @@ public struct ClientWasmRuntimeConfiguration {
         )
         self.assets = {
             Self.uniqueAssets(
-                [ClientWasmRuntimeAsset(path: assetPath, fileURL: try artifact.url())]
-                    + (try additionalBundles.map { bundle in
-                    ClientWasmRuntimeAsset(path: bundle.assetPath, fileURL: try bundle.fileURL())
-                    })
+                [ClientWasmRuntimeAsset(path: assetPath, fileURL: { try artifact.url() })]
+                    + additionalBundles.map { bundle in
+                    ClientWasmRuntimeAsset(path: bundle.assetPath, fileURL: { try bundle.fileURL() })
+                    }
             )
         }
     }
@@ -90,11 +90,11 @@ public struct ClientWasmRuntimeConfiguration {
     }
 }
 
-public struct ClientWasmBundleArtifact {
+public struct ClientWasmBundleArtifact: Sendable {
     public let id: String
     public let componentTypeNames: [String]
     public let assetPath: String
-    private let resolveFileURL: () throws -> URL
+    private let resolveFileURL: @Sendable () throws -> URL
 
     public var componentTypeName: String {
         componentTypeNames.first ?? ""
@@ -157,7 +157,7 @@ public struct ClientWasmBundleArtifact {
     }
 }
 
-private struct ClientWasmRuntimeAsset {
+private struct ClientWasmRuntimeAsset: Sendable {
     let path: String
-    let fileURL: URL
+    let fileURL: @Sendable () throws -> URL
 }

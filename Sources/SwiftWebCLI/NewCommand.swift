@@ -108,7 +108,7 @@ struct TemplateProject {
 
     private var packageSwift: String {
         """
-        // swift-tools-version: 6.4
+        // swift-tools-version: 6.3
 
         import PackageDescription
 

@@ -89,7 +89,7 @@ enum SwiftWebDevBoundaryAnnotator {
     }
 
     private static func annotate(_ component: ClientComponentAsset, in html: inout String) {
-        let marker = "<!--swift-html-component:\(component.componentID.rawValue):begin-->"
+        let marker = "<!--component:\(component.componentID.rawValue):begin-->"
         guard let markerRange = html.range(of: marker),
               let tagRange = firstElementTagRange(in: html, after: markerRange.upperBound)
         else {
@@ -97,28 +97,28 @@ enum SwiftWebDevBoundaryAnnotator {
         }
 
         let tag = String(html[tagRange])
-        guard !tag.contains("data-swift-hmr-boundary=") else {
+        guard !tag.contains("data-hmr-boundary=") else {
             return
         }
 
         let cleanedTag = removingAttributes(
             [
-                "data-swift-component",
-                "data-swift-hmr-boundary",
-                "data-swift-state-schema",
-                "data-swift-environment-schema",
-                "data-swift-component-type",
-                "data-swift-bundle",
+                "data-component",
+                "data-hmr-boundary",
+                "data-state-schema",
+                "data-environment-schema",
+                "data-component-type",
+                "data-bundle",
             ],
             from: tag
         )
         let attributes = [
-            ("data-swift-component", component.componentID.rawValue),
-            ("data-swift-hmr-boundary", "true"),
-            ("data-swift-state-schema", component.stateSchemaHash),
-            ("data-swift-environment-schema", component.environmentSchemaHash),
-            ("data-swift-component-type", component.typeName),
-            ("data-swift-bundle", component.bundleID.rawValue),
+            ("data-component", component.componentID.rawValue),
+            ("data-hmr-boundary", "true"),
+            ("data-state-schema", component.stateSchemaHash),
+            ("data-environment-schema", component.environmentSchemaHash),
+            ("data-component-type", component.typeName),
+            ("data-bundle", component.bundleID.rawValue),
         ]
         .map { name, value in
             "\(name)=\"\(escapeAttribute(value))\""

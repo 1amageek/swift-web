@@ -205,7 +205,7 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
                 mountedHydrationIndex = nextHydrationIndex
                 mountedNodeMap = nextNodeMap
                 if let domHost {
-                    try domHost.apply(commandBatch, updatedIndex: nextHydrationIndex)
+                    try domHost.apply(commandBatch, currentIndex: request.hydrationIndex)
                 }
                 return ClientWasmRuntimeResponse(
                     commandBatch: commandBatch,
@@ -253,8 +253,10 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
         self.session = session
         let commandBatch: BrowserDOMCommandBatch
         let hydrationIndex: BrowserHydrationIndex?
+        let currentIndexForDOM: BrowserHydrationIndex
         if let componentMount {
             let mountedIndex = mountedHydrationIndex ?? update.hydrationIndex
+            currentIndexForDOM = mountedIndex
             let previousNodeMap = mountedNodeMap
             let nextNodeMap = Self.structuralNodeMap(
                 localIndex: update.hydrationIndex,
@@ -267,10 +269,28 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
                 previousNodeMap: previousNodeMap,
                 nodeMap: nextNodeMap
             )
+            let mountedComponentsByNodeID = Dictionary(uniqueKeysWithValues: mountedIndex.components.map {
+                ($0.nodeID, $0)
+            })
+            let mountedServerSlotsByNodeID = Dictionary(uniqueKeysWithValues: mountedIndex.serverSlots.map {
+                ($0.nodeID, $0)
+            })
+            let nextComponentIDMap = Self.componentIDMap(
+                localIndex: update.hydrationIndex,
+                mountedComponentsByNodeID: mountedComponentsByNodeID,
+                nodeMap: nextNodeMap
+            )
+            let nextServerSlotIDMap = Self.serverSlotIDMap(
+                localIndex: update.hydrationIndex,
+                mountedServerSlotsByNodeID: mountedServerSlotsByNodeID,
+                nodeMap: nextNodeMap
+            )
             commandBatch = Self.rebased(
                 update.commandBatch,
                 previousNodeMap: previousNodeMap,
-                nextNodeMap: nextNodeMap
+                nextNodeMap: nextNodeMap,
+                componentIDMap: nextComponentIDMap,
+                serverSlotIDMap: nextServerSlotIDMap
             )
             hydrationIndex = nextHydrationIndex
             mountedNodeMap = nextNodeMap
@@ -278,12 +298,13 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
         } else {
             commandBatch = update.commandBatch
             hydrationIndex = update.hydrationIndex
+            currentIndexForDOM = update.previousHydrationIndex
         }
 
         if let domHost {
             try domHost.apply(
                 commandBatch,
-                updatedIndex: hydrationIndex ?? update.hydrationIndex
+                currentIndex: currentIndexForDOM
             )
         }
         return ClientWasmRuntimeResponse(
@@ -450,6 +471,22 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
 
         var commands: [BrowserDOMCommand] = []
         let mountedToLocal = Dictionary(uniqueKeysWithValues: nodeMap.map { ($0.value, $0.key) })
+        let mountedComponentsByNodeID = Dictionary(uniqueKeysWithValues: mountedIndex.components.map {
+            ($0.nodeID, $0)
+        })
+        let mountedServerSlotsByNodeID = Dictionary(uniqueKeysWithValues: mountedIndex.serverSlots.map {
+            ($0.nodeID, $0)
+        })
+        let componentIDMap = componentIDMap(
+            localIndex: localIndex,
+            mountedComponentsByNodeID: mountedComponentsByNodeID,
+            nodeMap: nodeMap
+        )
+        let serverSlotIDMap = serverSlotIDMap(
+            localIndex: localIndex,
+            mountedServerSlotsByNodeID: mountedServerSlotsByNodeID,
+            nodeMap: nodeMap
+        )
         appendHotReloadCommands(
             localID: localComponent.nodeID,
             mountedID: mountedComponent.nodeID,
@@ -458,6 +495,8 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
             mountedIndex: mountedIndex,
             localToMounted: nodeMap,
             mountedToLocal: mountedToLocal,
+            componentIDMap: componentIDMap,
+            serverSlotIDMap: serverSlotIDMap,
             commands: &commands
         )
         return BrowserDOMCommandBatch(commands: commands)
@@ -484,6 +523,8 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
         mountedIndex: BrowserHydrationIndex,
         localToMounted: [HTMLNodeID: HTMLNodeID],
         mountedToLocal: [HTMLNodeID: HTMLNodeID],
+        componentIDMap: [ComponentID: ComponentID],
+        serverSlotIDMap: [ServerSlotID: ServerSlotID],
         commands: inout [BrowserDOMCommand]
     ) {
         guard let localNode = localIndex.node(localID),
@@ -495,7 +536,13 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
         guard nodesAreCompatible(localNode, mountedNode) else {
             commands.append(.replaceSubtree(
                 node: mountedID,
-                html: localArtifact.renderSubtree(localID)
+                html: renderRebasedSubtree(
+                    localArtifact,
+                    node: localID,
+                    nodeMap: localToMounted,
+                    componentIDMap: componentIDMap,
+                    serverSlotIDMap: serverSlotIDMap
+                )
             ))
             return
         }
@@ -533,6 +580,8 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
             mountedIndex: mountedIndex,
             localToMounted: localToMounted,
             mountedToLocal: mountedToLocal,
+            componentIDMap: componentIDMap,
+            serverSlotIDMap: serverSlotIDMap,
             commands: &commands
         )
     }
@@ -545,6 +594,8 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
         mountedIndex: BrowserHydrationIndex,
         localToMounted: [HTMLNodeID: HTMLNodeID],
         mountedToLocal: [HTMLNodeID: HTMLNodeID],
+        componentIDMap: [ComponentID: ComponentID],
+        serverSlotIDMap: [ServerSlotID: ServerSlotID],
         commands: inout [BrowserDOMCommand]
     ) {
         for (index, mountedChildID) in mountedNode.childIDs.enumerated().reversed() {
@@ -560,7 +611,13 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
                 commands.append(.insertHTML(
                     parent: mountedNode.id,
                     index: index,
-                    html: localArtifact.renderSubtree(localChildID)
+                    html: renderRebasedSubtree(
+                        localArtifact,
+                        node: localChildID,
+                        nodeMap: localToMounted,
+                        componentIDMap: componentIDMap,
+                        serverSlotIDMap: serverSlotIDMap
+                    )
                 ))
                 continue
             }
@@ -573,6 +630,8 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
                 mountedIndex: mountedIndex,
                 localToMounted: localToMounted,
                 mountedToLocal: mountedToLocal,
+                componentIDMap: componentIDMap,
+                serverSlotIDMap: serverSlotIDMap,
                 commands: &commands
             )
 
@@ -642,17 +701,27 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
     private static func rebased(
         _ batch: BrowserDOMCommandBatch,
         previousNodeMap: [HTMLNodeID: HTMLNodeID],
-        nextNodeMap: [HTMLNodeID: HTMLNodeID]
+        nextNodeMap: [HTMLNodeID: HTMLNodeID],
+        componentIDMap: [ComponentID: ComponentID],
+        serverSlotIDMap: [ServerSlotID: ServerSlotID]
     ) -> BrowserDOMCommandBatch {
         BrowserDOMCommandBatch(commands: batch.commands.compactMap { command in
-            rebased(command, previousNodeMap: previousNodeMap, nextNodeMap: nextNodeMap)
+            rebased(
+                command,
+                previousNodeMap: previousNodeMap,
+                nextNodeMap: nextNodeMap,
+                componentIDMap: componentIDMap,
+                serverSlotIDMap: serverSlotIDMap
+            )
         })
     }
 
     private static func rebased(
         _ command: BrowserDOMCommand,
         previousNodeMap: [HTMLNodeID: HTMLNodeID],
-        nextNodeMap: [HTMLNodeID: HTMLNodeID]
+        nextNodeMap: [HTMLNodeID: HTMLNodeID],
+        componentIDMap: [ComponentID: ComponentID],
+        serverSlotIDMap: [ServerSlotID: ServerSlotID]
     ) -> BrowserDOMCommand? {
         func previousNode(_ id: HTMLNodeID) -> HTMLNodeID? {
             previousNodeMap[id]
@@ -672,7 +741,15 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
             guard let mappedNode = previousNode(nodeID) else {
                 return nil
             }
-            return .replaceSubtree(node: mappedNode, html: html)
+            return .replaceSubtree(
+                node: mappedNode,
+                html: rebaseHydrationMarkers(
+                    in: html,
+                    nodeMap: nextNodeMap,
+                    componentIDMap: componentIDMap,
+                    serverSlotIDMap: serverSlotIDMap
+                )
+            )
         case .updateText(let nodeID, let value):
             guard let mappedNode = previousNode(nodeID) else {
                 return nil
@@ -702,7 +779,16 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
             guard let mappedParent = previousNode(parentID) else {
                 return nil
             }
-            return .insertHTML(parent: mappedParent, index: index, html: html)
+            return .insertHTML(
+                parent: mappedParent,
+                index: index,
+                html: rebaseHydrationMarkers(
+                    in: html,
+                    nodeMap: nextNodeMap,
+                    componentIDMap: componentIDMap,
+                    serverSlotIDMap: serverSlotIDMap
+                )
+            )
         case .remove(let parentID, let index, let nodeID):
             guard let mappedParent = previousNode(parentID), let mappedNode = previousNode(nodeID) else {
                 return nil
@@ -933,6 +1019,99 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
             }
         }
         return map
+    }
+
+    private static func serverSlotIDMap(
+        localIndex: BrowserHydrationIndex,
+        mountedServerSlotsByNodeID: [HTMLNodeID: ServerSlotRecord],
+        nodeMap: [HTMLNodeID: HTMLNodeID]
+    ) -> [ServerSlotID: ServerSlotID] {
+        var map: [ServerSlotID: ServerSlotID] = [:]
+        for slot in localIndex.serverSlots {
+            if let mountedNodeID = nodeMap[slot.nodeID],
+               let mountedSlot = mountedServerSlotsByNodeID[mountedNodeID] {
+                map[slot.id] = mountedSlot.id
+            } else {
+                map[slot.id] = slot.id
+            }
+        }
+        return map
+    }
+
+    private static func renderRebasedSubtree(
+        _ artifact: RenderArtifact,
+        node: HTMLNodeID,
+        nodeMap: [HTMLNodeID: HTMLNodeID],
+        componentIDMap: [ComponentID: ComponentID],
+        serverSlotIDMap: [ServerSlotID: ServerSlotID]
+    ) -> String {
+        rebaseHydrationMarkers(
+            in: artifact.renderSubtree(node, options: .development.withBrowserHydrationMarkers()),
+            nodeMap: nodeMap,
+            componentIDMap: componentIDMap,
+            serverSlotIDMap: serverSlotIDMap
+        )
+    }
+
+    private static func rebaseHydrationMarkers(
+        in html: String,
+        nodeMap: [HTMLNodeID: HTMLNodeID],
+        componentIDMap: [ComponentID: ComponentID],
+        serverSlotIDMap: [ServerSlotID: ServerSlotID]
+    ) -> String {
+        var result = rebaseNodeMarkers(in: html, nodeMap: nodeMap)
+        for (source, target) in componentIDMap where source != target {
+            result = result.replacingOccurrences(
+                of: "component:\(source.rawValue):begin",
+                with: "component:\(target.rawValue):begin"
+            )
+            result = result.replacingOccurrences(
+                of: "component:\(source.rawValue):end",
+                with: "component:\(target.rawValue):end"
+            )
+        }
+        for (source, target) in serverSlotIDMap where source != target {
+            result = result.replacingOccurrences(
+                of: "server-slot:\(source.rawValue):begin",
+                with: "server-slot:\(target.rawValue):begin"
+            )
+            result = result.replacingOccurrences(
+                of: "server-slot:\(source.rawValue):end",
+                with: "server-slot:\(target.rawValue):end"
+            )
+        }
+        return result
+    }
+
+    private static func rebaseNodeMarkers(
+        in html: String,
+        nodeMap: [HTMLNodeID: HTMLNodeID]
+    ) -> String {
+        let marker = "data-node=\""
+        var output = ""
+        var cursor = html.startIndex
+
+        while let range = html[cursor...].range(of: marker) {
+            output.append(contentsOf: html[cursor..<range.upperBound])
+            var numberEnd = range.upperBound
+            while numberEnd < html.endIndex, html[numberEnd].isNumber {
+                numberEnd = html.index(after: numberEnd)
+            }
+
+            let rawValue = String(html[range.upperBound..<numberEnd])
+            if numberEnd < html.endIndex,
+               html[numberEnd] == "\"",
+               let value = Int(rawValue),
+               let mapped = nodeMap[HTMLNodeID(value)] {
+                output.append(String(mapped.rawValue))
+            } else {
+                output.append(rawValue)
+            }
+            cursor = numberEnd
+        }
+
+        output.append(contentsOf: html[cursor...])
+        return output
     }
 
     private static func rebased(

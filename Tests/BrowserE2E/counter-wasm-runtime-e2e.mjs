@@ -573,7 +573,7 @@ async function runWebKitSmoke(baseURL) {
     recordPhase("webkit.smoke.goto");
     await page.goto(`${baseURL}/counter`, { waitUntil: "domcontentloaded", timeout: timeoutMs });
     await page.waitForFunction(
-      () => document.documentElement.getAttribute("data-swift-web-wasm-ready") === "true",
+      () => document.documentElement.getAttribute("data-wasm-ready") === "true",
       undefined,
       { timeout: timeoutMs }
     );
@@ -695,7 +695,7 @@ async function runBrowserAssertions(baseURL, appRoot) {
     recordPhase("browser.goto");
     await page.goto(`${baseURL}/counter`, { waitUntil: "domcontentloaded", timeout: timeoutMs });
     await page.waitForFunction(
-      () => document.documentElement.getAttribute("data-swift-web-wasm-ready") === "true",
+      () => document.documentElement.getAttribute("data-wasm-ready") === "true",
       undefined,
       { timeout: timeoutMs }
     );
@@ -706,7 +706,7 @@ async function runBrowserAssertions(baseURL, appRoot) {
     const runtime = await page.evaluate(() => ({
       status: window.__swiftWebWasmRuntimeStatus,
       metrics: window.__swiftWebWasmRuntimeMetrics,
-      loadedAttribute: document.documentElement.getAttribute("data-swift-web-wasm-loaded"),
+      loadedAttribute: document.documentElement.getAttribute("data-wasm-loaded"),
     }));
     if (!runtime.status || runtime.status.ready !== true) {
       throw new Error(`WASM runtime did not report ready: ${JSON.stringify(runtime.status)}`);
@@ -828,7 +828,7 @@ async function runBrowserAssertions(baseURL, appRoot) {
       return {
         top: rect.top,
         viewportHeight: window.innerHeight,
-        loaded: (window.__swiftWebWasmRuntimeStatus?.loadedBundleIDs || []).includes(element.getAttribute("data-swift-bundle")),
+        loaded: (window.__swiftWebWasmRuntimeStatus?.loadedBundleIDs || []).includes(element.getAttribute("data-bundle")),
       };
     });
     if (visibleBeforeScroll.top <= visibleBeforeScroll.viewportHeight + 200) {

@@ -203,10 +203,10 @@ enum SwiftWebDevHotReload {
           };
           globalThis.__swiftWebDevReload = state;
           function swiftWebDevOverlay(message, phase = "info") {
-            let element = document.getElementById("swift-web-dev-hmr-status");
+            let element = document.getElementById("hmr-status");
             if (!element) {
               element = document.createElement("div");
-              element.id = "swift-web-dev-hmr-status";
+              element.id = "hmr-status";
               element.style.cssText = [
                 "position:fixed",
                 "right:12px",
@@ -234,7 +234,7 @@ enum SwiftWebDevHotReload {
             if (!patch || typeof patch.css !== "string") {
               return;
             }
-            const id = patch.id || "swift-web-dev-style-hmr";
+            const id = patch.id || "dev-style-hmr";
             let element = document.getElementById(id);
             if (!element) {
               element = document.createElement("style");

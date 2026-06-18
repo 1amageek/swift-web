@@ -20,7 +20,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         let appPackage = root.appendingPathComponent("SampleApp", isDirectory: true)
         try write(
             """
-            // swift-tools-version: 6.4
+            // swift-tools-version: 6.3
             import PackageDescription
 
             let package = Package(
@@ -38,7 +38,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         try writeSwiftHTMLRuntimeSources(in: swiftHTMLPackage)
         try write(
             """
-            // swift-tools-version: 6.4
+            // swift-tools-version: 6.3
             import PackageDescription
 
             let package = Package(
@@ -77,7 +77,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         try writeJavaScriptKitRuntimeCheckout(in: swiftWebPackage)
         try write(
             """
-            // swift-tools-version: 6.4
+            // swift-tools-version: 6.3
             import PackageDescription
 
             let package = Package(
@@ -408,7 +408,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         let appPackage = root.appendingPathComponent("SampleApp", isDirectory: true)
         try write(
             """
-            // swift-tools-version: 6.4
+            // swift-tools-version: 6.3
             import PackageDescription
 
             let package = Package(
@@ -426,7 +426,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         try writeSwiftHTMLRuntimeSources(in: swiftHTMLPackage)
         try write(
             """
-            // swift-tools-version: 6.4
+            // swift-tools-version: 6.3
             import PackageDescription
 
             let package = Package(
@@ -465,7 +465,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         try writeJavaScriptKitRuntimeCheckout(in: swiftWebPackage)
         try write(
             """
-            // swift-tools-version: 6.4
+            // swift-tools-version: 6.3
             import PackageDescription
 
             let package = Package(
@@ -556,7 +556,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         let appPackage = root.appendingPathComponent("SampleApp", isDirectory: true)
         try write(
             """
-            // swift-tools-version: 6.4
+            // swift-tools-version: 6.3
             import PackageDescription
 
             let package = Package(
@@ -574,7 +574,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         try writeSwiftHTMLRuntimeSources(in: swiftHTMLPackage)
         try write(
             """
-            // swift-tools-version: 6.4
+            // swift-tools-version: 6.3
             import PackageDescription
 
             let package = Package(
@@ -613,7 +613,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         try writeJavaScriptKitRuntimeCheckout(in: swiftWebPackage)
         try write(
             """
-            // swift-tools-version: 6.4
+            // swift-tools-version: 6.3
             import PackageDescription
 
             let package = Package(
@@ -727,7 +727,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         let appPackage = root.appendingPathComponent("SampleApp", isDirectory: true)
         try write(
             """
-            // swift-tools-version: 6.4
+            // swift-tools-version: 6.3
             import PackageDescription
 
             let package = Package(
@@ -745,7 +745,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         try writeSwiftHTMLRuntimeSources(in: swiftHTMLPackage)
         try write(
             """
-            // swift-tools-version: 6.4
+            // swift-tools-version: 6.3
             import PackageDescription
 
             let package = Package(
@@ -784,7 +784,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         try writeJavaScriptKitRuntimeCheckout(in: swiftWebPackage)
         try write(
             """
-            // swift-tools-version: 6.4
+            // swift-tools-version: 6.3
             import PackageDescription
 
             let package = Package(
@@ -966,7 +966,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         let appPackage = root.appendingPathComponent("SampleApp", isDirectory: true)
         try write(
             """
-            // swift-tools-version: 6.4
+            // swift-tools-version: 6.3
             import PackageDescription
 
             let package = Package(
@@ -984,7 +984,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         try writeSwiftHTMLRuntimeSources(in: swiftHTMLPackage)
         try write(
             """
-            // swift-tools-version: 6.4
+            // swift-tools-version: 6.3
             import PackageDescription
 
             let package = Package(
@@ -1023,7 +1023,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         try writeJavaScriptKitRuntimeCheckout(in: swiftWebPackage)
         try write(
             """
-            // swift-tools-version: 6.4
+            // swift-tools-version: 6.3
             import PackageDescription
 
             let package = Package(

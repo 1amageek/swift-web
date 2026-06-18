@@ -41,7 +41,7 @@ struct SwiftWebDevStylePatch: Sendable, Codable, Equatable {
     let id: String
     let css: String
 
-    init(id: String = "swift-web-dev-style-hmr", css: String) {
+    init(id: String = "dev-style-hmr", css: String) {
         self.id = id
         self.css = css
     }

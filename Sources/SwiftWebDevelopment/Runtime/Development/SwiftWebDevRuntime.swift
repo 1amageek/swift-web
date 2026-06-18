@@ -219,7 +219,7 @@ public struct SwiftWebDevRuntime {
                 try eventLog.append(SwiftWebDevEvent(
                     kind: .stylePatch,
                     stylePatch: SwiftWebDevStylePatch(
-                        id: "swift-web-dev-style-hmr-\(abs(styleFile.path.hashValue))",
+                        id: "dev-style-hmr-\(abs(styleFile.path.hashValue))",
                         css: css
                     ),
                     changedPaths: plan.changedPaths

@@ -19,11 +19,11 @@ public extension ElementRepresentable {
         target: String? = nil
     ) -> Self {
         var element = self
-            .data("swift-web-client-action", name)
-            .data("swift-web-trigger", trigger.rawValue)
-            .data("swift-web-action-url", action)
+            .data("client-action", name)
+            .data("trigger", trigger.rawValue)
+            .data("action-url", action)
         if let target {
-            element = element.data("swift-web-target", target)
+            element = element.data("target", target)
         }
         return element
     }

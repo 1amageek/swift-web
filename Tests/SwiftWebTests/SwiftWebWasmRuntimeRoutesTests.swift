@@ -140,6 +140,54 @@ struct SwiftWebWasmRuntimeRoutesTests {
         }
     }
 
+    @Test
+    func resolvesWasmArtifactWhenRequestArrivesAfterBuild() async throws {
+        try await withApplication { application in
+            let root = try temporaryDirectory()
+            defer {
+                do {
+                    try FileManager.default.removeItem(at: root)
+                } catch {}
+            }
+            let package = root.appendingPathComponent("generated/wasm", isDirectory: true)
+            let source = package.appendingPathComponent("Sources/Runtime/Runtime.swift")
+            let scratch = root.appendingPathComponent("generated/.build/server/wasm", isDirectory: true)
+            let wasmURL = scratch
+                .appendingPathComponent("wasm32-unknown-wasip1/release/storyboard-preview-wasm-runtime.wasm")
+            try write(
+                """
+                // swift-tools-version: 6.3
+                import PackageDescription
+
+                let package = Package(name: "GeneratedWasm")
+                """,
+                to: package.appendingPathComponent("Package.swift")
+            )
+            try write("public struct Runtime {}", to: source)
+            let artifact = SwiftPMWasmArtifact.location(
+                anchorFile: package.appendingPathComponent("Package.swift").path,
+                target: "StoryboardPreviewWasmRuntime",
+                scratchDirectory: scratch
+            )
+            SwiftWebWasmRuntimeRoutes.registerWasmAsset(
+                on: application,
+                path: "/assets/storyboard-preview-wasm-runtime.wasm",
+                fileURL: {
+                    try artifact.url()
+                }
+            )
+            try write("wasm", to: wasmURL)
+
+            let response = try await application.testing().sendRequest(
+                .get,
+                "/assets/storyboard-preview-wasm-runtime.wasm"
+            )
+
+            #expect(response.status == .ok)
+            #expect(String(buffer: response.body) == "wasm")
+        }
+    }
+
     private func withApplication(
         _ body: (Application) async throws -> Void
     ) async throws {
@@ -158,5 +206,13 @@ struct SwiftWebWasmRuntimeRoutesTests {
             .appendingPathComponent("SwiftWebWasmRuntimeRoutesTests-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
+    }
+
+    private func write(_ contents: String, to url: URL) throws {
+        try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try contents.write(to: url, atomically: true, encoding: .utf8)
     }
 }
