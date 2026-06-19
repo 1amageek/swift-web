@@ -13,7 +13,10 @@ struct SwiftWebWasmArtifactProcessorTests {
             } catch {}
         }
         let toolsDirectory = root.appendingPathComponent("tools", isDirectory: true)
-        try FileManager.default.createDirectory(at: toolsDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(
+            at: toolsDirectory,
+            withIntermediateDirectories: true
+        )
         try writeFakeTool(
             """
             #!/bin/sh
@@ -79,6 +82,79 @@ struct SwiftWebWasmArtifactProcessorTests {
         #expect(FileManager.default.fileExists(atPath: artifactURL.path + ".gz"))
         #expect(FileManager.default.fileExists(atPath: artifactURL.path + ".br"))
         #expect(FileManager.default.fileExists(atPath: artifactURL.path + ".size.json"))
+        #expect(FileManager.default.fileExists(
+            atPath: SwiftWebWasmCompressionCache.cacheURL(for: artifactURL).path
+        ))
+    }
+
+    @Test
+    func productionReusesCompressedSidecarsWhenContentHashMatches() throws {
+        let root = try temporaryDirectory()
+        defer {
+            do {
+                try FileManager.default.removeItem(at: root)
+            } catch {}
+        }
+        let toolsDirectory = root.appendingPathComponent("tools", isDirectory: true)
+        try FileManager.default.createDirectory(at: toolsDirectory, withIntermediateDirectories: true)
+        let logURL = root.appendingPathComponent("compression.log")
+        try writeFakeTool(
+            """
+            #!/bin/sh
+            echo gzip >> \(shellQuoted(logURL.path))
+            input="$4"
+            /bin/cp "$input" "$input.gz"
+            """,
+            named: "gzip",
+            in: toolsDirectory
+        )
+        try writeFakeTool(
+            """
+            #!/bin/sh
+            echo brotli >> \(shellQuoted(logURL.path))
+            output=""
+            input=""
+            while [ "$#" -gt 0 ]; do
+              case "$1" in
+                -o)
+                  shift
+                  output="$1"
+                  ;;
+                -*)
+                  ;;
+                *)
+                  input="$1"
+                  ;;
+              esac
+              shift
+            done
+            /bin/cp "$input" "$output"
+            """,
+            named: "brotli",
+            in: toolsDirectory
+        )
+
+        let artifactURL = root.appendingPathComponent("runtime.wasm")
+        try wasmModule(sections: [section(id: 10, payload: [0x01, 0x02])])
+            .write(to: artifactURL)
+        let processor = SwiftWebWasmArtifactProcessor(
+            options: .production(environment: ["SWIFTWEB_WASM_OPTIMIZE": "0"]),
+            environment: ["PATH": toolsDirectory.path]
+        )
+
+        _ = try processor.process(fileURL: artifactURL)
+        let firstLog = try String(contentsOf: logURL, encoding: .utf8)
+        #expect(firstLog.split(whereSeparator: \.isNewline).count == 2)
+
+        _ = try processor.process(fileURL: artifactURL)
+        let secondLog = try String(contentsOf: logURL, encoding: .utf8)
+        #expect(secondLog == firstLog)
+
+        try wasmModule(sections: [section(id: 10, payload: [0x03, 0x04])])
+            .write(to: artifactURL)
+        _ = try processor.process(fileURL: artifactURL)
+        let thirdLog = try String(contentsOf: logURL, encoding: .utf8)
+        #expect(thirdLog.split(whereSeparator: \.isNewline).count == 4)
     }
 
     @Test
@@ -93,6 +169,7 @@ struct SwiftWebWasmArtifactProcessorTests {
         try wasmModule(sections: [section(id: 10, payload: [0x01])]).write(to: artifactURL)
         try Data("stale".utf8).write(to: URL(fileURLWithPath: artifactURL.path + ".gz"))
         try Data("stale".utf8).write(to: URL(fileURLWithPath: artifactURL.path + ".br"))
+        try Data("stale".utf8).write(to: SwiftWebWasmCompressionCache.cacheURL(for: artifactURL))
 
         let processor = SwiftWebWasmArtifactProcessor(
             options: .development(environment: [:]),
@@ -104,6 +181,9 @@ struct SwiftWebWasmArtifactProcessorTests {
         #expect(result.brotliBytes == nil)
         #expect(!FileManager.default.fileExists(atPath: artifactURL.path + ".gz"))
         #expect(!FileManager.default.fileExists(atPath: artifactURL.path + ".br"))
+        #expect(!FileManager.default.fileExists(
+            atPath: SwiftWebWasmCompressionCache.cacheURL(for: artifactURL).path
+        ))
         #expect(FileManager.default.fileExists(atPath: artifactURL.path + ".size.json"))
     }
 
@@ -157,6 +237,10 @@ struct SwiftWebWasmArtifactProcessorTests {
             [.posixPermissions: 0o755],
             ofItemAtPath: url.path
         )
+    }
+
+    private func shellQuoted(_ value: String) -> String {
+        "'\(value.replacingOccurrences(of: "'", with: "'\\''"))'"
     }
 
     private func wasmModule(sections: [Data]) -> Data {

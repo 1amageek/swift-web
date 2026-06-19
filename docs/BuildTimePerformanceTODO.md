@@ -89,10 +89,11 @@ flowchart LR
 ```
 
 The JavaScriptKit fix removed the avoidable macro dependency from the browser graph. The
-remaining browser-runtime work is not primarily SwiftSyntax. The next optimization pass
-should separate dev and production timing: dev startup should track the SwiftPM build plus
-development artifact processing, while production `swift-web build --wasm` should cache or
-make explicit the expensive Brotli sidecar generation.
+remaining browser-runtime work is not primarily SwiftSyntax. Dev startup should track the
+SwiftPM build plus development artifact processing, while production `swift-web build
+--wasm` now caches gzip/Brotli sidecars when the post-processed WASM content hash and
+compression signature are unchanged. Brotli q11 remains a production-only cost when the
+artifact content changes.
 
 ## Current Boundary
 
@@ -133,7 +134,6 @@ pass:
 | Prebuilt framework binaries | Determine which SwiftWeb runtime products can be distributed as binary artifacts without hurting local framework development. |
 | Package graph split | Determine whether `SwiftWebCore`, `SwiftWeb`, `SwiftWebDevelopment`, and Storyboard can reduce dependency graph breadth further. |
 | Vapor stack revision | Measure the locked Vapor HTTP stack separately and avoid accidental `swift-http-server` branch drift during generated package builds. |
-| Production sidecar cache | Avoid regenerating gzip/Brotli sidecars when the post-processed WASM content hash is unchanged. |
 | Brotli policy | Decide whether local `swift-web build --wasm` should default to q11 or require an explicit production compression mode. |
 
 ## Non-Goals For HMR Stabilization

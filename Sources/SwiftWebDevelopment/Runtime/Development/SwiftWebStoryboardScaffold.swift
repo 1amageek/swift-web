@@ -156,7 +156,7 @@ public struct SwiftWebStoryboardScaffold: Sendable {
     }
 
     private func packageSwift() throws -> String {
-        let swiftHTMLPackageDirectory = try resolveSwiftHTMLPackageDirectory()
+        let swiftHTMLDependency = try swiftHTMLDependencyDeclaration()
         return """
         // swift-tools-version: 6.3
 
@@ -172,7 +172,7 @@ public struct SwiftWebStoryboardScaffold: Sendable {
             ],
             dependencies: [
                 .package(path: "\(Self.swiftStringLiteral(swiftWebPackageDirectory.path))"),
-                .package(path: "\(Self.swiftStringLiteral(swiftHTMLPackageDirectory.path))"),
+                \(swiftHTMLDependency),
             ],
             targets: [
                 .target(
@@ -192,7 +192,15 @@ public struct SwiftWebStoryboardScaffold: Sendable {
         """
     }
 
-    private func resolveSwiftHTMLPackageDirectory() throws -> URL {
+    private func swiftHTMLDependencyDeclaration() throws -> String {
+        if let directory = try localSwiftHTMLPackageDirectory() {
+            return #".package(path: "\#(Self.swiftStringLiteral(directory.path))")"#
+        }
+
+        return #".package(url: "https://github.com/1amageek/swift-html.git", from: "0.5.0")"#
+    }
+
+    private func localSwiftHTMLPackageDirectory() throws -> URL? {
         if let root = try SwiftWebPackageManifestInspector.optionalLocalDependencyRoot(
             named: "swift-html",
             in: swiftWebPackageDirectory
@@ -210,10 +218,7 @@ public struct SwiftWebStoryboardScaffold: Sendable {
             return sibling
         }
 
-        throw SwiftWebGeneratedPackageMaterializerError.localDependencyNotFound(
-            package: "swift-html",
-            in: swiftWebPackageDirectory
-        )
+        return nil
     }
 
     private var appSwift: String {

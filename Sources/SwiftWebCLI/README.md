@@ -129,9 +129,11 @@ flowchart LR
   C --> D[".wasm.size.json"]
   C --> E[".wasm.gz"]
   C --> F[".wasm.br"]
+  E --> G[".wasm.compression.json"]
+  F --> G
 ```
 
-`SWIFTWEB_WASM_OPTIMIZE=0` skips `wasm-opt`. `SWIFTWEB_WASM_BROTLI_QUALITY` can lower Brotli quality when release build time matters more than maximum transfer compression.
+`SWIFTWEB_WASM_OPTIMIZE=0` skips `wasm-opt`. `SWIFTWEB_WASM_BROTLI_QUALITY` can lower Brotli quality when release build time matters more than maximum transfer compression. Existing gzip/Brotli sidecars are reused when `.wasm.compression.json` proves that the post-processed WASM content hash and compression signature are unchanged.
 
 ## Generated Files
 

@@ -92,6 +92,59 @@ struct SwiftWebStoryboardScaffoldTests {
         )
     }
 
+    @Test
+    func materializesStoryboardPreviewWithReleasedSwiftHTMLWhenLocalCheckoutIsUnavailable() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("SwiftWebStoryboardScaffoldTests-\(UUID().uuidString)", isDirectory: true)
+        defer {
+            do {
+                try FileManager.default.removeItem(at: root)
+            } catch {}
+        }
+
+        let swiftWebPackage = root.appendingPathComponent("swift-web", isDirectory: true)
+        let storyboardPackage = root.appendingPathComponent(".swiftweb/storyboard", isDirectory: true)
+        try write(
+            """
+            // swift-tools-version: 6.3
+            import PackageDescription
+
+            let package = Package(
+                name: "swift-web",
+                products: [
+                    .library(name: "SwiftWeb", targets: ["SwiftWeb"]),
+                    .library(name: "SwiftWebUI", targets: ["SwiftWebUI"]),
+                    .library(name: "SwiftWebStoryboard", targets: ["SwiftWebStoryboard"]),
+                ],
+                targets: [
+                    .target(name: "SwiftWeb"),
+                    .target(name: "SwiftWebUI"),
+                    .target(name: "SwiftWebStoryboard"),
+                ]
+            )
+            """,
+            to: swiftWebPackage.appendingPathComponent("Package.swift")
+        )
+        try write(
+            "public struct CatalogRoot {}",
+            to: swiftWebPackage
+                .appendingPathComponent("Sources/SwiftWebStoryboard/Components/CatalogRoot.swift")
+        )
+
+        try SwiftWebStoryboardScaffold(
+            projectDirectory: storyboardPackage,
+            swiftWebPackageDirectory: swiftWebPackage
+        )
+        .materialize(force: false)
+
+        let packageSwift = try String(
+            contentsOf: storyboardPackage.appendingPathComponent("Package.swift"),
+            encoding: .utf8
+        )
+
+        #expect(packageSwift.contains(#".package(url: "https://github.com/1amageek/swift-html.git", from: "0.5.0")"#))
+    }
+
     private func write(_ contents: String, to url: URL) throws {
         try FileManager.default.createDirectory(
             at: url.deletingLastPathComponent(),

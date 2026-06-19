@@ -46,7 +46,7 @@ SwiftWeb separates dev responsiveness from production transfer optimization:
 | Mode | Artifact processing | Compression sidecars |
 |---|---|---|
 | `swift-web dev` / Storyboard dev | Strip debug, `name`, `producers`, and `sourceMappingURL` custom sections; write `<artifact>.wasm.size.json`; include the processing signature in the build stamp. | Disabled by default to keep local HMR builds fast. Stale `.gz` and `.br` sidecars are removed. |
-| `swift-web build --wasm` | Strip the same custom sections; run `wasm-opt -Oz` when Binaryen is available; write `<artifact>.wasm.size.json`. | Writes `.gz` and `.br` sidecars. Brotli defaults to quality 11 and can be changed with `SWIFTWEB_WASM_BROTLI_QUALITY`. |
+| `swift-web build --wasm` | Strip the same custom sections; run `wasm-opt -Oz` when Binaryen is available; write `<artifact>.wasm.size.json`. | Writes `.gz` and `.br` sidecars. Brotli defaults to quality 11 and can be changed with `SWIFTWEB_WASM_BROTLI_QUALITY`. Existing sidecars are reused when `<artifact>.wasm.compression.json` matches the post-processed WASM content hash and compression signature. |
 | Runtime asset route | Serves raw `.wasm` unless the request accepts an available `.br` or `.gz` sidecar. | Adds `Content-Encoding` and `Vary: Accept-Encoding` for sidecar responses. |
 
 `SWIFTWEB_WASM_OPTIMIZE=0` disables `wasm-opt` even for production builds. `SWIFTWEB_WASM_OPTIMIZE=1` enables it for dev builds when the tool is available, but this is intended for diagnostics because it slows HMR.
@@ -60,6 +60,7 @@ The next optimization pass should focus on these layers:
 | Done | Remove macro, development, and SwiftSyntax dependencies from generated WASM products. | Reduced avoidable code in runtime artifacts and lowered the eager bundle from about 70 MB to about 56.5 MB in E2E. |
 | Done | Add artifact processing: debug/producers section stripping, optional `wasm-opt -Oz`, and size reports. | Gives a deterministic artifact pass and size attribution without changing public API. |
 | Done | Serve precompressed gzip/Brotli variants when production sidecars exist. | Reduces network transfer size for production artifacts. |
+| Done | Cache production gzip/Brotli sidecars by post-processed WASM content hash. | Avoids repeating expensive Brotli q11 work when the artifact content has not changed. |
 | Done | Use `coalescedPolicyBundles` while thin component modules are unavailable. | Avoids accidental duplication from unnecessary split products without breaking `visible` / `interaction` / `idle` / `manual` timing. |
 | Next | Implement a shared base runtime plus thin component modules once Swift/Wasm linking support exposes a stable browser-ready contract. | Address the root duplication problem across split bundles. |
 

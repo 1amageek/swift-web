@@ -144,14 +144,22 @@ public struct SwiftWebWasmArtifactProcessor: Sendable {
         }
 
         let finalData = try Data(contentsOf: fileURL, options: [.mappedIfSafe])
+        let finalContentHash = Self.contentHash(of: finalData)
+        var compressionCache = SwiftWebWasmCompressionCache.load(
+            for: fileURL,
+            warnings: &warnings
+        )
         let gzipBytes = try writeCompressedSidecar(
             toolName: "gzip",
             extensionName: "gz",
             enabled: options.generatesGzipSidecar,
             fileURL: fileURL,
+            artifactContentHash: finalContentHash,
+            compressionSignature: "gzip -9",
             arguments: { input, _ in
                 ["-k", "-f", "-9", input.path]
             },
+            compressionCache: &compressionCache,
             warnings: &warnings
         )
         let brotliBytes = try writeCompressedSidecar(
@@ -159,11 +167,21 @@ public struct SwiftWebWasmArtifactProcessor: Sendable {
             extensionName: "br",
             enabled: options.generatesBrotliSidecar,
             fileURL: fileURL,
+            artifactContentHash: finalContentHash,
+            compressionSignature: "brotli q\(options.brotliQuality)",
             arguments: { input, output in
                 ["-f", "-q", "\(options.brotliQuality)", "-o", output.path, input.path]
             },
+            compressionCache: &compressionCache,
             warnings: &warnings
         )
+        do {
+            try compressionCache.write(for: fileURL)
+        } catch {
+            warnings.append(
+                "WASM compression cache write skipped: \(String(describing: error))"
+            )
+        }
 
         let reportURL: URL?
         if options.writesSizeReport {
@@ -187,7 +205,7 @@ public struct SwiftWebWasmArtifactProcessor: Sendable {
             finalBytes: finalData.count,
             gzipBytes: gzipBytes,
             brotliBytes: brotliBytes,
-            contentHash: Self.contentHash(of: finalData),
+            contentHash: finalContentHash,
             transformations: transformations,
             warnings: warnings,
             reportURL: reportURL
@@ -225,16 +243,29 @@ public struct SwiftWebWasmArtifactProcessor: Sendable {
         extensionName: String,
         enabled: Bool,
         fileURL: URL,
+        artifactContentHash: String,
+        compressionSignature: String,
         arguments: (URL, URL) -> [String],
+        compressionCache: inout SwiftWebWasmCompressionCache,
         warnings: inout [String]
     ) throws -> Int? {
         let sidecarURL = URL(fileURLWithPath: fileURL.path + ".\(extensionName)")
         guard enabled else {
             try removeItemIfExists(at: sidecarURL)
+            compressionCache.remove(extensionName: extensionName)
             return nil
+        }
+        if let cachedBytes = try compressionCache.cachedBytes(
+            extensionName: extensionName,
+            artifactContentHash: artifactContentHash,
+            compressionSignature: compressionSignature,
+            sidecarURL: sidecarURL
+        ) {
+            return cachedBytes
         }
         guard let executableURL = executableURL(named: toolName) else {
             try removeItemIfExists(at: sidecarURL)
+            compressionCache.remove(extensionName: extensionName)
             warnings.append("\(toolName) was not found; skipped .\(extensionName) sidecar")
             return nil
         }
@@ -246,7 +277,12 @@ public struct SwiftWebWasmArtifactProcessor: Sendable {
         guard FileManager.default.fileExists(atPath: sidecarURL.path) else {
             throw ProcessingError.missingOutput(sidecarURL)
         }
-        return try fileSize(at: sidecarURL)
+        return try compressionCache.store(
+            extensionName: extensionName,
+            artifactContentHash: artifactContentHash,
+            compressionSignature: compressionSignature,
+            sidecarURL: sidecarURL
+        )
     }
 
     private func executableURL(named name: String) -> URL? {
@@ -321,11 +357,6 @@ public struct SwiftWebWasmArtifactProcessor: Sendable {
         if FileManager.default.fileExists(atPath: url.path) {
             try FileManager.default.removeItem(at: url)
         }
-    }
-
-    private func fileSize(at url: URL) throws -> Int {
-        let values = try url.resourceValues(forKeys: [.fileSizeKey])
-        return values.fileSize ?? 0
     }
 
     private static func contentHash(of data: Data) -> String {
