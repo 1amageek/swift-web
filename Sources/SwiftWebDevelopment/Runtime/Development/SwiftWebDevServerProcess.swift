@@ -77,14 +77,15 @@ struct SwiftWebDevServerProcess {
     }
 
     private func buildExecutable() throws -> URL {
+        let toolchain = try SwiftWebHostSwiftToolchain.resolve(configuration: configuration)
         var buildArguments = swiftBuildArguments()
         buildArguments.append("--product")
         buildArguments.append(configuration.product)
-        try runProcess(arguments: buildArguments)
+        try runProcess(arguments: buildArguments, toolchain: toolchain)
 
         var binPathArguments = swiftBuildArguments()
         binPathArguments.append("--show-bin-path")
-        let binPathOutput = try captureProcessOutput(arguments: binPathArguments)
+        let binPathOutput = try captureProcessOutput(arguments: binPathArguments, toolchain: toolchain)
         guard let binPath = binPathOutput
             .split(whereSeparator: \.isNewline)
             .last
@@ -105,7 +106,6 @@ struct SwiftWebDevServerProcess {
 
     private func swiftBuildArguments() -> [String] {
         var arguments = [
-            "swift",
             "build",
             "--disable-sandbox",
             "--package-path",
@@ -120,12 +120,12 @@ struct SwiftWebDevServerProcess {
         return arguments
     }
 
-    private func runProcess(arguments: [String]) throws {
+    private func runProcess(arguments: [String], toolchain: SwiftWebHostSwiftToolchain) throws {
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.executableURL = toolchain.swiftExecutableURL
         process.arguments = arguments
         process.currentDirectoryURL = configuration.packageDirectory
-        process.environment = try processEnvironment()
+        process.environment = try processEnvironment(toolchain: toolchain)
         process.standardInput = FileHandle.standardInput
         process.standardOutput = FileHandle.standardOutput
         process.standardError = FileHandle.standardError
@@ -134,19 +134,22 @@ struct SwiftWebDevServerProcess {
         process.waitUntilExit()
         guard process.terminationStatus == 0 else {
             throw SwiftWebDevRuntimeError.processFailed(
-                command: commandDescription(arguments),
+                command: commandDescription(arguments, executableURL: toolchain.swiftExecutableURL),
                 status: process.terminationStatus
             )
         }
     }
 
-    private func captureProcessOutput(arguments: [String]) throws -> String {
+    private func captureProcessOutput(
+        arguments: [String],
+        toolchain: SwiftWebHostSwiftToolchain
+    ) throws -> String {
         let process = Process()
         let output = Pipe()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.executableURL = toolchain.swiftExecutableURL
         process.arguments = arguments
         process.currentDirectoryURL = configuration.packageDirectory
-        process.environment = try processEnvironment()
+        process.environment = try processEnvironment(toolchain: toolchain)
         process.standardInput = FileHandle.standardInput
         process.standardOutput = output
         process.standardError = FileHandle.standardError
@@ -156,7 +159,7 @@ struct SwiftWebDevServerProcess {
         process.waitUntilExit()
         guard process.terminationStatus == 0 else {
             throw SwiftWebDevRuntimeError.processFailed(
-                command: commandDescription(arguments),
+                command: commandDescription(arguments, executableURL: toolchain.swiftExecutableURL),
                 status: process.terminationStatus
             )
         }
@@ -164,8 +167,8 @@ struct SwiftWebDevServerProcess {
         return String(decoding: data, as: UTF8.self)
     }
 
-    private func commandDescription(_ arguments: [String]) -> String {
-        (["env"] + arguments).joined(separator: " ")
+    private func commandDescription(_ arguments: [String], executableURL: URL) -> String {
+        ([executableURL.path] + arguments).joined(separator: " ")
     }
 
     private func terminate(_ process: Process, gracePeriod: TimeInterval = 2) {
@@ -191,7 +194,7 @@ struct SwiftWebDevServerProcess {
         }
     }
 
-    private func processEnvironment() throws -> [String: String] {
+    private func processEnvironment(toolchain: SwiftWebHostSwiftToolchain? = nil) throws -> [String: String] {
         let moduleCacheDirectory = self.moduleCacheDirectory
         let temporaryDirectory = self.temporaryDirectory
         try FileManager.default.createDirectory(
@@ -209,6 +212,9 @@ struct SwiftWebDevServerProcess {
         environment["TMPDIR"] = temporaryDirectory.path + "/"
         environment["TMP"] = temporaryDirectory.path
         environment["TEMP"] = temporaryDirectory.path
+        if let toolchain {
+            environment = toolchain.applying(to: environment)
+        }
         return environment
     }
 
@@ -239,8 +245,6 @@ struct SwiftWebDevServerProcess {
     }
 
     private var wasmScratchDirectory: URL? {
-        configuration.scratchDirectory?
-            .appendingPathComponent("wasm", isDirectory: true)
-            .standardizedFileURL
+        SwiftWebDevWasmScratchDirectory.resolve(from: configuration.scratchDirectory)
     }
 }

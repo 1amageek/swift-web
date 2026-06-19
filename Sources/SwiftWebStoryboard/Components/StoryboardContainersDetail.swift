@@ -9,6 +9,15 @@ struct ContainersDetail: Component {
 
     var body: some HTML {
         switch selection {
+        case "groupbox":
+            div(.class("swui-group-box storyboard-groupbox-demo")) {
+                VStack(alignment: .leading, spacing: .small) {
+                    Heading("Storage", level: .subsection)
+                    Text("iCloud Drive")
+                    Text("128 GB of 200 GB used", tone: .muted)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
         case "badge":
             HStack(spacing: .small) {
                 Badge("Default")
@@ -24,13 +33,6 @@ struct ContainersDetail: Component {
                 Button("Preview")
                 Button("Save", prominence: .primary)
             }
-        case "valuedisplay":
-            HStack(spacing: .medium) {
-                ValueDisplay(label: "Score", value: 42)
-                ValueDisplay(label: "Streak", value: 7)
-                ValueDisplay(label: "Grade", value: "A+")
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
         case "list":
             List {
                 ListRow {
@@ -77,38 +79,26 @@ struct ContainersDetail: Component {
                 Badge("Cell 4")
             }
         case "lazy":
-            Grid(minColumnWidth: "220px", spacing: .large) {
-                CatalogVariant("LazyVStack") {
-                    LazyVStack(alignment: .leading, spacing: .small) {
-                        Badge("Row 1")
-                        Badge("Row 2")
-                        Badge("Row 3")
+            ScrollView(.vertical) {
+                LazyVStack(alignment: .leading, spacing: .small) {
+                    ForEach(["Ada Lovelace", "Grace Hopper", "Alan Turing", "Katherine Johnson"], id: \.self) { name in
+                        HStack(spacing: .small) {
+                            Image(systemName: "envelope")
+                            VStack(alignment: .leading, spacing: .xsmall) {
+                                Text(name)
+                                Text("Message preview", tone: .muted)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
-                CatalogVariant("LazyHStack") {
-                    LazyHStack(spacing: .small) {
-                        Badge("A")
-                        Badge("B")
-                        Badge("C")
-                    }
-                }
-                CatalogVariant("LazyVGrid") {
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: .small) {
-                        Badge("1")
-                        Badge("2")
-                        Badge("3")
-                        Badge("4")
-                    }
-                }
-                CatalogVariant("LazyHGrid") {
-                    LazyHGrid(rows: [GridItem(.fixed(28)), GridItem(.fixed(28))], spacing: .small) {
-                        Badge("1")
-                        Badge("2")
-                        Badge("3")
-                        Badge("4")
-                    }
-                }
+                .padding(.all, "8px")
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .frame(width: "280px", height: "160px")
+            .background("var(--swui-surface-raised)")
+            .cornerRadius("12px")
+            .style { .border("1px solid var(--swui-border)") }
         case "scrollview":
             ScrollView(.vertical) {
                 VStack(alignment: .leading, spacing: .small) {
@@ -129,15 +119,14 @@ struct ContainersDetail: Component {
             .cornerRadius("12px")
             .style { .border("1px solid var(--swui-border)") }
         default:
-            Card {
+            div(.class("swui-group-box storyboard-groupbox-demo")) {
                 VStack(alignment: .leading, spacing: .small) {
-                    Heading("Card title", level: .subsection)
-                    Text("Cards group related content on the shared surface material.", tone: .muted)
+                    Heading("Storage", level: .subsection)
+                    Text("iCloud Drive")
+                    Text("128 GB of 200 GB used", tone: .muted)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }
-

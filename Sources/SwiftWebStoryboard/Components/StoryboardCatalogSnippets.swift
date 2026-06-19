@@ -4,21 +4,79 @@ import SwiftWebUI
 
 func catalogSnippet(for id: String) -> String {
   switch id {
-  case "typography":
+  case "gridsystem":
     return """
-      VStack(alignment: .leading, spacing: .small) {
-          Heading("Page heading", level: .page)
-          Heading("Section heading", level: .section)
-          Text("Muted secondary copy", tone: .muted)
-          Text("inline.code()", as: .code)
+      GridSystem(columns: 12, gutter: .medium) {
+          Pane(span: 8) { Article() }
+          Pane(span: 4) { Sidebar() }
       }
       """
-  case "textblock":
+  case "spacing":
     return """
-      VStack(alignment: .leading, spacing: .small) {
-          TextBlock("Paragraph copy for long-form content.")
-          TextBlock("Muted paragraph copy for support text.", tone: .muted)
+      VStack(spacing: .large) {
+          GroupBox { Text("Content") }
+              .padding(.medium)
+          Button("Continue")
       }
+      """
+  case "alignment":
+    return """
+      Text("Hello, SwiftWebUI")
+          // centered by default
+
+      Text("Pinned left")
+          .frame(maxWidth: .infinity, alignment: .leading)
+      """
+  case "style":
+    return """
+      Text("Wi-Fi")
+
+      List {
+          HStack {
+              Text("Wi-Fi")
+              Spacer()
+              Text("On", tone: .muted)
+          }
+      }
+      """
+  case "responsive":
+    return """
+      LazyVGrid(columns: columns, spacing: sizeClass.gutter) {
+          ForEach(items) { item in
+              ContentTile(item)
+          }
+      }
+      .padding(.horizontal, sizeClass.margin)
+      """
+  case "safearea":
+    return """
+      Scene {
+          Content()
+      }
+
+      Hero()
+          .ignoresSafeArea()
+      """
+  case "typography":
+    return """
+      Text("Hello, SwiftWebUI")
+          .font(.largeTitle)
+          .fontWeight(.bold)
+          .foregroundStyle(.primary)
+      """
+  case "code":
+    return """
+      CodeBlock(
+          source,
+          language: "swift",
+          showsLineNumbers: true
+      )
+      """
+  case "colorvalue":
+    return """
+      Color.blue
+          .opacity(1)
+          .frame(width: 150, height: 104)
       """
   case "color":
     return """
@@ -29,29 +87,6 @@ func catalogSnippet(for id: String) -> String {
               .tint(.danger)
           Button("Custom", prominence: .primary)
               .tint(.css("#22a06b"))
-      }
-      """
-  case "materials":
-    return """
-      VStack(alignment: .leading, spacing: .medium) {
-          Text("Regular material")
-              .padding(.all, "16px")
-              .background(.regularMaterial, in: .rect(cornerRadius: 16))
-          Text("Bar material")
-              .padding(.all, "16px")
-              .background(.bar, in: .rect(cornerRadius: 16))
-      }
-      .environment(\\.styleSystem, .liquidGlass)
-      """
-  case "glass":
-    return """
-      GlassEffectContainer(spacing: .medium) {
-          Text("Regular glass")
-              .padding(.all, "12px 18px")
-              .glassEffect(.regular, in: .capsule)
-          Text("Tinted")
-              .padding(.all, "12px 18px")
-              .glassEffect(.regular.tint("var(--swui-accent)").interactive(), in: .capsule)
       }
       """
   case "button":
@@ -98,8 +133,8 @@ func catalogSnippet(for id: String) -> String {
   case "links":
     return """
       HStack(spacing: .small) {
-          ButtonLink("Primary link", href: "/docs", prominence: .primary)
-          ButtonLink("Secondary link", href: "/docs", prominence: .secondary)
+          Link("Documentation", href: "/docs")
+              .buttonStyle(.glassProminent)
           Link("Inline anchor", href: "/docs")
       }
       """
@@ -183,12 +218,12 @@ func catalogSnippet(for id: String) -> String {
           Button("Delete") {}
       }
       """
-  case "card":
+  case "groupbox":
     return """
-      Card {
+      GroupBox("Storage") {
           VStack(alignment: .leading, spacing: .small) {
-              Heading("Card title", level: .subsection)
-              Text("Cards group related content.", tone: .muted)
+              Text("iCloud Drive")
+              Text("128 GB of 200 GB used", tone: .muted)
           }
       }
       """
@@ -206,14 +241,6 @@ func catalogSnippet(for id: String) -> String {
           Badge("Default")
           Badge("Ready")
           Badge("Beta")
-      }
-      """
-  case "valuedisplay":
-    return """
-      HStack(spacing: .medium) {
-          ValueDisplay(label: "Score", value: 42)
-          ValueDisplay(label: "Streak", value: 7)
-          ValueDisplay(label: "Grade", value: "A+")
       }
       """
   case "list":
@@ -394,6 +421,14 @@ func catalogSnippet(for id: String) -> String {
               Badge("trailing")
           }
           Divider()
+      }
+      """
+  case "divider":
+    return """
+      VStack(alignment: .leading, spacing: .small) {
+          Text("Section one")
+          Divider()
+          Text("Section two")
       }
       """
   case "hug-fill":

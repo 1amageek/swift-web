@@ -44,7 +44,8 @@ public struct SwiftWebDevRuntime {
       product: generatedPackage.developmentServerProductName,
       host: "127.0.0.1",
       port: 0,
-      readinessTimeout: configuration.readinessTimeout
+      readinessTimeout: configuration.readinessTimeout,
+      hostSwiftExecutableURL: configuration.hostSwiftExecutableURL
     )
     let dependencyRoots = try SwiftWebDevLocalPackageDependencyResolver.localPackageRoots(
       for: configuration.packageDirectory

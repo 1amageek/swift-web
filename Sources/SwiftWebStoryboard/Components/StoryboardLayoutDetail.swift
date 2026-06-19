@@ -18,6 +18,14 @@ struct LayoutDetail: Component {
             .frame(maxWidth: .infinity, alignment: .leading)
             Divider()
             Text("Above and below are separated by a Divider.", as: .small, tone: .muted)
+        case "divider":
+            VStack(alignment: .leading, spacing: .small) {
+                Text("Section one")
+                Divider()
+                Text("Section two")
+            }
+            .class("storyboard-divider-demo")
+            .frame(maxWidth: .infinity, alignment: .leading)
         case "hug-fill":
             HStack(spacing: .small) {
                 Badge("fixedSize()")
@@ -39,32 +47,16 @@ struct LayoutDetail: Component {
             .style { .border("1px solid color-mix(in srgb, var(--swui-accent) 32%, transparent)") }
             .frame(maxWidth: .infinity, alignment: .leading)
         default:
-            Grid(minColumnWidth: "180px", spacing: .large) {
-                CatalogVariant("VStack") {
-                    VStack(alignment: .leading, spacing: .small) {
-                        Badge("Top")
-                        Badge("Middle")
-                        Badge("Bottom")
-                    }
+            HStack(spacing: .small) {
+                Image(systemName: "checkmark.seal.fill")
+                VStack(alignment: .leading, spacing: .xsmall) {
+                    Text("Ada Lovelace")
+                    Text("Mathematician", tone: .muted)
                 }
-                CatalogVariant("HStack") {
-                    HStack(spacing: .small) {
-                        Badge("A")
-                        Badge("B")
-                        Badge("C")
-                    }
-                }
-                CatalogVariant("ZStack") {
-                    ZStack(alignment: .center) {
-                        Text(" ")
-                            .frame(width: "160px", height: "64px")
-                            .background("color-mix(in srgb, var(--swui-accent) 16%, transparent)")
-                            .cornerRadius("10px")
-                        Badge("Overlay")
-                    }
-                }
+                Spacer()
+                Button("Follow", prominence: .primary)
             }
+            .frame(maxWidth: "420px", alignment: .leading)
         }
     }
 }
-

@@ -8,6 +8,7 @@ public enum SwiftWebDevRuntimeError: Error, Sendable, CustomStringConvertible {
     case hostReadinessTimeout(host: String, port: Int, timeout: TimeInterval)
     case workerPortAllocationFailed
     case workerReadinessTimeout(host: String, port: Int, timeout: TimeInterval)
+    case hostSwiftToolchainNotFound(searched: [String])
     case wasmToolchainNotFound(sdkName: String, searched: [String])
     case initialWasmBuildFailed(component: String, product: String, reason: String)
 
@@ -30,6 +31,13 @@ public enum SwiftWebDevRuntimeError: Error, Sendable, CustomStringConvertible {
             return "dev worker internal port allocation failed"
         case .workerReadinessTimeout(let host, let port, let timeout):
             return "dev worker did not become ready on \(host):\(port) within \(timeout) seconds"
+        case .hostSwiftToolchainNotFound(let searched):
+            return """
+            Swift host toolchain was not found.
+            Set SWIFT_WEB_HOST_SWIFT to a swift executable, or set SWIFT_WEB_HOST_TOOLCHAIN_BIN to a toolchain bin directory.
+            Searched:
+            \(searched.joined(separator: "\n"))
+            """
         case .wasmToolchainNotFound(let sdkName, let searched):
             return """
             Swift WASM toolchain was not found for \(sdkName).
@@ -53,7 +61,8 @@ public enum SwiftWebDevRuntimeError: Error, Sendable, CustomStringConvertible {
         case .portInUse:
             return 69
         case .processFailed, .executableNotFound, .hostReadinessTimeout, .workerPortAllocationFailed,
-             .workerReadinessTimeout, .wasmToolchainNotFound, .initialWasmBuildFailed:
+             .workerReadinessTimeout, .hostSwiftToolchainNotFound, .wasmToolchainNotFound,
+             .initialWasmBuildFailed:
             return 70
         }
     }

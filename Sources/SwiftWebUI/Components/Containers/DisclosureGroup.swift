@@ -5,7 +5,7 @@ import SwiftHTML
 ///
 /// Lowers to a native `<details>`/`<summary>` pair, so expansion works without
 /// any client runtime. The surface composes the shared `regularMaterial`
-/// recipe, matching `Card`.
+/// recipe.
 public struct DisclosureGroup<Content: HTML>: WebUIAttributeComponent {
     private let title: String
     private let isExpanded: Bool

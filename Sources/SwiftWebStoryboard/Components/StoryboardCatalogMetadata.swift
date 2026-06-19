@@ -33,40 +33,70 @@ func catalogDetailSpec(for item: CatalogItem) -> CatalogDetailSpec {
 }
 
 private func catalogOverview(for item: CatalogItem) -> String {
-    "\(item.summary) The live preview above is the canonical behavior for this Storyboard entry."
+    item.summary
 }
 
 private func catalogProperties(for id: String) -> [CatalogProperty] {
     switch id {
+    case "gridsystem":
+        return [
+            CatalogProperty("GridSystem(columns:gutter:)", values: "container", summary: "Configures the column count and gutter from the 8px scale."),
+            CatalogProperty("columns", values: "4 / 8 / 12", summary: "Divides the content canvas into whole-number tracks."),
+            CatalogProperty("Pane(span:)", values: "1...columns", summary: "Declares how many columns a child occupies."),
+        ]
+    case "spacing":
+        return [
+            CatalogProperty("base unit", values: "8px", summary: "The atomic spacing step."),
+            CatalogProperty(".small / .medium / .large", values: "8 / 12 / 16px", summary: "Named spacing tokens resolved by the active style system."),
+            CatalogProperty("half-step", values: "4px", summary: "Reserved for fine optical alignment."),
+        ]
+    case "alignment":
+        return [
+            CatalogProperty("default", values: ".center", summary: "A lone view is centered in its container by default."),
+            CatalogProperty("frame(alignment:)", values: ".leading / .center / .trailing", summary: "Positions content within the view's available space."),
+            CatalogProperty("multilineTextAlignment", values: ".leading / .center / .trailing", summary: "Aligns wrapped text lines inside their own box."),
+        ]
+    case "style":
+        return [
+            CatalogProperty("class-only DOM", values: "no inline styles", summary: "Components emit stable semantic class hooks."),
+            CatalogProperty("semantic class", values: ".swui-text / .swui-list / .swui-toolbar", summary: "Every component exposes a cascade hook."),
+            CatalogProperty("contextual CSS", values: ".swui-list .swui-text", summary: "Container selectors restyle children."),
+        ]
+    case "responsive":
+        return [
+            CatalogProperty("compact", values: "< 600px", summary: "Single stacked column with reduced margins."),
+            CatalogProperty("regular", values: "600-1024px", summary: "Eight-column grid with medium gutters."),
+            CatalogProperty("large", values: "> 1024px", summary: "Twelve-column grid with wider margins."),
+        ]
+    case "safearea":
+        return [
+            CatalogProperty("viewport-fit=cover", values: "default meta", summary: "Lets env(safe-area-inset-*) return real values."),
+            CatalogProperty("root scene inset", values: "env(...)", summary: "Pads content away from device and browser chrome."),
+            CatalogProperty("ignoresSafeArea()", values: "opt-out", summary: "Lets one element extend to the edge."),
+        ]
     case "typography":
         return [
-            CatalogProperty("level", values: ".page / .section / .subsection", summary: "Controls Heading scale and semantic heading rank."),
-            CatalogProperty("as", values: ".p / .small / .strong / .code / custom tag", summary: "Switches Text's rendered element while keeping SwiftWebUI styling."),
-            CatalogProperty("tone", values: ".normal / .muted", summary: "Maps copy to primary or secondary theme tokens."),
+            CatalogProperty("Text(_:as:)", values: "String", summary: "The read-only string the view renders."),
+            CatalogProperty("font", values: ".largeTitle / .title / .headline / .body / .caption", summary: "Applies a semantic font preset."),
+            CatalogProperty("foregroundStyle", values: ".primary / .secondary / .accent / .danger", summary: "Sets color from a semantic role."),
         ]
-    case "textblock":
+    case "code":
         return [
-            CatalogProperty("text", values: "String", summary: "Paragraph content rendered as one block-level element."),
-            CatalogProperty("tone", values: ".normal / .muted", summary: "Maps the paragraph to primary or secondary text tokens."),
-            CatalogProperty("attributes", values: "HTMLAttribute...", summary: "Adds semantic attributes without leaving SwiftWebUI."),
+            CatalogProperty("content", values: "String", summary: "The source code to render."),
+            CatalogProperty("language", values: "String", summary: "Language hint emitted as data-language and aria label."),
+            CatalogProperty("showsLineNumbers", values: "Bool", summary: "Toggles the leading line-number gutter."),
+        ]
+    case "colorvalue":
+        return [
+            CatalogProperty("Color.<name>", values: "static color", summary: "A standard system color with light and dark values."),
+            CatalogProperty("opacity(_:)", values: "Double", summary: "Returns the color at a fractional alpha."),
+            CatalogProperty("frame(width:height:)", values: "modifier", summary: "Defines the region the color paints."),
         ]
     case "color":
         return [
             CatalogProperty("tint", values: ".accent / .danger / .css(String)", summary: "Sets the component accent without changing the global theme."),
             CatalogProperty("foregroundStyle", values: "semantic or CSS color", summary: "Overrides foreground color for a scoped component."),
             CatalogProperty("background", values: "semantic token or CSS color", summary: "Applies a local fill when a component needs a custom surface."),
-        ]
-    case "materials":
-        return [
-            CatalogProperty("material", values: ".ultraThinMaterial ... .bar", summary: "Selects the surface recipe resolved by the active StyleSystem."),
-            CatalogProperty("shape", values: ".rect(cornerRadius:) / .capsule", summary: "Clips and outlines the material surface."),
-            CatalogProperty("styleSystem", values: ".swiftWeb / .material / .liquidGlass", summary: "Changes how the same material contract is painted."),
-        ]
-    case "glass":
-        return [
-            CatalogProperty("effect", values: ".regular", summary: "Defines the glass recipe attached to the surface."),
-            CatalogProperty("shape", values: ".rect(cornerRadius:) / .capsule", summary: "Controls clipping and hit-area geometry."),
-            CatalogProperty("tint / interactive", values: ".tint(String) / .interactive()", summary: "Adds color and interactive response to the glass surface."),
         ]
     case "button":
         return [
@@ -95,7 +125,7 @@ private func catalogProperties(for id: String) -> [CatalogProperty] {
     case "links":
         return [
             CatalogProperty("href", values: "URL string", summary: "Navigation target."),
-            CatalogProperty("prominence", values: ".primary / .secondary", summary: "ButtonLink only; chooses button weight."),
+            CatalogProperty("buttonStyle", values: ".glass / .glassProminent / .plain", summary: "Optionally restyles the link to read as a button."),
             CatalogProperty("content", values: "String or builder", summary: "Visible label."),
         ]
     case "textfield":
@@ -164,11 +194,11 @@ private func catalogProperties(for id: String) -> [CatalogProperty] {
             CatalogProperty("content", values: "Button / Link / custom rows", summary: "Actions shown when opened."),
             CatalogProperty("disabled", values: "Bool", summary: "Prevents opening."),
         ]
-    case "card":
+    case "groupbox":
         return [
-            CatalogProperty("content", values: "@HTMLBuilder", summary: "Children grouped onto one surface."),
+            CatalogProperty("label", values: "String or @HTMLBuilder", summary: "Optional title shown above grouped content."),
+            CatalogProperty("content", values: "@HTMLBuilder", summary: "Views grouped onto one bordered surface."),
             CatalogProperty("padding", values: "Space or CSS length", summary: "Controls interior spacing."),
-            CatalogProperty("background", values: "Material or CSS", summary: "Changes the surface recipe."),
         ]
     case "toolbar":
         return [
@@ -181,12 +211,6 @@ private func catalogProperties(for id: String) -> [CatalogProperty] {
             CatalogProperty("label", values: "String", summary: "Compact status text."),
             CatalogProperty("tint", values: "semantic or CSS color", summary: "Communicates category or severity."),
             CatalogProperty("fixedSize", values: "modifier", summary: "Keeps the badge hugging its content."),
-        ]
-    case "valuedisplay":
-        return [
-            CatalogProperty("label", values: "String", summary: "Metric name."),
-            CatalogProperty("value", values: "String / Int / Double", summary: "Primary readout."),
-            CatalogProperty("frame", values: "width / maxWidth", summary: "Controls dashboard tile sizing."),
         ]
     case "list":
         return [
@@ -283,6 +307,12 @@ private func catalogProperties(for id: String) -> [CatalogProperty] {
             CatalogProperty("Spacer", values: "flex child", summary: "Consumes remaining main-axis space."),
             CatalogProperty("Divider", values: "horizontal or vertical rule", summary: "Draws a separator."),
             CatalogProperty("frame", values: "length modifiers", summary: "Constrains separators and spacer regions."),
+        ]
+    case "divider":
+        return [
+            CatalogProperty("orientation", values: "inferred from stack", summary: "Horizontal in a VStack and vertical in an HStack."),
+            CatalogProperty("style", values: "StyleSystem rule", summary: "The active style system owns the hairline color."),
+            CatalogProperty("frame", values: "length modifiers", summary: "Constrains the rule length or thickness."),
         ]
     case "hug-fill":
         return [

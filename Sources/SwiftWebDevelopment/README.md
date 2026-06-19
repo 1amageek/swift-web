@@ -16,6 +16,7 @@ It is intentionally separate from the `SwiftWeb` production runtime. Application
 | Browser dev runtime | Injects development-only HMR script and boundary metadata when `SWIFT_WEB_DEV=1`. |
 | Cleanup | Removes generated build caches through `swift-web clean`. |
 | WASM tooling | Resolves the configured Swift WASM SDK and builds generated client runtime products. |
+| Host tooling | Resolves the Swift executable used for generated Vapor worker builds independently from the WASM toolchain. |
 
 Swift 6.3 host compatibility is tracked in
 [`docs/Swift63HostCompatibilityTODO.md`](../../docs/Swift63HostCompatibilityTODO.md). Do not
@@ -28,13 +29,32 @@ passing HMR E2E run as proof that cold or warm dev build latency is acceptable.
 
 Client WASM builds use generated-package inputs plus the selected Swift executable, Swift WASM SDK, and artifact-processing signature as a build-stamp key. When the stamp and artifact hash still match, the dev runtime reuses the existing WASM artifact and emits the same client update manifest without invoking SwiftPM again.
 
+Generated browser WASM packages use a runtime-only JavaScriptKit source copy by default. This keeps JavaScriptKit BridgeJS and `swift-syntax` out of the browser package graph while still allowing `SwiftWebUIRuntime` to use `JSObject`, `JSValue`, and `JSPromise` for DOM operations and WebActor transport. The decision is recorded in [`docs/BrowserRuntimeJavaScriptKitDecision.md`](../../docs/BrowserRuntimeJavaScriptKitDecision.md).
+
 The dev runtime also keeps a bounded content-addressed WASM artifact cache. This is development-only and exists to avoid rebuilding the same generated client runtime after `.swiftweb` or temporary E2E directories are recreated.
+
+Host worker builds are separate from Client WASM builds. `SwiftWebDevServerProcess` never assumes that `swift` on `PATH` is the correct host compiler. It resolves a host Swift executable through `SwiftWebHostSwiftToolchain`, while `SwiftWebDevBuildProcess` resolves the Swift 6.3 WASM toolchain through `SwiftWebWasmToolchain`.
 
 | Variable | Behavior |
 |---|---|
+| `SWIFT_WEB_HOST_SWIFT` | Overrides the Swift executable used to build generated host/dev worker products. |
+| `SWIFT_WEB_HOST_TOOLCHAIN_BIN` | Overrides the host Swift toolchain `usr/bin` directory. |
 | `SWIFTWEB_WASM_ARTIFACT_CACHE` | Set to `0`, `false`, `no`, or `off` to disable the shared dev artifact cache. |
 | `SWIFTWEB_WASM_ARTIFACT_CACHE_PATH` | Overrides the shared cache directory. Defaults to `~/Library/Caches/SwiftWeb/wasm-artifacts/v1`. |
 | `SWIFTWEB_WASM_ARTIFACT_CACHE_MAX_BYTES` | Maximum cache size in bytes. Defaults to `536870912`; least-recently-used entries are removed after new stores. |
+| `SWIFT_WEB_WASM_SWIFT` | Overrides the Swift executable used only for WASM builds. |
+| `SWIFT_WEB_WASM_TOOLCHAIN_BIN` | Overrides the WASM toolchain `usr/bin` directory. |
+
+```mermaid
+flowchart LR
+  A["swift-web dev / storyboard"] --> B["DevHost"]
+  B --> C["host worker build"]
+  B --> D["client WASM build"]
+  C --> E["SwiftWebHostSwiftToolchain"]
+  D --> F["SwiftWebWasmToolchain"]
+  E --> G["Vapor worker executable"]
+  F --> H["Client WASM artifact"]
+```
 
 Dev artifact processing strips debug/producers custom sections and writes `<artifact>.wasm.size.json` so size attribution is available during framework work. It does not write gzip or Brotli sidecars by default, because local HMR should not spend seconds recompressing every standalone Swift/WASM product. Production `swift-web build --wasm` owns precompressed sidecars.
 

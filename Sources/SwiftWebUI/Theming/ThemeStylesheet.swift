@@ -24,6 +24,8 @@ enum ThemeStylesheet {
       + materialFallbackCSS
       + "\n"
       + progressSpinnerKeyframes
+      + "\n"
+      + designContractCSS
   }
 
   private static func cssAttributeString(_ value: String) -> String {
@@ -82,9 +84,9 @@ enum ThemeStylesheet {
       // page canvas. It keeps the themed background so the subtree previews on
       // its own theme, but drops the page-root fills: it sizes to its content
       // instead of stretching to `min-height: 100%` (which would overrun
-      // siblings), rounds its corners so the themed fill frames a rounded card
-      // instead of poking square corners past it, and pads its content so a
-      // card's drop shadow is not clipped at a hard background seam.
+      // siblings), rounds its corners so the themed fill frames a rounded
+      // container instead of poking square corners past it, and pads its content
+      // so elevation is not clipped at a hard background seam.
       rule(".swui-root .swui-root") {
         .minHeight("auto")
           .borderRadius("var(--swui-radius-large)")
@@ -167,18 +169,19 @@ enum ThemeStylesheet {
           .justifyItems("stretch")
           .boxSizing("border-box")
       }
-      // The card fill + backdrop come from the shared material primitive
-      // (Card composes `.swui-material .swui-material-regular`); this rule
-      // only keeps the chrome that is a legitimate per-component design
-      // difference: border, radius, and the elevated drop shadow.
-      rule(".swui-card") {
-        .display("flex")
+      // GroupBox composes the shared material primitive and keeps only the
+      // container chrome: border, radius, and the elevated drop shadow.
+      rule(".swui-group-box") {
+          .display("flex")
           .flexDirection("column")
           .alignItems("flex-start")
-          .border("var(--swui-card-border)")
-          .borderRadius("var(--swui-card-radius)")
+          .border("var(--swui-container-border)")
+          .borderRadius("var(--swui-container-radius)")
           .boxSizing("border-box")
-          .boxShadow("var(--swui-card-shadow)")
+          .boxShadow("var(--swui-container-shadow)")
+      }
+      rule(".swui-group-box-title") {
+        .margin("0 0 var(--swui-space-sm) 0")
       }
       // The toolbar reads as a floating glass bar: its fill + backdrop come
       // from the shared `bar` material (composed in `Toolbar`); this rule
@@ -193,7 +196,7 @@ enum ThemeStylesheet {
         """
         .swui-vstack > .swui-fill-h,
         .swui-lazy-vstack > .swui-fill-h,
-        .swui-card > .swui-fill-h,
+        .swui-group-box > .swui-fill-h,
         .swui-zstack > .swui-fill-h,
         .swui-frame > .swui-fill-h,
         .swui-scroll-view > .swui-fill-h,
@@ -228,7 +231,7 @@ enum ThemeStylesheet {
         """
         .swui-vstack > .swui-fill-v,
         .swui-lazy-vstack > .swui-fill-v,
-        .swui-card > .swui-fill-v,
+        .swui-group-box > .swui-fill-v,
         .swui-frame > .swui-fill-v,
         .swui-root > .swui-fill-v
         """
@@ -244,7 +247,7 @@ enum ThemeStylesheet {
         .swui-lazy-vstack:has(.swui-fill-h),
         .swui-hstack:has(.swui-fill-h),
         .swui-lazy-hstack:has(.swui-fill-h),
-        .swui-card:has(.swui-fill-h),
+        .swui-group-box:has(.swui-fill-h),
         .swui-toolbar:has(.swui-fill-h)
         """
       ) {
@@ -256,23 +259,23 @@ enum ThemeStylesheet {
         """
         .swui-hstack:has(> .swui-spacer),
         .swui-toolbar:has(> .swui-spacer),
-        .swui-card:has(.swui-hstack > .swui-spacer),
-        .swui-card:has(.swui-toolbar > .swui-spacer),
+        .swui-group-box:has(.swui-hstack > .swui-spacer),
+        .swui-group-box:has(.swui-toolbar > .swui-spacer),
         .swui-vstack:has(.swui-hstack > .swui-spacer),
         .swui-vstack:has(.swui-toolbar > .swui-spacer)
         """
       ) {
         .alignSelf("stretch")
       }
-      // Row-parent override: a greedy column/card that is itself a row
+      // Row-parent override: a greedy column/container that is itself a row
       // item grows on the main axis instead of stretching the cross axis.
       rule(
         """
         .swui-hstack > .swui-vstack:has(.swui-fill-h),
         .swui-hstack > .swui-lazy-vstack:has(.swui-fill-h),
-        .swui-hstack > .swui-card:has(.swui-fill-h),
+        .swui-hstack > .swui-group-box:has(.swui-fill-h),
         .swui-toolbar > .swui-vstack:has(.swui-fill-h),
-        .swui-toolbar > .swui-card:has(.swui-fill-h)
+        .swui-toolbar > .swui-group-box:has(.swui-fill-h)
         """
       ) {
         .flex("1 1 0%")
@@ -290,7 +293,7 @@ enum ThemeStylesheet {
         .swui-lazy-vstack.swui-hug-h,
         .swui-hstack.swui-hug-h,
         .swui-lazy-hstack.swui-hug-h,
-        .swui-card.swui-hug-h,
+        .swui-group-box.swui-hug-h,
         .swui-toolbar.swui-hug-h
         """
       ) {
@@ -311,7 +314,7 @@ enum ThemeStylesheet {
         """
         .swui-vstack > .swui-hug-v,
         .swui-lazy-vstack > .swui-hug-v,
-        .swui-card > .swui-hug-v,
+        .swui-group-box > .swui-hug-v,
         .swui-root > .swui-hug-v
         """
       ) {
@@ -424,6 +427,9 @@ enum ThemeStylesheet {
           .font("inherit")
           .cursor("pointer")
           .textDecoration("none")
+          .whiteSpace("nowrap")
+          .minWidth("max-content")
+          .lineHeight("1")
           .boxSizing("border-box")
           .transition(
             "background var(--swui-motion-quick), border-color var(--swui-motion-quick), opacity var(--swui-motion-quick)"
@@ -454,12 +460,10 @@ enum ThemeStylesheet {
           // style-system default avoids depending on an ancestor-resolved token.
           .background("var(--swui-control-tint, var(--swui-button-primary-background))")
       }
-      // The bordered (secondary) button surface comes from the shared
-      // material (BorderedButtonStyle composes `.thinMaterial`). The
-      // secondary background token is fed in as the material tint — an
-      // opaque hue — so the recipe owns the translucency and the button
-      // reads as frosted glass under a glass design style and as a plain
-      // raised surface under a solid one.
+      // The bordered (secondary) button surface comes from the shared material.
+      // The component emits semantic classes only; this stylesheet feeds the
+      // secondary background token in as the material tint so the active
+      // StyleSystem owns translucency, blur, rim, and solid fallback.
       rule(".swui-button-secondary") {
         .color("var(--swui-button-secondary-foreground)")
           .custom("--swui-material-tint", "var(--swui-button-secondary-background)")
@@ -471,10 +475,10 @@ enum ThemeStylesheet {
           .borderColor("transparent")
           .paddingInline("0")
       }
-      // Glass buttons take their fill from the shared `swui-glass` recipe
-      // (composed in the button style), so these rules only set the text
-      // color and clear the base border. The plain glass keeps the neutral
-      // surface tint; the prominent glass is washed with the control tint.
+      // Glass buttons take their fill from the shared `swui-glass` recipe, so
+      // these rules only set semantic text/border behavior. The plain glass
+      // keeps the neutral surface tint; the prominent glass is washed with the
+      // control tint.
       rule(".swui-button-glass") {
         .color("var(--swui-text)")
           .borderColor("transparent")
@@ -547,29 +551,6 @@ enum ThemeStylesheet {
       rule(".swui-button-action-form") {
         .display("inline-flex")
       }
-      // The value-display fill comes from the shared material (ValueDisplay
-      // composes `.regularMaterial`); this rule keeps its own border,
-      // radius, and padding.
-      rule(".swui-value-display") {
-        .display("grid")
-          .justifyItems("center")
-          .gap("var(--swui-space-xs)")
-          .padding("var(--swui-value-display-padding)")
-          .borderRadius("var(--swui-value-display-radius)")
-          .border("var(--swui-value-display-border)")
-      }
-      rule(".swui-value-label") {
-        .color("var(--swui-text-muted)")
-          .fontSize("13px")
-      }
-      rule(".swui-value") {
-        .minWidth("72px")
-          .textAlign("center")
-          .fontSize("var(--swui-value-size)")
-          .fontWeight("var(--swui-value-weight)")
-          .lineHeight("1")
-          .color("var(--swui-accent)")
-      }
       rule(".swui-link") {
         .color("var(--swui-accent)")
       }
@@ -634,6 +615,15 @@ enum ThemeStylesheet {
           .gap("var(--swui-space-sm)")
           .boxSizing("border-box")
       }
+      rule(".swui-list-row .swui-text") {
+        .lineHeight("1.35")
+      }
+      rule(".swui-list-row > .swui-text:first-child") {
+        .fontWeight("500")
+      }
+      rule(".swui-list-row .swui-text-muted") {
+        .fontSize("13px")
+      }
       rule(".swui-field") {
         .display("grid")
           .gap("var(--swui-space-xs)")
@@ -675,78 +665,6 @@ enum ThemeStylesheet {
       rule(".swui-slider") {
         .accentColor("var(--swui-tint, var(--swui-accent))")
           .minWidth("160px")
-      }
-      rule(".swui-stepper") {
-        .display("inline-flex")
-          .alignItems("center")
-          .justifyContent("space-between")
-          .gap("var(--swui-space-lg)")
-          .minHeight("var(--swui-control-regular-height)")
-          .width("fit-content")
-          .maxWidth("100%")
-          .padding("4px")
-          .paddingLeft("var(--swui-space-md)")
-          .border("var(--swui-field-border)")
-          .borderRadius("var(--swui-field-radius)")
-          .boxSizing("border-box")
-          .color("var(--swui-text)")
-          .custom("--swui-material-tint", "var(--swui-button-secondary-background)")
-      }
-      rule(".swui-stepper-text") {
-        .display("inline-grid")
-          .gridTemplateColumns("auto minmax(3ch, auto)")
-          .alignItems("baseline")
-          .gap("var(--swui-space-sm)")
-          .minWidth("0")
-      }
-      rule(".swui-stepper-label") {
-        .color("var(--swui-text-muted)")
-          .fontSize("13px")
-      }
-      rule(".swui-stepper-value") {
-        .minWidth("3ch")
-          .textAlign("center")
-          .fontWeight("600")
-          .fontVariantNumeric("tabular-nums")
-      }
-      rule(".swui-stepper-actions") {
-        .display("inline-flex")
-          .alignItems("stretch")
-          .overflow("hidden")
-          .border("1px solid var(--swui-border)")
-          .borderRadius("calc(var(--swui-field-radius) - 3px)")
-          .background("var(--swui-surface)")
-      }
-      rule(".swui-stepper-button") {
-        .display("inline-flex")
-          .alignItems("center")
-          .justifyContent("center")
-          .width("32px")
-          .minHeight("calc(var(--swui-control-regular-height) - 10px)")
-          .padding("0")
-          .border("0")
-          .borderRight("1px solid var(--swui-border)")
-          .background("transparent")
-          .color("var(--swui-text)")
-          .font("inherit")
-          .fontSize("18px")
-          .fontWeight("600")
-          .lineHeight("1")
-          .cursor("pointer")
-          .transition("background var(--swui-motion-quick), opacity var(--swui-motion-quick)")
-      }
-      rule(".swui-stepper-button:last-child") {
-        .borderRight("0")
-      }
-      rule(".swui-stepper-button:hover") {
-        .background("var(--swui-button-secondary-hover-background)")
-      }
-      rule(".swui-stepper-button:disabled") {
-        .cursor("default")
-          .opacity("var(--swui-control-disabled-opacity)")
-      }
-      rule(".swui-stepper-button:disabled:hover") {
-        .background("transparent")
       }
       rule(".swui-toggle") {
         .display("inline-flex")
@@ -901,8 +819,8 @@ enum ThemeStylesheet {
       // `<details>` is not replaced, so the composed `.regularMaterial`
       // paints its full recipe (fill + rim + refraction) on the container.
       rule(".swui-disclosure-group") {
-        .borderRadius("var(--swui-card-radius)")
-          .border("var(--swui-card-border)")
+        .borderRadius("var(--swui-container-radius)")
+          .border("var(--swui-container-border)")
           .overflow("hidden")
           .boxSizing("border-box")
       }
@@ -1067,7 +985,7 @@ enum ThemeStylesheet {
       // MARK: Menu
       // `<details>` anchors a floating panel under an interactive-glass
       // summary. The native disclosure triangle is hidden; the panel
-      // composes `regularMaterial` plus the card elevation shadow.
+      // composes `regularMaterial` plus the container elevation shadow.
       rule(".swui-menu") {
         .position("relative")
           .display("inline-block")
@@ -1096,7 +1014,7 @@ enum ThemeStylesheet {
           .gap("2px")
           .padding("var(--swui-space-xs)")
           .borderRadius("var(--swui-radius-medium)")
-          .boxShadow("var(--swui-card-shadow)")
+          .boxShadow("var(--swui-container-shadow)")
           .zIndex("40")
           .boxSizing("border-box")
       }
@@ -1179,9 +1097,8 @@ enum ThemeStylesheet {
           .font("inherit")
       }
       // MARK: Presentation (alert / confirmationDialog / sheet / popover)
-      // The shared `<dialog>` overlay. Like `.swui-card`, the material
-      // primitive owns the fill + backdrop blur + specular rim; this rule
-      // keeps the border, radius, drop shadow, sizing, and the modal layout.
+      // The shared `<dialog>` overlay composes the material primitive; this
+      // rule keeps the border, radius, drop shadow, sizing, and modal layout.
       // A `<dialog>` without `open` is `display: none` by UA default, so the
       // overlay costs no layout while hidden.
       rule(".swui-presentation") {
@@ -1190,9 +1107,9 @@ enum ThemeStylesheet {
           .boxSizing("border-box")
           .width("100%")
           .maxWidth("min(92vw, 28rem)")
-          .border("var(--swui-card-border)")
-          .borderRadius("var(--swui-card-radius)")
-          .boxShadow("var(--swui-card-shadow)")
+          .border("var(--swui-container-border)")
+          .borderRadius("var(--swui-container-radius)")
+          .boxShadow("var(--swui-container-shadow)")
           .color("var(--swui-text)")
       }
       // Pin the open overlay to the viewport center. This holds for the
@@ -1252,13 +1169,631 @@ enum ThemeStylesheet {
       rule(".swui-presentation-sheet[open]") {
         .top("auto")
       }
-      // The popover reads as a compact card. True source anchoring needs the
+      // The popover reads as a compact panel. True source anchoring needs the
       // CSS anchor positioning API; until then it presents centered.
       rule(".swui-presentation-popover") {
         .maxWidth("min(92vw, 20rem)")
       }
     }
   }
+
+  private static let designContractCSS = """
+
+  input,
+  button,
+  select,
+  textarea {
+    font-family: inherit;
+  }
+
+  .swui-root {
+    min-height: auto;
+    color: var(--swui-text);
+    font-family: var(--swui-font-family);
+  }
+
+  .swui-vstack,
+  .swui-lazy-vstack {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .swui-hstack,
+  .swui-lazy-hstack,
+  .swui-toolbar {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .swui-spacer {
+    flex: 1 1 auto;
+  }
+
+  .swui-divider {
+    width: 100%;
+    height: 1px;
+    border: 0;
+    background: var(--swui-border);
+  }
+
+  .swui-hstack > .swui-divider,
+  .swui-lazy-hstack > .swui-divider,
+  .swui-toolbar > .swui-divider {
+    width: 1px;
+    height: auto;
+    align-self: stretch;
+  }
+
+  .swui-heading {
+    margin: 0;
+    color: var(--swui-text);
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: 0;
+  }
+
+  .swui-heading-page {
+    font-size: 30px;
+    font-weight: 680;
+  }
+
+  .swui-heading-section {
+    font-size: 22px;
+  }
+
+  .swui-heading-subsection {
+    font-size: 17px;
+  }
+
+  .swui-text {
+    margin: 0;
+    color: var(--swui-text);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .swui-text-muted {
+    color: var(--swui-text-muted);
+  }
+
+  .swui-inline-code {
+    display: inline-block;
+    padding: 1px 0.4em;
+    border: 0;
+    border-radius: var(--swui-radius-small);
+    background: color-mix(in srgb, var(--swui-surface-raised) 86%, var(--swui-accent));
+    font-family: var(--swui-mono-font-family);
+    font-size: 0.9em;
+    line-height: 1.5;
+  }
+
+  .swui-code-block {
+    min-width: 360px;
+    max-width: 560px;
+    margin: 0;
+    overflow: auto;
+    padding: 14px 0;
+    border: 1px solid var(--swui-border);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--swui-surface-raised) 92%, var(--swui-accent));
+    color: var(--swui-text);
+    font-family: var(--swui-mono-font-family);
+    font-size: 13px;
+    line-height: 1.65;
+    box-sizing: border-box;
+  }
+
+  .swui-code-line {
+    display: grid;
+    grid-template-columns: minmax(2.5ch, auto) 1fr;
+    column-gap: 16px;
+    padding: 0 18px;
+    white-space: pre;
+  }
+
+  .swui-code-line-plain {
+    display: block;
+    padding: 0 18px;
+    white-space: pre;
+  }
+
+  .swui-code-line-number {
+    opacity: 0.4;
+    color: var(--swui-text);
+    text-align: right;
+    user-select: none;
+  }
+
+  .swui-code-line-content {
+    white-space: pre;
+    font-family: var(--swui-mono-font-family);
+  }
+
+  .swui-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-width: max-content;
+    border: 1px solid transparent;
+    border-radius: var(--swui-button-radius);
+    padding: 7px 14px;
+    box-sizing: border-box;
+    color: var(--swui-text);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .swui-button.swui-control-mini {
+    min-height: 0;
+    padding: 4px 9px;
+    border-radius: var(--swui-radius-small);
+    font-size: 11px;
+  }
+
+  .swui-button.swui-control-small {
+    min-height: 0;
+    padding: 5px 11px;
+    font-size: 12px;
+  }
+
+  .swui-button.swui-control-regular {
+    min-height: 0;
+    padding: 7px 14px;
+    font-size: 14px;
+  }
+
+  .swui-button.swui-control-large {
+    min-height: 0;
+    padding: 10px 20px;
+    font-size: 16px;
+  }
+
+  .swui-button-primary {
+    background: var(--swui-control-tint, var(--swui-button-primary-background));
+    color: var(--swui-button-primary-foreground);
+  }
+
+  .swui-button-secondary {
+    background: var(--swui-button-secondary-background);
+    color: var(--swui-button-secondary-foreground);
+    border-color: var(--swui-button-secondary-border);
+  }
+
+  .swui-button-plain {
+    background: transparent;
+    color: var(--swui-control-tint, var(--swui-button-plain-foreground));
+    border-color: transparent;
+  }
+
+  .swui-button-glass {
+    background: color-mix(in srgb, var(--swui-surface) 55%, transparent);
+    color: var(--swui-text);
+    border-color: var(--swui-border);
+    backdrop-filter: blur(10px);
+  }
+
+  .swui-button-glass-prominent {
+    background: var(--swui-control-tint, var(--swui-accent));
+    color: var(--swui-accent-text);
+    border-color: transparent;
+    backdrop-filter: blur(10px);
+  }
+
+  .swui-control-disabled,
+  .swui-button:disabled,
+  .swui-text-field:disabled,
+  .swui-picker:disabled,
+  .swui-slider:disabled {
+    opacity: var(--swui-control-disabled-opacity);
+    cursor: default;
+    pointer-events: none;
+  }
+
+  .swui-group-box {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    background: var(--swui-surface-raised);
+    border: var(--swui-container-border);
+    border-radius: var(--swui-container-radius);
+    box-shadow: var(--swui-container-shadow);
+    box-sizing: border-box;
+  }
+
+  .swui-group-box-title {
+    margin: 0 0 var(--swui-space-sm) 0;
+  }
+
+  .swui-badge {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    gap: 6px;
+    padding: var(--swui-badge-padding);
+    border: var(--swui-badge-border);
+    border-radius: var(--swui-badge-radius);
+    background: var(--swui-badge-background);
+    color: var(--swui-badge-foreground);
+    font-size: 12.5px;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  .swui-list {
+    display: flex;
+    flex-direction: column;
+    min-width: 260px;
+    overflow: hidden;
+    background: var(--swui-surface-raised);
+    border: 1px solid var(--swui-border);
+    border-radius: 12px;
+    box-sizing: border-box;
+  }
+
+  .swui-list-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 13px;
+    border-bottom: 1px solid var(--swui-border);
+    box-sizing: border-box;
+  }
+
+  .swui-list-row:last-child {
+    border-bottom: 0;
+  }
+
+  .swui-list-row .swui-text {
+    line-height: 1.35;
+  }
+
+  .swui-list-row > .swui-text:first-child {
+    font-weight: 500;
+  }
+
+  .swui-list-row .swui-text-muted {
+    font-size: 13px;
+  }
+
+  .swui-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 280px;
+    box-sizing: border-box;
+  }
+
+  .swui-section-header {
+    margin: 0;
+    padding: 10px 14px 6px;
+    background: color-mix(in srgb, var(--swui-text-muted) 7%, transparent);
+    color: var(--swui-text-muted);
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .swui-section-footer,
+  .swui-section-footer-row {
+    color: var(--swui-text-muted);
+    font-size: 12.5px;
+    line-height: 1.45;
+  }
+
+  .swui-field,
+  .swui-picker-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    color: var(--swui-text);
+  }
+
+  .swui-field-label,
+  .swui-toggle-label {
+    color: var(--swui-text-muted);
+    font-size: 12.5px;
+    font-weight: 600;
+  }
+
+  .swui-text-field,
+  .swui-text-editor,
+  .swui-picker,
+  .swui-date-picker {
+    min-height: 0;
+    min-width: 220px;
+    padding: var(--swui-field-padding);
+    border: var(--swui-field-border);
+    border-radius: var(--swui-field-radius);
+    background: var(--swui-field-background);
+    color: var(--swui-text);
+    font: inherit;
+    font-size: 14px;
+    outline: none;
+    box-sizing: border-box;
+  }
+
+  .swui-text-field:focus,
+  .swui-text-editor:focus {
+    border-color: var(--swui-accent);
+  }
+
+  .swui-text-editor {
+    min-height: 80px;
+    width: 100%;
+    line-height: 1.5;
+    resize: vertical;
+  }
+
+  .swui-slider {
+    width: 220px;
+    height: 4px;
+    accent-color: var(--swui-control-tint, var(--swui-accent));
+  }
+
+  .swui-stepper {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    max-width: 100%;
+    min-height: 0;
+    padding: 0;
+    overflow: hidden;
+    background: var(--swui-surface-raised);
+    border: 1px solid var(--swui-border);
+    border-radius: var(--swui-button-radius);
+    color: var(--swui-text);
+    box-sizing: border-box;
+  }
+
+  .swui-stepper-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 31px;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--swui-control-tint, var(--swui-accent));
+    font: inherit;
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .swui-stepper-value,
+  .swui-stepper .val {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 42px;
+    height: 31px;
+    border-left: 1px solid var(--swui-border);
+    border-right: 1px solid var(--swui-border);
+    color: var(--swui-text);
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+  }
+
+  .swui-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    color: var(--swui-text);
+    font-size: 14px;
+    cursor: pointer;
+  }
+
+  .swui-toggle-control {
+    width: 38px;
+    height: 23px;
+    border: 0;
+    border-radius: var(--swui-radius-pill);
+    background: color-mix(in srgb, var(--swui-text-muted) 45%, transparent);
+    position: relative;
+    flex: none;
+    transition: background var(--swui-motion-quick);
+  }
+
+  .swui-toggle-control::after {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 19px;
+    height: 19px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    content: "";
+    transition: transform var(--swui-motion-quick);
+  }
+
+  .swui-toggle-input:checked + .swui-toggle-control {
+    background: var(--swui-accent);
+  }
+
+  .swui-toggle-input:checked + .swui-toggle-control::after {
+    transform: translateX(15px);
+    background: #fff;
+  }
+
+  .swui-picker-segmented {
+    display: inline-flex;
+    gap: 2px;
+    min-height: 0;
+    padding: 2px;
+    overflow: visible;
+    background: color-mix(in srgb, var(--swui-text-muted) 14%, transparent);
+    border-radius: var(--swui-button-radius);
+  }
+
+  .swui-picker-segmented .swui-picker-segment {
+    flex: 0 0 auto;
+    min-width: max-content;
+    color: var(--swui-text);
+  }
+
+  .swui-picker-segmented .swui-picker-segment-label {
+    min-height: 0;
+    padding: 6px 14px;
+    border-radius: calc(var(--swui-button-radius) - 2px);
+    color: var(--swui-text);
+    font-size: 13px;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .swui-picker-segmented .swui-picker-segment-input:checked ~ .swui-picker-segment-label {
+    background: var(--swui-surface-raised);
+    color: var(--swui-text);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+    font-weight: 600;
+  }
+
+  .swui-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--swui-text);
+    font-size: 14px;
+  }
+
+  .swui-label-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    color: var(--swui-accent);
+  }
+
+  .swui-link,
+  .swui-navigation-link {
+    color: var(--swui-accent);
+    text-decoration: none;
+  }
+
+  .swui-navigation-stack {
+    display: flex;
+    flex-direction: column;
+    min-width: 260px;
+    overflow: hidden;
+    background: var(--swui-surface-raised);
+    border: 1px solid var(--swui-border);
+    border-radius: 12px;
+  }
+
+  .swui-navigation-bar {
+    padding: 12px 14px 10px;
+    border-bottom: 1px solid var(--swui-border);
+    color: var(--swui-text);
+    font-size: 18px;
+    font-weight: 680;
+    letter-spacing: 0;
+  }
+
+  .swui-navigation-content {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--swui-space-sm);
+    padding: 12px 14px;
+  }
+
+  .swui-toolbar {
+    min-width: 260px;
+    gap: 10px;
+    padding: 9px 12px;
+    background: var(--swui-surface-raised);
+    border: 1px solid var(--swui-border);
+    border-radius: 12px;
+  }
+
+  .swui-scroll-view {
+    min-width: 240px;
+    max-height: 150px;
+    overflow: auto;
+    padding: 10px;
+    background: var(--swui-surface-raised);
+    border: 1px solid var(--swui-border);
+    border-radius: 12px;
+  }
+
+  .swui-progress {
+    display: flex;
+    flex-direction: column;
+    min-width: 220px;
+    gap: 6px;
+  }
+
+  .swui-progress-bar {
+    width: 220px;
+    height: 7px;
+    border: 0;
+    border-radius: var(--swui-radius-pill);
+    overflow: hidden;
+    background: color-mix(in srgb, var(--swui-text-muted) 24%, transparent);
+  }
+
+  .swui-progress-spinner {
+    width: 26px;
+    height: 26px;
+    border-width: 3px;
+  }
+
+  .swui-gauge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .swui-disclosure-group {
+    min-width: 260px;
+    overflow: hidden;
+    background: var(--swui-surface-raised);
+    border: 1px solid var(--swui-border);
+    border-radius: 12px;
+  }
+
+  .swui-disclosure-summary {
+    padding: 11px 13px;
+    gap: 10px;
+  }
+
+  .swui-disclosure-content {
+    padding: 0 14px 14px;
+  }
+
+  .swui-searchable {
+    display: flex;
+    flex-direction: column;
+    gap: var(--swui-space-sm);
+  }
+
+  .swui-search-field {
+    width: 100%;
+    min-height: 0;
+    padding: 8px 12px;
+    border: 1px solid var(--swui-border);
+    border-radius: var(--swui-button-radius);
+    background: var(--swui-surface);
+    color: var(--swui-text);
+    font: inherit;
+    font-size: 14px;
+  }
+  """
 
   // MARK: Liquid Glass material primitive
 

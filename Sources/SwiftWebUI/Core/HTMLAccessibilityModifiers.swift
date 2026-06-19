@@ -1,6 +1,10 @@
 import SwiftHTML
 
 public extension HTML {
+    func accessibilityIdentifier(_ identifier: String) -> ModifiedContent<Self, HTMLAttributeModifier> {
+        modifier(HTMLAttributeModifier([.data("accessibility-identifier", identifier)]))
+    }
+
     func accessibilityLabel(_ label: String) -> ModifiedContent<Self, HTMLAttributeModifier> {
         modifier(HTMLAttributeModifier([.aria("label", label)]))
     }
@@ -23,6 +27,10 @@ public extension HTML {
 }
 
 public extension WebUIAttributeMutableHTML {
+    func accessibilityIdentifier(_ identifier: String) -> Self {
+        addingAttributes([.data("accessibility-identifier", identifier)])
+    }
+
     func accessibilityLabel(_ label: String) -> Self {
         addingAttributes([.aria("label", label)])
     }

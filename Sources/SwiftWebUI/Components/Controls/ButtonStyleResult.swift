@@ -1,10 +1,10 @@
 import SwiftHTML
 
-public struct ButtonStyleResult: Sendable {
-    public var classNames: [String]
-    public var style: Style
+struct ButtonStyleResult: Sendable {
+    var classNames: [String]
+    var style: Style
 
-    public init(
+    init(
         classNames: [String] = [],
         style: Style = Style()
     ) {

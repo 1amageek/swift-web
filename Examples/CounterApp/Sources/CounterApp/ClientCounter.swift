@@ -7,14 +7,21 @@ public struct ClientCounter: ClientComponent, Sendable {
     public init() {}
 
     public var body: some HTML {
-        Card(.class("client-counter")) {
+        GroupBox {
             VStack(spacing: .large) {
                 Heading("Client Counter")
                 Text(
                     "This state is owned by a ClientComponent running in WASM.",
                     tone: .muted
                 )
-                ValueDisplay(label: "Client value", value: value)
+                VStack(spacing: .xsmall) {
+                    Text("Client value", as: .small, tone: .muted)
+                    Text(String(value), as: .strong)
+                        .font(.largeTitle)
+                        .foregroundStyle(.accent)
+                        .accessibilityIdentifier("counter-value")
+                        .accessibilityValue(String(value))
+                }
                 LazyHStack(spacing: .small) {
                     Button("Decrement") {
                         value -= 1
@@ -26,6 +33,7 @@ public struct ClientCounter: ClientComponent, Sendable {
                 }
             }
         }
+        .accessibilityIdentifier("client-counter")
         .frame(maxWidth: .infinity, alignment: .top)
     }
 }

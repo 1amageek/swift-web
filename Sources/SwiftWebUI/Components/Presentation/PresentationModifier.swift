@@ -13,7 +13,7 @@ import SwiftHTML
 /// back to `false` — there is no silent desync.
 ///
 /// Degradation is explicit, not silent: without the client runtime the dialog
-/// still shows as an in-flow, CSS-positioned modal card, but it is not lifted to
+/// still shows as an in-flow, CSS-positioned modal panel, but it is not lifted to
 /// the browser top layer and outside-tap dismissal depends on native `closedby`
 /// support. The binding still drives show/hide through the normal re-render path.
 public struct PresentationModifier<PresentedContent: HTML>: ComponentModifier {

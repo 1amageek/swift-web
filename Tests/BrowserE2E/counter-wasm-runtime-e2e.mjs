@@ -125,6 +125,27 @@ async function prepareAppCopy(root) {
     `import SwiftHTML
 import SwiftWebUI
 
+public struct CounterValue: Component {
+    let label: String
+    let value: Int
+
+    public init(label: String, value: Int) {
+        self.label = label
+        self.value = value
+    }
+
+    public var body: some HTML {
+        VStack(spacing: .xsmall) {
+            Text(label, as: .small, tone: .muted)
+            Text(String(value), as: .strong)
+                .font(.largeTitle)
+                .foregroundStyle(.accent)
+                .accessibilityIdentifier("counter-value")
+                .accessibilityValue(String(value))
+        }
+    }
+}
+
 public struct ClientDeferredCounter: ClientComponent, Sendable {
     public static let loadPolicy: LoadPolicy = .interaction
     @State private var value = 0
@@ -132,19 +153,20 @@ public struct ClientDeferredCounter: ClientComponent, Sendable {
     public init() {}
 
     public var body: some HTML {
-        Card(.class("deferred-counter")) {
+        GroupBox {
             VStack(spacing: .large) {
                 Heading("Deferred Client Counter")
                 Text(
                     "This counter hydrates only after user interaction.",
                     tone: .muted
                 )
-                ValueDisplay(label: "Deferred value", value: value)
+                CounterValue(label: "Deferred value", value: value)
                 Button("Increment deferred") {
                     value += 1
                 }
             }
         }
+        .accessibilityIdentifier("deferred-counter")
         .frame(maxWidth: .infinity, alignment: .top)
     }
 }
@@ -163,16 +185,17 @@ public struct ClientVisibleCounter: ClientComponent, Sendable {
     public init() {}
 
     public var body: some HTML {
-        Card(.class("visible-counter")) {
+        GroupBox {
             VStack(spacing: .large) {
                 Heading("Visible Client Counter")
                 Text("This counter hydrates when it enters the viewport.", tone: .muted)
-                ValueDisplay(label: "Visible value", value: value)
+                CounterValue(label: "Visible value", value: value)
                 Button("Increment visible") {
                     value += 1
                 }
             }
         }
+        .accessibilityIdentifier("visible-counter")
         .frame(maxWidth: .infinity, alignment: .top)
     }
 }
@@ -184,16 +207,17 @@ public struct ClientIdleCounter: ClientComponent, Sendable {
     public init() {}
 
     public var body: some HTML {
-        Card(.class("idle-counter")) {
+        GroupBox {
             VStack(spacing: .large) {
                 Heading("Idle Client Counter")
                 Text("This counter hydrates during the browser idle stage.", tone: .muted)
-                ValueDisplay(label: "Idle value", value: value)
+                CounterValue(label: "Idle value", value: value)
                 Button("Increment idle") {
                     value += 1
                 }
             }
         }
+        .accessibilityIdentifier("idle-counter")
         .frame(maxWidth: .infinity, alignment: .top)
     }
 }
@@ -205,16 +229,17 @@ public struct ClientManualCounter: ClientComponent, Sendable {
     public init() {}
 
     public var body: some HTML {
-        Card(.class("manual-counter")) {
+        GroupBox {
             VStack(spacing: .large) {
                 Heading("Manual Client Counter")
                 Text("This counter hydrates only when the runtime explicitly loads its bundle.", tone: .muted)
-                ValueDisplay(label: "Manual value", value: value)
+                CounterValue(label: "Manual value", value: value)
                 Button("Increment manual") {
                     value += 1
                 }
             }
         }
+        .accessibilityIdentifier("manual-counter")
         .frame(maxWidth: .infinity, alignment: .top)
     }
 }
@@ -227,15 +252,16 @@ public struct ClientSharedBadgeA: ClientComponent, Sendable {
     public init() {}
 
     public var body: some HTML {
-        Card(.class("shared-badge-a")) {
+        GroupBox {
             VStack(spacing: .small) {
                 Heading("Shared Badge A")
-                ValueDisplay(label: "Badge A", value: value)
+                CounterValue(label: "Badge A", value: value)
                 Button("Increment shared A") {
                     value += 1
                 }
             }
         }
+        .accessibilityIdentifier("shared-badge-a")
     }
 }
 
@@ -247,15 +273,16 @@ public struct ClientSharedBadgeB: ClientComponent, Sendable {
     public init() {}
 
     public var body: some HTML {
-        Card(.class("shared-badge-b")) {
+        GroupBox {
             VStack(spacing: .small) {
                 Heading("Shared Badge B")
-                ValueDisplay(label: "Badge B", value: value)
+                CounterValue(label: "Badge B", value: value)
                 Button("Increment shared B") {
                     value += 1
                 }
             }
         }
+        .accessibilityIdentifier("shared-badge-b")
     }
 }
 
@@ -267,15 +294,16 @@ public struct ClientNamedToolA: ClientComponent, Sendable {
     public init() {}
 
     public var body: some HTML {
-        Card(.class("named-tool-a")) {
+        GroupBox {
             VStack(spacing: .small) {
                 Heading("Named Tool A")
-                ValueDisplay(label: "Tool A", value: value)
+                CounterValue(label: "Tool A", value: value)
                 Button("Increment named A") {
                     value += 1
                 }
             }
         }
+        .accessibilityIdentifier("named-tool-a")
     }
 }
 
@@ -287,15 +315,16 @@ public struct ClientNamedToolB: ClientComponent, Sendable {
     public init() {}
 
     public var body: some HTML {
-        Card(.class("named-tool-b")) {
+        GroupBox {
             VStack(spacing: .small) {
                 Heading("Named Tool B")
-                ValueDisplay(label: "Tool B", value: value)
+                CounterValue(label: "Tool B", value: value)
                 Button("Increment named B") {
                     value += 1
                 }
             }
         }
+        .accessibilityIdentifier("named-tool-b")
     }
 }
 `
@@ -304,18 +333,19 @@ public struct ClientNamedToolB: ClientComponent, Sendable {
   const counterPageFile = path.join(appRoot, "Sources", "CounterApp", "Routes", "CounterPage.swift");
   const counterPage = await readFile(counterPageFile, "utf8");
   let updatedCounterPage = counterPage.replace(
-    "ClientCounter()\n\n                Card(.class(\"server-counter\"))",
-    "ClientCounter()\n                ClientDeferredCounter()\n\n                Card(.class(\"server-counter\"))"
+    "ClientCounter()\n\n                GroupBox {",
+    "ClientCounter()\n                ClientDeferredCounter()\n\n                GroupBox {"
   );
   const insertedDeferredCounter = updatedCounterPage !== counterPage;
   updatedCounterPage = updatedCounterPage.replace(
     "            Link(\"Reload page\", href: \"/counter\")",
-    `            Card(.class("visible-policy-spacer")) {
+    `            GroupBox {
                 VStack(spacing: .small) {
                     Heading("Loading Policy E2E Spacer")
                     Text("The visible counter sits below this spacer so IntersectionObserver is required.")
                 }
             }
+            .accessibilityIdentifier("visible-policy-spacer")
             .style {
                 .minHeight("960px")
             }
@@ -666,7 +696,7 @@ async function runWebKitSmoke(baseURL) {
       undefined,
       { timeout: timeoutMs }
     );
-    await expectCardValue(page, ".client-counter", 0);
+    await expectCounterValue(page, componentSelector("client-counter"), 0);
     report.webkitSmoke = {
       skipped: false,
       runtime: await browserRuntimeState(page),
@@ -739,15 +769,22 @@ function unexpectedServerLogNoise() {
   return report.serverLogTail.filter((line) => patterns.some((pattern) => pattern.test(line)));
 }
 
-async function cardValue(page, selector) {
-  const text = await page.locator(`${selector} .swui-value`).first().innerText();
+function componentSelector(identifier) {
+  return `[data-accessibility-identifier="${identifier}"]`;
+}
+
+async function counterValue(page, selector) {
+  const text = await page
+    .locator(`${selector} ${componentSelector("counter-value")}`)
+    .first()
+    .innerText();
   return Number(text.trim());
 }
 
-async function expectCardValue(page, selector, expected) {
+async function expectCounterValue(page, selector, expected) {
   await page.waitForFunction(
     ({ selector, expected }) => {
-      const value = document.querySelector(`${selector} .swui-value`);
+      const value = document.querySelector(`${selector} [data-accessibility-identifier="counter-value"]`);
       return value && value.textContent.trim() === String(expected);
     },
     { selector, expected },
@@ -947,16 +984,16 @@ async function runBrowserAssertions(baseURL, appRoot) {
     }
     report.devReloadAfterPageLoad = await browserRuntimeState(page);
 
-    await expectCardValue(page, ".client-counter", 0);
-    await expectCardValue(page, ".server-counter", 0);
-    await expectCardValue(page, ".deferred-counter", 0);
-    await expectCardValue(page, ".visible-counter", 0);
-    await expectCardValue(page, ".idle-counter", 0);
-    await expectCardValue(page, ".manual-counter", 0);
-    await expectCardValue(page, ".shared-badge-a", 0);
-    await expectCardValue(page, ".shared-badge-b", 0);
-    await expectCardValue(page, ".named-tool-a", 0);
-    await expectCardValue(page, ".named-tool-b", 0);
+    await expectCounterValue(page, componentSelector("client-counter"), 0);
+    await expectCounterValue(page, componentSelector("server-counter"), 0);
+    await expectCounterValue(page, componentSelector("deferred-counter"), 0);
+    await expectCounterValue(page, componentSelector("visible-counter"), 0);
+    await expectCounterValue(page, componentSelector("idle-counter"), 0);
+    await expectCounterValue(page, componentSelector("manual-counter"), 0);
+    await expectCounterValue(page, componentSelector("shared-badge-a"), 0);
+    await expectCounterValue(page, componentSelector("shared-badge-b"), 0);
+    await expectCounterValue(page, componentSelector("named-tool-a"), 0);
+    await expectCounterValue(page, componentSelector("named-tool-b"), 0);
 
     recordPhase("idle.auto-load");
     await page.waitForFunction(
@@ -966,7 +1003,7 @@ async function runBrowserAssertions(baseURL, appRoot) {
     );
 
     recordPhase("visible.viewport-load");
-    const visibleBeforeScroll = await page.locator(".visible-counter").evaluate((element) => {
+    const visibleBeforeScroll = await page.locator(componentSelector("visible-counter")).evaluate((element) => {
       const rect = element.getBoundingClientRect();
       return {
         top: rect.top,
@@ -980,16 +1017,16 @@ async function runBrowserAssertions(baseURL, appRoot) {
     if (visibleBeforeScroll.loaded) {
       throw new Error(`Visible bundle loaded before entering viewport: ${JSON.stringify(visibleBeforeScroll)}`);
     }
-    await page.locator(".visible-counter").scrollIntoViewIfNeeded();
+    await page.locator(componentSelector("visible-counter")).scrollIntoViewIfNeeded();
     await page.waitForFunction(
       (bundleID) => (window.__swiftWebWasmRuntimeStatus?.loadedBundleIDs || []).includes(bundleID),
       visibleComponent.bundleID,
       { timeout: timeoutMs }
     );
-    await page.locator(".visible-counter").getByRole("button", { name: "Increment visible" }).click();
-    await expectCardValue(page, ".visible-counter", 1);
-    await page.locator(".idle-counter").getByRole("button", { name: "Increment idle" }).click();
-    await expectCardValue(page, ".idle-counter", 1);
+    await page.locator(componentSelector("visible-counter")).getByRole("button", { name: "Increment visible" }).click();
+    await expectCounterValue(page, componentSelector("visible-counter"), 1);
+    await page.locator(componentSelector("idle-counter")).getByRole("button", { name: "Increment idle" }).click();
+    await expectCounterValue(page, componentSelector("idle-counter"), 1);
 
     recordPhase("manual.explicit-load");
     await delay(1_000);
@@ -1015,16 +1052,16 @@ async function runBrowserAssertions(baseURL, appRoot) {
         { timeout: timeoutMs }
       );
     }
-    await page.locator(".manual-counter").getByRole("button", { name: "Increment manual" }).click();
-    await page.locator(".shared-badge-b").getByRole("button", { name: "Increment shared B" }).click();
-    await page.locator(".named-tool-a").getByRole("button", { name: "Increment named A" }).click();
-    await expectCardValue(page, ".manual-counter", 1);
-    await expectCardValue(page, ".shared-badge-b", 1);
-    await expectCardValue(page, ".named-tool-a", 1);
+    await page.locator(componentSelector("manual-counter")).getByRole("button", { name: "Increment manual" }).click();
+    await page.locator(componentSelector("shared-badge-b")).getByRole("button", { name: "Increment shared B" }).click();
+    await page.locator(componentSelector("named-tool-a")).getByRole("button", { name: "Increment named A" }).click();
+    await expectCounterValue(page, componentSelector("manual-counter"), 1);
+    await expectCounterValue(page, componentSelector("shared-badge-b"), 1);
+    await expectCounterValue(page, componentSelector("named-tool-a"), 1);
     report.loadingPolicyAfterExplicitLoad = await runtimeManifestSnapshot(page);
 
     recordPhase("deferred.interaction-load");
-    await page.locator(".deferred-counter").hover();
+    await page.locator(componentSelector("deferred-counter")).hover();
     await page.waitForFunction(
       (bundleID) => (window.__swiftWebWasmRuntimeStatus?.loadedBundleIDs || []).includes(bundleID),
       deferredComponent.bundleID,
@@ -1039,12 +1076,12 @@ async function runBrowserAssertions(baseURL, appRoot) {
       throw new Error(`Deferred WASM asset was not fetched after interaction: ${deferredBundle.assetPath}`);
     }
     report.splitAfterInteraction = splitAfterInteraction;
-    await page.locator(".deferred-counter").getByRole("button", { name: "Increment deferred" }).click();
-    await expectCardValue(page, ".deferred-counter", 1);
+    await page.locator(componentSelector("deferred-counter")).getByRole("button", { name: "Increment deferred" }).click();
+    await expectCounterValue(page, componentSelector("deferred-counter"), 1);
 
     recordPhase("client.increment");
-    await page.locator(".client-counter").getByRole("button", { name: "Increment" }).click();
-    await expectCardValue(page, ".client-counter", 1);
+    await page.locator(componentSelector("client-counter")).getByRole("button", { name: "Increment" }).click();
+    await expectCounterValue(page, componentSelector("client-counter"), 1);
     const markerAfterClient = await page.evaluate(() => window.__swiftWebE2EMarker);
     if (markerAfterClient !== initialMarker) {
       throw new Error("Client WASM event caused a full page reload.");
@@ -1055,9 +1092,9 @@ async function runBrowserAssertions(baseURL, appRoot) {
     }
 
     recordPhase("server.increment.invalidate");
-    await page.locator(".server-counter").getByRole("button", { name: "Increment" }).click();
-    await expectCardValue(page, ".server-counter", 1);
-    await expectCardValue(page, ".client-counter", 1);
+    await page.locator(componentSelector("server-counter")).getByRole("button", { name: "Increment" }).click();
+    await expectCounterValue(page, componentSelector("server-counter"), 1);
+    await expectCounterValue(page, componentSelector("client-counter"), 1);
     const markerAfterServer = await page.evaluate(() => window.__swiftWebE2EMarker);
     if (markerAfterServer !== initialMarker) {
       throw new Error("ServerAction invalidate caused a full page reload.");
@@ -1084,7 +1121,7 @@ async function runBrowserAssertions(baseURL, appRoot) {
       report.devReloadAfterHMRFailure = await browserRuntimeState(page);
       throw error;
     }
-    await expectCardValue(page, ".client-counter", 1);
+    await expectCounterValue(page, componentSelector("client-counter"), 1);
     const markerAfterHMR = await page.evaluate(() => window.__swiftWebE2EMarker);
     if (markerAfterHMR !== initialMarker) {
       throw new Error("ClientComponent HMR caused a full page reload.");
@@ -1116,14 +1153,14 @@ public let swiftWebE2EInjectedCompilerError =
       undefined,
       { timeout: hmrTimeoutMs }
     );
-    await expectCardValue(page, ".client-counter", 1);
-    await expectCardValue(page, ".server-counter", 1);
-    await expectCardValue(page, ".deferred-counter", 1);
-    await expectCardValue(page, ".visible-counter", 1);
-    await expectCardValue(page, ".idle-counter", 1);
-    await expectCardValue(page, ".manual-counter", 1);
-    await expectCardValue(page, ".shared-badge-b", 1);
-    await expectCardValue(page, ".named-tool-a", 1);
+    await expectCounterValue(page, componentSelector("client-counter"), 1);
+    await expectCounterValue(page, componentSelector("server-counter"), 1);
+    await expectCounterValue(page, componentSelector("deferred-counter"), 1);
+    await expectCounterValue(page, componentSelector("visible-counter"), 1);
+    await expectCounterValue(page, componentSelector("idle-counter"), 1);
+    await expectCounterValue(page, componentSelector("manual-counter"), 1);
+    await expectCounterValue(page, componentSelector("shared-badge-b"), 1);
+    await expectCounterValue(page, componentSelector("named-tool-a"), 1);
     const markerAfterHMRFailure = await page.evaluate(() => window.__swiftWebE2EMarker);
     if (markerAfterHMRFailure !== initialMarker) {
       throw new Error("Failed ClientComponent HMR caused a full page reload.");
@@ -1145,8 +1182,8 @@ public let swiftWebE2EInjectedCompilerError =
       undefined,
       { timeout: hmrTimeoutMs }
     );
-    await expectCardValue(page, ".client-counter", 1);
-    await expectCardValue(page, ".server-counter", 1);
+    await expectCounterValue(page, componentSelector("client-counter"), 1);
+    await expectCounterValue(page, componentSelector("server-counter"), 1);
 
     recordPhase("server.hmr.page-change");
     const counterPageFile = path.join(appRoot, "Sources", "CounterApp", "Routes", "CounterPage.swift");
@@ -1172,24 +1209,24 @@ public let swiftWebE2EInjectedCompilerError =
     if (!["serverRestarted", "pagePatch"].includes(report.serverHMR.devReload.lastAppliedEventKind)) {
       throw new Error(`Server HMR did not report a server event: ${JSON.stringify(report.serverHMR)}`);
     }
-    await expectCardValue(page, ".client-counter", 1);
-    await expectCardValue(page, ".deferred-counter", 1);
-    await expectCardValue(page, ".visible-counter", 1);
-    await expectCardValue(page, ".idle-counter", 1);
-    await expectCardValue(page, ".manual-counter", 1);
-    await expectCardValue(page, ".shared-badge-b", 1);
-    await expectCardValue(page, ".named-tool-a", 1);
-    await expectCardValue(page, ".server-counter", 0);
+    await expectCounterValue(page, componentSelector("client-counter"), 1);
+    await expectCounterValue(page, componentSelector("deferred-counter"), 1);
+    await expectCounterValue(page, componentSelector("visible-counter"), 1);
+    await expectCounterValue(page, componentSelector("idle-counter"), 1);
+    await expectCounterValue(page, componentSelector("manual-counter"), 1);
+    await expectCounterValue(page, componentSelector("shared-badge-b"), 1);
+    await expectCounterValue(page, componentSelector("named-tool-a"), 1);
+    await expectCounterValue(page, componentSelector("server-counter"), 0);
 
     const finalValues = {
-      client: await cardValue(page, ".client-counter"),
-      server: await cardValue(page, ".server-counter"),
-      deferred: await cardValue(page, ".deferred-counter"),
-      visible: await cardValue(page, ".visible-counter"),
-      idle: await cardValue(page, ".idle-counter"),
-      manual: await cardValue(page, ".manual-counter"),
-      sharedB: await cardValue(page, ".shared-badge-b"),
-      namedA: await cardValue(page, ".named-tool-a"),
+      client: await counterValue(page, componentSelector("client-counter")),
+      server: await counterValue(page, componentSelector("server-counter")),
+      deferred: await counterValue(page, componentSelector("deferred-counter")),
+      visible: await counterValue(page, componentSelector("visible-counter")),
+      idle: await counterValue(page, componentSelector("idle-counter")),
+      manual: await counterValue(page, componentSelector("manual-counter")),
+      sharedB: await counterValue(page, componentSelector("shared-badge-b")),
+      namedA: await counterValue(page, componentSelector("named-tool-a")),
     };
     report.finalValues = finalValues;
     if (

@@ -21,10 +21,7 @@ struct StoryboardPage {
     // state inside the catalog.
     @HTMLBuilder
     func body() -> some HTML {
-        style {
-            rawHTML(storyboardCSS)
-        }
-
+        StoryboardStylesheet()
         StoryboardCatalog()
     }
 }
@@ -56,61 +53,7 @@ struct StoryboardSelectionPage {
 
     @HTMLBuilder
     func body() -> some HTML {
-        style {
-            rawHTML(storyboardCSS)
-        }
-
+        StoryboardStylesheet()
         StoryboardCatalog(initialSelection: selectionID)
     }
 }
-
-let storyboardCSS = """
-html { scroll-behavior: smooth; }
-body { margin: 0; }
-.storyboard-page {
-    height: 100vh;
-    min-height: 100vh;
-    overflow: hidden;
-    background:
-        radial-gradient(1200px 520px at 50% -8%, color-mix(in srgb, var(--swui-accent) 8%, transparent), transparent),
-        var(--swui-background);
-    color: var(--swui-text);
-    font-family: var(--swui-font-family);
-}
-
-.storyboard-page,
-.storyboard-page * {
-    box-sizing: border-box;
-}
-
-/* Offset in-page anchor jumps so the sticky top bar never covers a target. */
-.storyboard-page [id] {
-    scroll-margin-top: 72px;
-}
-
-.storyboard-sidebar-link {
-    display: flex;
-    width: 100%;
-    min-height: 32px;
-    align-items: center;
-    justify-content: flex-start;
-    padding: 6px 10px;
-    border-radius: 8px;
-    color: var(--swui-text);
-    text-align: left;
-    text-decoration: none;
-    white-space: nowrap;
-    font-size: 0.9em;
-    font-weight: 450;
-}
-
-.storyboard-sidebar-link:hover {
-    background: color-mix(in srgb, var(--swui-text) 7%, transparent);
-}
-
-.storyboard-sidebar-link.is-selected {
-    background: color-mix(in srgb, var(--swui-accent) 14%, transparent);
-    color: var(--swui-accent);
-    font-weight: 600;
-}
-"""

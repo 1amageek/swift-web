@@ -161,6 +161,10 @@ public struct ModifierContent: HTML {
 
 ## Style Abstraction
 
+The detailed public style contract is defined in
+[`SwiftWebUIStyleDesign.md`](SwiftWebUIStyleDesign.md). This section describes
+the core primitives that support that contract.
+
 SwiftUI has moved from color-specific APIs toward `ShapeStyle`. SwiftWebUI should do the same. `foregroundColor` should not be a new public API; `foregroundStyle` is the primary API.
 
 ```mermaid
@@ -207,8 +211,8 @@ public struct ResolvedStyle: Sendable, Equatable {
 | `.shadow(...)` | Effect style |
 | `.font(_:)` | Typography abstraction, not raw CSS string |
 | `.controlSize(_:)` | Environment-backed control sizing |
-| `.buttonStyle(_:)` | Style protocol for button rendering |
-| `.textFieldStyle(_:)` | Style protocol for text field rendering |
+| `.buttonStyle(_:)` | Semantic button treatment selection resolved by the active stylesheet |
+| `.textFieldStyle(_:)` | Future semantic field treatment selection resolved by the active stylesheet |
 
 Raw CSS strings should remain as escape hatches, not the primary API. When SwiftWebUI needs to emit concrete CSS properties, it should use SwiftHTML `Style` helpers so standard CSS property names remain autocompleteable and shared across inline styles and stylesheet rules.
 
@@ -225,8 +229,8 @@ StyleSystem is also an environment value:
 ```swift
 let style = StyleSystem(id: "brand") {
     .surface {
-        .cardRadius("18px")
-        .cardShadow("none")
+        .containerRadius("18px")
+        .containerShadow("none")
     }
     .button {
         .radius("999px")
@@ -292,8 +296,8 @@ Modifier order is semantic. The stylesheet scope created by `theme` reads outer 
 | Style modifiers | `foregroundStyle`, `backgroundStyle`, `tint`, and `border` are available on all `HTML`. |
 | Stylesheet output | SwiftHTML owns `Style`, generated standard CSS property helpers, `Stylesheet`, `CSSRule`, and `@StylesheetBuilder`; SwiftWebUI uses them for typed theme CSS. |
 | Style system | `StyleSystem`, built-in presets, environment propagation, and builder-based overrides live in `SwiftWebUI`. |
-| Control environment | `isEnabled`, `controlSize`, `controlState`, `tint`, and `buttonStyle` are environment values. |
-| Control styles | `ButtonStyleKind` provides built-in `automatic`, `bordered`, `borderedProminent`, and `plain` styles. |
+| Control environment | `isEnabled`, `controlSize`, `controlState`, `tint`, `buttonStyle`, and `pickerStyle` are environment values. |
+| Control styles | `ButtonStyleKind` and `PickerStyleKind` select semantic treatments whose CSS lives in `ThemeStylesheet`. |
 | Binding-first controls | `TextField`, `Toggle`, `Slider`, `Stepper`, and `Picker` accept `Binding` values. |
 | Typography | `Font`, `FontWeight`, and `FontDesign` provide SwiftUI-style text modifiers. |
 | Navigation | `NavigationStack`, `NavigationLink`, `NavigationPath`, and `navigationTitle` are graph-level hooks. |

@@ -29,14 +29,21 @@ struct CounterPage {
             Grid {
                 ClientCounter()
 
-                Card(.class("server-counter")) {
+                GroupBox {
                     VStack(spacing: .large) {
                         Heading("Server Counter")
                         Text(
                             "Each button posts a delta to Vapor. The value is read from server state on the next render.",
                             tone: .muted
                         )
-                        ValueDisplay(label: "Server value", value: serverValue)
+                        VStack(spacing: .xsmall) {
+                            Text("Server value", as: .small, tone: .muted)
+                            Text(String(serverValue), as: .strong)
+                                .font(.largeTitle)
+                                .foregroundStyle(.accent)
+                                .accessibilityIdentifier("counter-value")
+                                .accessibilityValue(String(serverValue))
+                        }
                         LazyHStack(spacing: .small) {
                             Button("Decrement", action: counterService.decrementAction)
                             Spacer()
@@ -44,6 +51,7 @@ struct CounterPage {
                         }
                     }
                 }
+                .accessibilityIdentifier("server-counter")
                 .frame(maxWidth: .infinity, alignment: .top)
             }
 

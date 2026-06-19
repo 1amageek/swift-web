@@ -10,7 +10,6 @@ public struct StyleSystem: Codable, Sendable, Equatable, Identifiable {
     public var button: Button
     public var field: Field
     public var badge: Badge
-    public var valueDisplay: ValueDisplay
     public var navigation: Navigation
     public var toggle: Toggle
     public var motion: Motion
@@ -26,7 +25,6 @@ public struct StyleSystem: Codable, Sendable, Equatable, Identifiable {
         button: Button,
         field: Field,
         badge: Badge,
-        valueDisplay: ValueDisplay,
         navigation: Navigation,
         toggle: Toggle,
         motion: Motion,
@@ -41,7 +39,6 @@ public struct StyleSystem: Codable, Sendable, Equatable, Identifiable {
         self.button = button
         self.field = field
         self.badge = badge
-        self.valueDisplay = valueDisplay
         self.navigation = navigation
         self.toggle = toggle
         self.motion = motion
@@ -77,9 +74,6 @@ public struct StyleSystem: Codable, Sendable, Equatable, Identifiable {
         if let badge = override.badge {
             style.badge = style.badge.overriding(badge)
         }
-        if let valueDisplay = override.valueDisplay {
-            style.valueDisplay = style.valueDisplay.overriding(valueDisplay)
-        }
         if let navigation = override.navigation {
             style.navigation = style.navigation.overriding(navigation)
         }
@@ -107,7 +101,6 @@ public extension StyleSystem {
         public var button: Button.Override?
         public var field: Field.Override?
         public var badge: Badge.Override?
-        public var valueDisplay: ValueDisplay.Override?
         public var navigation: Navigation.Override?
         public var toggle: Toggle.Override?
         public var motion: Motion.Override?
@@ -123,7 +116,6 @@ public extension StyleSystem {
             button: Button.Override? = nil,
             field: Field.Override? = nil,
             badge: Badge.Override? = nil,
-            valueDisplay: ValueDisplay.Override? = nil,
             navigation: Navigation.Override? = nil,
             toggle: Toggle.Override? = nil,
             motion: Motion.Override? = nil,
@@ -138,7 +130,6 @@ public extension StyleSystem {
             self.button = button
             self.field = field
             self.badge = badge
-            self.valueDisplay = valueDisplay
             self.navigation = navigation
             self.toggle = toggle
             self.motion = motion
@@ -196,44 +187,41 @@ public extension StyleSystem {
     }
 
     struct Surface: Codable, Sendable, Equatable {
-        // The card fill and backdrop are owned by the `Material` primitive; the
-        // surface only contributes the chrome that is a legitimate per-component
-        // design difference (border, radius, shadow).
-        public var cardBorder: String
-        public var cardRadius: String
-        public var cardShadow: String
+        public var containerBorder: String
+        public var containerRadius: String
+        public var containerShadow: String
 
         public init(
-            cardBorder: String,
-            cardRadius: String,
-            cardShadow: String
+            containerBorder: String,
+            containerRadius: String,
+            containerShadow: String
         ) {
-            self.cardBorder = cardBorder
-            self.cardRadius = cardRadius
-            self.cardShadow = cardShadow
+            self.containerBorder = containerBorder
+            self.containerRadius = containerRadius
+            self.containerShadow = containerShadow
         }
 
         public func overriding(_ override: Override) -> Surface {
             Surface(
-                cardBorder: override.cardBorder ?? cardBorder,
-                cardRadius: override.cardRadius ?? cardRadius,
-                cardShadow: override.cardShadow ?? cardShadow
+                containerBorder: override.containerBorder ?? containerBorder,
+                containerRadius: override.containerRadius ?? containerRadius,
+                containerShadow: override.containerShadow ?? containerShadow
             )
         }
 
         public struct Override: Codable, Sendable, Equatable {
-            public var cardBorder: String?
-            public var cardRadius: String?
-            public var cardShadow: String?
+            public var containerBorder: String?
+            public var containerRadius: String?
+            public var containerShadow: String?
 
             public init(
-                cardBorder: String? = nil,
-                cardRadius: String? = nil,
-                cardShadow: String? = nil
+                containerBorder: String? = nil,
+                containerRadius: String? = nil,
+                containerShadow: String? = nil
             ) {
-                self.cardBorder = cardBorder
-                self.cardRadius = cardRadius
-                self.cardShadow = cardShadow
+                self.containerBorder = containerBorder
+                self.containerRadius = containerRadius
+                self.containerShadow = containerShadow
             }
         }
     }
@@ -510,67 +498,6 @@ public extension StyleSystem {
         }
     }
 
-    struct ValueDisplay: Codable, Sendable, Equatable {
-        public var background: String
-        public var border: String
-        public var radius: String
-        public var padding: String
-        public var valueSize: String
-        public var valueWeight: String
-
-        public init(
-            background: String,
-            border: String,
-            radius: String,
-            padding: String,
-            valueSize: String,
-            valueWeight: String
-        ) {
-            self.background = background
-            self.border = border
-            self.radius = radius
-            self.padding = padding
-            self.valueSize = valueSize
-            self.valueWeight = valueWeight
-        }
-
-        public func overriding(_ override: Override) -> ValueDisplay {
-            ValueDisplay(
-                background: override.background ?? background,
-                border: override.border ?? border,
-                radius: override.radius ?? radius,
-                padding: override.padding ?? padding,
-                valueSize: override.valueSize ?? valueSize,
-                valueWeight: override.valueWeight ?? valueWeight
-            )
-        }
-
-        public struct Override: Codable, Sendable, Equatable {
-            public var background: String?
-            public var border: String?
-            public var radius: String?
-            public var padding: String?
-            public var valueSize: String?
-            public var valueWeight: String?
-
-            public init(
-                background: String? = nil,
-                border: String? = nil,
-                radius: String? = nil,
-                padding: String? = nil,
-                valueSize: String? = nil,
-                valueWeight: String? = nil
-            ) {
-                self.background = background
-                self.border = border
-                self.radius = radius
-                self.padding = padding
-                self.valueSize = valueSize
-                self.valueWeight = valueWeight
-            }
-        }
-    }
-
     struct Navigation: Codable, Sendable, Equatable {
         public var gap: String
         public var linkForeground: String
@@ -790,15 +717,15 @@ public extension StyleSystem {
             lazyIntrinsicSize: "auto 56px"
         ),
         surface: Surface(
-            cardBorder: "1px solid var(--swui-border)",
-            cardRadius: "var(--swui-radius-medium)",
-            cardShadow: "0 1px 2px rgba(15, 23, 42, 0.05)"
+            containerBorder: "1px solid var(--swui-border)",
+            containerRadius: "14px",
+            containerShadow: "none"
         ),
         typography: Typography(
-            pageHeadingSize: "clamp(32px, 5vw, 44px)",
-            pageHeadingLineHeight: "1",
-            sectionHeadingSize: "20px",
-            subsectionHeadingSize: "16px"
+            pageHeadingSize: "30px",
+            pageHeadingLineHeight: "1.2",
+            sectionHeadingSize: "22px",
+            subsectionHeadingSize: "17px"
         ),
         control: Control(
             miniHeight: "28px",
@@ -821,26 +748,18 @@ public extension StyleSystem {
             plainForeground: "var(--swui-accent)"
         ),
         field: Field(
-            background: "var(--swui-surface-raised)",
+            background: "var(--swui-surface)",
             border: "1px solid var(--swui-border)",
-            radius: "var(--swui-radius-small)",
-            padding: "6px 8px",
-            labelSize: "13px"
+            radius: "var(--swui-radius-medium)",
+            padding: "7px 11px",
+            labelSize: "12.5px"
         ),
         badge: Badge(
-            background: "var(--swui-surface-raised)",
-            border: "1px solid var(--swui-border)",
-            foreground: "var(--swui-text-muted)",
+            background: "color-mix(in srgb, var(--swui-control-tint, var(--swui-accent)) 13%, var(--swui-surface))",
+            border: "1px solid color-mix(in srgb, var(--swui-control-tint, var(--swui-accent)) 26%, transparent)",
+            foreground: "var(--swui-control-tint, var(--swui-accent))",
             radius: "var(--swui-radius-pill)",
-            padding: "2px var(--swui-space-sm)"
-        ),
-        valueDisplay: ValueDisplay(
-            background: "color-mix(in srgb, var(--swui-accent) 9%, var(--swui-surface))",
-            border: "1px solid color-mix(in srgb, var(--swui-accent) 28%, var(--swui-border))",
-            radius: "var(--swui-radius-medium)",
-            padding: "var(--swui-space-lg)",
-            valueSize: "44px",
-            valueWeight: "700"
+            padding: "3px 10px"
         ),
         navigation: Navigation(
             gap: "var(--swui-space-md)",
@@ -849,11 +768,11 @@ public extension StyleSystem {
             linkHoverDecoration: "underline"
         ),
         toggle: Toggle(
-            width: "34px",
-            height: "20px",
-            thumbSize: "14px",
+            width: "38px",
+            height: "23px",
+            thumbSize: "19px",
             thumbOffset: "2px",
-            checkedThumbOffset: "14px"
+            checkedThumbOffset: "15px"
         ),
         motion: Motion(
             quick: "120ms ease",
@@ -884,8 +803,8 @@ public extension StyleSystem {
             .pageInlinePadding("clamp(16px, 5vw, 32px)")
         }
         .surface {
-            .cardRadius("12px")
-            .cardShadow("0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08)")
+            .containerRadius("12px")
+            .containerShadow("0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08)")
         }
         .control {
             .regularHeight("40px")
@@ -910,12 +829,9 @@ public extension StyleSystem {
             .pageInlinePadding("clamp(18px, 5vw, 36px)")
         }
         .surface {
-            // Card fill + backdrop now come from the shared material primitive
-            // (Card composes `.regularMaterial`); the surface only keeps the
-            // glassy rim border, larger radius, and elevated drop shadow.
-            .cardBorder("1px solid color-mix(in srgb, #ffffff 34%, var(--swui-border))")
-            .cardRadius("22px")
-            .cardShadow("0 18px 48px rgba(15, 23, 42, 0.18)")
+            .containerBorder("1px solid color-mix(in srgb, #ffffff 34%, var(--swui-border))")
+            .containerRadius("22px")
+            .containerShadow("0 18px 48px rgba(15, 23, 42, 0.18)")
         }
         .control {
             .regularHeight("40px")
@@ -934,12 +850,6 @@ public extension StyleSystem {
             // Fill + translucency come from the shared material; only the glassy
             // rim border is overridden here.
             .border("1px solid color-mix(in srgb, var(--swui-border) 54%, transparent)")
-        }
-        .valueDisplay {
-            // Fill + translucency come from the shared material; the accent-tinted
-            // rim border and larger radius stay a per-component difference.
-            .border("1px solid color-mix(in srgb, var(--swui-accent) 24%, transparent)")
-            .radius("20px")
         }
         .motion {
             .quick("160ms cubic-bezier(0.16, 1, 0.3, 1)")
@@ -969,9 +879,9 @@ public extension StyleSystem {
             .custom("--swui-page-inline-padding", root.pageInlinePadding)
             .custom("--swui-stack-spacing", root.stackSpacing)
             .custom("--swui-lazy-intrinsic-size", layout.lazyIntrinsicSize)
-            .custom("--swui-card-border", surface.cardBorder)
-            .custom("--swui-card-radius", surface.cardRadius)
-            .custom("--swui-card-shadow", surface.cardShadow)
+            .custom("--swui-container-border", surface.containerBorder)
+            .custom("--swui-container-radius", surface.containerRadius)
+            .custom("--swui-container-shadow", surface.containerShadow)
             .custom("--swui-heading-page-size", typography.pageHeadingSize)
             .custom("--swui-heading-page-line-height", typography.pageHeadingLineHeight)
             .custom("--swui-heading-section-size", typography.sectionHeadingSize)
@@ -999,12 +909,6 @@ public extension StyleSystem {
             .custom("--swui-badge-foreground", badge.foreground)
             .custom("--swui-badge-radius", badge.radius)
             .custom("--swui-badge-padding", badge.padding)
-            .custom("--swui-value-display-background", valueDisplay.background)
-            .custom("--swui-value-display-border", valueDisplay.border)
-            .custom("--swui-value-display-radius", valueDisplay.radius)
-            .custom("--swui-value-display-padding", valueDisplay.padding)
-            .custom("--swui-value-size", valueDisplay.valueSize)
-            .custom("--swui-value-weight", valueDisplay.valueWeight)
             .custom("--swui-navigation-gap", navigation.gap)
             .custom("--swui-navigation-link-foreground", navigation.linkForeground)
             .custom("--swui-navigation-link-decoration", navigation.linkDecoration)

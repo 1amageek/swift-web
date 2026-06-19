@@ -187,21 +187,6 @@ public extension StyleSystemOverrideStep {
         }
     }
 
-    func valueDisplay(@StyleSystemValueDisplayBuilder _ content: () -> [StyleSystemValueDisplayOverrideStep]) -> Self {
-        appending(Self.valueDisplay(content))
-    }
-
-    static func valueDisplay(@StyleSystemValueDisplayBuilder _ content: () -> [StyleSystemValueDisplayOverrideStep]) -> Self {
-        let steps = content()
-        return Self { override in
-            var valueDisplay = override.valueDisplay ?? StyleSystem.ValueDisplay.Override()
-            for step in steps {
-                step.apply(to: &valueDisplay)
-            }
-            override.valueDisplay = valueDisplay
-        }
-    }
-
     func navigation(@StyleSystemNavigationBuilder _ content: () -> [StyleSystemNavigationOverrideStep]) -> Self {
         appending(Self.navigation(content))
     }

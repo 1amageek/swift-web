@@ -12,7 +12,7 @@ public enum PresentationKind: Sendable, Hashable {
     /// A set of choices with an implicit cancel, mirroring SwiftUI
     /// `confirmationDialog`.
     case confirmationDialog
-    /// A modal card, mirroring SwiftUI `sheet`.
+    /// A modal panel, mirroring SwiftUI `sheet`.
     case sheet
     /// A transient overlay anchored to its source, mirroring SwiftUI `popover`.
     case popover

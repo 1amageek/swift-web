@@ -7,7 +7,7 @@ import Testing
 struct SwiftWebUIRenderingTests {
   @Test
   func rendersThemeAndLayoutPrimitives() {
-    let rendered = main(.class("swui-page")) {
+    let rendered = main {
       VStack(spacing: .large) {
         VStack(spacing: .small) {
           Badge("SwiftWeb")
@@ -15,12 +15,13 @@ struct SwiftWebUIRenderingTests {
           Text("Client and server counters.", tone: .muted)
         }
         Grid {
-          Card {
+          GroupBox {
             Heading("Client Counter")
             Text("Runs in WASM.", tone: .muted)
-            ValueDisplay(label: "Client value", value: 0)
+            Text("0", as: .strong)
+              .accessibilityIdentifier("counter-value")
           }
-          .class("client-counter")
+          .accessibilityIdentifier("client-counter")
         }
       }
     }
@@ -32,13 +33,16 @@ struct SwiftWebUIRenderingTests {
     #expect(rendered.contains("--swui-background: #f7f8fa;"))
     #expect(rendered.contains("--swui-button-radius: var(--swui-radius-medium);"))
     #expect(rendered.contains(".swui-code-line-number"))
+    #expect(rendered.contains("white-space: nowrap;"))
+    #expect(rendered.contains(".swui-list-row .swui-text"))
+    #expect(rendered.contains(".swui-list-row .swui-text-muted"))
     #expect(rendered.contains("class=\"swui-root\""))
     #expect(rendered.contains("data-theme=\"system\""))
     #expect(rendered.contains("data-style-system=\"swift-web\""))
-    #expect(rendered.contains("class=\"swui-page\""))
     #expect(
-      rendered.contains("class=\"swui-card swui-material swui-material-regular client-counter\""))
-    #expect(rendered.contains("<output class=\"swui-value\" aria-live=\"polite\">0</output>"))
+      rendered.contains("class=\"swui-group-box swui-material swui-material-regular\""))
+    #expect(rendered.contains("data-accessibility-identifier=\"client-counter\""))
+    #expect(rendered.contains("data-accessibility-identifier=\"counter-value\""))
   }
 
   @Test
@@ -49,8 +53,8 @@ struct SwiftWebUIRenderingTests {
           .stackSpacing("24px")
       }
       .surface {
-        .cardRadius("18px")
-          .cardShadow("none")
+        .containerRadius("18px")
+          .containerShadow("none")
       }
       .button {
         .radius("999px")
@@ -58,7 +62,7 @@ struct SwiftWebUIRenderingTests {
       }
     }
 
-    let rendered = Card {
+    let rendered = GroupBox {
       Button("Save") {}
     }
     .environment(\.theme, .dark)
@@ -70,18 +74,18 @@ struct SwiftWebUIRenderingTests {
     #expect(rendered.contains("[data-style-system=\"brand\"]"))
     #expect(rendered.contains("--swui-page-inline-padding: 40px;"))
     #expect(rendered.contains("--swui-stack-spacing: 24px;"))
-    #expect(rendered.contains("--swui-card-radius: 18px;"))
-    #expect(rendered.contains("--swui-card-shadow: none;"))
+    #expect(rendered.contains("--swui-container-radius: 18px;"))
+    #expect(rendered.contains("--swui-container-shadow: none;"))
     #expect(rendered.contains("--swui-button-radius: 999px;"))
     #expect(rendered.contains("--swui-button-secondary-background: #eef2ff;"))
-    #expect(rendered.contains("--swui-field-radius: var(--swui-radius-small);"))
+    #expect(rendered.contains("--swui-field-radius: var(--swui-radius-medium);"))
   }
 
   @Test
   func rendersBuiltInStyleSystemPresets() {
-    let rendered = Card {
+    let rendered = GroupBox {
       Badge("Preview")
-      ValueDisplay(value: 7)
+      Text("7", as: .strong)
     }
     .environment(\.theme, .system)
     .environment(\.styleSystem, .liquidGlass)
@@ -97,13 +101,13 @@ struct SwiftWebUIRenderingTests {
     #expect(rendered.contains("--swui-material-refraction: url("))
     #expect(rendered.contains("--swui-button-radius: 999px;"))
     // Chrome composes a material level instead of hand-rolling translucency.
-    #expect(rendered.contains("class=\"swui-card swui-material swui-material-regular\""))
+    #expect(rendered.contains("class=\"swui-group-box swui-material swui-material-regular\""))
     #expect(rendered.contains("class=\"swui-badge swui-material swui-material-thin\""))
   }
 
   @Test
   func resolvesButtonTintOnTheButtonElement() {
-    let rendered = Card {
+    let rendered = GroupBox {
       Button("Danger", prominence: .primary) {}
         .tint(.danger)
     }
@@ -126,16 +130,18 @@ struct SwiftWebUIRenderingTests {
 
   @Test
   func mergesClassAndStyleAttributes() {
-    let rendered = Card(padding: .small) {
+    let rendered = GroupBox {
       Text("Body")
     }
-    .class("client-counter")
+    .accessibilityIdentifier("client-counter")
     .style(.minHeight("120px"))
+    .padding(.small)
     .padding(.horizontal, .large)
     .render()
 
     #expect(
-      rendered.contains("class=\"swui-card swui-material swui-material-regular client-counter\""))
+      rendered.contains("class=\"swui-group-box swui-material swui-material-regular\""))
+    #expect(rendered.contains("data-accessibility-identifier=\"client-counter\""))
     #expect(rendered.contains("padding: var(--swui-space-sm)"))
     #expect(rendered.contains("min-height: 120px"))
     #expect(rendered.contains("padding-left: var(--swui-space-lg)"))
@@ -194,7 +200,8 @@ struct SwiftWebUIRenderingTests {
         SubmitButton("Decrement")
           .name("delta")
           .value(-1)
-        ValueDisplay(value: 4)
+        Text("4", as: .strong)
+          .accessibilityIdentifier("counterValue")
         SubmitButton("Increment")
           .name("delta")
           .value(1)
@@ -209,7 +216,7 @@ struct SwiftWebUIRenderingTests {
       rendered.contains(
         "<button class=\"swui-button swui-button-secondary swui-material swui-material-thin\" type=\"submit\" name=\"delta\" value=\"-1\">Decrement</button>"
       ))
-    #expect(rendered.contains("<output class=\"swui-value\" aria-live=\"polite\">4</output>"))
+    #expect(rendered.contains("data-accessibility-identifier=\"counterValue\""))
     #expect(
       rendered.contains(
         "<button class=\"swui-button swui-button-secondary swui-material swui-material-thin\" type=\"submit\" name=\"delta\" value=\"1\">Increment</button>"
@@ -354,8 +361,8 @@ struct SwiftWebUIRenderingTests {
   }
 
   @Test
-  func buttonLinksReadButtonEnvironment() {
-    let rendered = ButtonLink("Details", href: "/details", prominence: .primary)
+  func linksCanReadButtonStyleEnvironment() {
+    let rendered = Link("Details", href: "/details")
       .buttonStyle(.borderedProminent)
       .controlSize(.large)
       .tint(.accent)
@@ -522,10 +529,9 @@ struct SwiftWebUIRenderingTests {
     #expect(rendered.contains("aria-description=\"Adds one\""))
     #expect(
       rendered.contains(
-        "class=\"swui-stepper swui-control-regular swui-material swui-material-thin\""))
-    #expect(
-      rendered.contains(
-        "class=\"swui-stepper-actions\" role=\"group\" aria-label=\"Count controls\""))
+        "class=\"swui-stepper swui-control-regular swui-control-enabled\""))
+    #expect(rendered.contains("role=\"group\" aria-label=\"Count\""))
+    #expect(rendered.contains("class=\"swui-stepper-value val\" aria-live=\"polite\""))
     #expect(rendered.contains("class=\"swui-stepper-button\" aria-label=\"Decrement Count\""))
     #expect(rendered.contains("class=\"swui-stepper-button\" aria-label=\"Increment Count\""))
     #expect(rendered.contains("class=\"swui-navigation-link\""))
@@ -574,7 +580,7 @@ struct SwiftWebUIRenderingTests {
     .render()
 
     // DisclosureGroup is a non-replaced surface, so it composes the full
-    // regular-material recipe like Card; `isExpanded` emits `open`.
+    // regular-material recipe; `isExpanded` emits `open`.
     #expect(
       rendered.contains("class=\"swui-disclosure-group swui-material swui-material-regular\" open"))
     #expect(rendered.contains("<summary class=\"swui-disclosure-summary\">Advanced</summary>"))
@@ -690,12 +696,12 @@ struct SwiftWebUIRenderingTests {
     .render()
 
     #expect(rendered.contains(".swui-picker-segmented {"))
-    #expect(rendered.contains("min-height: var(--swui-control-regular-height);"))
+    #expect(rendered.contains("min-height: 0;"))
     #expect(rendered.contains("border-radius: var(--swui-button-radius);"))
-    #expect(rendered.contains("overflow: hidden;"))
+    #expect(rendered.contains("padding: 2px;"))
     #expect(rendered.contains(".swui-picker-segmented .swui-picker-segment-label {"))
-    #expect(rendered.contains("min-height: calc(var(--swui-control-regular-height) - 6px);"))
-    #expect(rendered.contains("border-radius: calc(var(--swui-button-radius) - 3px);"))
+    #expect(rendered.contains("padding: 6px 14px;"))
+    #expect(rendered.contains("border-radius: calc(var(--swui-button-radius) - 2px);"))
     #expect(rendered.contains("white-space: nowrap;"))
   }
 

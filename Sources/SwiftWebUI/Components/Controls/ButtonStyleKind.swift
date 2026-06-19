@@ -12,17 +12,70 @@ public enum ButtonStyleKind: String, Codable, Sendable, Equatable {
     ) -> ButtonStyleResult {
         switch self {
         case .automatic:
-            AutomaticButtonStyle().resolve(configuration: configuration, context: context)
+            switch configuration.prominence {
+            case .primary:
+                Self.borderedProminent.resolve(configuration: configuration, context: context)
+            case .secondary:
+                Self.bordered.resolve(configuration: configuration, context: context)
+            }
         case .bordered:
-            BorderedButtonStyle().resolve(configuration: configuration, context: context)
+            ButtonStyleResult(
+                classNames: [
+                    "swui-button",
+                    "swui-button-secondary",
+                    MaterialClass.material,
+                    MaterialClass.thin,
+                    configuration.controlSize.className,
+                    configuration.isEnabled ? "swui-control-enabled" : "swui-control-disabled",
+                ],
+                style: .custom("--swui-control-tint", configuration.tint)
+            )
         case .borderedProminent:
-            BorderedProminentButtonStyle().resolve(configuration: configuration, context: context)
+            ButtonStyleResult(
+                classNames: [
+                    "swui-button",
+                    "swui-button-primary",
+                    configuration.controlSize.className,
+                    configuration.isEnabled ? "swui-control-enabled" : "swui-control-disabled",
+                ],
+                style: .custom("--swui-control-tint", configuration.tint)
+            )
         case .glass:
-            GlassButtonStyle().resolve(configuration: configuration, context: context)
+            ButtonStyleResult(
+                classNames: [
+                    "swui-button",
+                    "swui-button-glass",
+                    MaterialClass.glass,
+                    MaterialClass.regular,
+                    MaterialClass.interactive,
+                    configuration.controlSize.className,
+                    configuration.isEnabled ? "swui-control-enabled" : "swui-control-disabled",
+                ],
+                style: .custom("--swui-control-tint", configuration.tint)
+            )
         case .glassProminent:
-            GlassProminentButtonStyle().resolve(configuration: configuration, context: context)
+            ButtonStyleResult(
+                classNames: [
+                    "swui-button",
+                    "swui-button-glass-prominent",
+                    MaterialClass.glass,
+                    MaterialClass.regular,
+                    MaterialClass.interactive,
+                    configuration.controlSize.className,
+                    configuration.isEnabled ? "swui-control-enabled" : "swui-control-disabled",
+                ],
+                style: .custom("--swui-control-tint", configuration.tint)
+            )
         case .plain:
-            PlainButtonStyle().resolve(configuration: configuration, context: context)
+            ButtonStyleResult(
+                classNames: [
+                    "swui-button",
+                    "swui-button-plain",
+                    configuration.controlSize.className,
+                    configuration.isEnabled ? "swui-control-enabled" : "swui-control-disabled",
+                ],
+                style: .custom("--swui-control-tint", configuration.tint)
+            )
         }
     }
 }

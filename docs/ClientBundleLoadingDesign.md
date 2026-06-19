@@ -17,7 +17,7 @@ The default is intentionally conservative: all client components join one eager 
 
 ## Size Optimization Direction
 
-The split-loading contract optimizes the first interactive surface by delaying selected client islands. The current Swift/WASI toolchain still links each executable WASM product as a standalone artifact, so a naive one-product-per-split implementation duplicates the Swift runtime, SwiftHTML, SwiftWebUIRuntime, and JavaScriptKit-facing runtime glue in every split bundle. After removing macro-only dependencies and stripping debug/producers custom sections, the browser E2E run on 2026-06-17 loaded an eager main bundle of about 56.5 MB uncompressed.
+The split-loading contract optimizes the first interactive surface by delaying selected client islands. The current Swift/WASI toolchain still links each executable WASM product as a standalone artifact, so a naive one-product-per-split implementation duplicates the Swift runtime, SwiftHTML, SwiftWebUIRuntime, and JavaScriptKit-facing runtime glue in every split bundle. The JavaScriptKit boundary is defined in [`BrowserRuntimeJavaScriptKitDecision.md`](BrowserRuntimeJavaScriptKitDecision.md): generated browser WASM packages use a runtime-only JavaScriptKit source copy by default, not BridgeJS. After removing macro-only dependencies and stripping debug/producers custom sections, the browser E2E run on 2026-06-17 loaded an eager main bundle of about 56.5 MB uncompressed.
 
 SwiftWeb therefore separates the developer contract from the physical build strategy:
 
@@ -410,7 +410,7 @@ Build-speed requirements:
 | Rebuild dirty resolved bundles only | Editing one split island should not rebuild unrelated bundles. |
 | Content-addressed artifact cache | Reuses artifacts across dev, storyboard, and production build commands. |
 | Cache key includes toolchain, SDK, dependencies, and build flags | Prevents incompatible artifacts from being reused. |
-| Runtime-only generated source targets | Keeps SwiftHTML preview macros, JavaScriptKit BridgeJS macros, and `swift-syntax` out of the WASM package graph. |
+| Runtime-only generated source targets | Keeps SwiftHTML preview macros, JavaScriptKit BridgeJS macros, and `swift-syntax` out of the WASM package graph. See [`BrowserRuntimeJavaScriptKitDecision.md`](BrowserRuntimeJavaScriptKitDecision.md). |
 | No automatic component target explosion | Keeps normal development fast and package graphs understandable. |
 | Build metrics | Makes slow paths measurable before changing policy. |
 

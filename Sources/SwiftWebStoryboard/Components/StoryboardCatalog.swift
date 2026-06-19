@@ -1,17 +1,18 @@
 import Foundation
 import SwiftHTML
 import SwiftWebUI
+#if canImport(SwiftWebUIRuntime)
 import SwiftWebUIRuntime
+#endif
 
 // MARK: - Catalog root
 
 /// The full component catalog as a single client component. The current
 /// selection is route-owned; this component owns the interactive demo state and
 /// the top-bar controls that retheme the page by re-applying the environment.
-public struct StoryboardCatalog: ClientComponent, ClientWasmBootstrapInitializable, Sendable {
+public struct StoryboardCatalog: ClientComponent, Sendable {
     private let selection: String
     @State private var theme = Theme.light
-    @State private var styleID = "swift-web"
     @State private var name = "Ada Lovelace"
     @State private var email = "ada@example.com"
     @State private var secret = "hunter2"
@@ -36,10 +37,6 @@ public struct StoryboardCatalog: ClientComponent, ClientWasmBootstrapInitializab
         self.selection = catalogSelectionID(for: initialSelection)
     }
 
-    public init(bootstrap request: ClientWasmBootstrapRequest) throws {
-        self.init(initialSelection: Self.selection(from: request.location.href))
-    }
-
     private static func selection(from href: String) -> String {
         guard let url = URL(string: href) else {
             return catalogDefaultSelection
@@ -58,7 +55,7 @@ public struct StoryboardCatalog: ClientComponent, ClientWasmBootstrapInitializab
     public var body: some HTML {
         main(.class("storyboard-page")) {
             VStack(spacing: Space.none) {
-                CatalogTopBar(theme: $theme, styleID: $styleID)
+                CatalogTopBar(theme: $theme)
                 HStack(alignment: .top, spacing: Space.none) {
                     CatalogSidebar(selection: selection)
                     CatalogDetail(
@@ -85,19 +82,21 @@ public struct StoryboardCatalog: ClientComponent, ClientWasmBootstrapInitializab
                     )
                     CatalogInspector(selection: selection)
                 }
+                .class("storyboard-main")
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .style {
-                    .custom("flex", "1 1 auto")
-                    .custom("min-height", "0")
-                    .custom("overflow", "hidden")
-                }
             }
+            .class("storyboard-shell")
             .frame(maxWidth: .infinity, alignment: .leading)
-            .style {
-                .height("100%")
-            }
         }
         .environment(\.theme, theme)
-        .environment(\.styleSystem, catalogStyleSystem(for: styleID))
+        .environment(\.styleSystem, .swiftWeb)
     }
 }
+
+#if canImport(SwiftWebUIRuntime)
+extension StoryboardCatalog: ClientWasmBootstrapInitializable {
+    public init(bootstrap request: ClientWasmBootstrapRequest) throws {
+        self.init(initialSelection: Self.selection(from: request.location.href))
+    }
+}
+#endif

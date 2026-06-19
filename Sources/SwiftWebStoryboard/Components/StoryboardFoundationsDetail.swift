@@ -9,6 +9,102 @@ struct FoundationsDetail: Component {
 
     var body: some HTML {
         switch selection {
+        case "gridsystem":
+            div(.class("storyboard-grid-demo")) {
+                div(.class("storyboard-grid-pane span-8")) {
+                    "span 8"
+                }
+                div(.class("storyboard-grid-pane span-4")) {
+                    "span 4"
+                }
+            }
+        case "spacing":
+            HStack(spacing: .large) {
+                VStack(alignment: .leading, spacing: .xsmall) {
+                    spacingBar("4", width: "12px", active: false)
+                    spacingBar("8", width: "24px", active: true)
+                    spacingBar("16", width: "48px", active: false)
+                    spacingBar("24", width: "72px", active: false)
+                    spacingBar("32", width: "96px", active: false)
+                    spacingBar("40", width: "120px", active: false)
+                    spacingBar("48", width: "144px", active: false)
+                }
+                VStack(spacing: .xsmall) {
+                    div(.class("storyboard-spacing-tile")) {
+                        ForEach(0..<16, id: \.self) { _ in
+                            div {}
+                        }
+                    }
+                    Text("8px grid", as: .small, tone: .muted)
+                        .class("storyboard-spacing-grid-label")
+                        .monospaced()
+                }
+            }
+            .class("storyboard-spacing-demo")
+        case "alignment":
+            VStack(spacing: .small) {
+                div(.class("storyboard-alignment-frame")) {
+                    div(.class("storyboard-alignment-chip")) {
+                        "View"
+                    }
+                }
+                Text("default · .center", as: .small, tone: .muted)
+                    .monospaced()
+            }
+            .class("storyboard-centered-demo")
+        case "style":
+            VStack(spacing: .medium) {
+                List {
+                    ListRow {
+                        Text("Wi-Fi")
+                        Spacer()
+                        Text("On", tone: .muted)
+                    }
+                    ListRow {
+                        Text("Bluetooth")
+                        Spacer()
+                        Text("Off", tone: .muted)
+                    }
+                }
+                Text(".swui-list .swui-text { ... }", as: .code)
+            }
+            .class("storyboard-centered-demo")
+        case "responsive":
+            VStack(spacing: .small) {
+                div(.class("storyboard-responsive-lattice")) {
+                    ForEach(0..<12, id: \.self) { _ in
+                        div {}
+                    }
+                }
+                div(.class("storyboard-responsive-content")) {
+                    div { "span 4" }
+                    div { "span 4" }
+                    div { "span 4" }
+                }
+                Text("large · > 1024px · 12 columns", as: .small, tone: .muted)
+                    .monospaced()
+            }
+            .class("storyboard-centered-demo")
+        case "safearea":
+            VStack(spacing: .small) {
+                div(.class("storyboard-phone")) {
+                    div(.class("storyboard-phone-notch")) {}
+                    div(.class("storyboard-phone-safe-area")) {
+                        "safe area"
+                    }
+                    div(.class("storyboard-phone-home")) {}
+                }
+                Text("iPhone (notch + home indicator)", as: .small, tone: .muted)
+                    .monospaced()
+            }
+            .class("storyboard-centered-demo")
+        case "colorvalue":
+            VStack(spacing: .small) {
+                div(.class("storyboard-color-swatch")) {}
+                Text("Color.blue → #007AFF", as: .small)
+                    .monospaced()
+            }
+            .class("storyboard-centered-demo")
         case "color":
             HStack(spacing: .small) {
                 Button("Accent", prominence: .primary)
@@ -19,55 +115,26 @@ struct FoundationsDetail: Component {
                     .tint(.css("#22a06b"))
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-        case "textblock":
-            VStack(alignment: .leading, spacing: .small) {
-                TextBlock("Paragraph copy for long-form content. TextBlock keeps body text semantic while using SwiftWebUI tone tokens.")
-                TextBlock("Muted paragraph copy is useful for support text, captions, and explanatory content.", tone: .muted)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        case "materials":
-            CatalogGlassStage {
-                Grid(minColumnWidth: "150px", spacing: .medium) {
-                    CatalogMaterialSwatch("Ultra thin", code: ".ultraThinMaterial", material: .ultraThinMaterial)
-                    CatalogMaterialSwatch("Thin", code: ".thinMaterial", material: .thinMaterial)
-                    CatalogMaterialSwatch("Regular", code: ".regularMaterial", material: .regularMaterial)
-                    CatalogMaterialSwatch("Thick", code: ".thickMaterial", material: .thickMaterial)
-                    CatalogMaterialSwatch("Ultra thick", code: ".ultraThickMaterial", material: .ultraThickMaterial)
-                    CatalogMaterialSwatch("Bar", code: ".bar", material: .bar)
-                }
-            }
-        case "glass":
-            CatalogGlassStage {
-                GlassEffectContainer(spacing: .medium) {
-                    Text("Regular glass")
-                        .padding(.all, "12px 18px")
-                        .glassEffect(.regular, in: .capsule)
-                    Text("Tinted + interactive")
-                        .padding(.all, "12px 18px")
-                        .glassEffect(.regular.tint("var(--swui-accent)").interactive(), in: .capsule)
-                }
-
-                HStack(spacing: .small) {
-                    Button("Glass", prominence: .primary)
-                        .buttonStyle(.glass)
-                    Button("Glass prominent", prominence: .primary)
-                        .buttonStyle(.glassProminent)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
         default:
-            Heading("Page heading", level: .page)
-            Heading("Section heading", level: .section)
-            Heading("Subsection heading", level: .subsection)
-            Text("Body copy uses the base text token and a comfortable line height for long-form reading.")
-            Text("Muted secondary copy for captions and hints.", tone: .muted)
-            HStack(spacing: .medium) {
-                Text("Strong", as: .strong)
-                Text("Small print", as: .small, tone: .muted)
-                CatalogCodeChip("inline.code()")
+            Text("Hello, SwiftWebUI")
+                .class("storyboard-typography-preview")
+                .font(.largeTitle)
+                .fontWeight(.bold)
+                .foregroundStyle(.primary)
+        }
+    }
+
+    private func spacingBar(_ label: String, width: String, active: Bool) -> some HTML {
+        HStack(spacing: .small) {
+            Text(label, as: .small, tone: .muted)
+                .class("storyboard-spacing-label")
+                .monospaced()
+            div(.class("storyboard-spacing-bar\(active ? " is-active" : "")")) {}
+                .frame(width: .css(width))
+            if active {
+                Text("base unit", as: .small)
+                    .class("storyboard-spacing-base-label")
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }
-

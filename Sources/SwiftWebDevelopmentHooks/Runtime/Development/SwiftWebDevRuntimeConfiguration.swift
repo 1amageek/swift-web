@@ -7,6 +7,7 @@ public struct SwiftWebDevRuntimeConfiguration: Sendable {
     public var host: String
     public var port: Int
     public var readinessTimeout: TimeInterval
+    public var hostSwiftExecutableURL: URL?
 
     public init(
         packageDirectory: URL,
@@ -14,7 +15,8 @@ public struct SwiftWebDevRuntimeConfiguration: Sendable {
         product: String = "app-server",
         host: String = "127.0.0.1",
         port: Int = 3000,
-        readinessTimeout: TimeInterval = 30
+        readinessTimeout: TimeInterval = 30,
+        hostSwiftExecutableURL: URL? = nil
     ) {
         self.packageDirectory = packageDirectory.standardizedFileURL
         self.scratchDirectory = scratchDirectory?.standardizedFileURL
@@ -22,5 +24,6 @@ public struct SwiftWebDevRuntimeConfiguration: Sendable {
         self.host = host
         self.port = port
         self.readinessTimeout = readinessTimeout
+        self.hostSwiftExecutableURL = hostSwiftExecutableURL?.standardizedFileURL
     }
 }

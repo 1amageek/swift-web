@@ -2,10 +2,6 @@ import Foundation
 import SwiftHTML
 import SwiftWebUI
 
-// MARK: - Detail router
-
-/// The center pane. A registry-driven header names the component; the demo is
-/// routed by category to keep each switch small, then by component id.
 struct CatalogDetail: Component {
     let selection: String
     let name: Binding<String>
@@ -29,71 +25,184 @@ struct CatalogDetail: Component {
     let showsPopover: Binding<Bool>
 
     var body: some HTML {
-        VStack(alignment: .leading, spacing: .large) {
-            if let item = catalogItem(for: selection) {
-                let spec = catalogDetailSpec(for: item)
-                detailHeader(item: item, spec: spec)
-
-                CatalogDetailSection(
-                    "Live preview",
-                    caption: "Interactive rendering of the selected component under the current theme and style system."
-                ) {
-                    Card {
-                        VStack(alignment: .leading, spacing: .medium) {
-                            detailDemo()
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+        div(.class("storyboard-detail")) {
+            div(.class("storyboard-detail-content")) {
+                if let item = catalogItem(for: selection) {
+                    let spec = catalogDetailSpec(for: item)
+                    detailHeader(item: item, spec: spec)
+                    previewSection()
+                    codeSection(title: "Usage", text: spec.snippet, language: "swift", showsLineNumbers: true)
+                    if showsRenderedHTML {
+                        renderedHTMLSection()
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-
-                CatalogDetailSection(
-                    "Adjustable properties",
-                    caption: "Primary inputs, modifiers, and bindings that change this component's behavior."
-                ) {
-                    CatalogPropertyPanel(properties: spec.properties)
-                }
-
-                CatalogDetailSection(
-                    "Swift snippet",
-                    caption: "A minimal SwiftWebUI example that produces the preview pattern."
-                ) {
-                    CatalogCodeBlock(spec.snippet)
+                    propertiesSection(spec.properties)
+                    relatedSection(item: item)
                 }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.all, "28px 32px")
-        .style {
-            .height("100%")
-            .custom("min-width", "0")
-            .custom("overflow-y", "auto")
-        }
+    }
+
+    private var showsRenderedHTML: Bool {
+        !["gridsystem", "spacing", "alignment", "responsive", "safearea"].contains(selection)
     }
 
     @HTMLBuilder
     private func detailHeader(item: CatalogItem, spec: CatalogDetailSpec) -> some HTML {
-        VStack(alignment: .leading, spacing: .small) {
-            Heading(item.name, level: .page)
-            Text(spec.overview, tone: .muted)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            HStack(spacing: .small) {
-                CatalogCodeChip(item.code)
-                if let category = catalogCategory(for: item.id) {
-                    Badge(category.title)
+        if let category = catalogCategory(for: item.id) {
+            div(.class("storyboard-breadcrumb")) {
+                span {
+                    category.title
+                }
+                span(.class("storyboard-breadcrumb-separator")) {
+                    "/"
+                }
+                span(.class("storyboard-breadcrumb-current")) {
+                    item.name
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        h1(.class("storyboard-title")) {
+            item.name
+        }
+        p(.class("storyboard-description")) {
+            spec.overview
+        }
+    }
+
+    @HTMLBuilder
+    private func previewSection() -> some HTML {
+        div(.class("storyboard-section-title")) {
+            "Preview"
+        }
+        div(.class("storyboard-preview-frame")) {
+            div(.class("storyboard-preview-canvas")) {
+                div(.class("swui-root storyboard-preview-root")) {
+                    detailDemo()
+                }
+            }
+            previewControls()
+        }
+    }
+
+    @HTMLBuilder
+    private func previewControls() -> some HTML {
+        switch selection {
+        case "slider":
+            div(.class("storyboard-controls")) {
+                CatalogRangeControl(label: "Value", value: volume)
+            }
+        case "stepper":
+            div(.class("storyboard-controls")) {
+                CatalogStepperControl(label: "Value", value: density)
+            }
+        case "toggle":
+            div(.class("storyboard-controls")) {
+                CatalogToggleControl(label: "State", value: enabled)
+            }
+        case "picker":
+            div(.class("storyboard-controls")) {
+                CatalogSegmentControl(
+                    label: "Selection",
+                    selection: segment,
+                    options: [
+                        CatalogSegmentOption(label: "List", value: "list"),
+                        CatalogSegmentOption(label: "Grid", value: "grid"),
+                        CatalogSegmentOption(label: "Columns", value: "columns"),
+                    ]
+                )
+            }
+        case "textfield":
+            div(.class("storyboard-controls")) {
+                CatalogTextControl(label: "Email", value: email, placeholder: "ada@example.com")
+            }
+        case "texteditor":
+            div(.class("storyboard-controls")) {
+                CatalogTextControl(label: "Notes", value: notes, placeholder: "Notes")
+            }
+        default:
+            rawHTML("")
+        }
+    }
+
+    @HTMLBuilder
+    private func codeSection(title: String, text: String, language: String, showsLineNumbers: Bool) -> some HTML {
+        div(.class("storyboard-section")) {
+            div(.class("storyboard-section-title")) {
+                title
+            }
+            CodeBlock(
+                text,
+                language: language,
+                showsLineNumbers: showsLineNumbers,
+                .class("storyboard-code-block")
+            )
+        }
+    }
+
+    @HTMLBuilder
+    private func renderedHTMLSection() -> some HTML {
+        div(.class("storyboard-section")) {
+            div(.class("storyboard-section-title tight")) {
+                "Rendered HTML"
+            }
+            div(.class("storyboard-section-caption")) {
+                "The DOM SwiftWebUI emits for the preview above."
+            }
+            CodeBlock(
+                catalogRenderedHTML(for: selection),
+                language: "html",
+                showsLineNumbers: false,
+                .class("storyboard-code-block rendered")
+            )
+        }
+    }
+
+    @HTMLBuilder
+    private func propertiesSection(_ properties: [CatalogProperty]) -> some HTML {
+        div(.class("storyboard-section")) {
+            div(.class("storyboard-section-title tight")) {
+                "Properties"
+            }
+            div(.class("storyboard-section-caption")) {
+                "The parameters and modifiers that configure this component."
+            }
+            CatalogPropertyPanel(properties: properties)
+        }
+    }
+
+    @HTMLBuilder
+    private func relatedSection(item: CatalogItem) -> some HTML {
+        div(.class("storyboard-section bottom")) {
+            div(.class("storyboard-section-title related")) {
+                "Related"
+            }
+            CatalogRelatedPanel(selection: item.id)
+        }
     }
 
     @HTMLBuilder
     private func detailDemo() -> some HTML {
-        switch catalogCategory(for: selection)?.id ?? "foundations" {
-        case "buttons":
+        switch selection {
+        case "gridsystem", "spacing", "alignment", "style", "responsive", "safearea":
+            FoundationsDetail(selection: selection)
+        case "typography", "colorvalue":
+            FoundationsDetail(selection: selection)
+        case "image", "label":
+            MediaDetail(selection: selection)
+        case "code":
+            CodeBlock(catalogSnippet(for: "code"), language: "swift")
+                .frame(maxWidth: .infinity, alignment: .leading)
+        case "groupbox", "list", "section", "disclosuregroup", "grid", "lazy", "scrollview", "toolbar", "badge":
+            ContainersDetail(selection: selection)
+        case "tabview", "navigationstack", "navigationlink", "searchable":
+            NavigationDetail(selection: selection, tab: tab, query: query)
+        case "stacks", "spacer", "divider", "hug-fill":
+            LayoutDetail(selection: selection)
+        case "button", "button-styles", "control-sizes", "button-states", "links":
             ButtonsDetail(selection: selection)
-        case "inputs":
+        case "menu", "picker":
+            PickersDetail(selection: selection, pick: pick, segment: segment, scope: scope, menuPick: menuPick)
+        case "securefield", "texteditor", "toggle", "slider", "stepper", "datepicker", "colorpicker", "form", "textfield":
             InputsDetail(
                 selection: selection,
                 name: name,
@@ -106,15 +215,11 @@ struct CatalogDetail: Component {
                 due: due,
                 accent: accent
             )
-        case "pickers":
-            PickersDetail(selection: selection, pick: pick, segment: segment, scope: scope, menuPick: menuPick)
-        case "containers":
-            ContainersDetail(selection: selection)
-        case "status":
+        case "color":
+            FoundationsDetail(selection: selection)
+        case "progressview", "gauge":
             StatusDetail(selection: selection)
-        case "navigation":
-            NavigationDetail(selection: selection, tab: tab, query: query)
-        case "presentation":
+        case "alert", "sheet":
             PresentationDetail(
                 selection: selection,
                 showsAlert: showsAlert,
@@ -122,13 +227,8 @@ struct CatalogDetail: Component {
                 showsSheet: showsSheet,
                 showsPopover: showsPopover
             )
-        case "layout":
-            LayoutDetail(selection: selection)
-        case "media":
-            MediaDetail(selection: selection)
         default:
             FoundationsDetail(selection: selection)
         }
     }
 }
-

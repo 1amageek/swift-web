@@ -6,6 +6,8 @@ It owns reusable visual components, layout primitives, theme propagation, and de
 
 The core architecture is documented in [`docs/SwiftWebUICoreDesign.md`](../../docs/SwiftWebUICoreDesign.md). That document defines the component graph, dynamic property lifecycle, modifier graph, and style abstraction boundaries.
 
+The public style contract is documented in [`docs/SwiftWebUIStyleDesign.md`](../../docs/SwiftWebUIStyleDesign.md). That document defines the Theme / StyleSystem / CSS ownership model, component taxonomy, contextual styling rules, and styling gates for built-in components.
+
 Client WASM loading is documented in [`docs/ClientBundleLoadingDesign.md`](../../docs/ClientBundleLoadingDesign.md). That document defines the `ClientComponent` loading contract, modifier precedence, nested island ownership, and bundle policy rules.
 
 ## Responsibility
@@ -15,7 +17,7 @@ Client WASM loading is documented in [`docs/ClientBundleLoadingDesign.md`](../..
 | Layout primitives | Provides `VStack`, `HStack`, `ZStack`, `Spacer`, `ScrollView`, grids, and lazy stacks. |
 | UI controls | Provides `Button`, server action reference buttons, `SubmitButton`, `TextField`, `SecureField`, `Toggle`, and links. |
 | Text components | Provides `Text`, semantic `TextElement` switching via `as`, `Heading`, and text tones. |
-| Containers | Provides `Card`, `Section`, `List`, `ListRow`, and `Toolbar`. |
+| Containers | Provides `GroupBox`, `Section`, `List`, `ListRow`, and `Toolbar`. |
 | Theme | Provides `Theme` color mode values, `StyleSystem` component design values, `ThemeStylesheet`, and environment integration. |
 | Modifiers | Provides SwiftUI-like modifier graph wrappers for styles, attributes, frame, padding, alignment, accessibility, and events. |
 | Navigation | Provides `NavigationStack`, `NavigationLink`, `NavigationPath`, and `navigationTitle` metadata hooks. |
@@ -29,7 +31,7 @@ Client WASM loading is documented in [`docs/ClientBundleLoadingDesign.md`](../..
 | `Components/Text/` | Text rendering, semantic tag switching through `as`, headings, and text block helpers. |
 | `Components/Controls/` | Interactive controls such as `Button`, forms, links, text fields, toggles, and submit controls. |
 | `Components/Navigation/` | Navigation containers, navigation links, paths, and title metadata hooks. |
-| `Components/Containers/` | Structural UI components such as cards, sections, lists, toolbars, badges, and value displays. |
+| `Components/Containers/` | Structural UI components such as group boxes, sections, lists, toolbars, and badges. |
 | `Components/Media/` | Media-oriented components such as `Image`. |
 | `Theming/` | Theme values, `StyleSystem` values, typed stylesheet defaults, environment integration, scoped overrides, and theme switching controls. |
 
@@ -80,7 +82,7 @@ flowchart LR
 
 ## Theme And StyleSystem
 
-`Theme` controls semantic color values such as background, text, accent, and border. `StyleSystem` controls component-wide design choices such as card radius, button shape, field padding, value display treatment, material effects, and motion timing.
+`Theme` controls semantic color values such as background, text, accent, and border. `StyleSystem` controls component-wide design choices such as container radius, button shape, field padding, material effects, and motion timing.
 
 ```mermaid
 flowchart LR
@@ -93,13 +95,13 @@ flowchart LR
 
 `StyleSystem.default` is complete. Custom styles should start from that default and override only the parts that differ, so every component always has a fallback token.
 
-Every chrome surface — card, toolbar, badge, field, toggle track, and the bordered/glass buttons — composes one shared material recipe instead of hand-rolling its own translucency. A `StyleSystem` tunes that single recipe through the `material` block: `opacity` (with the per-level `opacityStep`), `blur`, `saturate`, the specular `rim`, and the SVG `refraction`. Components pick a *level* (`.regularMaterial`, `.thinMaterial`, `.bar`, …) and the CSS derives the level's fill from these knobs, so the glass stays consistent across the whole UI.
+Every chrome surface — group box, toolbar, badge, field, toggle track, and the bordered/glass buttons — composes one shared material recipe instead of hand-rolling its own translucency. A `StyleSystem` tunes that single recipe through the `material` block: `opacity` (with the per-level `opacityStep`), `blur`, `saturate`, the specular `rim`, and the SVG `refraction`. Components pick a *level* (`.regularMaterial`, `.thinMaterial`, `.bar`, …) and the CSS derives the level's fill from these knobs, so the glass stays consistent across the whole UI.
 
 ```swift
 let glass = StyleSystem(id: "glass") {
     .surface {
-        .cardRadius("22px")
-        .cardShadow("0 18px 48px rgba(15, 23, 42, 0.18)")
+        .containerRadius("22px")
+        .containerShadow("0 18px 48px rgba(15, 23, 42, 0.18)")
     }
     .button {
         .radius("999px")
@@ -180,7 +182,7 @@ NavigationStack {
 |---|---|
 | `foregroundStyle`, `backgroundStyle`, `tint`, `border` | Resolves `WebShapeStyle` values through theme/environment and lowers to CSS. |
 | `font`, `fontWeight`, `fontDesign`, `bold`, `italic`, `monospaced` | Provides SwiftUI-like typography without requiring raw CSS. |
-| `disabled`, `controlSize`, `buttonStyle` | Propagates control state through environment and lets controls render native attributes. |
+| `disabled`, `controlSize`, `buttonStyle`, `pickerStyle` | Propagates control state and semantic style selection through environment while controls render native attributes. |
 | `TextField`, `Toggle`, `Slider`, `Stepper`, `Picker` | Use `Binding` as the primary state interface. |
 | `accessibilityLabel`, `accessibilityHint`, `accessibilityValue`, `accessibilityHidden`, `accessibilityRole` | Maps common accessibility intent to semantic attributes. |
 | `NavigationStack`, `NavigationLink`, `navigationTitle` | Creates a navigation graph that can later be connected to browser history and transitions. |

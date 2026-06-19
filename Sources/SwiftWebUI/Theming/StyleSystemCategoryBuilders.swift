@@ -95,9 +95,9 @@ public enum StyleSystemSurfaceBuilder {
 }
 
 public extension StyleSystemSurfaceOverrideStep {
-    static func cardBorder(_ value: String) -> Self { Self { $0.cardBorder = value } }
-    static func cardRadius(_ value: String) -> Self { Self { $0.cardRadius = value } }
-    static func cardShadow(_ value: String) -> Self { Self { $0.cardShadow = value } }
+    static func containerBorder(_ value: String) -> Self { Self { $0.containerBorder = value } }
+    static func containerRadius(_ value: String) -> Self { Self { $0.containerRadius = value } }
+    static func containerShadow(_ value: String) -> Self { Self { $0.containerShadow = value } }
 }
 
 @dynamicMemberLookup
@@ -285,44 +285,6 @@ public extension StyleSystemBadgeOverrideStep {
     static func foreground(_ value: String) -> Self { Self { $0.foreground = value } }
     static func radius(_ value: String) -> Self { Self { $0.radius = value } }
     static func padding(_ value: String) -> Self { Self { $0.padding = value } }
-}
-
-@dynamicMemberLookup
-public struct StyleSystemValueDisplayOverrideStep {
-    private let applyOverride: (inout StyleSystem.ValueDisplay.Override) -> Void
-    public init(_ applyOverride: @escaping (inout StyleSystem.ValueDisplay.Override) -> Void) { self.applyOverride = applyOverride }
-    public func apply(to override: inout StyleSystem.ValueDisplay.Override) { applyOverride(&override) }
-    public func appending(_ step: Self) -> Self {
-        Self { override in
-            self.apply(to: &override)
-            step.apply(to: &override)
-        }
-    }
-    public static subscript(dynamicMember keyPath: WritableKeyPath<StyleSystem.ValueDisplay.Override, String?>) -> (String) -> Self {
-        { value in Self { $0[keyPath: keyPath] = value } }
-    }
-    public subscript(dynamicMember keyPath: WritableKeyPath<StyleSystem.ValueDisplay.Override, String?>) -> (String) -> Self {
-        { value in self.appending(Self { $0[keyPath: keyPath] = value }) }
-    }
-}
-
-@resultBuilder
-public enum StyleSystemValueDisplayBuilder {
-    public static func buildBlock(_ components: StyleSystemValueDisplayOverrideStep...) -> [StyleSystemValueDisplayOverrideStep] { components }
-    public static func buildExpression(_ expression: StyleSystemValueDisplayOverrideStep) -> StyleSystemValueDisplayOverrideStep { expression }
-    public static func buildOptional(_ component: [StyleSystemValueDisplayOverrideStep]?) -> [StyleSystemValueDisplayOverrideStep] { component ?? [] }
-    public static func buildEither(first component: [StyleSystemValueDisplayOverrideStep]) -> [StyleSystemValueDisplayOverrideStep] { component }
-    public static func buildEither(second component: [StyleSystemValueDisplayOverrideStep]) -> [StyleSystemValueDisplayOverrideStep] { component }
-    public static func buildArray(_ components: [[StyleSystemValueDisplayOverrideStep]]) -> [StyleSystemValueDisplayOverrideStep] { components.flatMap { $0 } }
-}
-
-public extension StyleSystemValueDisplayOverrideStep {
-    static func background(_ value: String) -> Self { Self { $0.background = value } }
-    static func border(_ value: String) -> Self { Self { $0.border = value } }
-    static func radius(_ value: String) -> Self { Self { $0.radius = value } }
-    static func padding(_ value: String) -> Self { Self { $0.padding = value } }
-    static func valueSize(_ value: String) -> Self { Self { $0.valueSize = value } }
-    static func valueWeight(_ value: String) -> Self { Self { $0.valueWeight = value } }
 }
 
 @dynamicMemberLookup

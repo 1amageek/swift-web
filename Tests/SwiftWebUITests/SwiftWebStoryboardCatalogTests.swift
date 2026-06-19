@@ -22,6 +22,19 @@ struct SwiftWebStoryboardCatalogTests {
             .replacingOccurrences(of: "\"", with: "&quot;")
     }
 
+    private func cssRule(_ selector: String, in css: String) -> String {
+        guard let start = css.range(of: "\(selector) {")?.lowerBound else {
+            return ""
+        }
+
+        let suffix = css[start...]
+        guard let end = suffix.firstIndex(of: "}") else {
+            return String(suffix)
+        }
+
+        return String(suffix[...end])
+    }
+
     @Test
     func everyCatalogItemHasDocumentationMetadata() {
         for item in allItems {
@@ -38,25 +51,33 @@ struct SwiftWebStoryboardCatalogTests {
     func defaultCatalogRenderShowsDocumentationSections() {
         let rendered = StoryboardCatalog().render()
 
-        #expect(rendered.contains("Typography"))
-        #expect(rendered.contains("Adjustable properties"))
-        #expect(rendered.contains("Swift snippet"))
-        #expect(rendered.contains("Accepted values"))
-        #expect(rendered.contains("Heading(\"Page heading\", level: .page)"))
+        #expect(rendered.contains("SwiftWebUI"))
+        #expect(rendered.contains("Storyboard"))
+        #expect(rendered.contains("Search components"))
+        #expect(rendered.contains("Text"))
+        #expect(rendered.contains("Preview"))
+        #expect(rendered.contains("Usage"))
+        #expect(rendered.contains("Rendered HTML"))
+        #expect(rendered.contains("Properties"))
+        #expect(rendered.contains("Related"))
+        #expect(rendered.contains("Text(_:as:)"))
+        #expect(rendered.contains("Text(\"Hello, SwiftWebUI\")"))
+        #expect(rendered.contains("storyboard-preview-frame"))
+        #expect(rendered.contains("storyboard-preview-canvas"))
     }
 
     @Test
-    func topBarUsesSharedSegmentedPickerControls() {
+    func topBarMatchesReferenceShellControls() {
         let rendered = StoryboardCatalog().render()
 
-        #expect(rendered.contains("aria-label=\"Appearance\""))
-        #expect(rendered.contains("aria-label=\"Style\""))
-        #expect(!rendered.contains("aria-label=\"Style System\""))
-        #expect(rendered.contains("name=\"swui-picker-appearance\""))
-        #expect(rendered.contains("name=\"swui-picker-style\""))
-        #expect(rendered.contains("value=\"light\""))
-        #expect(rendered.contains("value=\"swift-web\""))
-        #expect(rendered.contains("swui-picker-segmented"))
+        #expect(rendered.contains("storyboard-mark"))
+        #expect(rendered.contains("storyboard-search"))
+        #expect(rendered.contains("Docs"))
+        #expect(rendered.contains("GitHub ↗") || rendered.contains("GitHub ↗"))
+        #expect(rendered.contains("storyboard-theme-switcher"))
+        #expect(rendered.contains("storyboard-theme-button is-selected"))
+        #expect(!rendered.contains("Style System"))
+        #expect(!rendered.contains("Liquid Glass"))
     }
 
     @Test
@@ -74,8 +95,18 @@ struct SwiftWebStoryboardCatalogTests {
         let rendered = StoryboardCatalog(initialSelection: "missing-component").render()
 
         #expect(rendered.contains("href=\"/storyboard/typography\""))
-        #expect(rendered.contains("Typography"))
+        #expect(rendered.contains("Text"))
         #expect(rendered.contains("class=\"storyboard-sidebar-link is-selected\""))
+    }
+
+    @Test
+    func propertyPanelUsesDedicatedCodeChips() {
+        let rendered = StoryboardCatalog(initialSelection: "section").render()
+
+        #expect(rendered.contains(#"<code class="storyboard-property-name">title</code>"#))
+        #expect(rendered.contains(#"<code class="storyboard-property-values">String</code>"#))
+        #expect(!rendered.contains("swui-inline-code storyboard-property-name"))
+        #expect(!rendered.contains("swui-inline-code storyboard-property-values"))
     }
 
     @Test
@@ -105,8 +136,8 @@ struct SwiftWebStoryboardCatalogTests {
 
             #expect(self.rendered(rendered, contains: item.name), "Missing selected component title for \(item.id)")
             #expect(self.rendered(rendered, contains: spec.overview), "Missing overview copy for \(item.id)")
-            #expect(rendered.contains("Adjustable properties"), "Missing property section for \(item.id)")
-            #expect(rendered.contains("Swift snippet"), "Missing snippet section for \(item.id)")
+            #expect(rendered.contains("Properties"), "Missing property section for \(item.id)")
+            #expect(rendered.contains("Usage"), "Missing usage section for \(item.id)")
 
             for property in spec.properties {
                 #expect(self.rendered(rendered, contains: property.name), "Missing property name \(property.name) for \(item.id)")
@@ -126,6 +157,52 @@ struct SwiftWebStoryboardCatalogTests {
     }
 
     @Test
+    func spacingPreviewRendersScaleBarsAndGridLabel() {
+        let rendered = StoryboardCatalog(initialSelection: "spacing").render()
+
+        #expect(rendered.contains("storyboard-spacing-demo"))
+        #expect(rendered.contains("storyboard-spacing-bar is-active"))
+        #expect(rendered.contains("storyboard-spacing-tile"))
+        #expect(rendered.contains("8px grid"))
+    }
+
+    @Test
+    func storyboardStylesheetMatchesDesignShellMetrics() {
+        let css = StoryboardStylesheet.css
+
+        #expect(css.contains("min-height: 54px;"))
+        #expect(css.contains("flex: 0 0 226px !important;"))
+        #expect(css.contains("flex: 0 0 184px !important;"))
+        #expect(css.contains("padding: 22px 30px;"))
+        #expect(css.contains("width: min(100%, 760px);"))
+        #expect(css.contains("min-height: 168px;"))
+        #expect(css.contains("background-size: 18px 18px;"))
+        #expect(css.contains("width: 226px;"))
+        #expect(css.contains("width: 184px;"))
+        #expect(css.contains(".storyboard-page .storyboard-property-name,"))
+        #expect(css.contains(".storyboard-page .storyboard-property-values {"))
+        #expect(css.contains("display: inline-block;"))
+        #expect(css.contains("height: 21px;"))
+        #expect(css.contains("padding-block: 0;"))
+        #expect(css.contains("padding-inline: 6px;"))
+        #expect(css.contains("line-height: 21px;"))
+        #expect(css.contains("font-kerning: normal;"))
+        #expect(css.contains(#"font-feature-settings: "kern" 1, "liga" 0, "calt" 0;"#))
+        #expect(css.contains("font-variant-ligatures: none;"))
+
+        let spacingBarRule = cssRule(".storyboard-spacing-bar", in: css)
+        #expect(spacingBarRule.contains("width: 100%;"))
+        #expect(spacingBarRule.contains("height: 16px;"))
+
+        let colorSwatchRule = cssRule(".storyboard-color-swatch", in: css)
+        #expect(colorSwatchRule.contains("width: 150px;"))
+        #expect(colorSwatchRule.contains("height: 104px;"))
+        #expect(colorSwatchRule.contains("background: #007aff;"))
+        #expect(!colorSwatchRule.contains("border-radius"))
+        #expect(!colorSwatchRule.contains("border:"))
+    }
+
+    @Test
     func catalogCoversPrimarySwiftWebUIComponents() {
         let coverageText = allItems.map { item in
             let spec = catalogDetailSpec(for: item)
@@ -133,11 +210,12 @@ struct SwiftWebStoryboardCatalogTests {
         }.joined(separator: "\n")
 
         let requiredNames = [
+            "GridSystem",
+            "GroupBox",
+            "CodeBlock",
             "Text",
-            "TextBlock",
             "Heading",
             "Button",
-            "ButtonLink",
             "SubmitButton",
             "TextField",
             "SecureField",
@@ -151,15 +229,14 @@ struct SwiftWebStoryboardCatalogTests {
             "Picker",
             "PickerOption",
             "Menu",
-            "Card",
             "Toolbar",
             "Badge",
-            "ValueDisplay",
             "List",
             "ListRow",
             "Section",
             "DisclosureGroup",
             "Grid",
+            "Divider",
             "LazyVStack",
             "LazyHStack",
             "LazyVGrid",

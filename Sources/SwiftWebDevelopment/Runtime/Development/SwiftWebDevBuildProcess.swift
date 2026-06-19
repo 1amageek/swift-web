@@ -292,14 +292,7 @@ struct SwiftWebDevBuildProcess: Sendable {
   }
 
   private var wasmScratchDirectory: URL? {
-    if let scratchDirectory = configuration.scratchDirectory {
-      return
-        scratchDirectory
-        .appendingPathComponent("wasm", isDirectory: true)
-        .standardizedFileURL
-    }
-
-    return nil
+    SwiftWebDevWasmScratchDirectory.resolve(from: configuration.scratchDirectory)
   }
 
   private func moduleCacheDirectory(scratchDirectory: URL?) -> URL {

@@ -16,6 +16,20 @@ import Testing
 @Suite
 struct SwiftWebDevHMRTests {
   @Test
+  func wasmScratchDirectoryIsSiblingOfServerScratchDirectory() {
+    let root = URL(fileURLWithPath: "/tmp/swiftweb-generated", isDirectory: true)
+    let serverScratch = root
+      .appendingPathComponent(".build", isDirectory: true)
+      .appendingPathComponent("server", isDirectory: true)
+
+    let wasmScratch = SwiftWebDevWasmScratchDirectory.resolve(from: serverScratch)
+
+    #expect(wasmScratch?.path == "/tmp/swiftweb-generated/wasm-build/server")
+    #expect(!(wasmScratch?.path.hasPrefix(serverScratch.path + "/") ?? true))
+    #expect(!(wasmScratch?.path.hasPrefix("/tmp/swiftweb-generated/.build/") ?? true))
+  }
+
+  @Test
   func changeClassifierSeparatesStyleClientAndServerChanges() throws {
     let root = FileManager.default.temporaryDirectory
       .appendingPathComponent("SwiftWebDevHMRTests-\(UUID().uuidString)", isDirectory: true)
@@ -653,10 +667,10 @@ struct SwiftWebDevHMRTests {
   @Test
   func boundaryAnnotatorPrefersOuterSplitBoundaryWhenManifestListsInnerComponentFirst() {
     let componentID = ComponentID("manual-counter")
-    let nestedComponentID = ComponentID("manual-card")
+    let nestedComponentID = ComponentID("manual-group-box")
     let runtimeBundleID = ClientBundleID("main-runtime")
     let html = """
-      <main><!--component:manual-counter:begin--><!--component:manual-card:begin--><div data-node="3" data-component="manual-card">Manual</div><!--component:manual-card:end--><!--component:manual-counter:end--></main>
+      <main><!--component:manual-counter:begin--><!--component:manual-group-box:begin--><div data-node="3" data-component="manual-group-box">Manual</div><!--component:manual-group-box:end--><!--component:manual-counter:end--></main>
       """
     let manifest = ClientBundleManifest(
       runtimeBundleID: runtimeBundleID,
@@ -664,10 +678,10 @@ struct SwiftWebDevHMRTests {
       components: [
         ClientComponentAsset(
           componentID: nestedComponentID,
-          typeName: "SwiftWebUI.Card",
+          typeName: "SwiftWebUI.GroupBox",
           bundleID: runtimeBundleID,
           loadPolicy: .manual,
-          entrySymbols: [ClientSymbolID("SwiftWebUI.Card")]
+          entrySymbols: [ClientSymbolID("SwiftWebUI.GroupBox")]
         ),
         ClientComponentAsset(
           componentID: componentID,
@@ -709,7 +723,7 @@ struct SwiftWebDevHMRTests {
       components: [
         BrowserHydrationComponentRecord(
           id: nestedComponentID,
-          typeName: "SwiftWebUI.Card",
+          typeName: "SwiftWebUI.GroupBox",
           path: "document:0/child:0",
           nodeID: HTMLNodeID(2),
           bundleID: runtimeBundleID,
@@ -740,8 +754,8 @@ struct SwiftWebDevHMRTests {
     #expect(annotated.contains(#"data-component="manual-counter""#))
     #expect(annotated.contains(#"data-component-type="Demo.ClientManualCounter""#))
     #expect(annotated.contains(#"data-bundle="component-manual""#))
-    #expect(!annotated.contains(#"data-component="manual-card""#))
-    #expect(!annotated.contains(#"data-component-type="SwiftWebUI.Card""#))
+    #expect(!annotated.contains(#"data-component="manual-group-box""#))
+    #expect(!annotated.contains(#"data-component-type="SwiftWebUI.GroupBox""#))
   }
 
   @Test
@@ -1159,6 +1173,7 @@ struct SwiftWebDevHMRTests {
     await host.stop()
   }
 
+  @Test
   func buildArtifactCleanerRemovesGeneratedBuildCachesOnly() throws {
     let root = FileManager.default.temporaryDirectory
       .appendingPathComponent("SwiftWebDevCleanerTests-\(UUID().uuidString)", isDirectory: true)
@@ -1175,11 +1190,13 @@ struct SwiftWebDevHMRTests {
     let generatedDevSource = root.appendingPathComponent(
       ".swiftweb/generated/dev/Sources/AppDevelopmentServerLauncher/ServerLauncher.swift")
     let devLog = root.appendingPathComponent(".swiftweb/generated/.build/server/hmr-events.jsonl")
+    let wasmBuild = root.appendingPathComponent(".swiftweb/generated/wasm-build/server")
     let regularFile = root.appendingPathComponent(
       ".swiftweb/generated/Sources/AppServerLauncher/ServerLauncher.swift")
     try write("build", to: generatedBuild.appendingPathComponent("debug/app-server"))
     try write("build", to: storyboardBuild.appendingPathComponent("release/runtime.wasm"))
     try write("event", to: devLog)
+    try write("wasm", to: wasmBuild.appendingPathComponent("release/runtime.wasm"))
     try write("source", to: storyboardSource)
     try write("source", to: generatedDevSource)
     try write("source", to: regularFile)
@@ -1193,10 +1210,99 @@ struct SwiftWebDevHMRTests {
       }))
     #expect(!FileManager.default.fileExists(atPath: generatedBuild.path))
     #expect(!FileManager.default.fileExists(atPath: storyboardBuild.path))
+    #expect(!FileManager.default.fileExists(atPath: wasmBuild.path))
     #expect(FileManager.default.fileExists(atPath: storyboardSource.path))
     #expect(FileManager.default.fileExists(atPath: generatedDevSource.path))
     #expect(FileManager.default.fileExists(atPath: regularFile.path))
   }
+
+  @Test
+  func hostSwiftToolchainPrefersConfigurationOverride() throws {
+    let root = FileManager.default.temporaryDirectory
+      .appendingPathComponent("SwiftWebHostSwiftOverrideTests-\(UUID().uuidString)", isDirectory: true)
+    defer {
+      do {
+        try FileManager.default.removeItem(at: root)
+      } catch {
+        Issue.record("SwiftWeb host swift override test cleanup failed: \(String(describing: error))")
+      }
+    }
+
+    let swiftURL = try makeExecutable(named: "swift", in: root.appendingPathComponent("explicit/bin"))
+    let configuration = SwiftWebDevRuntimeConfiguration(
+      packageDirectory: root,
+      hostSwiftExecutableURL: swiftURL
+    )
+
+    let toolchain = try SwiftWebHostSwiftToolchain.resolve(
+      configuration: configuration,
+      environment: [:]
+    )
+
+    #expect(toolchain.swiftExecutableURL == swiftURL)
+    #expect(toolchain.applying(to: ["PATH": "/usr/bin"])["PATH"] == "\(swiftURL.deletingLastPathComponent().path):/usr/bin")
+  }
+
+  @Test
+  func hostSwiftToolchainReadsEnvironmentOverrides() throws {
+    let root = FileManager.default.temporaryDirectory
+      .appendingPathComponent("SwiftWebHostSwiftEnvironmentTests-\(UUID().uuidString)", isDirectory: true)
+    defer {
+      do {
+        try FileManager.default.removeItem(at: root)
+      } catch {
+        Issue.record("SwiftWeb host swift environment test cleanup failed: \(String(describing: error))")
+      }
+    }
+
+    let swiftURL = try makeExecutable(named: "swift", in: root.appendingPathComponent("environment/bin"))
+    let configuration = SwiftWebDevRuntimeConfiguration(packageDirectory: root)
+
+    let toolchain = try SwiftWebHostSwiftToolchain.resolve(
+      configuration: configuration,
+      environment: ["SWIFT_WEB_HOST_SWIFT": swiftURL.path]
+    )
+
+    #expect(toolchain.swiftExecutableURL == swiftURL)
+  }
+
+  @Test
+  func hostSwiftToolchainReadsToolchainBinOverride() throws {
+    let root = FileManager.default.temporaryDirectory
+      .appendingPathComponent("SwiftWebHostSwiftBinTests-\(UUID().uuidString)", isDirectory: true)
+    defer {
+      do {
+        try FileManager.default.removeItem(at: root)
+      } catch {
+        Issue.record("SwiftWeb host swift bin test cleanup failed: \(String(describing: error))")
+      }
+    }
+
+    let binURL = root.appendingPathComponent("toolchain/bin")
+    let swiftURL = try makeExecutable(named: "swift", in: binURL)
+    let configuration = SwiftWebDevRuntimeConfiguration(packageDirectory: root)
+
+    let toolchain = try SwiftWebHostSwiftToolchain.resolve(
+      configuration: configuration,
+      environment: ["SWIFT_WEB_HOST_TOOLCHAIN_BIN": binURL.path]
+    )
+
+    #expect(toolchain.swiftExecutableURL == swiftURL)
+  }
+}
+
+private func makeExecutable(named name: String, in directory: URL) throws -> URL {
+  try FileManager.default.createDirectory(
+    at: directory,
+    withIntermediateDirectories: true
+  )
+  let url = directory.appendingPathComponent(name)
+  try "#!/bin/sh\nexit 0\n".write(to: url, atomically: true, encoding: .utf8)
+  try FileManager.default.setAttributes(
+    [.posixPermissions: 0o755],
+    ofItemAtPath: url.path
+  )
+  return url.standardizedFileURL
 }
 
 private func write(_ contents: String, to url: URL) throws {

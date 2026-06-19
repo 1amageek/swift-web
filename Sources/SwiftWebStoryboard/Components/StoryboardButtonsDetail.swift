@@ -10,16 +10,13 @@ struct ButtonsDetail: Component {
     var body: some HTML {
         switch selection {
         case "button-styles":
-            CatalogGlassStage {
-                HStack(spacing: .small) {
-                    Button("Glass", prominence: .primary)
-                        .buttonStyle(.glass)
-                    Button("Glass prominent", prominence: .primary)
-                        .buttonStyle(.glassProminent)
-                    Button("Plain")
-                        .buttonStyle(.plain)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: .small) {
+                Button("Glass", prominence: .primary)
+                    .buttonStyle(.glass)
+                Button("Glass prominent", prominence: .primary)
+                    .buttonStyle(.glassProminent)
+                Button("Plain")
+                    .buttonStyle(.plain)
             }
         case "control-sizes":
             HStack(spacing: .small) {
@@ -44,9 +41,9 @@ struct ButtonsDetail: Component {
             .frame(maxWidth: .infinity, alignment: .leading)
         case "links":
             HStack(spacing: .small) {
-                ButtonLink("Primary link", href: "#", prominence: .primary)
-                ButtonLink("Secondary link", href: "#", prominence: .secondary)
-                Link("Anchor", href: "#")
+                Link("Documentation", href: "#")
+                    .buttonStyle(.glassProminent)
+                Link("Inline anchor", href: "#")
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         default:
@@ -60,4 +57,3 @@ struct ButtonsDetail: Component {
         }
     }
 }
-

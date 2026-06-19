@@ -306,6 +306,18 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     #expect(
       wasmPackageSwift.contains(
         """
+        let appClientTarget = Target.target(
+            name: "SampleApp",
+            dependencies: [
+                "SwiftHTML",
+                "SwiftWebActors",
+                "SwiftWebUI",
+                "SwiftWebUIRuntime",
+            ],
+        """))
+    #expect(
+      wasmPackageSwift.contains(
+        """
         let swiftWebUIRuntimeTarget = Target.target(
             name: "SwiftWebUIRuntime",
             dependencies: [
@@ -1136,7 +1148,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     )
     try write(
       """
-      public struct ClientCard: ClientComponent {
+      public struct ClientTile: ClientComponent {
           public init() {}
       }
 
@@ -1144,10 +1156,10 @@ struct SwiftWebGeneratedPackageMaterializerTests {
           public init() {}
 
           public func render() {
-              _ = ClientCard().loadPolicy(.visible)
-              _ = ClientCard().loadPolicy(.visible).bundle(.shared("left"))
-              _ = ClientCard().loadPolicy(.visible).bundle(.shared("right"))
-              _ = ClientCard().loadPolicy(.manual).bundle(.shared("tools"))
+              _ = ClientTile().loadPolicy(.visible)
+              _ = ClientTile().loadPolicy(.visible).bundle(.shared("left"))
+              _ = ClientTile().loadPolicy(.visible).bundle(.shared("right"))
+              _ = ClientTile().loadPolicy(.manual).bundle(.shared("tools"))
           }
       }
       """,
@@ -1177,15 +1189,15 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       generatedPackage.wasmRuntimes.first {
         $0.productName == "sample-app-visible-wasm-runtime"
       })
-    #expect(visibleRuntime.componentTypeNames.filter { $0 == "ClientCard" }.count == 1)
+    #expect(visibleRuntime.componentTypeNames.filter { $0 == "ClientTile" }.count == 1)
     #expect(
       generatedPackage.wasmRuntimes.flatMap(\.componentTypeNames).sorted() == [
-        "ClientCard",
-        "ClientCard",
         "ClientChart",
         "ClientEditor",
         "ClientInspector",
         "ClientShell",
+        "ClientTile",
+        "ClientTile",
       ])
 
     let wasmPackageSwift = try String(
@@ -1223,7 +1235,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       ))
     #expect(
       serverLauncher.contains(
-        "componentTypeNames: [\"ClientCard\", \"ClientInspector\"]"
+        "componentTypeNames: [\"ClientInspector\", \"ClientTile\"]"
       ))
     #expect(
       serverLauncher.contains(
@@ -1259,12 +1271,12 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       encoding: .utf8
     )
     #expect(visibleEntrypoint.contains("ClientChart.self"))
-    #expect(visibleEntrypoint.contains("ClientCard.self"))
+    #expect(visibleEntrypoint.contains("ClientTile.self"))
     #expect(!visibleEntrypoint.contains("ClientEditor.self"))
     #expect(interactionEntrypoint.contains("ClientEditor.self"))
     #expect(!interactionEntrypoint.contains("ClientChart.self"))
     #expect(manualEntrypoint.contains("ClientInspector.self"))
-    #expect(manualEntrypoint.contains("ClientCard.self"))
+    #expect(manualEntrypoint.contains("ClientTile.self"))
     #expect(!manualEntrypoint.contains("ClientShell.self"))
   }
 

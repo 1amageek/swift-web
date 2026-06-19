@@ -118,8 +118,8 @@ public struct ThemeTypography: Codable, Sendable, Equatable {
     }
 
     public static let `default` = ThemeTypography(
-        fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
-        monoFontFamily: "\"SFMono-Regular\", Consolas, \"Liberation Mono\", monospace",
+        fontFamily: "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", \"SF Pro Display\", system-ui, sans-serif",
+        monoFontFamily: "\"JetBrains Mono\", ui-monospace, \"SFMono-Regular\", \"SF Mono\", Menlo, Consolas, \"Liberation Mono\", monospace",
         baseSize: "16px",
         lineHeight: "1.5"
     )

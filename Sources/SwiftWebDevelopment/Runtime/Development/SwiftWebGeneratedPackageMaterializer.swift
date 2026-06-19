@@ -54,6 +54,10 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
     "\(serverProductName)-dev"
   }
 
+  private static let wasmPackageResolvedIdentities: Set<String> = [
+    "swift-actor-runtime"
+  ]
+
   public func materialize() throws -> SwiftWebGeneratedPackage {
     let packageName = try SwiftWebPackageManifestInspector.packageName(in: appPackageDirectory)
     let appProductName = appProductName ?? packageName
@@ -233,7 +237,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
     try syncPackageResolved(
       to: wasmPackageDirectory,
       fallbackPackageDirectory: swiftWebPackageDirectory,
-      keepingIdentities: ["swift-actor-runtime"]
+      keepingIdentities: Self.wasmPackageResolvedIdentities
     )
 
     return SwiftWebGeneratedPackage(
@@ -1352,6 +1356,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
               "SwiftHTML",
               "SwiftWebActors",
               "SwiftWebUI",
+              "SwiftWebUIRuntime",
           ],
           path: "Sources/\(appProductName)",
           swiftSettings: swiftSettings

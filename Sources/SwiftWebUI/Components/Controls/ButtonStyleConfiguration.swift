@@ -1,10 +1,10 @@
-public struct ButtonStyleConfiguration: Sendable, Equatable {
-    public let prominence: ButtonProminence
-    public let controlSize: ControlSize
-    public let isEnabled: Bool
-    public let tint: String
+struct ButtonStyleConfiguration: Sendable, Equatable {
+    let prominence: ButtonProminence
+    let controlSize: ControlSize
+    let isEnabled: Bool
+    let tint: String
 
-    public init(
+    init(
         prominence: ButtonProminence,
         controlSize: ControlSize,
         isEnabled: Bool,
