@@ -94,17 +94,70 @@ let package = Package(
 )
 ```
 
-## Quick Start
+## Usage
 
-Create a project:
+### 1. Run The CLI From This Repository
+
+SwiftWeb is currently published as a developer preview. Clone the repository and run the
+CLI from the checkout:
 
 ```bash
-swift run swift-web new MyApp
-cd MyApp
-swift run swift-web dev
+git clone https://github.com/1amageek/swift-web.git
+cd swift-web
+xcrun swift run swift-web --help
 ```
 
-Define an app:
+### 2. Create An App
+
+Generate a new app package next to the SwiftWeb checkout:
+
+```bash
+xcrun swift run swift-web new MyApp --output ../MyApp
+```
+
+The generated app has this shape:
+
+```text
+MyApp
+├─ Package.swift
+├─ Sources/MyApp/App.swift
+├─ Sources/MyApp/Routes/HomePage.swift
+└─ .swiftweb/generated
+```
+
+The app package depends on the local SwiftWeb checkout and released `swift-html 0.5.0`.
+Generated launchers, dev packages, server packages, and WASM packages stay under
+`.swiftweb/generated`.
+
+### 3. Run The Development Server
+
+From the SwiftWeb checkout:
+
+```bash
+xcrun swift run swift-web dev --package-path ../MyApp
+```
+
+Open:
+
+```text
+http://127.0.0.1:3000/
+```
+
+The dev command materializes `.swiftweb/generated`, builds the app server, starts the
+worker process, watches source changes, and sends browser update events.
+
+```mermaid
+flowchart LR
+  A["swift-web dev"] --> B["materialize generated package"]
+  B --> C["build app server"]
+  C --> D["run worker"]
+  D --> E["watch files"]
+  E --> F["browser update"]
+```
+
+### 4. Add Routes
+
+`Sources/MyApp/App.swift` mounts pages:
 
 ```swift
 import SwiftWeb
@@ -118,7 +171,7 @@ public struct MyApp: App {
 }
 ```
 
-Define a page:
+`Sources/MyApp/Routes/HomePage.swift` defines the route:
 
 ```swift
 import SwiftHTML
@@ -133,6 +186,110 @@ struct HomePage {
         }
     }
 }
+```
+
+Add another route by creating another `@Page` type and mounting it from `App.body`:
+
+```swift
+@Page("/about")
+struct AboutPage {
+    func body() -> some HTML {
+        main {
+            h1 { "About" }
+            p { "This page is rendered on the server." }
+        }
+    }
+}
+```
+
+```swift
+public var body: some AppContent {
+    HomePage()
+    AboutPage()
+}
+```
+
+### 5. Use SwiftWebUI Components
+
+Import `SwiftWebUI` when you want the higher-level component layer:
+
+```swift
+import SwiftHTML
+import SwiftWeb
+import SwiftWebUI
+
+@Page("/")
+struct HomePage {
+    func body() -> some HTML {
+        VStack(spacing: .medium) {
+            Text("Hello SwiftWeb")
+                .font(.title)
+
+            Button("Continue", href: "/about")
+                .buttonStyle(.borderedProminent)
+        }
+        .padding(.large)
+    }
+}
+```
+
+SwiftWebUI lowers into the SwiftHTML graph. It does not replace SwiftHTML; raw SwiftHTML
+elements remain available when you need exact HTML control.
+
+### 6. Inspect Components With Storyboard
+
+Run the SwiftWebUI component Storyboard from the SwiftWeb checkout:
+
+```bash
+xcrun swift run swift-web storyboard
+```
+
+Open:
+
+```text
+http://127.0.0.1:3001/storyboard
+```
+
+Storyboard generates an isolated package under `.swiftweb/storyboard`; it does not edit
+your app package.
+
+### 7. Build For Production
+
+Build the generated server package:
+
+```bash
+xcrun swift run swift-web build --package-path ../MyApp
+```
+
+Build browser WASM artifacts:
+
+```bash
+export SWIFT_WEB_WASM_SWIFT=/Users/1amageek/Library/Developer/Toolchains/swift-6.3.1-RELEASE.xctoolchain/usr/bin/swift
+export SWIFT_WEB_WASM_TOOLCHAIN_BIN=/Users/1amageek/Library/Developer/Toolchains/swift-6.3.1-RELEASE.xctoolchain/usr/bin
+
+xcrun swift run swift-web build \
+  --package-path ../MyApp \
+  --wasm \
+  --swift-sdk swift-6.3.1-RELEASE_wasm \
+  -c release
+```
+
+Production WASM builds strip debug/producers sections, optionally run `wasm-opt -Oz`,
+write `<artifact>.wasm.size.json`, and create cached `.gz` / `.br` sidecars.
+
+### 8. Try The Counter Example
+
+The repository includes a sample app with server actions, page invalidation, and a
+client-side counter component:
+
+```bash
+xcrun swift run swift-web dev --package-path Examples/CounterApp
+```
+
+Open:
+
+```text
+http://127.0.0.1:3000/counter
 ```
 
 ## CLI
