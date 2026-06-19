@@ -1,5 +1,6 @@
 import Distributed
 @testable import SwiftWeb
+@testable import SwiftWebCore
 import Testing
 import Vapor
 

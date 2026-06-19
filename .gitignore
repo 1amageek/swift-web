@@ -1,12 +1,33 @@
+# macOS
 .DS_Store
-/.build
+.AppleDouble
+.LSOverride
+
+# SwiftPM / Xcode build products
+/.build/
 .build/
-.cache/
-.swiftweb/
-/.cache
-/.swiftweb
-/Packages
-xcuserdata/
 DerivedData/
+*.xcresult
+*.profraw
+*.profdata
+*.xccovreport
+*.xccovarchive
+
+# SwiftPM / Xcode user state
 .swiftpm/
+xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcworkspace/xcuserdata/
+
+# SwiftWeb generated artifacts
+.swiftweb/
+.cache/
+/Packages/
+
+# IDE
+.vscode/
+.idea/
+
+# Local credentials and agent notes
 .netrc
+AGENTS.md

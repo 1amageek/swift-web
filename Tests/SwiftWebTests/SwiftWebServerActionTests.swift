@@ -2,6 +2,7 @@ import Distributed
 import Foundation
 import SwiftHTML
 @testable import SwiftWeb
+@testable import SwiftWebCore
 import Testing
 import Vapor
 

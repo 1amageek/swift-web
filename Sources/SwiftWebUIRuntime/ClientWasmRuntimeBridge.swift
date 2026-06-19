@@ -1062,22 +1062,22 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
         var result = rebaseNodeMarkers(in: html, nodeMap: nodeMap)
         for (source, target) in componentIDMap where source != target {
             result = result.replacingOccurrences(
-                of: "component:\(source.rawValue):begin",
-                with: "component:\(target.rawValue):begin"
+                of: HTMLRuntimeMarkers.componentCommentValue(source, edge: .begin),
+                with: HTMLRuntimeMarkers.componentCommentValue(target, edge: .begin)
             )
             result = result.replacingOccurrences(
-                of: "component:\(source.rawValue):end",
-                with: "component:\(target.rawValue):end"
+                of: HTMLRuntimeMarkers.componentCommentValue(source, edge: .end),
+                with: HTMLRuntimeMarkers.componentCommentValue(target, edge: .end)
             )
         }
         for (source, target) in serverSlotIDMap where source != target {
             result = result.replacingOccurrences(
-                of: "server-slot:\(source.rawValue):begin",
-                with: "server-slot:\(target.rawValue):begin"
+                of: HTMLRuntimeMarkers.serverSlotCommentValue(source, edge: .begin),
+                with: HTMLRuntimeMarkers.serverSlotCommentValue(target, edge: .begin)
             )
             result = result.replacingOccurrences(
-                of: "server-slot:\(source.rawValue):end",
-                with: "server-slot:\(target.rawValue):end"
+                of: HTMLRuntimeMarkers.serverSlotCommentValue(source, edge: .end),
+                with: HTMLRuntimeMarkers.serverSlotCommentValue(target, edge: .end)
             )
         }
         return result
@@ -1087,7 +1087,7 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
         in html: String,
         nodeMap: [HTMLNodeID: HTMLNodeID]
     ) -> String {
-        let marker = "data-node=\""
+        let marker = "\(HTMLRuntimeMarkers.nodeAttribute)=\""
         var output = ""
         var cursor = html.startIndex
 

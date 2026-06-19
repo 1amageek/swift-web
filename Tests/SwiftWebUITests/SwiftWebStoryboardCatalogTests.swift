@@ -1,5 +1,6 @@
 import Foundation
 import SwiftHTML
+import SwiftWebUIRuntime
 @testable import SwiftWebStoryboard
 import Testing
 
@@ -42,6 +43,58 @@ struct SwiftWebStoryboardCatalogTests {
         #expect(rendered.contains("Swift snippet"))
         #expect(rendered.contains("Accepted values"))
         #expect(rendered.contains("Heading(\"Page heading\", level: .page)"))
+    }
+
+    @Test
+    func topBarUsesSharedSegmentedPickerControls() {
+        let rendered = StoryboardCatalog().render()
+
+        #expect(rendered.contains("aria-label=\"Appearance\""))
+        #expect(rendered.contains("aria-label=\"Style\""))
+        #expect(!rendered.contains("aria-label=\"Style System\""))
+        #expect(rendered.contains("name=\"swui-picker-appearance\""))
+        #expect(rendered.contains("name=\"swui-picker-style\""))
+        #expect(rendered.contains("value=\"light\""))
+        #expect(rendered.contains("value=\"swift-web\""))
+        #expect(rendered.contains("swui-picker-segmented"))
+    }
+
+    @Test
+    func sidebarRowsRenderCanonicalCatalogPaths() {
+        let rendered = StoryboardCatalog(initialSelection: "list").render()
+
+        #expect(rendered.contains("href=\"/storyboard/list\""))
+        #expect(rendered.contains("href=\"/storyboard/stacks\""))
+        #expect(rendered.contains("class=\"storyboard-sidebar-link is-selected\""))
+        #expect(rendered.contains("aria-current=\"page\""))
+    }
+
+    @Test
+    func invalidInitialSelectionFallsBackToDefaultSelection() {
+        let rendered = StoryboardCatalog(initialSelection: "missing-component").render()
+
+        #expect(rendered.contains("href=\"/storyboard/typography\""))
+        #expect(rendered.contains("Typography"))
+        #expect(rendered.contains("class=\"storyboard-sidebar-link is-selected\""))
+    }
+
+    @Test
+    func bootstrapInitialSelectionFollowsStoryboardPath() throws {
+        let catalog = try StoryboardCatalog(
+            bootstrap: ClientWasmBootstrapRequest(
+                hydrationIndex: .empty,
+                location: ClientWasmBootstrapLocation(
+                    href: "http://127.0.0.1:3001/storyboard/stepper",
+                    search: ""
+                )
+            )
+        )
+        let rendered = catalog.render()
+
+        #expect(rendered.contains("href=\"/storyboard/stepper\""))
+        #expect(rendered.contains("Stepper"))
+        #expect(rendered.contains("class=\"storyboard-sidebar-link is-selected\""))
+        #expect(rendered.contains("swui-stepper"))
     }
 
     @Test

@@ -18,9 +18,10 @@ public struct AppRunner<Definition: App> {
             devParentMonitor?.cancel()
         }
 
-        application.securityConfiguration = definition.security
+        let security = developmentHooks.configureSecurity(definition.security)
+        application.securityConfiguration = security
         var middlewares = Middlewares()
-        definition.security.installMiddleware(on: &middlewares)
+        security.installMiddleware(on: &middlewares)
         developmentHooks.installMiddlewares(&middlewares)
         middlewares.use(ErrorMiddleware.default(environment: application.environment))
         application.middleware = middlewares

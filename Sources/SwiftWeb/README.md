@@ -131,34 +131,41 @@ struct CounterPage {
 
 ## Development Boundary
 
-The development runtime lives in the `SwiftWebDevelopment` product, not in the production `SwiftWeb` product. `SwiftWeb` only exposes a no-op hook registry. A dev child server calls `SwiftWebDevelopment.install()` before `App.run()`, which installs HMR routes, HTML injection, boundary annotation, route logging, and the parent-process monitor.
+The production runtime lives in `SwiftWebCore`. The public `SwiftWeb` product is a thin facade that re-exports `SwiftWebCore` and exposes source macros such as `@Page` and `@ServerAction`. The long-lived dev host uses `SwiftWebDevelopment`; the short-lived Vapor worker installs the smaller `SwiftWebDevelopmentHooks` runtime before `App.run()`.
 
 ```mermaid
 flowchart LR
-  A["production app"] --> B["SwiftWeb"]
-  B --> C["no-op development hooks"]
-  D["swift-web dev child"] --> E["SwiftWebDevelopment.install()"]
-  E --> F["SwiftWeb development hooks"]
-  F --> G["HMR routes / HTML injection / parent monitor"]
+  A["user app source"] --> B["SwiftWeb facade"]
+  B --> C["SwiftWebCore runtime"]
+  C --> D["no-op development hooks"]
+  E["SwiftWebDevLauncher"] --> F["SwiftWebDevelopment"]
+  F --> G["DevHost / watcher / builder"]
+  G --> H["app-server-dev worker"]
+  H --> I["SwiftWebDevelopmentHooksRuntime.install()"]
+  I --> J["HMR routes / HTML injection / worker monitor"]
 ```
 
 | Mechanism | Responsibility |
 |---|---|
-| Production `SwiftWeb` product | Contains route/action/page/WASM hosting runtime and no development watcher/HMR implementation. |
+| `SwiftWebCore` product | Contains route/action/page/WASM hosting runtime and no source macro dependency. |
+| `SwiftWeb` product | Public facade for app source that re-exports `SwiftWebCore` and provides macros. |
 | `SwiftWebDevelopment` product | Contains generated package materialization, FSEvents watching, HMR events, reload fallback, artifact cleanup, and dev process supervision. |
+| `SwiftWebDevelopmentHooks` product | Contains only worker-side development hooks and typed HMR contracts needed inside the Vapor worker. |
 | Generated server package | Builds the production `app-server` product without linking `SwiftWebDevelopment`. |
-| Generated dev package | Builds the dev launcher and the dev child server product that installs `SwiftWebDevelopment` hooks. |
+| Generated dev package | Builds the dev launcher and the dev child server product that installs `SwiftWebDevelopmentHooks`. |
 
-### Current Streaming Limitation
+### Streaming Runtime Boundary
 
-`StreamingPage`, `SSERoute`, and the `SwiftWebDevelopment` EventSource endpoint are modeled as streaming responses. In the current Vapor 5 alpha HTTP runtime used by this package, streaming response bodies are not yet forwarded by the HTTP server handler. Until that is implemented upstream or wired locally, browser development updates use the reload-token fallback as the reliable transport, and application SSE routes are API-complete but not yet end-to-end streaming-complete.
+`StreamingPage` and `SSERoute` lower to Vapor streaming responses, so application-level SSE delivery depends on Vapor's HTTP response-body streaming implementation. The development HMR EventSource endpoint is different: it is served by `SwiftWebDevelopment`'s persistent DevHost, which uses a streaming-capable HTTP server and proxies to the current Vapor worker.
 
 ```mermaid
 flowchart LR
-  A["SwiftWeb streaming API"] --> B["Vapor Response.Body.stream / asyncStream"]
-  B --> C{"Vapor HTTP handler writes stream?"}
-  C -->|current alpha: no| D["fallback / no incremental delivery"]
-  C -->|after support lands| E["EventSource / SSE delivery"]
+  A["App SSE / StreamingPage"] --> B["Vapor worker"]
+  B --> C{"Vapor writes streaming body?"}
+  C -->|supported| D["application EventSource delivery"]
+  C -->|not supported| E["API complete, delivery blocked"]
+  F["Development HMR"] --> G["SwiftWebDevelopment DevHost"]
+  G --> H["typed EventSource events"]
 ```
 
 WASM builds use the same generated package boundary but switch to a client-only graph. The generated package copies the app's client components plus runtime-only `SwiftHTML`, `SwiftWebActors`, `SwiftWebUI`, `SwiftWebUIRuntime`, and JavaScriptKit source targets. It intentionally excludes SwiftHTML preview macros, JavaScriptKit BridgeJS macros, and their `swift-syntax` toolchain dependencies from the WASM package graph. `SwiftHTML` and `SwiftWebUI` stay browser-runtime neutral, while `SwiftWebUIRuntime` carries the JavaScriptKit-backed browser adapter used by the generated WASM runtime targets.
@@ -419,7 +426,7 @@ public struct ActionInvocationContext: Sendable, Codable {
 - Server Action references are form/action metadata; client-side typed service calls use Apple `@Resolvable` protocols and `WebActorSystem`.
 - Render-time anonymous server closures are not the canonical Server Action model and must not be used for distributed or production service boundaries.
 - Server-only values are explicit and must not leak into client components.
-- Development browser updates prefer typed EventSource HMR events and fall back to reload-token waiting while Vapor response streaming is unavailable.
+- Development browser updates use the DevHost typed EventSource stream and fall back to reload-token waiting only as a compatibility path.
 - True component-level HMR requires streaming response delivery, successful client WASM asset builds, and matching state/environment schema hashes.
 - Streaming route APIs are defined in SwiftWeb, but end-to-end incremental delivery depends on Vapor 5 HTTP response streaming support.
 - Runtime assets are served through explicit SwiftWeb routes.

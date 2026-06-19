@@ -4,24 +4,32 @@ import Synchronization
 
 final class SwiftWebDevFileChangeWatcher {
     private let roots: [URL]
+    private let coalescingInterval: TimeInterval
     private let snapshot: Mutex<SwiftWebDevFileSnapshot>
     private let pendingEvent = Mutex(false)
     private let changeSignal = SwiftWebDevChangeSignal()
     private var eventStream: SwiftWebDevFileEventStream?
 
-    init(roots: [URL]) {
+    init(
+        roots: [URL],
+        coalescingInterval: TimeInterval = 0.08,
+        usesFileEvents: Bool = true
+    ) {
         self.roots = roots.map(\.standardizedFileURL)
+        self.coalescingInterval = max(coalescingInterval, 0)
         self.snapshot = Mutex(SwiftWebDevFileSnapshot.capture(roots: self.roots))
 
-        let stream = SwiftWebDevFileEventStream(roots: self.roots) { [weak self] in
-            guard let self else {
-                return
+        if usesFileEvents {
+            let stream = SwiftWebDevFileEventStream(roots: self.roots) { [weak self] in
+                guard let self else {
+                    return
+                }
+                pendingEvent.withLock { $0 = true }
+                changeSignal.signal()
             }
-            pendingEvent.withLock { $0 = true }
-            changeSignal.signal()
-        }
-        if stream.start() {
-            self.eventStream = stream
+            if stream.start() {
+                self.eventStream = stream
+            }
         }
     }
 
@@ -58,17 +66,17 @@ final class SwiftWebDevFileChangeWatcher {
     func waitForChangeSet(timeout: TimeInterval) -> [SwiftWebDevFileChange] {
         if eventStream == nil {
             Thread.sleep(forTimeInterval: timeout)
-            return reconcileSnapshot()
+            return coalescedChangeSet(startingWith: reconcileSnapshot())
         }
 
         let observedGeneration = changeSignal.currentGeneration()
         let immediateChanges = changes()
         if !immediateChanges.isEmpty {
-            return immediateChanges
+            return coalescedChangeSet(startingWith: immediateChanges)
         }
 
         changeSignal.waitForChange(after: observedGeneration, timeout: timeout)
-        return changes()
+        return coalescedChangeSet(startingWith: changes())
     }
 
     func discardPendingChanges() {
@@ -89,6 +97,36 @@ final class SwiftWebDevFileChangeWatcher {
             stored = current
             return changes
         }
+    }
+
+    private func coalescedChangeSet(
+        startingWith initialChanges: [SwiftWebDevFileChange]
+    ) -> [SwiftWebDevFileChange] {
+        guard !initialChanges.isEmpty, coalescingInterval > 0 else {
+            return SwiftWebDevFileChangeCoalescer.coalesce(initialChanges)
+        }
+
+        var changes = initialChanges
+        var quietDeadline = Date().addingTimeInterval(coalescingInterval)
+        while Date() < quietDeadline {
+            let remaining = quietDeadline.timeIntervalSinceNow
+            if remaining > 0 {
+                if eventStream == nil {
+                    Thread.sleep(forTimeInterval: remaining)
+                } else {
+                    let generation = changeSignal.currentGeneration()
+                    changeSignal.waitForChange(after: generation, timeout: remaining)
+                }
+            }
+
+            let nextChanges = self.changes()
+            if !nextChanges.isEmpty {
+                changes.append(contentsOf: nextChanges)
+                quietDeadline = Date().addingTimeInterval(coalescingInterval)
+            }
+        }
+
+        return SwiftWebDevFileChangeCoalescer.coalesce(changes)
     }
 }
 
@@ -133,19 +171,21 @@ private final class SwiftWebDevChangeSignal {
 
 private final class SwiftWebDevFileEventStream: NSObject {
     private struct State {
-        var runLoopAddress: UInt?
+        var streamAddress: UInt?
         var started = false
     }
 
     private let roots: [URL]
     private let onChange: () -> Void
+    private let queue = DispatchQueue(label: "codes.swiftweb.dev.file-events")
+    private let queueKey = DispatchSpecificKey<Void>()
     private let state = Mutex(State())
-    private var thread: Thread?
 
     init(roots: [URL], onChange: @escaping () -> Void) {
         self.roots = roots
         self.onChange = onChange
         super.init()
+        queue.setSpecific(key: queueKey, value: ())
     }
 
     func start() -> Bool {
@@ -153,35 +193,6 @@ private final class SwiftWebDevFileEventStream: NSObject {
             return false
         }
 
-        let thread = Thread(target: self, selector: #selector(runOnThread), object: nil)
-        self.thread = thread
-        thread.start()
-
-        let deadline = Date().addingTimeInterval(1)
-        while Date() < deadline {
-            if state.withLock({ $0.started }) {
-                return true
-            }
-            Thread.sleep(forTimeInterval: 0.01)
-        }
-
-        return state.withLock { $0.started }
-    }
-
-    func stop() {
-        let runLoopAddress = state.withLock { $0.runLoopAddress }
-        if let runLoopAddress,
-           let pointer = UnsafeRawPointer(bitPattern: runLoopAddress) {
-            let runLoop = Unmanaged<CFRunLoop>.fromOpaque(pointer).takeUnretainedValue()
-            CFRunLoopStop(runLoop)
-        }
-    }
-
-    @objc private func runOnThread() {
-        run()
-    }
-
-    private func run() {
         var context = FSEventStreamContext(
             version: 0,
             info: Unmanaged.passUnretained(self).toOpaque(),
@@ -206,40 +217,47 @@ private final class SwiftWebDevFileEventStream: NSObject {
             0.2,
             flags
         ) else {
-            return
+            return false
         }
 
-        guard let runLoop = CFRunLoopGetCurrent() else {
-            FSEventStreamInvalidate(stream)
-            FSEventStreamRelease(stream)
-            return
-        }
-        state.withLock {
-            $0.runLoopAddress = UInt(bitPattern: Unmanaged.passUnretained(runLoop).toOpaque())
-        }
-
-        FSEventStreamScheduleWithRunLoop(
-            stream,
-            runLoop,
-            CFRunLoopMode.defaultMode.rawValue
-        )
+        FSEventStreamSetDispatchQueue(stream, queue)
 
         let didStart = FSEventStreamStart(stream)
-        state.withLock {
-            $0.started = didStart
+        guard didStart else {
+            FSEventStreamInvalidate(stream)
+            FSEventStreamRelease(stream)
+            return false
         }
 
-        if didStart {
-            CFRunLoopRun()
+        state.withLock {
+            $0.streamAddress = UInt(bitPattern: stream)
+            $0.started = true
+        }
+        return true
+    }
+
+    func stop() {
+        let streamAddress = state.withLock { state in
+            let streamAddress = state.streamAddress
+            state.streamAddress = nil
+            state.started = false
+            return streamAddress
+        }
+        guard let streamAddress,
+              let stream = OpaquePointer(bitPattern: streamAddress) else {
+            return
+        }
+
+        let stopStream = {
             FSEventStreamStop(stream)
+            FSEventStreamInvalidate(stream)
+            FSEventStreamRelease(stream)
         }
 
-        FSEventStreamInvalidate(stream)
-        FSEventStreamRelease(stream)
-
-        state.withLock {
-            $0.runLoopAddress = nil
-            $0.started = false
+        if DispatchQueue.getSpecific(key: queueKey) != nil {
+            stopStream()
+        } else {
+            queue.sync(execute: stopStream)
         }
     }
 

@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import SwiftWebDevelopmentHooks
 
 struct SwiftWebDevServerProcess {
     private let configuration: SwiftWebDevRuntimeConfiguration
@@ -16,6 +17,10 @@ struct SwiftWebDevServerProcess {
             return false
         }
         return !process.isRunning
+    }
+
+    var target: SwiftWebDevWorkerTarget {
+        SwiftWebDevWorkerTarget(host: configuration.host, port: configuration.port)
     }
 
     mutating func start() throws {
@@ -117,7 +122,7 @@ struct SwiftWebDevServerProcess {
 
     private func runProcess(arguments: [String]) throws {
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/xcrun")
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = arguments
         process.currentDirectoryURL = configuration.packageDirectory
         process.environment = try processEnvironment()
@@ -138,7 +143,7 @@ struct SwiftWebDevServerProcess {
     private func captureProcessOutput(arguments: [String]) throws -> String {
         let process = Process()
         let output = Pipe()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/xcrun")
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = arguments
         process.currentDirectoryURL = configuration.packageDirectory
         process.environment = try processEnvironment()
@@ -160,7 +165,7 @@ struct SwiftWebDevServerProcess {
     }
 
     private func commandDescription(_ arguments: [String]) -> String {
-        (["xcrun"] + arguments).joined(separator: " ")
+        (["env"] + arguments).joined(separator: " ")
     }
 
     private func terminate(_ process: Process, gracePeriod: TimeInterval = 2) {

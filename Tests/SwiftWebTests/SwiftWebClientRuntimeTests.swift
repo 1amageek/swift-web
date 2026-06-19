@@ -1,4 +1,5 @@
 @testable import SwiftWeb
+@testable import SwiftWebCore
 import SwiftHTML
 import Testing
 

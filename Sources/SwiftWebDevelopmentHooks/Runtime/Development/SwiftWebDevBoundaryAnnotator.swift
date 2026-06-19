@@ -89,7 +89,11 @@ enum SwiftWebDevBoundaryAnnotator {
     }
 
     private static func annotate(_ component: ClientComponentAsset, in html: inout String) {
-        let marker = "<!--component:\(component.componentID.rawValue):begin-->"
+        let marker = HTMLRuntimeMarkers.comment(
+            prefix: HTMLRuntimeMarkers.componentCommentPrefix,
+            id: component.componentID.rawValue,
+            edge: .begin
+        )
         guard let markerRange = html.range(of: marker),
               let tagRange = firstElementTagRange(in: html, after: markerRange.upperBound)
         else {

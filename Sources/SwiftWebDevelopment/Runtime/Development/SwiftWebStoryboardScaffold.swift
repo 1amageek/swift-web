@@ -1,5 +1,31 @@
 import Foundation
 
+public enum SwiftWebStoryboardScaffoldError: Error, Sendable, CustomStringConvertible {
+    case unmanagedDirectory(URL)
+    case catalogSourcesNotFound(URL)
+    case emptyCatalogSources(URL)
+
+    public var exitCode: Int {
+        switch self {
+        case .unmanagedDirectory:
+            73
+        case .catalogSourcesNotFound, .emptyCatalogSources:
+            66
+        }
+    }
+
+    public var description: String {
+        switch self {
+        case .unmanagedDirectory(let directory):
+            "storyboard directory already exists and is not managed by swift-web: \(directory.path)"
+        case .catalogSourcesNotFound(let directory):
+            "SwiftWebStoryboard catalog sources were not found at \(directory.path)"
+        case .emptyCatalogSources(let directory):
+            "no catalog sources to copy from \(directory.path)"
+        }
+    }
+}
+
 /// Generates the managed `.swiftweb/storyboard` preview app.
 ///
 /// The catalog UI lives as real, compiled code in swift-web's `SwiftWebStoryboard`
@@ -7,14 +33,19 @@ import Foundation
 /// and writes a thin `App` plus manifest. The catalog must appear in the app's
 /// own target because the dev runtime discovers client components (for WASM
 /// hydration) only under the app's `Sources/<module>/` directory.
-struct StoryboardScaffold {
-    let projectDirectory: URL
-    let swiftWebPackageDirectory: URL
+public struct SwiftWebStoryboardScaffold: Sendable {
+    public let projectDirectory: URL
+    public let swiftWebPackageDirectory: URL
 
     /// The generated app's module name. It must differ from swift-web's own
     /// `SwiftWebStoryboard` target: the generated package depends on swift-web,
     /// so a shared target name would clash in the package graph.
-    static let moduleName = "StoryboardPreview"
+    public static let moduleName = "StoryboardPreview"
+
+    public init(projectDirectory: URL, swiftWebPackageDirectory: URL) {
+        self.projectDirectory = projectDirectory
+        self.swiftWebPackageDirectory = swiftWebPackageDirectory
+    }
 
     private var markerFile: URL {
         projectDirectory.appendingPathComponent(".swiftweb-storyboard")
@@ -32,15 +63,12 @@ struct StoryboardScaffold {
             .appendingPathComponent(Self.moduleName, isDirectory: true)
     }
 
-    func materialize(force: Bool) throws {
+    public func materialize(force: Bool) throws {
         let fileManager = FileManager.default
         if fileManager.fileExists(atPath: projectDirectory.path) {
             let isManagedDirectory = fileManager.fileExists(atPath: markerFile.path)
             if !force, !isManagedDirectory {
-                throw CLIError(
-                    message: "storyboard directory already exists and is not managed by swift-web: \(projectDirectory.path)",
-                    exitCode: 73
-                )
+                throw SwiftWebStoryboardScaffoldError.unmanagedDirectory(projectDirectory)
             }
             if force {
                 try fileManager.removeItem(at: projectDirectory)
@@ -72,18 +100,12 @@ struct StoryboardScaffold {
     private func linkCatalogSources() throws {
         let fileManager = FileManager.default
         guard fileManager.fileExists(atPath: catalogSourceDirectory.path) else {
-            throw CLIError(
-                message: "SwiftWebStoryboard catalog sources were not found at \(catalogSourceDirectory.path)",
-                exitCode: 66
-            )
+            throw SwiftWebStoryboardScaffoldError.catalogSourcesNotFound(catalogSourceDirectory)
         }
 
         let sources = try swiftFiles(in: catalogSourceDirectory, relativePath: "")
         guard !sources.isEmpty else {
-            throw CLIError(
-                message: "no catalog sources to copy from \(catalogSourceDirectory.path)",
-                exitCode: 66
-            )
+            throw SwiftWebStoryboardScaffoldError.emptyCatalogSources(catalogSourceDirectory)
         }
 
         for source in sources {
@@ -171,10 +193,11 @@ struct StoryboardScaffold {
     }
 
     private func resolveSwiftHTMLPackageDirectory() throws -> URL {
-        for root in try localPackageRoots(for: swiftWebPackageDirectory) {
-            if try packageName(in: root) == "swift-html" {
-                return root
-            }
+        if let root = try SwiftWebPackageManifestInspector.optionalLocalDependencyRoot(
+            named: "swift-html",
+            in: swiftWebPackageDirectory
+        ) {
+            return root
         }
 
         let sibling = swiftWebPackageDirectory
@@ -182,67 +205,15 @@ struct StoryboardScaffold {
             .appendingPathComponent("swift-html", isDirectory: true)
             .standardizedFileURL
         if FileManager.default.fileExists(atPath: sibling.appendingPathComponent("Package.swift").path),
-           try packageName(in: sibling) == "swift-html"
+           try SwiftWebPackageManifestInspector.packageName(in: sibling) == "swift-html"
         {
             return sibling
         }
 
-        throw CLIError(
-            message: "local dependency swift-html was not found from \(swiftWebPackageDirectory.path)",
-            exitCode: 66
+        throw SwiftWebGeneratedPackageMaterializerError.localDependencyNotFound(
+            package: "swift-html",
+            in: swiftWebPackageDirectory
         )
-    }
-
-    private func packageName(in packageDirectory: URL) throws -> String {
-        let packageFile = packageDirectory.appendingPathComponent("Package.swift")
-        guard FileManager.default.fileExists(atPath: packageFile.path) else {
-            throw CLIError(message: "Package.swift was not found in \(packageDirectory.path)", exitCode: 66)
-        }
-
-        let manifest = try String(contentsOf: packageFile, encoding: .utf8)
-        let regex = try NSRegularExpression(pattern: #"Package\s*\(\s*name\s*:\s*"([^"]+)""#)
-        let range = NSRange(manifest.startIndex..<manifest.endIndex, in: manifest)
-        guard let match = regex.firstMatch(in: manifest, range: range),
-              match.numberOfRanges > 1,
-              let nameRange = Range(match.range(at: 1), in: manifest)
-        else {
-            throw CLIError(message: "package name was not found in \(packageFile.path)", exitCode: 66)
-        }
-
-        return String(manifest[nameRange])
-    }
-
-    private func localPackageRoots(for packageDirectory: URL) throws -> [URL] {
-        let packageFile = packageDirectory.appendingPathComponent("Package.swift")
-        let manifest = try String(contentsOf: packageFile, encoding: .utf8)
-        let regex = try NSRegularExpression(pattern: #"\.package\s*\(\s*path\s*:\s*"([^"]+)""#)
-        let range = NSRange(manifest.startIndex..<manifest.endIndex, in: manifest)
-        let matches = regex.matches(in: manifest, range: range)
-        var roots: [URL] = []
-        var seenPaths = Set<String>()
-
-        for match in matches {
-            guard match.numberOfRanges > 1,
-                  let pathRange = Range(match.range(at: 1), in: manifest)
-            else {
-                continue
-            }
-
-            let rawPath = String(manifest[pathRange])
-            let root = rawPath.hasPrefix("/")
-                ? URL(fileURLWithPath: rawPath).standardizedFileURL
-                : packageDirectory.appendingPathComponent(rawPath, isDirectory: true).standardizedFileURL
-            let rootPackageFile = root.appendingPathComponent("Package.swift")
-            guard FileManager.default.fileExists(atPath: rootPackageFile.path) else {
-                continue
-            }
-
-            if seenPaths.insert(root.path).inserted {
-                roots.append(root)
-            }
-        }
-
-        return roots
     }
 
     private var appSwift: String {
@@ -255,6 +226,7 @@ struct StoryboardScaffold {
             public var body: some AppContent {
                 Redirect("/", to: "/storyboard")
                 StoryboardPage()
+                StoryboardSelectionPage()
             }
         }
         """

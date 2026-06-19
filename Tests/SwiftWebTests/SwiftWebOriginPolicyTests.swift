@@ -1,6 +1,7 @@
 import HTTPTypes
 import NIOCore
 @testable import SwiftWeb
+@testable import SwiftWebCore
 import Testing
 import Vapor
 

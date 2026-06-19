@@ -5,6 +5,7 @@ import Vapor
 
 public struct SwiftWebDevelopmentHooks: Sendable {
     public var startParentMonitor: @Sendable (Logger) -> Task<Void, Never>?
+    public var configureSecurity: @Sendable (SecurityConfiguration) -> SecurityConfiguration
     public var installMiddlewares: @Sendable (inout Middlewares) -> Void
     public var registerRoutes: @Sendable (any RoutesBuilder) -> Void
     public var htmlHeaders: @Sendable () -> HTTPFields
@@ -17,6 +18,7 @@ public struct SwiftWebDevelopmentHooks: Sendable {
 
     public init(
         startParentMonitor: @escaping @Sendable (Logger) -> Task<Void, Never>?,
+        configureSecurity: @escaping @Sendable (SecurityConfiguration) -> SecurityConfiguration,
         installMiddlewares: @escaping @Sendable (inout Middlewares) -> Void,
         registerRoutes: @escaping @Sendable (any RoutesBuilder) -> Void,
         htmlHeaders: @escaping @Sendable () -> HTTPFields,
@@ -28,6 +30,7 @@ public struct SwiftWebDevelopmentHooks: Sendable {
         ) -> String
     ) {
         self.startParentMonitor = startParentMonitor
+        self.configureSecurity = configureSecurity
         self.installMiddlewares = installMiddlewares
         self.registerRoutes = registerRoutes
         self.htmlHeaders = htmlHeaders
@@ -37,6 +40,7 @@ public struct SwiftWebDevelopmentHooks: Sendable {
 
     public static let disabled = SwiftWebDevelopmentHooks(
         startParentMonitor: { _ in nil },
+        configureSecurity: { $0 },
         installMiddlewares: { _ in },
         registerRoutes: { _ in },
         htmlHeaders: { [.contentType: "text/html; charset=utf-8"] },

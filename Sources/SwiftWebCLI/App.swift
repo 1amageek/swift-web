@@ -1,12 +1,22 @@
 import Foundation
+import SwiftWebDevelopment
 
 @main
 struct SwiftWebCLI {
-    static func main() {
+    static func main() async {
         do {
-            try CommandLineInterface(arguments: CommandLine.arguments).run()
+            try await CommandLineInterface(arguments: CommandLine.arguments).run()
         } catch let error as CLIError {
             FileHandle.standardError.write(Data((error.message + "\n").utf8))
+            Foundation.exit(Int32(error.exitCode))
+        } catch let error as SwiftWebStoryboardScaffoldError {
+            FileHandle.standardError.write(Data((error.description + "\n").utf8))
+            Foundation.exit(Int32(error.exitCode))
+        } catch let error as SwiftWebGeneratedPackageMaterializerError {
+            FileHandle.standardError.write(Data((error.description + "\n").utf8))
+            Foundation.exit(66)
+        } catch let error as SwiftWebDevRuntimeError {
+            FileHandle.standardError.write(Data((error.description + "\n").utf8))
             Foundation.exit(Int32(error.exitCode))
         } catch {
             FileHandle.standardError.write(Data(("error: \(error)\n").utf8))
@@ -18,7 +28,7 @@ struct SwiftWebCLI {
 struct CommandLineInterface {
     let arguments: [String]
 
-    func run() throws {
+    func run() async throws {
         var parser = ArgumentParser(arguments: Array(arguments.dropFirst()))
         guard let command = parser.next() else {
             printUsage()
@@ -33,9 +43,9 @@ struct CommandLineInterface {
         case "clean":
             try CleanCommand.parse(parser).run()
         case "dev":
-            try DevCommand.parse(parser).run()
+            try await DevCommand.parse(parser).run()
         case "storyboard":
-            try StoryboardCommand.parse(parser).run()
+            try await StoryboardCommand.parse(parser).run()
         case "help", "--help", "-h":
             printUsage()
         default:

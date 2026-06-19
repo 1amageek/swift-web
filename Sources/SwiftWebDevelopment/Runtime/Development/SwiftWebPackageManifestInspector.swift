@@ -1,7 +1,7 @@
 import Foundation
 
-enum SwiftWebPackageManifestInspector {
-    static func packageName(in packageDirectory: URL) throws -> String {
+public enum SwiftWebPackageManifestInspector {
+    public static func packageName(in packageDirectory: URL) throws -> String {
         let packageFile = packageDirectory.appendingPathComponent("Package.swift")
         guard FileManager.default.fileExists(atPath: packageFile.path) else {
             throw SwiftWebGeneratedPackageMaterializerError.packageManifestNotFound(packageDirectory)
@@ -20,7 +20,18 @@ enum SwiftWebPackageManifestInspector {
         return String(manifest[nameRange])
     }
 
-    static func localDependencyRoot(
+    public static func packageRoot(
+        named packageName: String,
+        from packageDirectory: URL
+    ) throws -> URL {
+        if try self.packageName(in: packageDirectory) == packageName {
+            return packageDirectory.standardizedFileURL
+        }
+
+        return try localDependencyRoot(named: packageName, in: packageDirectory)
+    }
+
+    public static func localDependencyRoot(
         named dependencyPackageName: String,
         in packageDirectory: URL
     ) throws -> URL {
@@ -34,7 +45,7 @@ enum SwiftWebPackageManifestInspector {
         )
     }
 
-    static func optionalLocalDependencyRoot(
+    public static func optionalLocalDependencyRoot(
         named dependencyPackageName: String,
         in packageDirectory: URL
     ) throws -> URL? {

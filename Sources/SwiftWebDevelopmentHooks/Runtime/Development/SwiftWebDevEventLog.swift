@@ -1,22 +1,22 @@
 import Foundation
 
-struct SwiftWebDevEventLog: Sendable {
-    static let environmentKey = "SWIFT_WEB_DEV_EVENT_LOG"
+package struct SwiftWebDevEventLog: Sendable {
+    package static let environmentKey = "SWIFT_WEB_DEV_EVENT_LOG"
 
-    let fileURL: URL
+    package let fileURL: URL
 
-    init(fileURL: URL) {
+    package init(fileURL: URL) {
         self.fileURL = fileURL.standardizedFileURL
     }
 
-    init?(environment: [String: String] = ProcessInfo.processInfo.environment) {
+    package init?(environment: [String: String] = ProcessInfo.processInfo.environment) {
         guard let path = environment[Self.environmentKey], !path.isEmpty else {
             return nil
         }
         self.init(fileURL: URL(fileURLWithPath: path))
     }
 
-    static func fileURL(for configuration: SwiftWebDevRuntimeConfiguration) -> URL {
+    package static func fileURL(for configuration: SwiftWebDevRuntimeConfiguration) -> URL {
         let root = configuration.scratchDirectory
             ?? configuration.packageDirectory
                 .appendingPathComponent(".swiftweb", isDirectory: true)
@@ -26,7 +26,7 @@ struct SwiftWebDevEventLog: Sendable {
             .standardizedFileURL
     }
 
-    func reset() throws {
+    package func reset() throws {
         try FileManager.default.createDirectory(
             at: fileURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
@@ -34,7 +34,7 @@ struct SwiftWebDevEventLog: Sendable {
         try Data().write(to: fileURL, options: .atomic)
     }
 
-    func append(_ event: SwiftWebDevEvent) throws {
+    package func append(_ event: SwiftWebDevEvent) throws {
         try FileManager.default.createDirectory(
             at: fileURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
@@ -55,7 +55,7 @@ struct SwiftWebDevEventLog: Sendable {
         try handle.write(contentsOf: line)
     }
 
-    func events(after id: String?) throws -> [SwiftWebDevEvent] {
+    package func events(after id: String?) throws -> [SwiftWebDevEvent] {
         guard FileManager.default.fileExists(atPath: fileURL.path) else {
             return []
         }
@@ -83,7 +83,7 @@ struct SwiftWebDevEventLog: Sendable {
 }
 
 extension JSONEncoder {
-    static var swiftWebDevEvent: JSONEncoder {
+    package static var swiftWebDevEvent: JSONEncoder {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         return encoder
@@ -91,7 +91,7 @@ extension JSONEncoder {
 }
 
 extension JSONDecoder {
-    static var swiftWebDevEvent: JSONDecoder {
+    package static var swiftWebDevEvent: JSONDecoder {
         JSONDecoder()
     }
 }

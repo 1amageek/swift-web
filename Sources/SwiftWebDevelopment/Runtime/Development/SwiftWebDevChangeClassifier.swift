@@ -34,17 +34,17 @@ struct SwiftWebDevChangeClassifier: Sendable {
             }
 
             if url.pathExtension == "swift" {
-                let runtime: SwiftWebGeneratedWasmRuntime?
+                let classification: SwiftWebDevSwiftFileClassification
                 do {
-                    runtime = try clientRuntime(for: url)
+                    classification = try SwiftWebDevSwiftFileClassifier.classify(url: url)
                 } catch {
                     requiresServerRestart = true
                     reasons.append(path)
                     continue
                 }
-                if let runtime {
-                    clientRuntimes.append(runtime)
-                } else {
+                let runtimes = matchingClientRuntimes(for: url, classification: classification)
+                clientRuntimes.append(contentsOf: runtimes)
+                if runtimes.isEmpty || classification.hasServerRuntimeSurface {
                     requiresServerRestart = true
                     reasons.append(path)
                 }
@@ -73,14 +73,20 @@ struct SwiftWebDevChangeClassifier: Sendable {
         }
     }
 
-    private func clientRuntime(for url: URL) throws -> SwiftWebGeneratedWasmRuntime? {
+    private func matchingClientRuntimes(
+        for url: URL,
+        classification: SwiftWebDevSwiftFileClassification
+    ) -> [SwiftWebGeneratedWasmRuntime] {
         guard url.path.hasPrefix(appPackageDirectory.path) else {
-            return nil
+            return []
         }
-        let source = try String(contentsOf: url, encoding: .utf8)
-        return generatedPackage.wasmRuntimes.first { runtime in
-            runtime.componentTypeNames.contains { source.contains($0) }
-                && source.contains("ClientComponent")
+        guard !classification.clientComponentTypeNames.isEmpty else {
+            return []
+        }
+        return generatedPackage.wasmRuntimes.filter { runtime in
+            runtime.componentTypeNames.contains { componentTypeName in
+                classification.clientComponentTypeNames.contains(componentTypeName)
+            }
         }
     }
 

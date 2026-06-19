@@ -1,211 +1,212 @@
 import Foundation
 
 public enum SwiftPMWasmArtifact {
-    public static func location(
-        anchorFile: String = #filePath,
-        target: String,
-        artifactName: String? = nil,
-        configuration: String = "release",
-        triple: String = "wasm32-unknown-wasip1",
-        scratchDirectory: URL? = nil
-    ) -> SwiftPMWasmArtifactLocation {
-        SwiftPMWasmArtifactLocation(
-            anchorFile: anchorFile,
-            target: target,
-            artifactName: artifactName,
-            configuration: configuration,
-            triple: triple,
-            scratchDirectory: scratchDirectory
-        )
+  public static func location(
+    anchorFile: String = #filePath,
+    target: String,
+    artifactName: String? = nil,
+    configuration: String = "release",
+    triple: String = "wasm32-unknown-wasip1",
+    scratchDirectory: URL? = nil
+  ) -> SwiftPMWasmArtifactLocation {
+    SwiftPMWasmArtifactLocation(
+      anchorFile: anchorFile,
+      target: target,
+      artifactName: artifactName,
+      configuration: configuration,
+      triple: triple,
+      scratchDirectory: scratchDirectory
+    )
+  }
+
+  public static func url(
+    anchorFile: String = #filePath,
+    target: String,
+    artifactName: String? = nil,
+    configuration: String = "release",
+    triple: String = "wasm32-unknown-wasip1",
+    scratchDirectory: URL? = nil
+  ) throws -> URL {
+    let packageRoot = try findPackageRoot(containing: URL(fileURLWithPath: anchorFile))
+    let candidates = artifactNameCandidates(target: target, artifactName: artifactName)
+
+    let outputDirectories = outputDirectories(
+      for: packageRoot,
+      triple: triple,
+      configuration: configuration,
+      scratchDirectory: scratchDirectory
+    )
+    for outputDirectory in outputDirectories {
+      for candidate in candidates {
+        let url = outputDirectory.appendingPathComponent("\(candidate).wasm")
+        if FileManager.default.fileExists(atPath: url.path) {
+          return url
+        }
+      }
     }
 
-    public static func url(
-        anchorFile: String = #filePath,
-        target: String,
-        artifactName: String? = nil,
-        configuration: String = "release",
-        triple: String = "wasm32-unknown-wasip1",
-        scratchDirectory: URL? = nil
-    ) throws -> URL {
-        let packageRoot = try findPackageRoot(containing: URL(fileURLWithPath: anchorFile))
-        let candidates = artifactNameCandidates(target: target, artifactName: artifactName)
+    return outputDirectories[0]
+      .appendingPathComponent("\(candidates[0]).wasm")
+  }
 
-        let outputDirectories = outputDirectories(
-            for: packageRoot,
-            triple: triple,
-            configuration: configuration,
-            scratchDirectory: scratchDirectory
-        )
-        for outputDirectory in outputDirectories {
-            for candidate in candidates {
-                let url = outputDirectory.appendingPathComponent("\(candidate).wasm")
-                if FileManager.default.fileExists(atPath: url.path) {
-                    return url
-                }
-            }
-        }
+  private static func findPackageRoot(containing fileURL: URL) throws -> URL {
+    var candidate = fileURL.deletingLastPathComponent()
+    let fileManager = FileManager.default
 
-        return outputDirectories[0]
-            .appendingPathComponent("\(candidates[0]).wasm")
+    while candidate.path != "/" {
+      let packageFile = candidate.appendingPathComponent("Package.swift")
+      if fileManager.fileExists(atPath: packageFile.path) {
+        return candidate
+      }
+      candidate.deleteLastPathComponent()
     }
 
-    private static func findPackageRoot(containing fileURL: URL) throws -> URL {
-        var candidate = fileURL.deletingLastPathComponent()
-        let fileManager = FileManager.default
+    throw SwiftPMWasmArtifactError.packageRootNotFound(fileURL.path)
+  }
 
-        while candidate.path != "/" {
-            let packageFile = candidate.appendingPathComponent("Package.swift")
-            if fileManager.fileExists(atPath: packageFile.path) {
-                return candidate
-            }
-            candidate.deleteLastPathComponent()
-        }
+  private static func artifactNameCandidates(target: String, artifactName: String?) -> [String] {
+    var candidates: [String] = []
 
-        throw SwiftPMWasmArtifactError.packageRootNotFound(fileURL.path)
+    if let artifactName {
+      candidates.append(artifactName)
+    }
+    candidates.append(target)
+    candidates.append(kebabCase(target))
+    candidates.append(target.lowercased())
+
+    var unique: [String] = []
+    for candidate in candidates where !unique.contains(candidate) {
+      unique.append(candidate)
+    }
+    return unique
+  }
+
+  private static func outputDirectories(
+    for packageRoot: URL,
+    triple: String,
+    configuration: String,
+    scratchDirectory: URL?
+  ) -> [URL] {
+    var directories: [URL] = []
+    var seen = Set<String>()
+
+    func append(_ directory: URL) {
+      let standardizedDirectory = directory.standardizedFileURL
+      if seen.insert(standardizedDirectory.path).inserted {
+        directories.append(standardizedDirectory)
+      }
     }
 
-    private static func artifactNameCandidates(target: String, artifactName: String?) -> [String] {
-        var candidates: [String] = []
-
-        if let artifactName {
-            candidates.append(artifactName)
-        }
-        candidates.append(target)
-        candidates.append(kebabCase(target))
-        candidates.append(target.lowercased())
-
-        var unique: [String] = []
-        for candidate in candidates where !unique.contains(candidate) {
-            unique.append(candidate)
-        }
-        return unique
+    if let scratchDirectory {
+      append(
+        scratchDirectory
+          .appendingPathComponent(triple)
+          .appendingPathComponent(configuration)
+      )
     }
 
-    private static func outputDirectories(
-        for packageRoot: URL,
-        triple: String,
-        configuration: String,
-        scratchDirectory: URL?
-    ) -> [URL] {
-        var directories: [URL] = []
-        var seen = Set<String>()
-
-        func append(_ directory: URL) {
-            let standardizedDirectory = directory.standardizedFileURL
-            if seen.insert(standardizedDirectory.path).inserted {
-                directories.append(standardizedDirectory)
-            }
-        }
-
-        if let scratchDirectory {
-            append(
-                scratchDirectory
-                    .appendingPathComponent(triple)
-                    .appendingPathComponent(configuration)
-            )
-        }
-
-        for scratchRoot in conventionalScratchRoots(for: packageRoot) {
-            append(
-                scratchRoot
-                    .appendingPathComponent(triple)
-                    .appendingPathComponent(configuration)
-            )
-        }
-
-        for root in artifactSearchRoots(for: packageRoot) {
-            append(
-                root.appendingPathComponent(".build")
-                    .appendingPathComponent(triple)
-                    .appendingPathComponent(configuration)
-            )
-        }
-
-        return directories
+    for scratchRoot in conventionalScratchRoots(for: packageRoot) {
+      append(
+        scratchRoot
+          .appendingPathComponent(triple)
+          .appendingPathComponent(configuration)
+      )
     }
 
-    private static func conventionalScratchRoots(for packageRoot: URL) -> [URL] {
-        guard packageRoot.lastPathComponent == "wasm" else {
-            return []
-        }
-
-        return [
-            packageRoot
-                .deletingLastPathComponent()
-                .appendingPathComponent(".build", isDirectory: true)
-                .appendingPathComponent("wasm", isDirectory: true),
-        ]
+    for root in artifactSearchRoots(for: packageRoot) {
+      append(
+        root.appendingPathComponent(".build")
+          .appendingPathComponent(triple)
+          .appendingPathComponent(configuration)
+      )
     }
 
-    private static func artifactSearchRoots(for packageRoot: URL) -> [URL] {
-        var roots: [URL] = []
-        var seen = Set<String>()
+    return directories
+  }
 
-        func append(_ root: URL) {
-            let standardizedRoot = root.standardizedFileURL
-            if seen.insert(standardizedRoot.path).inserted {
-                roots.append(standardizedRoot)
-            }
-        }
-
-        append(packageRoot)
-        append(packageRoot.appendingPathComponent(".swiftweb/generated", isDirectory: true))
-        append(packageRoot.appendingPathComponent(".swiftweb/generated/wasm", isDirectory: true))
-        append(packageRoot.appendingPathComponent(".swiftweb/generated/server", isDirectory: true))
-
-        for dependencyRoot in localPackageDependencyRoots(for: packageRoot) {
-            append(dependencyRoot)
-            append(dependencyRoot.appendingPathComponent(".swiftweb/generated/wasm", isDirectory: true))
-        }
-
-        return roots
+  private static func conventionalScratchRoots(for packageRoot: URL) -> [URL] {
+    guard packageRoot.lastPathComponent == "wasm" else {
+      return []
     }
 
-    private static func localPackageDependencyRoots(for packageRoot: URL) -> [URL] {
-        let packageFile = packageRoot.appendingPathComponent("Package.swift")
-        let manifest: String
-        let regex: NSRegularExpression
+    return [
+      packageRoot
+        .deletingLastPathComponent()
+        .appendingPathComponent(".build", isDirectory: true)
+        .appendingPathComponent("wasm", isDirectory: true)
+    ]
+  }
 
-        do {
-            manifest = try String(contentsOf: packageFile, encoding: .utf8)
-            regex = try NSRegularExpression(
-                pattern: #"\.package\s*\(\s*path\s*:\s*"([^"]+)""#
-            )
-        } catch {
-            return []
-        }
+  private static func artifactSearchRoots(for packageRoot: URL) -> [URL] {
+    var roots: [URL] = []
+    var seen = Set<String>()
 
-        let range = NSRange(manifest.startIndex..<manifest.endIndex, in: manifest)
-        return regex.matches(in: manifest, range: range).compactMap { match in
-            guard match.numberOfRanges > 1,
-                  let pathRange = Range(match.range(at: 1), in: manifest)
-            else {
-                return nil
-            }
-
-            let rawPath = String(manifest[pathRange])
-            if rawPath.hasPrefix("/") {
-                return URL(fileURLWithPath: rawPath).standardizedFileURL
-            }
-            return packageRoot
-                .appendingPathComponent(rawPath, isDirectory: true)
-                .standardizedFileURL
-        }
+    func append(_ root: URL) {
+      let standardizedRoot = root.standardizedFileURL
+      if seen.insert(standardizedRoot.path).inserted {
+        roots.append(standardizedRoot)
+      }
     }
 
-    private static func kebabCase(_ value: String) -> String {
-        var output = ""
-        for scalar in value.unicodeScalars {
-            let character = Character(scalar)
-            if CharacterSet.uppercaseLetters.contains(scalar) {
-                if !output.isEmpty {
-                    output.append("-")
-                }
-                output.append(String(character).lowercased())
-            } else {
-                output.append(String(character))
-            }
-        }
-        return output
+    append(packageRoot)
+    append(packageRoot.appendingPathComponent(".swiftweb/generated", isDirectory: true))
+    append(packageRoot.appendingPathComponent(".swiftweb/generated/wasm", isDirectory: true))
+    append(packageRoot.appendingPathComponent(".swiftweb/generated/server", isDirectory: true))
+
+    for dependencyRoot in localPackageDependencyRoots(for: packageRoot) {
+      append(dependencyRoot)
+      append(dependencyRoot.appendingPathComponent(".swiftweb/generated/wasm", isDirectory: true))
     }
+
+    return roots
+  }
+
+  private static func localPackageDependencyRoots(for packageRoot: URL) -> [URL] {
+    let packageFile = packageRoot.appendingPathComponent("Package.swift")
+    let manifest: String
+    let regex: NSRegularExpression
+
+    do {
+      manifest = try String(contentsOf: packageFile, encoding: .utf8)
+      regex = try NSRegularExpression(
+        pattern: #"\.package\s*\(\s*path\s*:\s*"([^"]+)""#
+      )
+    } catch {
+      return []
+    }
+
+    let range = NSRange(manifest.startIndex..<manifest.endIndex, in: manifest)
+    return regex.matches(in: manifest, range: range).compactMap { match in
+      guard match.numberOfRanges > 1,
+        let pathRange = Range(match.range(at: 1), in: manifest)
+      else {
+        return nil
+      }
+
+      let rawPath = String(manifest[pathRange])
+      if rawPath.hasPrefix("/") {
+        return URL(fileURLWithPath: rawPath).standardizedFileURL
+      }
+      return
+        packageRoot
+        .appendingPathComponent(rawPath, isDirectory: true)
+        .standardizedFileURL
+    }
+  }
+
+  private static func kebabCase(_ value: String) -> String {
+    var output = ""
+    for scalar in value.unicodeScalars {
+      let character = Character(scalar)
+      if CharacterSet.uppercaseLetters.contains(scalar) {
+        if !output.isEmpty {
+          output.append("-")
+        }
+        output.append(String(character).lowercased())
+      } else {
+        output.append(String(character))
+      }
+    }
+    return output
+  }
 }

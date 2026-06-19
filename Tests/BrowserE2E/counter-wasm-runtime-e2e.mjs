@@ -37,6 +37,7 @@ const report = {
   phases: [],
   consoleErrors: [],
   browserErrors: [],
+  httpFailures: [],
   serverLogTail: [],
   wasmResponses: [],
 };
@@ -339,6 +340,14 @@ public struct ClientNamedToolB: ClientComponent, Sendable {
 
 async function launchDevServer(appRoot, scratchRoot, port) {
   const swiftWebExecutable = await resolveSwiftWebExecutable();
+  const wasmSwiftSDK = process.env.SWIFT_WEB_WASM_SDK || "swift-6.3.1-RELEASE_wasm";
+  report.wasmSwiftSDK = wasmSwiftSDK;
+  if (process.env.SWIFT_WEB_WASM_SWIFT) {
+    report.wasmSwiftExecutable = process.env.SWIFT_WEB_WASM_SWIFT;
+  }
+  if (process.env.SWIFT_WEB_WASM_TOOLCHAIN_BIN) {
+    report.wasmSwiftToolchainBin = process.env.SWIFT_WEB_WASM_TOOLCHAIN_BIN;
+  }
   const child = spawn(
     swiftWebExecutable,
     [
@@ -354,7 +363,7 @@ async function launchDevServer(appRoot, scratchRoot, port) {
       cwd: swiftWebRoot,
       env: {
         ...process.env,
-        SWIFT_WEB_WASM_SDK: process.env.SWIFT_WEB_WASM_SDK || "swift-6.3.1-RELEASE_wasm",
+        SWIFT_WEB_WASM_SDK: wasmSwiftSDK,
       },
       detached: true,
       stdio: ["ignore", "pipe", "pipe"],
@@ -392,10 +401,11 @@ async function resolveSwiftWebExecutable() {
   }
 
   recordPhase("cli.build");
+  const swiftCommand = await resolveHostSwiftCommand();
   await execFileAsync(
-    "xcrun",
+    swiftCommand.executable,
     [
-      "swift",
+      ...swiftCommand.arguments,
       "build",
       "--disable-sandbox",
       "--package-path",
@@ -411,9 +421,9 @@ async function resolveSwiftWebExecutable() {
   );
 
   const { stdout } = await execFileAsync(
-    "xcrun",
+    swiftCommand.executable,
     [
-      "swift",
+      ...swiftCommand.arguments,
       "build",
       "--disable-sandbox",
       "--package-path",
@@ -440,6 +450,84 @@ async function resolveSwiftWebExecutable() {
     throw new Error(`Resolved swift-web executable does not exist: ${executable}`);
   }
   return executable;
+}
+
+async function resolveHostSwiftCommand() {
+  const configuredExecutable = process.env.SWIFTWEB_E2E_HOST_SWIFT_EXECUTABLE
+    || process.env.SWIFTWEB_E2E_SWIFT_EXECUTABLE
+    || process.env.SWIFT_WEB_SWIFT;
+  const candidates = [
+    configuredExecutable ? {
+      executable: configuredExecutable,
+      arguments: [],
+      label: configuredExecutable,
+    } : null,
+    {
+      executable: "xcrun",
+      arguments: ["swift"],
+      label: "xcrun swift",
+    },
+    {
+      executable: "swift",
+      arguments: [],
+      label: "swift",
+    },
+    {
+      executable: "/Users/1amageek/.swiftly/bin/swift",
+      arguments: [],
+      label: "/Users/1amageek/.swiftly/bin/swift",
+    },
+  ].filter(Boolean);
+
+  const failures = [];
+  for (const candidate of candidates) {
+    try {
+      if (path.isAbsolute(candidate.executable) && !existsSync(candidate.executable)) {
+        failures.push(`${candidate.label}: not found`);
+        continue;
+      }
+      const { stdout, stderr } = await execFileAsync(candidate.executable, [...candidate.arguments, "--version"], {
+        cwd: swiftWebRoot,
+        env: process.env,
+        maxBuffer: 10 * 1024 * 1024,
+      });
+      const version = `${stdout}${stderr}`.trim();
+      const parsedVersion = parseSwiftVersion(version);
+      if (!parsedVersion || !isAtLeastSwift64(parsedVersion)) {
+        failures.push(`${candidate.label}: ${version.split(/\r?\n/)[0] || "unknown version"}`);
+        continue;
+      }
+      report.hostSwiftExecutable = candidate.label;
+      report.hostSwiftVersion = version;
+      return candidate;
+    } catch (error) {
+      failures.push(`${candidate.label}: ${String(error && error.message ? error.message : error)}`);
+    }
+  }
+
+  throw new Error(`Swift 6.4-capable host executable was not found. Checked: ${failures.join("; ")}`);
+}
+
+function parseSwiftVersion(version) {
+  const match = version.match(/Swift version\s+(\d+)\.(\d+)(?:\.(\d+))?/);
+  if (!match) {
+    return null;
+  }
+  return {
+    major: Number(match[1]),
+    minor: Number(match[2]),
+    patch: Number(match[3] || 0),
+  };
+}
+
+function isAtLeastSwift64(version) {
+  if (version.major > 6) {
+    return true;
+  }
+  if (version.major < 6) {
+    return false;
+  }
+  return version.minor >= 4;
 }
 
 async function stopProcess(child) {
@@ -570,6 +658,7 @@ async function runWebKitSmoke(baseURL) {
 
   try {
     const page = await browser.newPage();
+    attachPageDiagnostics(page, "webkit");
     recordPhase("webkit.smoke.goto");
     await page.goto(`${baseURL}/counter`, { waitUntil: "domcontentloaded", timeout: timeoutMs });
     await page.waitForFunction(
@@ -586,6 +675,68 @@ async function runWebKitSmoke(baseURL) {
   } finally {
     await browser.close();
   }
+}
+
+function attachPageDiagnostics(page, browserName) {
+  page.on("response", (response) => {
+    const url = new URL(response.url());
+    if (response.status() >= 400) {
+      report.httpFailures.push({
+        browser: browserName,
+        url: response.url(),
+        path: url.pathname,
+        status: response.status(),
+        at: new Date().toISOString(),
+      });
+    }
+  });
+  page.on("console", (message) => {
+    if (message.type() === "error" && !isAllowedConsoleError(message.text())) {
+      report.consoleErrors.push({
+        browser: browserName,
+        text: message.text(),
+        at: new Date().toISOString(),
+      });
+    }
+  });
+  page.on("pageerror", (error) => {
+    report.browserErrors.push({
+      browser: browserName,
+      message: String(error && error.message ? error.message : error),
+      at: new Date().toISOString(),
+    });
+  });
+}
+
+function isAllowedConsoleError(text) {
+  return text === "Failed to load resource: the server responded with a status of 404 (Not Found)";
+}
+
+function isAllowedHTTPFailure(failure) {
+  return failure.path === "/favicon.ico" && failure.status === 404;
+}
+
+function assertNoUnexpectedBrowserDiagnostics() {
+  const unexpectedHTTPFailures = report.httpFailures.filter((failure) => !isAllowedHTTPFailure(failure));
+  if (unexpectedHTTPFailures.length > 0) {
+    throw new Error(`Unexpected browser HTTP failures: ${JSON.stringify(unexpectedHTTPFailures)}`);
+  }
+  if (report.consoleErrors.length > 0) {
+    throw new Error(`Unexpected browser console errors: ${JSON.stringify(report.consoleErrors)}`);
+  }
+  if (report.browserErrors.length > 0) {
+    throw new Error(`Unexpected browser page errors: ${JSON.stringify(report.browserErrors)}`);
+  }
+}
+
+function unexpectedServerLogNoise() {
+  const patterns = [
+    /CancellationError\(\)/,
+    /stream ended at an unexpected time/i,
+    /I\/O on closed channel/i,
+    /FSEventStreamScheduleWithRunLoop/,
+  ];
+  return report.serverLogTail.filter((line) => patterns.some((pattern) => pattern.test(line)));
 }
 
 async function cardValue(page, selector) {
@@ -670,6 +821,7 @@ async function runBrowserAssertions(baseURL, appRoot) {
   try {
     const page = await browser.newPage();
     const wasmResponses = [];
+    attachPageDiagnostics(page, "chromium");
     page.on("response", (response) => {
       const url = new URL(response.url());
       if (url.pathname.endsWith(".wasm")) {
@@ -683,15 +835,6 @@ async function runBrowserAssertions(baseURL, appRoot) {
         report.wasmResponses.push(entry);
       }
     });
-    page.on("console", (message) => {
-      if (message.type() === "error") {
-        report.consoleErrors.push(message.text());
-      }
-    });
-    page.on("pageerror", (error) => {
-      report.browserErrors.push(String(error && error.message ? error.message : error));
-    });
-
     recordPhase("browser.goto");
     await page.goto(`${baseURL}/counter`, { waitUntil: "domcontentloaded", timeout: timeoutMs });
     await page.waitForFunction(
@@ -990,6 +1133,54 @@ public let swiftWebE2EInjectedCompilerError =
       throw new Error(`Failed ClientComponent HMR did not report an error event: ${JSON.stringify(report.hmrFailure)}`);
     }
 
+    recordPhase("client.hmr.recover");
+    await writeFile(clientCounterFile, updatedSource);
+    await page.waitForFunction(
+      () => {
+        const applied = globalThis.__swiftWebDevReload?.lastAppliedEvent;
+        return applied?.kind === "clientComponentUpdate"
+          && document.body
+          && document.body.textContent.includes("Client Counter HMR");
+      },
+      undefined,
+      { timeout: hmrTimeoutMs }
+    );
+    await expectCardValue(page, ".client-counter", 1);
+    await expectCardValue(page, ".server-counter", 1);
+
+    recordPhase("server.hmr.page-change");
+    const counterPageFile = path.join(appRoot, "Sources", "CounterApp", "Routes", "CounterPage.swift");
+    const originalPageSource = await readFile(counterPageFile, "utf8");
+    const updatedPageSource = originalPageSource.replace(
+      "Each button posts a delta to Vapor. The value is read from server state on the next render.",
+      "Server worker restart HMR applied. The value is read from the new Vapor worker."
+    );
+    if (updatedPageSource === originalPageSource) {
+      throw new Error("Server HMR source marker was not found in CounterPage.swift.");
+    }
+    await writeFile(counterPageFile, updatedPageSource);
+    await page.waitForFunction(
+      () => document.body && document.body.textContent.includes("Server worker restart HMR applied."),
+      undefined,
+      { timeout: hmrTimeoutMs }
+    );
+    const markerAfterServerHMR = await page.evaluate(() => window.__swiftWebE2EMarker);
+    if (markerAfterServerHMR !== initialMarker) {
+      throw new Error("ServerComponent HMR caused a full page reload instead of a page patch.");
+    }
+    report.serverHMR = await browserRuntimeState(page);
+    if (!["serverRestarted", "pagePatch"].includes(report.serverHMR.devReload.lastAppliedEventKind)) {
+      throw new Error(`Server HMR did not report a server event: ${JSON.stringify(report.serverHMR)}`);
+    }
+    await expectCardValue(page, ".client-counter", 1);
+    await expectCardValue(page, ".deferred-counter", 1);
+    await expectCardValue(page, ".visible-counter", 1);
+    await expectCardValue(page, ".idle-counter", 1);
+    await expectCardValue(page, ".manual-counter", 1);
+    await expectCardValue(page, ".shared-badge-b", 1);
+    await expectCardValue(page, ".named-tool-a", 1);
+    await expectCardValue(page, ".server-counter", 0);
+
     const finalValues = {
       client: await cardValue(page, ".client-counter"),
       server: await cardValue(page, ".server-counter"),
@@ -1003,7 +1194,7 @@ public let swiftWebE2EInjectedCompilerError =
     report.finalValues = finalValues;
     if (
       finalValues.client !== 1 ||
-      finalValues.server !== 1 ||
+      finalValues.server !== 0 ||
       finalValues.deferred !== 1 ||
       finalValues.visible !== 1 ||
       finalValues.idle !== 1 ||
@@ -1042,6 +1233,7 @@ try {
 
   await runBrowserAssertions(baseURL, appRoot);
   await runWebKitSmoke(baseURL);
+  assertNoUnexpectedBrowserDiagnostics();
   recordPhase("passed");
 } catch (error) {
   report.error = String(error && error.stack ? error.stack : error);
@@ -1049,6 +1241,13 @@ try {
   process.exitCode = 1;
 } finally {
   await stopProcess(devServer);
+  await delay(200);
+  const serverLogNoise = unexpectedServerLogNoise();
+  report.unexpectedServerLogNoise = serverLogNoise;
+  if (serverLogNoise.length > 0 && !report.error) {
+    report.error = `SwiftWeb dev emitted unexpected shutdown log noise: ${serverLogNoise.join("\n")}`;
+    process.exitCode = 1;
+  }
   if (tempRoot) {
     try {
       const remainingProcesses = await waitForNoProcessLines(tempRoot);

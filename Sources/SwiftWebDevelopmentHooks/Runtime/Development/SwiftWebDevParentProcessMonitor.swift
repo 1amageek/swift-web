@@ -2,11 +2,11 @@ import Darwin
 import Foundation
 import Logging
 
-enum SwiftWebDevParentProcessMonitor {
-    static let parentPIDEnvironmentKey = "SWIFT_WEB_DEV_PARENT_PID"
+package enum SwiftWebDevParentProcessMonitor {
+    package static let parentPIDEnvironmentKey = "SWIFT_WEB_DEV_PARENT_PID"
     private static let pollIntervalNanoseconds: UInt64 = 500_000_000
 
-    static func startIfNeeded(logger: Logger) -> Task<Void, Never>? {
+    package static func startIfNeeded(logger: Logger) -> Task<Void, Never>? {
         guard let parentPID = parentPID(from: ProcessInfo.processInfo.environment) else {
             return nil
         }
@@ -16,7 +16,7 @@ enum SwiftWebDevParentProcessMonitor {
         }
     }
 
-    static func parentPID(from environment: [String: String]) -> pid_t? {
+    package static func parentPID(from environment: [String: String]) -> pid_t? {
         guard let rawValue = environment[parentPIDEnvironmentKey],
               let value = Int32(rawValue),
               value > 1
@@ -26,7 +26,7 @@ enum SwiftWebDevParentProcessMonitor {
         return pid_t(value)
     }
 
-    static func shouldExit(parentPID: pid_t, currentParentPID: pid_t, parentExists: Bool) -> Bool {
+    package static func shouldExit(parentPID: pid_t, currentParentPID: pid_t, parentExists: Bool) -> Bool {
         currentParentPID != parentPID || !parentExists
     }
 

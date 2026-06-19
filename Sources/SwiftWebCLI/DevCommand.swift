@@ -42,7 +42,7 @@ struct DevCommand {
         )
     }
 
-    func run() throws {
+    func run() async throws {
         let configuration = SwiftWebDevRuntimeConfiguration(
             packageDirectory: packageDirectory,
             scratchDirectory: scratchDirectory,
@@ -52,7 +52,7 @@ struct DevCommand {
         )
 
         do {
-            try SwiftWebDevRuntime(configuration: configuration).run()
+            try await SwiftWebDevRuntime(configuration: configuration).run()
         } catch let error as SwiftWebDevRuntimeError {
             throw CLIError(message: error.description, exitCode: error.exitCode)
         }

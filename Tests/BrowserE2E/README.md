@@ -8,6 +8,14 @@ npm install
 npm run counter-wasm
 ```
 
+For the stronger local stability gate, install WebKit and require the smoke pass:
+
+```bash
+cd Tests/BrowserE2E
+npm run install-webkit
+npm run counter-wasm:webkit
+```
+
 The test copies `Examples/CounterApp` into a temporary directory, rewrites its dependencies to the local `swift-web` and `swift-html` packages, starts `swift-web dev`, and validates:
 
 - browser WASM runtime readiness
@@ -18,17 +26,58 @@ The test copies `Examples/CounterApp` into a temporary directory, rewrites its d
 - ServerAction page invalidation without full navigation
 - ClientComponent HMR patching while preserving state
 - ClientComponent HMR build failure rollback without replacing the old UI
+- Server worker restart HMR followed by page patch without losing compatible client state
 - dev process shutdown cleanup
-- optional WebKit smoke when Playwright WebKit is installed
+- optional WebKit smoke when Playwright WebKit is installed, or required with `counter-wasm:webkit`
+
+The E2E uses a split toolchain policy:
+
+| Toolchain | Purpose |
+|---|---|
+| Host Swift | Builds the `swift-web` CLI and runs the Vapor-backed dev host. It currently needs a Swift 6.4-capable toolchain because Vapor 5 alpha depends on the current Apple HTTP server stack. |
+| WASM Swift SDK | Builds client runtime bundles and remains pinned to `swift-6.3.1-RELEASE_wasm` by default. |
 
 Environment variables:
 
 | Name | Purpose |
 |---|---|
 | `SWIFTWEB_BROWSER_E2E` | Must be `1` to run. Otherwise the script exits successfully without work. |
+| `SWIFTWEB_E2E_HOST_SWIFT_EXECUTABLE` | Swift executable used to build the host `swift-web` CLI. Defaults to `xcrun swift`. |
 | `SWIFTWEB_E2E_HEADFUL` | Set to `1` to show the browser. |
 | `SWIFTWEB_E2E_PORT` | Fixed port. If omitted, an available port is selected. |
 | `SWIFTWEB_E2E_TIMEOUT_MS` | Overall wait timeout for server, runtime, and HMR phases. |
+| `SWIFTWEB_E2E_HMR_TIMEOUT_MS` | Timeout for individual HMR phases. Increase this when local SwiftPM server rebuilds are slow. |
 | `SWIFTWEB_E2E_SWIFT_HTML_ROOT` | Override the local `swift-html` path. Defaults to `../swift-html` next to the repo. |
+| `SWIFT_WEB_WASM_SDK` | Swift SDK used for WASM client runtime builds. Defaults to `swift-6.3.1-RELEASE_wasm`. |
+| `SWIFT_WEB_WASM_SWIFT` | Optional Swift executable override for WASM builds. |
+| `SWIFT_WEB_WASM_TOOLCHAIN_BIN` | Optional WASM toolchain bin directory override. |
 | `SWIFTWEB_E2E_BROWSER_EXECUTABLE_PATH` | Use a specific Chromium-compatible browser executable. |
 | `SWIFTWEB_E2E_REQUIRE_WEBKIT` | Set to `1` to fail when the optional WebKit smoke cannot run. |
+
+## Stability Gates
+
+| Gate | Command | Expected browser coverage |
+|---|---|---|
+| Default browser E2E | `npm run counter-wasm` | Chromium-compatible browser plus optional WebKit smoke. |
+| Full local browser E2E | `npm run counter-wasm:webkit` | Chromium-compatible browser and required WebKit smoke. |
+
+The full gate is intended to prove the browser-visible dev loop, not just unit-level runtime helpers:
+
+```mermaid
+flowchart LR
+  A["initial dev launch"] --> B["client state clicks"]
+  B --> C["ClientComponent source edit"]
+  C --> D["WASM HMR with state preserved"]
+  D --> E["broken client edit"]
+  E --> F["rollback keeps old UI"]
+  F --> G["server page edit"]
+  G --> H["worker restart"]
+  H --> I["page patch without full reload"]
+  I --> J["shutdown cleanup"]
+```
+
+Cold start time remains a separate performance signal tracked in
+[`docs/BuildTimePerformanceTODO.md`](../../docs/BuildTimePerformanceTODO.md). A passing E2E
+means the HMR loop behaved correctly and cleaned up after itself; it does not mean the first
+`app-server-dev` build is fast enough. Record the first `Build complete!` line from the log
+when evaluating developer experience regressions.

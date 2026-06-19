@@ -11,17 +11,25 @@ public struct ThemeSwitcher: ClientComponent {
 
     @HTMLBuilder
     public var body: some HTML {
-        HStack(spacing: .small) {
+        Picker("Appearance", selection: themeName) {
             ForEach(themes, id: \.name) { theme in
-                let isSelected = selection.wrappedValue == theme
-                Button(theme.name) {
-                    selection.wrappedValue = theme
-                }
-                    .data("theme-option", theme.name)
-                    .data("theme-selected", isSelected ? "true" : "false")
-                    .accessibilityRole("switch")
-                    .accessibilityValue(isSelected ? "on" : "off")
+                PickerOption(theme.name, value: theme.name, .data("theme-option", theme.name))
             }
         }
+        .pickerStyle(.segmented)
+    }
+
+    private var themeName: Binding<String> {
+        Binding<String>(
+            get: {
+                selection.wrappedValue.name
+            },
+            set: { name in
+                guard let theme = themes.first(where: { $0.name == name }) else {
+                    return
+                }
+                selection.wrappedValue = theme
+            }
+        )
     }
 }

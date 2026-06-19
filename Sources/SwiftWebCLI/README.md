@@ -77,13 +77,13 @@ flowchart LR
 
 `SwiftWebDevRuntime` checks the configured host and port before starting the child server. If the port is already occupied, the CLI exits with a clear error before Vapor can fail during bind.
 
-The runtime watches the app package plus local `.package(path:)` dependencies so edits in a checked-out SwiftWeb framework also trigger rebuilds. The dev child server receives `SWIFT_WEB_DEV_PARENT_PID`, imports `SwiftWebDevelopment`, and installs development hooks before `App.run()`.
+The runtime watches the app package plus local `.package(path:)` dependencies so edits in a checked-out SwiftWeb framework also trigger rebuilds. The dev child server receives `SWIFT_WEB_DEV_PARENT_PID`, imports `SwiftWebDevelopmentHooks`, and installs development hooks before `App.run()`.
 
 Startup, ready, reload, child-exit, and shutdown events are emitted through `swift-log` with `codes.swiftweb.dev` as the logger label.
 
-The CLI does not implement HMR itself. It delegates to `SwiftWebDevRuntime`, which emits typed development events such as `stylePatch`, `clientComponentUpdate`, `serverBuildStarted`, `serverRestarted`, `pagePatch`, `fullReload`, and `error`. The browser runtime prefers `/__swiftweb/dev/events` through EventSource and falls back to `/__swiftweb/dev/reload` token waiting when streaming responses are unavailable.
+The CLI does not implement HMR itself. It delegates to `SwiftWebDevRuntime`, which emits typed development events such as `stylePatch`, `clientComponentUpdate`, `serverBuildStarted`, `serverRestarted`, `pagePatch`, `fullReload`, and `error`. The browser runtime connects to `/__swiftweb/dev/events` through the persistent DevHost and uses `/__swiftweb/dev/reload` token waiting only as a compatibility fallback.
 
-In the current Vapor 5 alpha HTTP server path, streaming response bodies are not yet written by the server handler. That means the typed EventSource contract is present, but the reload-token fallback remains the reliable browser transport until Vapor response streaming is wired.
+The public DevHost is a long-lived development control plane that keeps the configured port stable while worker processes rebuild. Application routes still run in the Vapor worker, but HMR event streaming is served by the DevHost so it does not depend on Vapor response-body streaming support.
 
 ## Storyboard Command Flow
 
@@ -139,7 +139,7 @@ flowchart LR
 | `.swiftweb/generated/server/Sources/AppServerLauncher/ServerLauncher.swift` | Thin production entrypoint that calls `<AppName>.run()` without importing `SwiftWebDevelopment`. |
 | `.swiftweb/generated/dev/Package.swift` | Development package for Xcode/CLI launchers. |
 | `.swiftweb/generated/dev/Sources/SwiftWebDevLauncher/DevLauncher.swift` | Dev entrypoint that delegates to `SwiftWebDevRuntime`. |
-| `.swiftweb/generated/dev/Sources/AppDevelopmentServerLauncher/ServerLauncher.swift` | Dev child server entrypoint that installs `SwiftWebDevelopment` hooks before running the app. |
+| `.swiftweb/generated/dev/Sources/AppDevelopmentServerLauncher/ServerLauncher.swift` | Dev child server entrypoint that installs `SwiftWebDevelopmentHooks` before running the app. |
 | `.swiftweb/generated/wasm/Sources/<AppName>` | Client-only source copy used by WASM runtime targets. |
 | `.swiftweb/generated/wasm/Sources/SwiftHTML` | Runtime-only SwiftHTML source copy. Preview macros and `swift-syntax` are not included in the WASM package graph. |
 | `.swiftweb/generated/wasm/Sources/SwiftWebActors` | Generated copy of the shared distributed actor runtime used by WASM runtime targets. |
@@ -152,6 +152,21 @@ flowchart LR
 | `swift-html` package dependency | Client HTML runtime used by the app and server packages; WASM uses a runtime-only source copy to keep macro dependencies out. |
 
 Open `.swiftweb/generated/dev` in Xcode to run the generated `<AppName>-dev` scheme. That scheme builds `SwiftWebDevLauncher`, which starts the same `SwiftWebDevRuntime` used by `swift-web dev`.
+
+The generated `app-server-dev` worker target intentionally depends on `SwiftWebDevelopmentHooks` rather than full `SwiftWebDevelopment`.
+
+```mermaid
+flowchart LR
+  A["<AppName>-dev scheme"] --> B["SwiftWebDevLauncher"]
+  B --> C["SwiftWebDevelopment"]
+  C --> D["persistent DevHost"]
+  C --> E["build app-server-dev"]
+  E --> F["AppDevelopmentServerLauncher"]
+  F --> G["SwiftWebCore"]
+  F --> H["SwiftWebDevelopmentHooks"]
+```
+
+This boundary keeps the worker out of the watcher, proxy, SwiftSyntax classifier, package materializer, and child-process supervisor. The worker launcher imports `SwiftWebCore` for runtime configuration instead of the public macro facade. It does not by itself remove macro expansion from the app target; apps using `@Page` or `@ServerAction` still need the macro toolchain during app compilation.
 
 ## Clean Command
 
@@ -174,6 +189,11 @@ flowchart LR
 | `--storyboard` | Removes the managed Storyboard package source as well as its generated caches. |
 | `--all` | Enables both `--swiftpm` and `--storyboard`. |
 
+The shared development WASM artifact cache is bounded separately by
+`SWIFTWEB_WASM_ARTIFACT_CACHE_MAX_BYTES` and prunes least-recently-used entries after new
+stores. It is not removed by the default package-local clean command because multiple
+generated packages can reuse the same content-addressed artifact.
+
 ## Not Responsible For
 
 | Not owned by SwiftWebCLI | Owner |
@@ -189,7 +209,7 @@ flowchart LR
 ## Design Notes
 
 - The CLI should parse commands and delegate development runtime behavior to `SwiftWebDevelopment`.
-- The dev command delegates browser update behavior to `SwiftWebDevRuntime`. That runtime prefers typed EventSource HMR events and keeps reload-token waiting as a compatibility fallback.
+- The dev command delegates browser update behavior to `SwiftWebDevRuntime`. That runtime uses the DevHost EventSource stream for normal HMR and keeps reload-token waiting as a compatibility fallback.
 - Component-level HMR is a SwiftWeb runtime responsibility. The CLI only starts the runtime and materializes the generated package used by server and WASM builds.
 - Client WASM builds should use stable generated package layouts, write-if-changed materialization, dirty bundle rebuilds, and content-addressed caches keyed by sources, dependencies, toolchain, SDK, and build flags.
 - Child server cleanup is part of the dev runtime contract, not something each app should implement manually.

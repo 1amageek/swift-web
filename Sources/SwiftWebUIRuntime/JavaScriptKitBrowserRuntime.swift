@@ -94,7 +94,7 @@ public enum JavaScriptKitBrowserRuntime {
                 break
             }
         }
-        // A rawHTML node carries no `data-node` marker and may expand to any
+        // A rawHTML node carries no hydration node marker and may expand to any
         // number of DOM nodes, so it cannot be selected or replaced directly.
         // Resolve it through its parent: when the rawHTML is the sole child of an
         // addressable element, replacing the parent's contents is the unambiguous,
@@ -163,12 +163,12 @@ public enum JavaScriptKitBrowserRuntime {
             guard let componentID = record.componentID else {
                 return nil
             }
-            prefix = "component:\(componentID.rawValue)"
+            prefix = "\(HTMLRuntimeMarkers.componentCommentPrefix):\(componentID.rawValue)"
         case .serverSlot:
             guard let serverSlotID = record.serverSlotID else {
                 return nil
             }
-            prefix = "server-slot:\(serverSlotID.rawValue)"
+            prefix = "\(HTMLRuntimeMarkers.serverSlotCommentPrefix):\(serverSlotID.rawValue)"
         default:
             return nil
         }
@@ -241,8 +241,8 @@ public enum JavaScriptKitBrowserRuntime {
         }
         let nodeValue = JSValue.object(object)
 
-        let internalNode = nodeValue.getAttribute("data-node").string
-        let internalKey = nodeValue.getAttribute("data-key").string
+        let internalNode = nodeValue.getAttribute(HTMLRuntimeMarkers.nodeAttribute).string
+        let internalKey = nodeValue.getAttribute(HTMLRuntimeMarkers.keyAttribute).string
         let names = Set(attributes.map(\.name))
         let existing = object.attributes
         let count = Int(existing.length.number ?? 0)
@@ -250,8 +250,8 @@ public enum JavaScriptKitBrowserRuntime {
         for index in 0..<count {
             let attribute = existing[index]
             guard let name = attribute.name.string,
-                  name != "data-node",
-                  name != "data-key",
+                  name != HTMLRuntimeMarkers.nodeAttribute,
+                  name != HTMLRuntimeMarkers.keyAttribute,
                   !names.contains(name)
             else {
                 continue
@@ -265,10 +265,10 @@ public enum JavaScriptKitBrowserRuntime {
             _ = nodeValue.setAttribute(attribute.name, attribute.value ?? "")
         }
         if let internalNode {
-            _ = nodeValue.setAttribute("data-node", internalNode)
+            _ = nodeValue.setAttribute(HTMLRuntimeMarkers.nodeAttribute, internalNode)
         }
         if let internalKey {
-            _ = nodeValue.setAttribute("data-key", internalKey)
+            _ = nodeValue.setAttribute(HTMLRuntimeMarkers.keyAttribute, internalKey)
         }
     }
 
@@ -407,7 +407,7 @@ public enum JavaScriptKitBrowserRuntime {
         guard let context = mutationContext(parent: parentID, index: destinationIndex, hydrationIndex: hydrationIndex) else {
             return
         }
-        let node = document.querySelector("[data-key=\"\(cssEscape(identity))\"]")
+        let node = document.querySelector("[\(HTMLRuntimeMarkers.keyAttribute)=\"\(cssEscape(identity))\"]")
         if node.isNull || node.isUndefined {
             return
         }
@@ -596,7 +596,7 @@ public enum JavaScriptKitBrowserRuntime {
         _ nodeID: HTMLNodeID,
         hydrationIndex: BrowserHydrationIndex
     ) -> JSValue? {
-        let direct = document.querySelector("[data-node=\"\(nodeID.rawValue)\"]")
+        let direct = document.querySelector("[\(HTMLRuntimeMarkers.nodeAttribute)=\"\(nodeID.rawValue)\"]")
         if !direct.isNull && !direct.isUndefined {
             return direct
         }

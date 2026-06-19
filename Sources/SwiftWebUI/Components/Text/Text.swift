@@ -41,11 +41,23 @@ public struct Text: WebUIAttributeComponent {
     }
 
     private var className: String {
+        var classes: [String]
         switch tone {
         case .normal:
-            "swui-text"
+            classes = ["swui-text"]
         case .muted:
-            "swui-text swui-text-muted"
+            classes = ["swui-text", "swui-text-muted"]
         }
+
+        switch element {
+        case .code:
+            classes.append("swui-inline-code")
+        case .pre:
+            classes.append("swui-preformatted")
+        default:
+            break
+        }
+
+        return classes.joined(separator: " ")
     }
 }
