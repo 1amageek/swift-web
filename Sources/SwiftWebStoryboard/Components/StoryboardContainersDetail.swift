@@ -95,7 +95,7 @@ struct ContainersDetail: Component {
                 .padding(.all, "8px")
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(width: "280px", height: "160px")
+            .frame(width: 280, height: 160)
             .background("var(--swui-surface-raised)")
             .cornerRadius("12px")
             .style { .border("1px solid var(--swui-border)") }
@@ -114,7 +114,7 @@ struct ContainersDetail: Component {
                 .padding(.all, "8px")
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(maxWidth: .infinity, height: "160px")
+            .frame(maxWidth: .infinity, height: 160)
             .background("var(--swui-surface-raised)")
             .cornerRadius("12px")
             .style { .border("1px solid var(--swui-border)") }

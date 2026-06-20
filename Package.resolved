@@ -1,5 +1,5 @@
 {
-  "originHash" : "2f08e63fa21048998987b4c7f5008e8066d0675ad30a6706f038ff9318498691",
+  "originHash" : "f3e5d531912de10517f9b906292f4b0549187e7768ba460f151718b619675aa2",
   "pins" : [
     {
       "identity" : "async-http-client",
@@ -156,7 +156,6 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/swift-server/swift-http-server",
       "state" : {
-        "branch" : "main",
         "revision" : "b1c4f775dfbdc74800c0f29fda79c8984a5e9073"
       }
     },
@@ -291,7 +290,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/vapor/vapor.git",
       "state" : {
-        "revision" : "8cfd55759c9f9e30ebdb95e30a3e80d96563f3fd"
+        "revision" : "fff4892930e69b49ea2612699bed9583721723dc"
       }
     },
     {

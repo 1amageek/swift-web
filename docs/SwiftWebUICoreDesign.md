@@ -302,5 +302,6 @@ Modifier order is semantic. The stylesheet scope created by `theme` reads outer 
 | Typography | `Font`, `FontWeight`, and `FontDesign` provide SwiftUI-style text modifiers. |
 | Navigation | `NavigationStack`, `NavigationLink`, `NavigationPath`, and `navigationTitle` are graph-level hooks. |
 | Accessibility | Common accessibility modifiers map to semantic/ARIA attributes. |
+| Page layout | `GridSystem` and `Pane` own responsive inline inset, columns, gutters, pane spans, and page vertical rhythm; `.frame(maxWidth:)` owns outer width constraints. |
 
 This keeps SwiftHTML responsible for rendering correctness and keeps SwiftWebUI responsible for developer-facing UI ergonomics.

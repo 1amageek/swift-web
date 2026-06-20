@@ -222,7 +222,7 @@ public extension HTML {
 
     func border<ShapeStyle: WebShapeStyle>(
         _ style: ShapeStyle,
-        width: WebUILength = 1
+        width: Length = 1
     ) -> ModifiedContent<Self, WebStyleModifier<ShapeStyle>> {
         modifier(WebStyleModifier(property: .border(width: width), style: style))
     }

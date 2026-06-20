@@ -52,8 +52,8 @@ flowchart LR
 Use the real Swift 6.3.1 toolchain executable for WASM builds, not a `swiftly` shim:
 
 ```bash
-export SWIFT_WEB_WASM_SWIFT=/Users/1amageek/Library/Developer/Toolchains/swift-6.3.1-RELEASE.xctoolchain/usr/bin/swift
-export SWIFT_WEB_WASM_TOOLCHAIN_BIN=/Users/1amageek/Library/Developer/Toolchains/swift-6.3.1-RELEASE.xctoolchain/usr/bin
+export SWIFT_WEB_WASM_SWIFT="$(swiftly run +6.3.1 which swift)"
+export SWIFT_WEB_WASM_TOOLCHAIN_BIN="$(dirname "$SWIFT_WEB_WASM_SWIFT")"
 ```
 
 ## Installation
@@ -94,12 +94,30 @@ let package = Package(
 )
 ```
 
+### Install The CLI With Mint
+
+Mint can install the `sweb` executable product directly from the repository. Pin
+`@main` while SwiftWeb is in developer preview; replace it with a release tag when
+tagged releases are available.
+
+| Need | Command |
+|---|---|
+| Install and link `sweb` globally | `mint install 1amageek/swift-web@main sweb` |
+| Run without linking | `mint run 1amageek/swift-web@main sweb <command>` |
+| Print the installed executable path | `mint which 1amageek/swift-web@main sweb` |
+
+```bash
+mint install 1amageek/swift-web@main sweb
+sweb --help
+sweb new MyApp --output ../MyApp
+```
+
 ## Usage
 
 ### 1. Run The CLI From This Repository
 
-SwiftWeb is currently published as a developer preview. Clone the repository and run the
-CLI from the checkout:
+When developing SwiftWeb itself, clone the repository and run the CLI from the
+checkout:
 
 ```bash
 git clone https://github.com/1amageek/swift-web.git
@@ -136,15 +154,30 @@ You can materialize the generated development environment for any existing Swift
 without building or running it:
 
 ```bash
-xcrun swift run sweb prepare --package-path ../MyApp
+cd ../MyApp
+sweb prepare
 ```
 
-### 3. Run The Development Server
+### 3. Open The Xcode Package
 
-From the SwiftWeb checkout:
+From the app package directory:
 
 ```bash
-xcrun swift run sweb dev --package-path ../MyApp
+sweb xcode
+```
+
+`sweb xcode` runs the same materialization step as `sweb prepare`, then opens
+`.swiftweb/generated/dev` in Xcode.
+
+The generated Xcode package includes a `<AppName>-dev` scheme that starts the same
+development runtime used by `sweb dev`.
+
+### 4. Run The Development Server
+
+From the app package directory:
+
+```bash
+sweb dev
 ```
 
 Open:
@@ -165,7 +198,7 @@ flowchart LR
   E --> F["browser update"]
 ```
 
-### 4. Add Routes
+### 5. Add Routes
 
 `Sources/MyApp/App.swift` mounts pages:
 
@@ -219,7 +252,7 @@ public var body: some AppContent {
 }
 ```
 
-### 5. Use SwiftWebUI Components
+### 6. Use SwiftWebUI Components
 
 Import `SwiftWebUI` when you want the higher-level component layer:
 
@@ -231,14 +264,20 @@ import SwiftWebUI
 @Page("/")
 struct HomePage {
     func body() -> some HTML {
-        VStack(spacing: .medium) {
-            Text("Hello SwiftWeb")
-                .font(.title)
+        main {
+            GridSystem {
+                Pane(span: 12) {
+                    VStack(spacing: .medium) {
+                        Text("Hello SwiftWeb")
+                            .font(.title)
 
-            Button("Continue", href: "/about")
-                .buttonStyle(.borderedProminent)
+                        Button("Continue", href: "/about")
+                            .buttonStyle(.borderedProminent)
+                    }
+                }
+            }
+            .frame(maxWidth: 720)
         }
-        .padding(.large)
     }
 }
 ```
@@ -246,7 +285,7 @@ struct HomePage {
 SwiftWebUI lowers into the SwiftHTML graph. It does not replace SwiftHTML; raw SwiftHTML
 elements remain available when you need exact HTML control.
 
-### 6. Inspect Components With Storyboard
+### 7. Inspect Components With Storyboard
 
 Run the SwiftWebUI component Storyboard from the SwiftWeb checkout:
 
@@ -263,22 +302,21 @@ http://127.0.0.1:3001/storyboard
 Storyboard generates an isolated package under `.swiftweb/storyboard`; it does not edit
 your app package.
 
-### 7. Build For Production
+### 8. Build For Production
 
 Build the generated server package:
 
 ```bash
-xcrun swift run sweb build --package-path ../MyApp
+sweb build
 ```
 
 Build browser WASM artifacts:
 
 ```bash
-export SWIFT_WEB_WASM_SWIFT=/Users/1amageek/Library/Developer/Toolchains/swift-6.3.1-RELEASE.xctoolchain/usr/bin/swift
-export SWIFT_WEB_WASM_TOOLCHAIN_BIN=/Users/1amageek/Library/Developer/Toolchains/swift-6.3.1-RELEASE.xctoolchain/usr/bin
+export SWIFT_WEB_WASM_SWIFT="$(swiftly run +6.3.1 which swift)"
+export SWIFT_WEB_WASM_TOOLCHAIN_BIN="$(dirname "$SWIFT_WEB_WASM_SWIFT")"
 
-xcrun swift run sweb build \
-  --package-path ../MyApp \
+sweb build \
   --wasm \
   --swift-sdk swift-6.3.1-RELEASE_wasm \
   -c release
@@ -287,7 +325,7 @@ xcrun swift run sweb build \
 Production WASM builds strip debug/producers sections, optionally run `wasm-opt -Oz`,
 write `<artifact>.wasm.size.json`, and create cached `.gz` / `.br` sidecars.
 
-### 8. Try The Examples
+### 9. Try The Examples
 
 The repository includes a minimal hello world app and a counter app with server
 actions, page invalidation, and a client-side counter component.
@@ -295,7 +333,8 @@ actions, page invalidation, and a client-side counter component.
 Run the minimal app:
 
 ```bash
-xcrun swift run sweb dev --package-path Examples/HelloWorld
+cd Examples/HelloWorld
+sweb dev
 ```
 
 Open:
@@ -307,7 +346,8 @@ http://127.0.0.1:3000/
 Run the counter app:
 
 ```bash
-xcrun swift run sweb dev --package-path Examples/CounterApp
+cd Examples/CounterApp
+sweb dev
 ```
 
 Open:
@@ -322,10 +362,75 @@ http://127.0.0.1:3000/counter
 |---|---|
 | `sweb new <AppName>` | Generate a minimal SwiftWeb app package. |
 | `sweb prepare` | Materialize generated server, dev, and WASM packages for an existing app. |
+| `sweb xcode` | Materialize generated packages and open the dev package in Xcode. |
 | `sweb dev` | Run the development server with generated packages and HMR. |
 | `sweb storyboard` | Run the SwiftWebUI component Storyboard. |
 | `sweb build` | Build the generated production server package. |
 | `sweb build --wasm` | Build browser WASM runtime artifacts and production sidecars. |
+
+Package commands default to the current directory. Run them from the directory that
+contains `Package.swift`, or pass `--package-path` when targeting a package from
+another directory.
+
+`sweb dev` uses a compact color console for dev status, rebuilds, HMR, and common
+errors. It honors `NO_COLOR`; set `SWIFT_WEB_LOG_STYLE=plain` to keep the underlying
+swift-log output.
+
+## Development Workflow With sweb
+
+Use `sweb` from inside the application package. The CLI treats the directory that
+contains `Package.swift` as the app root, materializes generated packages under
+`.swiftweb/generated`, and keeps your editable source under `Sources/<AppName>`.
+
+```mermaid
+flowchart LR
+  A["edit app sources"] --> B["sweb dev"]
+  B --> C["materialize .swiftweb/generated"]
+  C --> D["build server package"]
+  D --> E["run worker"]
+  E --> F["browser reload/HMR"]
+  F --> A
+```
+
+| Step | Command | When to use it |
+|---|---|---|
+| Create an app | `sweb new MyApp --output ../MyApp` | Start a new SwiftWeb package. |
+| Materialize generated packages | `sweb prepare` | Refresh `.swiftweb/generated` without starting the server. |
+| Open the generated dev package | `sweb xcode` | Inspect or debug the generated development package in Xcode. |
+| Run the dev loop | `sweb dev` | Start the server, watcher, rebuild loop, and browser updates. |
+| Build the server package | `sweb build` | Validate the generated production server package. |
+| Build browser WASM | `sweb build --wasm --swift-sdk swift-6.3.1-RELEASE_wasm -c release` | Produce optimized browser runtime artifacts and compression sidecars. |
+
+The normal loop is:
+
+```bash
+cd MyApp
+sweb dev
+```
+
+Then edit route, component, and client island source files in `Sources/MyApp`.
+Generated packages are implementation output; inspect them when debugging, but keep
+source changes in the app package or in SwiftWeb itself.
+
+For Xcode-based debugging, run:
+
+```bash
+cd MyApp
+sweb xcode
+```
+
+This opens `.swiftweb/generated/dev`, whose `<AppName>-dev` scheme runs the same
+development runtime as `sweb dev`.
+
+Before release-oriented checks, run:
+
+```bash
+cd MyApp
+sweb build
+export SWIFT_WEB_WASM_SWIFT="$(swiftly run +6.3.1 which swift)"
+export SWIFT_WEB_WASM_TOOLCHAIN_BIN="$(dirname "$SWIFT_WEB_WASM_SWIFT")"
+sweb build --wasm --swift-sdk swift-6.3.1-RELEASE_wasm -c release
+```
 
 ## Browser Runtime
 
@@ -338,6 +443,74 @@ SwiftWeb browser runtime packages copy runtime-only sources into generated WASM 
 | SwiftWebUIRuntime | JavaScriptKit-backed browser adapter. |
 | JavaScriptKit | Runtime-only copy; BridgeJS macros are not included by default. |
 | SwiftSyntax | Not included in generated browser runtime packages. |
+
+### Client Bundles
+
+`ClientComponent` values are lowered into WASM bundles by contract. The default
+contract joins the eager main bundle:
+
+```swift
+public struct ClientSummary: ClientComponent, Sendable {
+    @State private var count = 0
+
+    public init() {}
+
+    public var body: some HTML {
+        Button("Count \(count)") {
+            count += 1
+        }
+    }
+}
+```
+
+Use `loadPolicy` to decide when the browser loads a client island, and `bundle`
+to decide which logical bundle groups related islands:
+
+```swift
+public struct ClientChart: ClientComponent, Sendable {
+    public static let loadPolicy: LoadPolicy = .visible
+    public static let bundle: BundlePolicy = .named("analytics")
+
+    public init() {}
+
+    public var body: some HTML {
+        GroupBox {
+            Heading("Chart")
+            Text("Loaded when the chart approaches the viewport.", tone: .muted)
+        }
+    }
+}
+```
+
+Page-local overrides can be written where the client island is used:
+
+```swift
+ClientInspector()
+    .loadPolicy(.manual)
+    .bundle(.shared("tools"))
+```
+
+| Policy | Purpose |
+|---|---|
+| `.main` | Keep small or common eager components in the initial runtime. |
+| `.component` | Split one large isolated client island. |
+| `.named("analytics")` | Group page or app features under a readable bundle name. |
+| `.shared("workspace")` | Group reusable client components that should share one bundle. |
+
+| Load policy | Browser behavior |
+|---|---|
+| `.eager` | Load and instantiate during initial runtime startup. |
+| `.visible` | Load when the island approaches the viewport. |
+| `.interaction` | Load on hover, focus, touch, press, or click intent. |
+| `.idle` | Load during a browser idle window. |
+| `.manual` | Wait for an explicit runtime request. |
+
+Modifiers must be attached to the outermost `ClientComponent` island. Nested
+client components share the outer island's bundle contract. The default WASM
+split strategy coalesces non-eager bundles by load policy, while
+`SWIFTWEB_WASM_SPLIT_BUILD_STRATEGY=resolved` builds one artifact per resolved
+logical bundle. See [ClientBundleLoadingDesign](docs/ClientBundleLoadingDesign.md)
+for the full design.
 
 Production WASM builds generate `.wasm.gz` and `.wasm.br` sidecars. Brotli defaults to
 quality 11 for production transfer size, and sidecars are cached by the post-processed

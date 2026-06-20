@@ -138,7 +138,7 @@ struct SwiftWebUIRenderingTests {
     .style(.minHeight("120px"))
     .padding(.small)
     .padding(.horizontal, .large)
-    .padding(.vertical, .pageInline)
+    .padding(.vertical, .xlarge)
     .render()
 
     #expect(
@@ -148,8 +148,29 @@ struct SwiftWebUIRenderingTests {
     #expect(rendered.contains("min-height: 120px"))
     #expect(rendered.contains("padding-left: var(--swui-space-lg)"))
     #expect(rendered.contains("padding-right: var(--swui-space-lg)"))
-    #expect(rendered.contains("padding-top: var(--swui-page-inline-padding)"))
-    #expect(rendered.contains("padding-bottom: var(--swui-page-inline-padding)"))
+    #expect(rendered.contains("padding-top: var(--swui-space-xl)"))
+    #expect(rendered.contains("padding-bottom: var(--swui-space-xl)"))
+  }
+
+  @Test
+  func rendersGridSystemWithPageInset() {
+    let rendered = GridSystem {
+      Pane(span: 12) {
+        Text("Body")
+      }
+    }
+    .frame(maxWidth: 720)
+    .render()
+
+    #expect(rendered.contains("class=\"swui-frame swui-fill-h\""))
+    #expect(rendered.contains("class=\"swui-grid-system\""))
+    #expect(rendered.contains("--swui-grid-system-columns: 12"))
+    #expect(rendered.contains("--swui-grid-system-gutter: var(--swui-space-lg)"))
+    #expect(rendered.contains("max-width: 720px"))
+    #expect(rendered.contains("padding-block: var(--swui-space-xl)"))
+    #expect(rendered.contains("padding-inline: var(--swui-page-inline-padding);"))
+    #expect(rendered.contains("class=\"swui-grid-pane\""))
+    #expect(rendered.contains("grid-column: span 12"))
   }
 
   @Test
@@ -407,7 +428,7 @@ struct SwiftWebUIRenderingTests {
         }
       }
     }
-    .frame(maxHeight: "320px")
+    .frame(maxHeight: 320)
     .render()
 
     #expect(rendered.contains("class=\"swui-frame swui-fill-v\""))

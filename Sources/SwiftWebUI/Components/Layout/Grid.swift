@@ -1,13 +1,13 @@
 import SwiftHTML
 
 public struct Grid<Content: HTML>: WebUIAttributeComponent {
-    private let minColumnWidth: String
+    private let minColumnWidth: Length
     private let spacing: Space
     private let attributes: [HTMLAttribute]
     private let content: Content
 
     public init(
-        minColumnWidth: String = "280px",
+        minColumnWidth: Length = .px(280),
         spacing: Space = .large,
         _ attributes: HTMLAttribute...,
         @HTMLBuilder content: () -> Content
@@ -25,7 +25,7 @@ public struct Grid<Content: HTML>: WebUIAttributeComponent {
             attributes: mergedAttributes(
                 class: "swui-grid \(LayoutClass.fillHorizontal)",
                 styles: Style {
-                    .gridTemplateColumns("repeat(auto-fit, minmax(\(minColumnWidth), 1fr))")
+                    .gridTemplateColumns("repeat(auto-fit, minmax(\(minColumnWidth.cssValue), 1fr))")
                     .gap(spacing.rawValue)
                 },
                 extra: attributes
@@ -44,7 +44,7 @@ public struct Grid<Content: HTML>: WebUIAttributeComponent {
         )
     }
 
-    private init(minColumnWidth: String, spacing: Space, attributes: [HTMLAttribute], content: Content) {
+    private init(minColumnWidth: Length, spacing: Space, attributes: [HTMLAttribute], content: Content) {
         self.minColumnWidth = minColumnWidth
         self.spacing = spacing
         self.attributes = attributes

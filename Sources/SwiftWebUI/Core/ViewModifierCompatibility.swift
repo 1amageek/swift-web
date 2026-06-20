@@ -43,8 +43,8 @@ public extension HTML {
     }
 
     func offset(
-        x: WebUILength = 0,
-        y: WebUILength = 0
+        x: Length = 0,
+        y: Length = 0
     ) -> ModifiedContent<Self, HTMLAttributeModifier> {
         modifier(HTMLAttributeModifier([
             styleAttribute(.transform("translate(\(x.cssValue), \(y.cssValue))"))
@@ -60,8 +60,8 @@ public extension HTML {
     }
 
     func position(
-        x: WebUILength = 0,
-        y: WebUILength = 0
+        x: Length = 0,
+        y: Length = 0
     ) -> ModifiedContent<Self, HTMLAttributeModifier> {
         modifier(HTMLAttributeModifier([
             styleAttribute(Style {
@@ -97,7 +97,7 @@ public extension HTML {
         _ axes: Axis.Set,
         count: Int,
         span: Int = 1,
-        spacing: WebUILength,
+        spacing: Length,
         alignment: Alignment = .center
     ) -> ModifiedContent<Self, HTMLAttributeModifier> {
         let denominator = max(count, 1)
@@ -120,7 +120,7 @@ public extension HTML {
 
     func alignmentGuide(
         _ guide: HorizontalAlignment,
-        computeValue: @escaping (ViewDimensions) -> WebUILength
+        computeValue: @escaping (ViewDimensions) -> Length
     ) -> ModifiedContent<Self, HTMLAttributeModifier> {
         let value = computeValue(ViewDimensions())
         return modifier(HTMLAttributeModifier([
@@ -131,7 +131,7 @@ public extension HTML {
 
     func alignmentGuide(
         _ guide: VerticalAlignment,
-        computeValue: @escaping (ViewDimensions) -> WebUILength
+        computeValue: @escaping (ViewDimensions) -> Length
     ) -> ModifiedContent<Self, HTMLAttributeModifier> {
         let value = computeValue(ViewDimensions())
         return modifier(HTMLAttributeModifier([
@@ -142,12 +142,12 @@ public extension HTML {
 }
 
 public struct ViewDimensions: Sendable {
-    public subscript(_ guide: HorizontalAlignment) -> WebUILength {
-        .css("0px")
+    public subscript(_ guide: HorizontalAlignment) -> Length {
+        .px(0)
     }
 
-    public subscript(_ guide: VerticalAlignment) -> WebUILength {
-        .css("0px")
+    public subscript(_ guide: VerticalAlignment) -> Length {
+        .px(0)
     }
 }
 

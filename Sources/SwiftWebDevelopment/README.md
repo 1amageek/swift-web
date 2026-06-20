@@ -37,6 +37,7 @@ Host worker builds are separate from Client WASM builds. `SwiftWebDevServerProce
 
 | Variable | Behavior |
 |---|---|
+| `SWIFT_WEB_PACKAGE_PATH` | Overrides the SwiftWeb source package used when materializing generated packages. |
 | `SWIFT_WEB_HOST_SWIFT` | Overrides the Swift executable used to build generated host/dev worker products. |
 | `SWIFT_WEB_HOST_TOOLCHAIN_BIN` | Overrides the host Swift toolchain `usr/bin` directory. |
 | `SWIFTWEB_WASM_ARTIFACT_CACHE` | Set to `0`, `false`, `no`, or `off` to disable the shared dev artifact cache. |

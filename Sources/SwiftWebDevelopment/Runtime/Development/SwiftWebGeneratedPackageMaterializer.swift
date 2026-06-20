@@ -62,10 +62,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
     let packageName = try SwiftWebPackageManifestInspector.packageName(in: appPackageDirectory)
     let appProductName = appProductName ?? packageName
     let devProductName = devProductName ?? "\(packageName)-dev"
-    let swiftWebPackageDirectory = try SwiftWebPackageManifestInspector.localDependencyRoot(
-      named: "swift-web",
-      in: appPackageDirectory
-    )
+    let swiftWebPackageDirectory = try resolveSwiftWebPackageDirectory()
     let swiftHTMLPackageDirectory = try resolveLocalSwiftHTMLPackageDirectory(
       swiftWebPackageDirectory: swiftWebPackageDirectory
     )
@@ -112,6 +109,144 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
       named: "swift-html",
       in: swiftWebPackageDirectory
     )
+  }
+
+  private func resolveSwiftWebPackageDirectory() throws -> URL {
+    if let root = try SwiftWebPackageManifestInspector.optionalPackageRoot(
+      named: SwiftWebPackageReference.packageName,
+      in: appPackageDirectory
+    ) {
+      return root
+    }
+
+    if let root = try Self.optionalConfiguredSwiftWebPackageDirectory() {
+      return root
+    }
+
+    if let root = try Self.optionalCompiledSwiftWebPackageDirectory() {
+      return root
+    }
+
+    if let root = try Self.optionalMintLocalSourceSwiftWebPackageDirectory() {
+      return root
+    }
+
+    try resolveAppPackageDependencies()
+
+    if let root = try SwiftWebPackageManifestInspector.optionalPackageRoot(
+      named: SwiftWebPackageReference.packageName,
+      in: appPackageDirectory
+    ) {
+      return root
+    }
+
+    throw SwiftWebGeneratedPackageMaterializerError.localDependencyNotFound(
+      package: SwiftWebPackageReference.packageName,
+      in: appPackageDirectory
+    )
+  }
+
+  private static func optionalConfiguredSwiftWebPackageDirectory(
+    environment: [String: String] = ProcessInfo.processInfo.environment
+  ) throws -> URL? {
+    guard let path = environment["SWIFT_WEB_PACKAGE_PATH"], !path.isEmpty else {
+      return nil
+    }
+
+    return try optionalSwiftWebPackageDirectory(
+      URL(fileURLWithPath: path, isDirectory: true).standardizedFileURL
+    )
+  }
+
+  private static func optionalCompiledSwiftWebPackageDirectory() throws -> URL? {
+    try optionalSwiftWebPackageDirectory(packageDirectoryContainingThisFile().standardizedFileURL)
+  }
+
+  private static func optionalMintLocalSourceSwiftWebPackageDirectory() throws -> URL? {
+    guard let executableURL = currentExecutableURL() else {
+      return nil
+    }
+
+    let components = executableURL.pathComponents
+    guard
+      let packagesIndex = components.lastIndex(of: "packages"),
+      packagesIndex + 2 < components.count,
+      components[packagesIndex + 2] == "build"
+    else {
+      return nil
+    }
+
+    let encodedPackageDirectory = components[packagesIndex + 1]
+    guard encodedPackageDirectory.hasPrefix("_") else {
+      return nil
+    }
+
+    let decodedPathComponents = encodedPackageDirectory
+      .split(separator: "_")
+      .map(String.init)
+    guard !decodedPathComponents.isEmpty else {
+      return nil
+    }
+
+    let packageDirectory = URL(
+      fileURLWithPath: "/" + decodedPathComponents.joined(separator: "/"),
+      isDirectory: true
+    )
+    .standardizedFileURL
+    return try optionalSwiftWebPackageDirectory(packageDirectory)
+  }
+
+  private static func optionalSwiftWebPackageDirectory(_ packageDirectory: URL) throws -> URL? {
+    let packageFile = packageDirectory.appendingPathComponent("Package.swift")
+    guard FileManager.default.fileExists(atPath: packageFile.path) else {
+      return nil
+    }
+
+    let packageName = try SwiftWebPackageManifestInspector.packageName(in: packageDirectory)
+    guard packageName == SwiftWebPackageReference.packageName else {
+      return nil
+    }
+
+    return packageDirectory
+  }
+
+  private static func currentExecutableURL() -> URL? {
+    var size: UInt32 = 0
+    _ = _NSGetExecutablePath(nil, &size)
+    var buffer = [CChar](repeating: 0, count: Int(size))
+    guard _NSGetExecutablePath(&buffer, &size) == 0 else {
+      return nil
+    }
+    let pathBytes = buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }
+    return URL(fileURLWithPath: String(decoding: pathBytes, as: UTF8.self))
+      .resolvingSymlinksInPath()
+      .standardizedFileURL
+  }
+
+  private func resolveAppPackageDependencies() throws {
+    let configuration = SwiftWebDevRuntimeConfiguration(packageDirectory: appPackageDirectory)
+    let toolchain = try SwiftWebHostSwiftToolchain.resolve(configuration: configuration)
+    let process = Process()
+    let output = Pipe()
+    process.executableURL = toolchain.swiftExecutableURL
+    process.arguments = ["package", "resolve"]
+    process.currentDirectoryURL = appPackageDirectory
+    process.environment = toolchain.applying(to: ProcessInfo.processInfo.environment)
+    process.standardOutput = output
+    process.standardError = output
+
+    try process.run()
+    let data = output.fileHandleForReading.readDataToEndOfFile()
+    process.waitUntilExit()
+
+    guard process.terminationStatus == 0 else {
+      let message = String(data: data, encoding: .utf8) ?? ""
+      throw SwiftWebGeneratedPackageMaterializerError.packageResolveFailed(
+        package: appPackageDirectory,
+        status: process.terminationStatus,
+        output: message
+      )
+    }
   }
 
   private func materializeUnlocked(
@@ -183,7 +318,6 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
       appPackageName: packageName,
       appPackageDependencyName: Self.localPackageIdentity(for: appPackageDirectory),
       appProductName: appProductName,
-      swiftWebPackageDirectory: swiftWebPackageDirectory,
       importsSwiftWebCore: !wasmRuntimeTargets.isEmpty
     )
     let devPackageSwiftContents = devPackageSwift(
@@ -191,8 +325,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
       appPackageDependencyName: Self.localPackageIdentity(for: appPackageDirectory),
       appProductName: appProductName,
       developmentServerProductName: developmentServerProductName,
-      devProductName: devProductName,
-      swiftWebPackageDirectory: swiftWebPackageDirectory
+      devProductName: devProductName
     )
     let wasmPackageSwiftContents = wasmPackageSwift(
       appPackageName: packageName,
@@ -1051,7 +1184,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
       : ""
     let developmentInstall =
       installsDevelopmentHooks
-      ? "\n        await SwiftWebDevelopmentHooksRuntime.install()\n"
+      ? "\n        SwiftWebDevConsoleLogging.bootstrap()\n        await SwiftWebDevelopmentHooksRuntime.install()\n"
       : ""
     guard let runtimeTarget = wasmRuntimeTargets.first else {
       return """
@@ -1137,6 +1270,8 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
     @main
     struct SwiftWebDevLauncher {
         static func main() async throws {
+            SwiftWebDevConsoleLogging.bootstrap()
+
             let environment = ProcessInfo.processInfo.environment
             let appPackagePath = environment["SWIFT_WEB_APP_PACKAGE_PATH"] ?? "\(Self.swiftStringLiteral(appPackageDirectory.path))"
             let product = environment["SWIFT_WEB_DEV_PRODUCT"] ?? "\(Self.swiftStringLiteral(serverProductName))"
@@ -1184,16 +1319,11 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
     appPackageName: String,
     appPackageDependencyName: String,
     appProductName: String,
-    swiftWebPackageDirectory: URL,
     importsSwiftWebCore: Bool
   ) -> String {
     let appDependencyPath = Self.relativePath(
       from: serverPackageDirectory,
       to: appPackageDirectory
-    )
-    let swiftWebDependencyPath = Self.relativePath(
-      from: serverPackageDirectory,
-      to: swiftWebPackageDirectory
     )
     let targetDependencies =
       importsSwiftWebCore
@@ -1201,7 +1331,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
       : ""
     let packageDependencies =
       importsSwiftWebCore
-      ? #".package(path: "\#(Self.swiftStringLiteral(swiftWebDependencyPath))"),"#
+      ? "\(SwiftWebPackageReference.packageDependencyDeclaration),"
       : ""
     return """
       // swift-tools-version: 6.3
@@ -1247,8 +1377,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
     appPackageDependencyName: String,
     appProductName: String,
     developmentServerProductName: String,
-    devProductName: String,
-    swiftWebPackageDirectory: URL
+    devProductName: String
   ) -> String {
     let appDependencyPath = Self.relativePath(
       from: devPackageDirectory,
@@ -1295,7 +1424,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
           ],
           dependencies: [
               .package(path: "\(Self.swiftStringLiteral(appDependencyPath))"),
-              .package(path: "\(Self.swiftStringLiteral(swiftWebPackageDirectory.path))"),
+              \(SwiftWebPackageReference.packageDependencyDeclaration),
           ],
           targets: [
               swiftWebDevLauncherTarget,

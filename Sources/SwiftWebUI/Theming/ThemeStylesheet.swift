@@ -186,6 +186,20 @@ enum ThemeStylesheet {
           .justifyItems("stretch")
           .boxSizing("border-box")
       }
+      rule(".swui-grid-system") {
+        .display("grid")
+          .gridTemplateColumns("repeat(var(--swui-grid-system-columns), minmax(0, 1fr))")
+          .columnGap("var(--swui-grid-system-gutter)")
+          .rowGap("var(--swui-grid-system-gutter)")
+        .width("100%")
+          .boxSizing("border-box")
+          .margin("0 auto")
+          .paddingInline("var(--swui-page-inline-padding)")
+      }
+      rule(".swui-grid-pane") {
+        .boxSizing("border-box")
+          .minWidth("0")
+      }
       // GroupBox composes the shared material primitive and keeps only the
       // container chrome: border, radius, and the elevated drop shadow.
       rule(".swui-group-box") {

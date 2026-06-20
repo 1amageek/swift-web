@@ -2,9 +2,9 @@ import SwiftHTML
 
 public struct GridItem: Sendable, Equatable {
     public enum Size: Sendable, Equatable {
-        case fixed(WebUILength)
-        case flexible(minimum: WebUILength = 10, maximum: WebUILength = .infinity)
-        case adaptive(minimum: WebUILength, maximum: WebUILength = .infinity)
+        case fixed(Length)
+        case flexible(minimum: Length = 10, maximum: Length = .infinity)
+        case adaptive(minimum: Length, maximum: Length = .infinity)
     }
 
     public var size: Size
@@ -43,11 +43,11 @@ private func gridTemplateTrack(_ size: GridItem.Size) -> String {
     }
 }
 
-func cssLength(_ length: WebUILength, infinityValue: String) -> String {
+func cssLength(_ length: Length, infinityValue: String) -> String {
     switch length {
-    case .css(let value):
-        value
     case .infinity:
         infinityValue
+    default:
+        length.cssValue
     }
 }

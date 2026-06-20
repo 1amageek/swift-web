@@ -8,6 +8,7 @@ public enum SwiftWebGeneratedPackageMaterializerError: Error, Sendable, CustomSt
     case swiftHTMLRuntimeSourcesNotFound([URL])
     case javaScriptKitRuntimeSourcesNotFound([URL])
     case invalidPackageResolved(URL)
+    case packageResolveFailed(package: URL, status: Int32, output: String)
     case materializationLockOpenFailed(URL, Int32)
     case materializationLockFailed(URL, Int32)
 
@@ -29,6 +30,8 @@ public enum SwiftWebGeneratedPackageMaterializerError: Error, Sendable, CustomSt
             return "JavaScriptKit runtime sources were not found. Checked: \(paths)"
         case .invalidPackageResolved(let file):
             return "Package.resolved is invalid at \(file.path)"
+        case .packageResolveFailed(let package, let status, let output):
+            return "swift package resolve failed in \(package.path) with status \(status): \(output)"
         case .materializationLockOpenFailed(let lockFile, let code):
             return "materialization lock could not be opened at \(lockFile.path): errno \(code)"
         case .materializationLockFailed(let lockFile, let code):

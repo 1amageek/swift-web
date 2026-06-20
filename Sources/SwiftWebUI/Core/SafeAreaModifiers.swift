@@ -15,13 +15,13 @@ public struct SafeAreaRegions: OptionSet, Sendable, Equatable {
 public struct SafeAreaInsetModifier<InsetContent: HTML>: ComponentModifier {
     private let edge: Edge
     private let alignment: Alignment
-    private let spacing: WebUILength?
+    private let spacing: Length?
     private let insetContent: InsetContent
 
     init(
         edge: Edge,
         alignment: Alignment,
-        spacing: WebUILength?,
+        spacing: Length?,
         @HTMLBuilder content: () -> InsetContent
     ) {
         self.edge = edge
@@ -104,7 +104,7 @@ public extension HTML {
 
     func safeAreaPadding(
         _ edges: Edge.Set = .all,
-        _ length: WebUILength? = nil
+        _ length: Length? = nil
     ) -> ModifiedContent<Self, HTMLAttributeModifier> {
         modifier(HTMLAttributeModifier([styleAttribute(safeAreaPaddingStyle(edges: edges, length: length))]))
     }
@@ -112,7 +112,7 @@ public extension HTML {
     func safeAreaInset<InsetContent: HTML>(
         edge: VerticalEdge,
         alignment: HorizontalAlignment = .center,
-        spacing: WebUILength? = nil,
+        spacing: Length? = nil,
         @HTMLBuilder content: () -> InsetContent
     ) -> ModifiedContent<Self, SafeAreaInsetModifier<InsetContent>> {
         modifier(SafeAreaInsetModifier(
@@ -126,7 +126,7 @@ public extension HTML {
     func safeAreaInset<InsetContent: HTML>(
         edge: HorizontalEdge,
         alignment: VerticalAlignment = .center,
-        spacing: WebUILength? = nil,
+        spacing: Length? = nil,
         @HTMLBuilder content: () -> InsetContent
     ) -> ModifiedContent<Self, SafeAreaInsetModifier<InsetContent>> {
         modifier(SafeAreaInsetModifier(
@@ -159,8 +159,8 @@ func safeAreaExpansionStyle(edges: Edge.Set) -> Style {
     return style
 }
 
-func safeAreaPaddingStyle(edges: Edge.Set, length: WebUILength?) -> Style {
-    let extra = length?.cssValue ?? "0px"
+func safeAreaPaddingStyle(edges: Edge.Set, length: Length?) -> Style {
+    let extra = length?.cssValue ?? Length.px(0).cssValue
     var style = Style()
     if edges.contains(.top) {
         style.append(.paddingTop("calc(env(safe-area-inset-top) + \(extra))"))

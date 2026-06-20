@@ -42,6 +42,19 @@ flowchart TD
 | Component | Semantic structure, stable classes, state classes, bindings, ARIA/native attributes, and action intent. | Design-system CSS rules for itself or descendants. |
 | SwiftHTML | HTML graph, attributes, event contracts, diffing, escaping, and hydration metadata. | SwiftUI-style component semantics. |
 
+Spacing follows the same boundary:
+
+| Design concern | Public API | Token owner |
+|---|---|---|
+| Component-local gaps and padding | `Space` and spacing-taking modifiers/components | `Theme.spacing` |
+| Default stack rhythm | `VStack(spacing: nil)`, `HStack(spacing: nil)`, lazy stacks | `StyleSystem.root.stackSpacing` |
+| Page inline margins and responsive grid inset | `GridSystem` | `StyleSystem.root.pageInlinePadding` |
+| Page width constraint | `.frame(maxWidth:)` | Explicit numeric value supplied by the caller |
+| Browser safe-area compensation | `safeAreaPadding`, `safeAreaInset`, `ignoresSafeArea` | CSS `env(safe-area-inset-*)` plus explicit user length |
+
+`Space` must stay an atomic spacing scale. It must not include page layout
+concepts such as responsive inline margins.
+
 `Theme` and `StyleSystem` are intentionally separate:
 
 ```mermaid
@@ -112,6 +125,23 @@ leaf components.
 Raw `HTMLAttribute`, `Style.custom`, and raw SwiftHTML elements remain escape
 hatches below SwiftWebUI. They are not the default way to author application UI.
 
+## Modifier Responsibility Map
+
+| Modifier family | Examples | Design layer | Contract |
+|---|---|---|---|
+| Attribute escape hatches | `id`, `class`, `data`, `aria`, `role`, `style`, `webStyle` | SwiftHTML escape layer | Allowed for exact HTML control; not the primary SwiftWebUI styling path. |
+| Layout and sizing | `padding`, `frame`, `fixedSize`, `layoutPriority`, `aspectRatio`, `containerRelativeFrame`, `alignmentGuide`, `offset`, `position`, `zIndex` | Layout geometry | `frame` uses SwiftUI-style numeric values; CSS-unit modifiers use `Length`; component-local spacing uses `Space`; page/grid inset belongs to `GridSystem`. |
+| Page grid layout | `GridSystem`, `Pane` | Page/grid layout | Owns responsive inline inset, columns, gutters, pane spans, and page vertical rhythm; width caps stay in `.frame(maxWidth:)`. |
+| Safe area | `ignoresSafeArea`, `safeAreaPadding`, `safeAreaInset` | Browser viewport compensation | Combines CSS safe-area environment values with explicit user lengths; does not consume `Space` as page margin. |
+| Shape and style | `foregroundStyle`, `backgroundStyle`, `background(_:in:)`, `overlay`, `border`, `tint`, `background(_: Material)`, `glassEffect` | Theme and StyleSystem | Resolves semantic style values through environment and stylesheet tokens. |
+| Visual effects | `opacity`, `shadow`, `cornerRadius`, `clipShape`, `clipped`, `blur`, `brightness`, `contrast`, `saturation`, `grayscale`, `hueRotation`, `colorInvert`, `colorMultiply`, `blendMode`, `rotationEffect`, `scaleEffect` | Per-instance visual effect | May emit inline CSS for an explicit effect; must not encode component design recipes. |
+| Typography | `font`, `fontWeight`, `fontDesign`, `bold`, `italic`, `monospaced`, `lineLimit`, `multilineTextAlignment`, `lineSpacing`, `truncationMode`, `allowsTightening`, `minimumScaleFactor`, `textCase`, `fontWidth`, `kerning`, `tracking`, `baselineOffset`, `underline`, `strikethrough`, `textSelection` | Typography | Owns text presentation only; no layout container or page spacing responsibility. |
+| Control state and style | `disabled`, `controlSize`, `buttonStyle`, `pickerStyle`, `toggleStyle`, `textFieldStyle`, `labelStyle`, `listStyle`, `formStyle`, `menuStyle`, `progressViewStyle`, `gaugeStyle`, `tabViewStyle` | Environment-driven component variants | Propagates semantic state/style; controls lower the environment to classes and native attributes. |
+| Text input and form semantics | `keyboardType`, `textContentType`, `submitLabel`, `textInputAutocapitalization`, `autocorrectionDisabled`, `focused`, `onSubmit`, `submitScope`, `onChange`, `focusable`, `searchable`, `searchSuggestions`, `searchScopes`, `searchTokens`, `searchCompletion` | Native form semantics | Lowers to HTML attributes, bindings, search scopes, and semantic data; no visual recipe ownership. |
+| Events and lifecycle | `onAppear`, `onDisappear`, `task`, `onTapGesture`, `onLongPressGesture`, `onHover`, `onContinuousHover`, raw DOM event helpers | Behavior/runtime semantics | Attaches event contracts and runtime hooks; no design token ownership. |
+| Accessibility | `accessibilityLabel`, `accessibilityHint`, `accessibilityValue`, `accessibilityHidden`, `accessibilityRole`, traits, actions, drag/drop points, `help` | Semantic accessibility | Maps intent to ARIA, role, title, and data attributes; no visual styling ownership. |
+| Navigation and presentation | `navigationTitle`, `interactiveDismissDisabled`, presentation modifiers | Graph/presentation semantics | Records navigation or presentation intent; styling remains in components and stylesheet rules. |
+
 ## Component Taxonomy
 
 SwiftWebUI components are grouped by user intent, not by implementation
@@ -119,7 +149,7 @@ convenience.
 
 | Taxonomy | Components | Style contract |
 |---|---|---|
-| Layout | `VStack`, `HStack`, `ZStack`, `Grid`, lazy stacks, `ScrollView`, `Spacer`, `Divider` | Stable layout classes and spacing variables. |
+| Layout | `GridSystem`, `Pane`, `VStack`, `HStack`, `ZStack`, `Grid`, lazy stacks, `ScrollView`, `Spacer`, `Divider` | Stable layout classes and spacing variables. |
 | Text | `Text`, semantic `Text.as`, `Label`, code-oriented text | Stable text classes; contextual typography comes from CSS. |
 | Controls | `Button`, `TextField`, `SecureField`, `TextEditor`, `Toggle`, `Slider`, `Stepper`, `Picker`, date/color pickers | Native attributes, state classes, and CSS variables for per-instance values. |
 | Containers | `GroupBox`, `Section`, `List`, `ListRow`, `DisclosureGroup`, `Toolbar`, `Badge` | Parent context classes and surface/material classes. |
@@ -165,15 +195,12 @@ The default token scale is rhythm-first:
 
 | Semantic token | Default px alias | Primary use |
 |---|---:|---|
-| `tiny` | 8 | Dense internal gaps. |
-| `compact` | 12 | Control-local gaps. |
-| `default` | 16 | Form and container content gaps. |
-| `comfortable` | 20 | Readable control groups. |
-| `spacious` | 24 | Section content rhythm. |
-| `large` | 32 | Major vertical separation. |
-| `xlarge` | 40 | Page-level grouping. |
-| `xxlarge` | 48 | Hero or major layout zones. |
-| `expansive` | 56 | Rare, high-emphasis separation. |
+| `Space.xsmall` | 4 | Optical half-step adjustments. |
+| `Space.small` | 8 | Dense internal gaps. |
+| `Space.medium` | 12 | Default stack and control-local gaps. |
+| `Space.large` | 16 | Form, container, and readable group gaps. |
+| `Space.xlarge` | 24 | Section and page vertical rhythm. |
+| `StyleSystem.root.pageInlinePadding` | `clamp(16px, 4vw, 24px)` | Responsive page inline inset through `GridSystem`; combine with `.frame(maxWidth:)` for capped layouts. |
 
 Component tokens map semantic tiers to CSS variables. One-off raw values
 require a component-specific reason and should live in stylesheet rules rather

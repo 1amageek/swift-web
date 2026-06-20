@@ -15,19 +15,6 @@ extension ModifiedContent: WebUIAttributeMutableHTML where Content: WebUIAttribu
     }
 }
 
-public enum WebUILength: Sendable, Equatable, ExpressibleByStringLiteral, ExpressibleByIntegerLiteral {
-    case css(String)
-    case infinity
-
-    public init(stringLiteral value: String) {
-        self = .css(value)
-    }
-
-    public init(integerLiteral value: Int) {
-        self = .css("\(value)px")
-    }
-}
-
 public struct Alignment: Sendable, Equatable {
     public var horizontal: HorizontalAlignment
     public var vertical: VerticalAlignment
@@ -143,7 +130,7 @@ public extension HTML {
         padding(.all, length)
     }
 
-    func padding(_ length: WebUILength) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func padding(_ length: Length) -> ModifiedContent<Self, HTMLAttributeModifier> {
         padding(.all, length.cssValue)
     }
 
@@ -151,7 +138,7 @@ public extension HTML {
         padding(edges, length.rawValue)
     }
 
-    func padding(_ edges: Edge.Set = .all, _ length: WebUILength?) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func padding(_ edges: Edge.Set = .all, _ length: Length?) -> ModifiedContent<Self, HTMLAttributeModifier> {
         padding(edges, length?.cssValue ?? Space.medium.rawValue)
     }
 
@@ -171,8 +158,12 @@ public extension HTML {
         modifier(HTMLAttributeModifier([styleAttribute(.background(value))]))
     }
 
+    func cornerRadius(_ value: Length) -> ModifiedContent<Self, HTMLAttributeModifier> {
+        modifier(HTMLAttributeModifier([styleAttribute(.borderRadius(value.cssValue))]))
+    }
+
     func cornerRadius(_ value: String) -> ModifiedContent<Self, HTMLAttributeModifier> {
-        modifier(HTMLAttributeModifier([styleAttribute(.borderRadius(value))]))
+        cornerRadius(.custom(value))
     }
 
     func clipShape(_ shape: Shape) -> ModifiedContent<Self, HTMLAttributeModifier> {
@@ -185,9 +176,9 @@ public extension HTML {
 
     func shadow(
         color: String = "rgba(0, 0, 0, 0.33)",
-        radius: WebUILength,
-        x: WebUILength = 0,
-        y: WebUILength = 0
+        radius: Length,
+        x: Length = 0,
+        y: Length = 0
     ) -> ModifiedContent<Self, HTMLAttributeModifier> {
         modifier(HTMLAttributeModifier([
             styleAttribute(.boxShadow("\(x.cssValue) \(y.cssValue) \(radius.cssValue) \(color)"))
@@ -219,14 +210,14 @@ public extension HTML {
 
 public extension HTML {
     func frame(
-        width: WebUILength? = nil,
-        minWidth: WebUILength? = nil,
-        idealWidth: WebUILength? = nil,
-        maxWidth: WebUILength? = nil,
-        height: WebUILength? = nil,
-        minHeight: WebUILength? = nil,
-        idealHeight: WebUILength? = nil,
-        maxHeight: WebUILength? = nil,
+        width: Double? = nil,
+        minWidth: Double? = nil,
+        idealWidth: Double? = nil,
+        maxWidth: Double? = nil,
+        height: Double? = nil,
+        minHeight: Double? = nil,
+        idealHeight: Double? = nil,
+        maxHeight: Double? = nil,
         alignment: Alignment = .center
     ) -> Frame<Self> {
         Frame(
@@ -243,6 +234,13 @@ public extension HTML {
             self
         }
     }
+}
+
+func pixelValue(_ value: Double) -> String {
+    guard value.isFinite else {
+        return value.isInfinite ? "100%" : "0px"
+    }
+    return "\(trimmedNumber(value))px"
 }
 
 func trimmedNumber(_ value: Double) -> String {
@@ -284,27 +282,27 @@ func edgePaddingStyle(edges: Edge.Set, value: String) -> Style {
 }
 
 public struct Frame<Content: HTML>: WebUIAttributeComponent {
-    private let width: WebUILength?
-    private let minWidth: WebUILength?
-    private let idealWidth: WebUILength?
-    private let maxWidth: WebUILength?
-    private let height: WebUILength?
-    private let minHeight: WebUILength?
-    private let idealHeight: WebUILength?
-    private let maxHeight: WebUILength?
+    private let width: Double?
+    private let minWidth: Double?
+    private let idealWidth: Double?
+    private let maxWidth: Double?
+    private let height: Double?
+    private let minHeight: Double?
+    private let idealHeight: Double?
+    private let maxHeight: Double?
     private let alignment: Alignment
     private let attributes: [HTMLAttribute]
     private let content: Content
 
     public init(
-        width: WebUILength? = nil,
-        minWidth: WebUILength? = nil,
-        idealWidth: WebUILength? = nil,
-        maxWidth: WebUILength? = nil,
-        height: WebUILength? = nil,
-        minHeight: WebUILength? = nil,
-        idealHeight: WebUILength? = nil,
-        maxHeight: WebUILength? = nil,
+        width: Double? = nil,
+        minWidth: Double? = nil,
+        idealWidth: Double? = nil,
+        maxWidth: Double? = nil,
+        height: Double? = nil,
+        minHeight: Double? = nil,
+        idealHeight: Double? = nil,
+        maxHeight: Double? = nil,
         alignment: Alignment = .center,
         @HTMLBuilder _ content: () -> Content
     ) {
@@ -367,14 +365,14 @@ public struct Frame<Content: HTML>: WebUIAttributeComponent {
     }
 
     private init(
-        width: WebUILength?,
-        minWidth: WebUILength?,
-        idealWidth: WebUILength?,
-        maxWidth: WebUILength?,
-        height: WebUILength?,
-        minHeight: WebUILength?,
-        idealHeight: WebUILength?,
-        maxHeight: WebUILength?,
+        width: Double?,
+        minWidth: Double?,
+        idealWidth: Double?,
+        maxWidth: Double?,
+        height: Double?,
+        minHeight: Double?,
+        idealHeight: Double?,
+        maxHeight: Double?,
         alignment: Alignment,
         attributes: [HTMLAttribute],
         content: Content
@@ -409,14 +407,14 @@ func styleAttribute(@StyleBuilder _ content: () -> Style) -> HTMLAttribute {
 /// lengths remain inline. A bounded `maxWidth` produces the centered, capped
 /// "page" idiom (fill up to the cap, then center).
 func frameLayout(
-    width: WebUILength?,
-    minWidth: WebUILength?,
-    idealWidth: WebUILength?,
-    maxWidth: WebUILength?,
-    height: WebUILength?,
-    minHeight: WebUILength?,
-    idealHeight: WebUILength?,
-    maxHeight: WebUILength?,
+    width: Double?,
+    minWidth: Double?,
+    idealWidth: Double?,
+    maxWidth: Double?,
+    height: Double?,
+    minHeight: Double?,
+    idealHeight: Double?,
+    maxHeight: Double?,
     alignment: Alignment
 ) -> (classes: [String], style: Style) {
     var classes: [String] = []
@@ -430,10 +428,10 @@ func frameLayout(
         .boxSizing("border-box")
     }
     if let idealWidth {
-        style.append(.custom("--swui-ideal-width", idealWidth.cssValue))
+        style.append(.custom("--swui-ideal-width", pixelValue(idealWidth)))
     }
     if let idealHeight {
-        style.append(.custom("--swui-ideal-height", idealHeight.cssValue))
+        style.append(.custom("--swui-ideal-height", pixelValue(idealHeight)))
     }
 
     resolveAxis(
@@ -467,9 +465,9 @@ func frameLayout(
 }
 
 private func resolveAxis(
-    fixed: WebUILength?,
-    max: WebUILength?,
-    min: WebUILength?,
+    fixed: Double?,
+    max: Double?,
+    min: Double?,
     fillClass: String,
     hugClass: String,
     lengthProperty: String,
@@ -480,39 +478,31 @@ private func resolveAxis(
     style: inout Style
 ) {
     if let min {
-        switch min {
-        case .css(let value):
-            style.append(.custom(minProperty, value))
-        case .infinity:
-            style.append(.custom(minProperty, "100%"))
-        }
+        style.append(.custom(minProperty, min.isInfinite ? "100%" : pixelValue(min)))
     }
 
     // A required fixed length wins over any fill/hug intent: pin the size and
     // block propagation so the element neither grows nor shrinks.
     if let fixed {
-        switch fixed {
-        case .css(let value):
-            style.append(.custom(lengthProperty, value))
-            classes.append(hugClass)
-            return
-        case .infinity:
+        if fixed.isInfinite {
             classes.append(fillClass)
-            return
+        } else {
+            style.append(.custom(lengthProperty, pixelValue(fixed)))
+            classes.append(hugClass)
         }
+        return
     }
 
     guard let max else {
         return
     }
 
-    switch max {
-    case .infinity:
+    if max.isInfinite {
         // Unbounded fill: greedily expand on this axis.
         classes.append(fillClass)
-    case .css(let value):
+    } else {
         // Bounded fill: expand up to the cap, then center within the parent.
-        style.append(.custom(maxProperty, value))
+        style.append(.custom(maxProperty, pixelValue(max)))
         classes.append(fillClass)
         if centersWhenBounded {
             style.append(.custom("margin-inline", "auto"))

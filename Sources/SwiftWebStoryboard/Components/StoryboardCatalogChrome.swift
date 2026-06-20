@@ -81,7 +81,7 @@ struct CatalogSidebar: Component {
             }
         }
         .class("storyboard-sidebar")
-        .frame(width: "226px", alignment: .leading)
+        .frame(width: 226, alignment: .leading)
     }
 }
 
@@ -128,7 +128,7 @@ struct CatalogInspector: Component {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .class("storyboard-inspector")
-        .frame(width: "184px", alignment: .leading)
+        .frame(width: 184, alignment: .leading)
     }
 
     private var showsRenderedHTML: Bool {

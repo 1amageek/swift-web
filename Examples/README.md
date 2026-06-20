@@ -8,7 +8,8 @@
 Run the hello world sample:
 
 ```bash
-sweb dev --package-path Examples/HelloWorld
+cd Examples/HelloWorld
+sweb dev
 ```
 
 Open `http://127.0.0.1:3000/`.
@@ -16,7 +17,8 @@ Open `http://127.0.0.1:3000/`.
 Run the counter sample:
 
 ```bash
-sweb dev --package-path Examples/CounterApp
+cd Examples/CounterApp
+sweb dev
 ```
 
 Open `http://127.0.0.1:3000/counter`.

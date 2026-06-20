@@ -117,7 +117,7 @@ public extension HTML {
         modifier(HTMLAttributeModifier([styleAttribute(.textAlign(alignment.cssValue))], role: .textStyle))
     }
 
-    func lineSpacing(_ lineSpacing: WebUILength) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func lineSpacing(_ lineSpacing: Length) -> ModifiedContent<Self, HTMLAttributeModifier> {
         modifier(HTMLAttributeModifier([
             styleAttribute(Style {
                 .custom("--swui-line-spacing", lineSpacing.cssValue)
@@ -183,17 +183,17 @@ public extension HTML {
         ], role: .textStyle))
     }
 
-    func kerning(_ kerning: WebUILength) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func kerning(_ kerning: Length) -> ModifiedContent<Self, HTMLAttributeModifier> {
         modifier(HTMLAttributeModifier([
             styleAttribute(.letterSpacing(kerning.cssValue))
         ], role: .textStyle))
     }
 
-    func tracking(_ tracking: WebUILength) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func tracking(_ tracking: Length) -> ModifiedContent<Self, HTMLAttributeModifier> {
         kerning(tracking)
     }
 
-    func baselineOffset(_ baselineOffset: WebUILength) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func baselineOffset(_ baselineOffset: Length) -> ModifiedContent<Self, HTMLAttributeModifier> {
         modifier(HTMLAttributeModifier([
             styleAttribute(.verticalAlign(baselineOffset.cssValue))
         ], role: .textStyle))

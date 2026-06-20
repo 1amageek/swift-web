@@ -14,7 +14,7 @@ Client WASM loading is documented in [`docs/ClientBundleLoadingDesign.md`](../..
 
 | Area | Responsibility |
 |---|---|
-| Layout primitives | Provides `VStack`, `HStack`, `ZStack`, `Spacer`, `ScrollView`, grids, and lazy stacks. |
+| Layout primitives | Provides `GridSystem`, `Pane`, `VStack`, `HStack`, `ZStack`, `Spacer`, `ScrollView`, grids, and lazy stacks. |
 | UI controls | Provides `Button`, server action reference buttons, `SubmitButton`, `TextField`, `SecureField`, `Toggle`, and links. |
 | Text components | Provides `Text`, semantic `TextElement` switching via `as`, `Heading`, and text tones. |
 | Containers | Provides `GroupBox`, `Section`, `List`, `ListRow`, and `Toolbar`. |
@@ -27,7 +27,7 @@ Client WASM loading is documented in [`docs/ClientBundleLoadingDesign.md`](../..
 | Directory | Responsibility |
 |---|---|
 | `Core/` | Shared primitives used by components, including axes, edges, spacing tokens, attributes, and modifiers. |
-| `Components/Layout/` | Layout containers and sizing primitives such as stacks, grids, lazy stacks, `Spacer`, and `ScrollView`. |
+| `Components/Layout/` | Layout containers and sizing primitives such as `GridSystem`, `Pane`, stacks, grids, lazy stacks, `Spacer`, and `ScrollView`. |
 | `Components/Text/` | Text rendering, semantic tag switching through `as`, headings, and text block helpers. |
 | `Components/Controls/` | Interactive controls such as `Button`, forms, links, text fields, toggles, and submit controls. |
 | `Components/Navigation/` | Navigation containers, navigation links, paths, and title metadata hooks. |
@@ -69,6 +69,7 @@ flowchart LR
 - Default CSS should be declared through SwiftHTML `Style` helpers and `Stylesheet` rules, not concatenated raw stylesheet strings.
 - Concrete CSS property output should use SwiftHTML generated standard property helpers so SwiftWebUI does not maintain a separate CSS property surface.
 - Public styling should prefer `foregroundStyle`, `backgroundStyle`, and `tint` over color-specific APIs.
+- `Space` is the component spacing scale. Page margins and responsive grid insets belong to `GridSystem` and `StyleSystem.root.pageInlinePadding`; outer width constraints belong to `.frame(maxWidth:)`.
 - Modifiers should be ordered wrapper values that work on any `HTML`, not only components that store attributes directly.
 - Control state should flow through environment values such as `isEnabled`, `controlSize`, `tint`, and `buttonStyle`.
 - Semantic HTML should be explicit. `Text("Title", as: .h1)` changes the tag without requiring a separate component.
@@ -180,6 +181,7 @@ NavigationStack {
 
 | API | Responsibility |
 |---|---|
+| `GridSystem` / `Pane` | Applies responsive inline inset, grid columns, gutters, page vertical rhythm, and pane spans. Use `.frame(maxWidth:)` for outer width constraints. |
 | `foregroundStyle`, `backgroundStyle`, `tint`, `border` | Resolves `WebShapeStyle` values through theme/environment and lowers to CSS. |
 | `font`, `fontWeight`, `fontDesign`, `bold`, `italic`, `monospaced` | Provides SwiftUI-like typography without requiring raw CSS. |
 | `disabled`, `controlSize`, `buttonStyle`, `pickerStyle` | Propagates control state and semantic style selection through environment while controls render native attributes. |

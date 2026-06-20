@@ -156,7 +156,7 @@ func catalogSnippet(for id: String) -> String {
   case "texteditor":
     return """
       TextEditor(text: $notes)
-          .frame(minHeight: "120px", alignment: .topLeading)
+          .frame(minHeight: 120, alignment: .topLeading)
       """
   case "toggle":
     return """
@@ -316,7 +316,7 @@ func catalogSnippet(for id: String) -> String {
               }
           }
       }
-      .frame(maxWidth: .infinity, height: "160px")
+      .frame(maxWidth: .infinity, height: 160)
       """
   case "progressview":
     return """

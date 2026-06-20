@@ -51,10 +51,6 @@ struct DevCommand {
             port: port
         )
 
-        do {
-            try await SwiftWebDevRuntime(configuration: configuration).run()
-        } catch let error as SwiftWebDevRuntimeError {
-            throw CLIError(message: error.description, exitCode: error.exitCode)
-        }
+        try await SwiftWebDevRuntime(configuration: configuration).run()
     }
 }

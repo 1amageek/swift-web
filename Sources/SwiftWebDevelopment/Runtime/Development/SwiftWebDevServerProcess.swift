@@ -79,11 +79,13 @@ struct SwiftWebDevServerProcess {
     private func buildExecutable() throws -> URL {
         let toolchain = try SwiftWebHostSwiftToolchain.resolve(configuration: configuration)
         var buildArguments = swiftBuildArguments()
+        buildArguments.append("--quiet")
         buildArguments.append("--product")
         buildArguments.append(configuration.product)
         try runProcess(arguments: buildArguments, toolchain: toolchain)
 
         var binPathArguments = swiftBuildArguments()
+        binPathArguments.append("--quiet")
         binPathArguments.append("--show-bin-path")
         let binPathOutput = try captureProcessOutput(arguments: binPathArguments, toolchain: toolchain)
         guard let binPath = binPathOutput
@@ -122,17 +124,24 @@ struct SwiftWebDevServerProcess {
 
     private func runProcess(arguments: [String], toolchain: SwiftWebHostSwiftToolchain) throws {
         let process = Process()
+        let outputLog = try SwiftWebDevCapturedProcessLog.create(prefix: "swiftweb-dev-build")
+        defer {
+            outputLog.close()
+            outputLog.cleanup()
+        }
         process.executableURL = toolchain.swiftExecutableURL
         process.arguments = arguments
         process.currentDirectoryURL = configuration.packageDirectory
         process.environment = try processEnvironment(toolchain: toolchain)
         process.standardInput = FileHandle.standardInput
-        process.standardOutput = FileHandle.standardOutput
-        process.standardError = FileHandle.standardError
+        process.standardOutput = outputLog.handle
+        process.standardError = outputLog.handle
 
         try process.run()
         process.waitUntilExit()
+        outputLog.close()
         guard process.terminationStatus == 0 else {
+            outputLog.writeToStandardError()
             throw SwiftWebDevRuntimeError.processFailed(
                 command: commandDescription(arguments, executableURL: toolchain.swiftExecutableURL),
                 status: process.terminationStatus
@@ -146,18 +155,25 @@ struct SwiftWebDevServerProcess {
     ) throws -> String {
         let process = Process()
         let output = Pipe()
+        let errorLog = try SwiftWebDevCapturedProcessLog.create(prefix: "swiftweb-dev-bin-path")
+        defer {
+            errorLog.close()
+            errorLog.cleanup()
+        }
         process.executableURL = toolchain.swiftExecutableURL
         process.arguments = arguments
         process.currentDirectoryURL = configuration.packageDirectory
         process.environment = try processEnvironment(toolchain: toolchain)
         process.standardInput = FileHandle.standardInput
         process.standardOutput = output
-        process.standardError = FileHandle.standardError
+        process.standardError = errorLog.handle
 
         try process.run()
         let data = output.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()
+        errorLog.close()
         guard process.terminationStatus == 0 else {
+            errorLog.writeToStandardError()
             throw SwiftWebDevRuntimeError.processFailed(
                 command: commandDescription(arguments, executableURL: toolchain.swiftExecutableURL),
                 status: process.terminationStatus

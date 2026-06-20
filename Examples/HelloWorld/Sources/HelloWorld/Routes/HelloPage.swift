@@ -1,3 +1,4 @@
+import SwiftHTML
 import SwiftWeb
 import SwiftWebUI
 
@@ -14,13 +15,17 @@ struct HelloPage {
     }
 
     func body() -> some HTML {
-        VStack(spacing: .large) {
-            Heading("Hello, World!", level: .page)
-            Text("This is the smallest SwiftWeb example.", tone: .muted)
+        main {
+            GridSystem {
+                Pane(span: 12) {
+                    VStack(spacing: .large) {
+                        Heading("Hello, World!", level: .page)
+                        Text("This is the smallest SwiftWeb example.", tone: .muted)
+                    }
+                }
+            }
+            .frame(maxWidth: 720)
         }
-        .frame(maxWidth: "720px")
-        .padding(.horizontal, .pageInline)
-        .padding(.vertical, .xlarge)
         .environment(\.theme, .system)
     }
 }

@@ -63,6 +63,7 @@ struct SwiftWebDevBuildProcess: Sendable {
       packageDirectory: packageDirectory,
       scratchDirectory: scratchDirectory
     )
+    arguments.append("--quiet")
     arguments.append("--product")
     arguments.append(runtime.productName)
     arguments.append("-c")
@@ -233,17 +234,24 @@ struct SwiftWebDevBuildProcess: Sendable {
     packageDirectory: URL
   ) throws {
     let process = Process()
+    let outputLog = try SwiftWebDevCapturedProcessLog.create(prefix: "swiftweb-dev-wasm-build")
+    defer {
+      outputLog.close()
+      outputLog.cleanup()
+    }
     process.executableURL = executableURL
     process.arguments = arguments
     process.currentDirectoryURL = packageDirectory
     process.environment = environment
     process.standardInput = FileHandle.standardInput
-    process.standardOutput = FileHandle.standardOutput
-    process.standardError = FileHandle.standardError
+    process.standardOutput = outputLog.handle
+    process.standardError = outputLog.handle
 
     try process.run()
     process.waitUntilExit()
+    outputLog.close()
     guard process.terminationStatus == 0 else {
+      outputLog.writeToStandardError()
       throw SwiftWebDevRuntimeError.processFailed(
         command: commandDescription(arguments, executableURL: executableURL),
         status: process.terminationStatus

@@ -171,7 +171,7 @@ public struct SwiftWebStoryboardScaffold: Sendable {
                 .library(name: "\(Self.moduleName)", targets: ["\(Self.moduleName)"]),
             ],
             dependencies: [
-                .package(path: "\(Self.swiftStringLiteral(swiftWebPackageDirectory.path))"),
+                \(SwiftWebPackageReference.packageDependencyDeclaration),
                 \(swiftHTMLDependency),
             ],
             targets: [

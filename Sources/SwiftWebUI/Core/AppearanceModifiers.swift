@@ -62,7 +62,7 @@ public extension HTML {
     }
 
     func blur(
-        radius: WebUILength,
+        radius: Length,
         opaque: Bool = false
     ) -> ModifiedContent<Self, HTMLAttributeModifier> {
         modifier(HTMLAttributeModifier([

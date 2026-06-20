@@ -123,7 +123,7 @@ struct TemplateProject {
                 .library(name: "\(appName)", targets: ["\(appName)"]),
             ],
             dependencies: [
-                .package(path: "\(FileManager.default.currentDirectoryPath)"),
+                \(SwiftWebPackageReference.packageDependencyDeclaration),
                 .package(url: "https://github.com/1amageek/swift-html.git", from: "0.5.0"),
             ],
             targets: [

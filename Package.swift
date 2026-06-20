@@ -50,11 +50,11 @@ let package = Package(
         .package(url: "https://github.com/swiftwasm/JavaScriptKit.git", from: "0.55.0"),
         .package(url: "https://github.com/1amageek/swift-actor-runtime.git", exact: "0.5.0"),
     ] + (swiftWebCoreOnly ? [] : [
-        .package(url: "https://github.com/vapor/vapor.git", revision: "8cfd55759c9f9e30ebdb95e30a3e80d96563f3fd"),
+        .package(url: "https://github.com/vapor/vapor.git", revision: "fff4892930e69b49ea2612699bed9583721723dc"),
         .package(url: "https://github.com/vapor/routing-kit.git", from: "5.0.0-beta"),
         .package(url: "https://github.com/vapor/websocket-kit.git", from: "2.13.0"),
         .package(url: "https://github.com/swift-server/async-http-client.git", revision: "393104434ea57710f2469036e816672fe15e8212"),
-        .package(url: "https://github.com/swift-server/swift-http-server", branch: "main"),
+        .package(url: "https://github.com/swift-server/swift-http-server", revision: "b1c4f775dfbdc74800c0f29fda79c8984a5e9073"),
         .package(url: "https://github.com/apple/swift-http-api-proposal.git", revision: "d58fd6fa157e08bff44aa360ff83ebd424783392"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.82.0"),
         .package(url: "https://github.com/apple/swift-http-types", from: "1.0.0"),

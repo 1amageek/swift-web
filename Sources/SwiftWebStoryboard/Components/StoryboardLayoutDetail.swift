@@ -56,7 +56,7 @@ struct LayoutDetail: Component {
                 Spacer()
                 Button("Follow", prominence: .primary)
             }
-            .frame(maxWidth: "420px", alignment: .leading)
+            .frame(maxWidth: 420, alignment: .leading)
         }
     }
 }

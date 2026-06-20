@@ -11,6 +11,7 @@ It owns command parsing and project scaffolding. Generated package materializati
 | Command parsing | Parses `sweb` command names and command-line options. |
 | Project creation | Generates minimal named app skeletons through the `new` command. |
 | Prepare command | Materializes generated dev, server, and WASM packages for existing app packages. |
+| Xcode command | Materializes generated packages and opens the generated dev package in Xcode. |
 | Generated package | Delegates `.swiftweb/generated` materialization to `SwiftWebDevelopment`. |
 | Dev command | Parses CLI options and delegates to `SwiftWebDevelopment.SwiftWebDevRuntime`. |
 | Build command | Builds the generated server product or generated WASM runtime product. |
@@ -40,6 +41,11 @@ flowchart LR
 
 `sweb prepare` materializes generated packages for an existing SwiftWeb app without building or running them. `sweb new` uses the same prepare path after writing the initial app skeleton.
 
+Package commands default to the current directory. The intended workflow is to run
+`sweb prepare`, `sweb xcode`, `sweb dev`, `sweb build`, and `sweb clean` from the
+directory that contains the app's `Package.swift`; `--package-path` is for targeting
+a package from another directory.
+
 ```mermaid
 flowchart LR
   A["Existing App package"] --> B["sweb prepare"]
@@ -55,12 +61,32 @@ flowchart LR
 | `--package-path <directory>` | Selects the existing app package. Defaults to the current directory. |
 | `--product <name>` | Selects the generated server product name. Defaults to `app-server`. |
 
+## Xcode Command
+
+`sweb xcode` uses the same generated package materialization path as `sweb prepare`,
+then opens `.swiftweb/generated/dev` in Xcode. The generated package exposes a
+`<AppName>-dev` scheme that runs `SwiftWebDevRuntime`.
+
+```mermaid
+flowchart LR
+  A["sweb xcode"] --> B["materialize .swiftweb/generated"]
+  B --> C[".swiftweb/generated/dev"]
+  C --> D["open -a Xcode"]
+  D --> E["<AppName>-dev scheme"]
+```
+
+| Option | Behavior |
+|---|---|
+| `--package-path <directory>` | Selects the existing app package. Defaults to the current directory. |
+| `--product <name>` | Selects the generated server product name. Defaults to `app-server`. |
+| `--no-open` | Materializes packages and prints the generated Xcode package path without launching Xcode. |
+
 ## Package Boundary
 
 ```mermaid
 flowchart TD
   A["User Package.swift"] --> B["App library target"]
-  C["sweb prepare/dev/build"] --> D[".swiftweb/generated/server"]
+  C["sweb prepare/xcode/dev/build"] --> D[".swiftweb/generated/server"]
   C --> E[".swiftweb/generated/dev"]
   C --> F[".swiftweb/generated/wasm"]
   D --> G["AppServerLauncher"]
@@ -107,6 +133,17 @@ Startup, ready, reload, child-exit, and shutdown events are emitted through `swi
 The CLI does not implement HMR itself. It delegates to `SwiftWebDevRuntime`, which emits typed development events such as `stylePatch`, `clientComponentUpdate`, `serverBuildStarted`, `serverRestarted`, `pagePatch`, `fullReload`, and `error`. The browser runtime connects to `/__swiftweb/dev/events` through the persistent DevHost and uses `/__swiftweb/dev/reload` token waiting only as a compatibility fallback.
 
 The public DevHost is a long-lived development control plane that keeps the configured port stable while worker processes rebuild. Application routes still run in the Vapor worker, but HMR event streaming is served by the DevHost so it does not depend on Vapor response-body streaming support.
+
+## Dev Console Output
+
+`sweb dev` installs a CLI console log handler before starting `SwiftWebDevRuntime`.
+The handler formats common development events as compact status lines, applies ANSI
+color when stderr is a terminal, honors `NO_COLOR`, and falls back to the underlying
+swift-log output when `SWIFT_WEB_LOG_STYLE=plain`.
+
+Successful SwiftPM build output is captured and discarded so normal dev startup stays
+focused on framework status. If a build process fails, the captured SwiftPM output is
+replayed before the CLI exits.
 
 ## Storyboard Command Flow
 

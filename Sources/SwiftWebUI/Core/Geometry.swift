@@ -1,34 +1,34 @@
 public struct CGSize: Sendable, Equatable {
-    public var width: WebUILength
-    public var height: WebUILength
+    public var width: Length
+    public var height: Length
 
-    public init(width: WebUILength, height: WebUILength) {
+    public init(width: Length, height: Length) {
         self.width = width
         self.height = height
     }
 }
 
 public struct CGPoint: Sendable, Equatable {
-    public var x: WebUILength
-    public var y: WebUILength
+    public var x: Length
+    public var y: Length
 
-    public init(x: WebUILength, y: WebUILength) {
+    public init(x: Length, y: Length) {
         self.x = x
         self.y = y
     }
 }
 
 public struct EdgeInsets: Sendable, Equatable {
-    public var top: WebUILength
-    public var leading: WebUILength
-    public var bottom: WebUILength
-    public var trailing: WebUILength
+    public var top: Length
+    public var leading: Length
+    public var bottom: Length
+    public var trailing: Length
 
     public init(
-        top: WebUILength,
-        leading: WebUILength,
-        bottom: WebUILength,
-        trailing: WebUILength
+        top: Length,
+        leading: Length,
+        bottom: Length,
+        trailing: Length
     ) {
         self.top = top
         self.leading = leading
@@ -36,7 +36,7 @@ public struct EdgeInsets: Sendable, Equatable {
         self.trailing = trailing
     }
 
-    public init(_ length: WebUILength) {
+    public init(_ length: Length) {
         self.init(top: length, leading: length, bottom: length, trailing: length)
     }
 

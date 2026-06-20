@@ -10,7 +10,7 @@ public struct Shape: Sendable, Equatable {
     enum Kind: Sendable, Equatable {
         case capsule
         case circle
-        case rect(cornerRadius: String)
+        case rect(cornerRadius: Length)
     }
 
     let kind: Kind
@@ -26,11 +26,11 @@ public struct Shape: Sendable, Equatable {
     public static let circle = Shape(kind: .circle)
 
     /// A rectangle using the theme's medium corner radius.
-    public static let rect = Shape(kind: .rect(cornerRadius: "var(--swui-radius-medium)"))
+    public static let rect = Shape(kind: .rect(cornerRadius: .custom("var(--swui-radius-medium)")))
 
     /// A rounded rectangle with an explicit corner radius.
-    public static func rect(cornerRadius: WebUILength) -> Shape {
-        Shape(kind: .rect(cornerRadius: cornerRadius.cssValue))
+    public static func rect(cornerRadius: Length) -> Shape {
+        Shape(kind: .rect(cornerRadius: cornerRadius))
     }
 
     /// The CSS `border-radius` value this shape resolves to.
@@ -41,7 +41,7 @@ public struct Shape: Sendable, Equatable {
         case .circle:
             "50%"
         case .rect(let cornerRadius):
-            cornerRadius
+            cornerRadius.cssValue
         }
     }
 }

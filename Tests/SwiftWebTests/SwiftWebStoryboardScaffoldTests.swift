@@ -78,7 +78,10 @@ struct SwiftWebStoryboardScaffoldTests {
             .appendingPathComponent("Sources/StoryboardPreview/Components/CatalogRoot.swift")
         let linkedDestination = try FileManager.default.destinationOfSymbolicLink(atPath: linkedCatalogSource.path)
 
-        #expect(packageSwift.contains(".package(path: \"\(swiftWebPackage.path)\""))
+        #expect(
+            packageSwift.contains(
+                #".package(url: "https://github.com/1amageek/swift-web.git", branch: "main")"#))
+        #expect(!packageSwift.contains(".package(path: \"\(swiftWebPackage.path)\""))
         #expect(packageSwift.contains(".package(path: \"\(swiftHTMLPackage.path)\""))
         #expect(FileManager.default.fileExists(
             atPath: storyboardPackage.appendingPathComponent(".swiftweb-storyboard").path

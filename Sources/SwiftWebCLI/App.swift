@@ -4,6 +4,7 @@ import SwiftWebDevelopment
 @main
 struct SwiftWebCLI {
     static func main() async {
+        installConsoleLoggingIfNeeded(arguments: CommandLine.arguments)
         do {
             try await CommandLineInterface(arguments: CommandLine.arguments).run()
         } catch let error as CLIError {
@@ -16,11 +17,43 @@ struct SwiftWebCLI {
             FileHandle.standardError.write(Data((error.description + "\n").utf8))
             Foundation.exit(66)
         } catch let error as SwiftWebDevRuntimeError {
-            FileHandle.standardError.write(Data((error.description + "\n").utf8))
+            if !shouldSuppressRuntimeError(error, arguments: CommandLine.arguments) {
+                FileHandle.standardError.write(Data((error.description + "\n").utf8))
+            }
             Foundation.exit(Int32(error.exitCode))
         } catch {
             FileHandle.standardError.write(Data(("error: \(error)\n").utf8))
             Foundation.exit(1)
+        }
+    }
+
+    private static func installConsoleLoggingIfNeeded(arguments: [String]) {
+        guard let command = arguments.dropFirst().first else {
+            return
+        }
+        guard command == "dev" || command == "storyboard" else {
+            return
+        }
+        SwiftWebDevConsoleLogging.bootstrap()
+    }
+
+    private static func shouldSuppressRuntimeError(
+        _ error: SwiftWebDevRuntimeError,
+        arguments: [String]
+    ) -> Bool {
+        guard ProcessInfo.processInfo.environment["SWIFT_WEB_LOG_STYLE"] != "plain" else {
+            return false
+        }
+        guard let command = arguments.dropFirst().first, command == "dev" || command == "storyboard" else {
+            return false
+        }
+        switch error {
+        case .portInUse:
+            return true
+        case .packageManifestNotFound, .processFailed, .executableNotFound, .hostReadinessTimeout,
+             .workerPortAllocationFailed, .workerReadinessTimeout, .hostSwiftToolchainNotFound,
+             .wasmToolchainNotFound, .initialWasmBuildFailed:
+            return false
         }
     }
 }
@@ -40,6 +73,8 @@ struct CommandLineInterface {
             try NewCommand.parse(parser).run()
         case "prepare":
             try PrepareCommand.parse(parser).run()
+        case "xcode":
+            try XcodeCommand.parse(parser).run()
         case "build":
             try BuildCommand.parse(parser).run()
         case "clean":
@@ -61,6 +96,7 @@ struct CommandLineInterface {
             Usage:
               sweb new <AppName> [--output <directory>] [--force]
               sweb prepare [--package-path <directory>] [--product <name>]
+              sweb xcode [--package-path <directory>] [--product <name>] [--no-open]
               sweb build [--package-path <directory>] [--product <name>] [--wasm] [--swift-sdk <sdk>] [-c debug|release]
               sweb clean [--package-path <directory>] [--storyboard] [--swiftpm] [--all]
               sweb dev [--package-path <directory>] [--product <name>] [--host <host>] [--port <port>]
@@ -69,10 +105,14 @@ struct CommandLineInterface {
             Commands:
               new         Create a minimal SwiftWeb app skeleton.
               prepare     Materialize generated dev, server, and WASM packages for an existing app.
+              xcode       Materialize generated packages and open the dev package in Xcode.
               build       Build the generated server or WASM runtime package.
               clean       Remove SwiftWeb generated build artifacts. Pass --swiftpm to remove the package .build too.
               dev         Run a SwiftWeb app with rebuild, server restart, and dev browser updates on changes.
               storyboard  Generate and run a SwiftWebUI component style storyboard.
+
+            Package commands default to the current directory. Run them from the directory
+            that contains Package.swift, or pass --package-path to target another package.
             """
         )
     }

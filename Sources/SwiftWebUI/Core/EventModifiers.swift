@@ -139,14 +139,14 @@ private final class LongPressGestureRuntimeState: Sendable {
 
 public struct LongPressGestureModifier: ComponentModifier {
     private let minimumDuration: Double
-    private let maximumDistance: WebUILength
+    private let maximumDistance: Length
     private let pressing: (@Sendable (Bool) -> Void)?
     private let action: @Sendable () -> Void
     private let runtimeState = LongPressGestureRuntimeState()
 
     init(
         minimumDuration: Double,
-        maximumDistance: WebUILength,
+        maximumDistance: Length,
         pressing: (@Sendable (Bool) -> Void)?,
         action: @escaping @Sendable () -> Void
     ) {
@@ -365,7 +365,7 @@ public extension HTML {
 
     func onLongPressGesture(
         minimumDuration: Double = 0.5,
-        maximumDistance: WebUILength = 10,
+        maximumDistance: Length = 10,
         pressing: (@Sendable (Bool) -> Void)? = nil,
         perform action: @escaping @Sendable () -> Void
     ) -> ModifiedContent<Self, LongPressGestureModifier> {
@@ -394,8 +394,8 @@ public extension HTML {
             .data("hover-coordinate-space", coordinateSpace.cssName),
             .onMouseMove { event in
                 action(.active(CGPoint(
-                    x: .css("\(trimmedNumber(event.clientX ?? 0))px"),
-                    y: .css("\(trimmedNumber(event.clientY ?? 0))px")
+                    x: .px(event.clientX ?? 0),
+                    y: .px(event.clientY ?? 0)
                 )))
             },
             .onMouseLeave { _ in action(.ended) },
@@ -410,10 +410,14 @@ public extension HTML {
     }
 }
 
-private extension WebUILength {
+private extension Length {
     var pixelValue: Double? {
         switch self {
-        case .css(var value):
+        case .value(let value, .px):
+            return value
+        case .value:
+            return nil
+        case .custom(var value):
             if value.hasSuffix("px") {
                 value.removeLast(2)
             }

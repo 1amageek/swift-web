@@ -15,7 +15,7 @@ HelloWorld
 ## Run
 
 ```bash
-sweb dev --package-path Examples/HelloWorld
+sweb dev
 ```
 
 Open:
@@ -27,5 +27,5 @@ http://127.0.0.1:3000/
 ## Build
 
 ```bash
-xcrun swift build --package-path Examples/HelloWorld
+xcrun swift build
 ```

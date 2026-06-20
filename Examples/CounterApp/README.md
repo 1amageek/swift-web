@@ -105,13 +105,13 @@ flowchart LR
 Prepare the generated development environment without running it:
 
 ```bash
-sweb prepare --package-path Examples/CounterApp
+sweb prepare
 ```
 
 Run the development server with rebuild/restart and dev browser updates:
 
 ```bash
-sweb dev --package-path Examples/CounterApp
+sweb dev
 ```
 
 Open:
@@ -139,28 +139,32 @@ flowchart LR
 Build the server without running it:
 
 ```bash
-sweb build --package-path Examples/CounterApp
+sweb build
 ```
 
 Run from Xcode:
 
-```text
-Open Examples/CounterApp/.swiftweb/generated/dev in Xcode and select the CounterApp-dev scheme.
+```bash
+sweb xcode
 ```
 
-The generated `CounterApp-dev` scheme builds `SwiftWebDevLauncher`. Running it starts the same `SwiftWebDevRuntime` used by `sweb dev`, including FSEvents rebuild, child restart, parent PID cleanup, typed dev events, and reload-token fallback signaling. If port `3000` is already in use, add `SWIFT_WEB_DEV_PORT` to the Xcode scheme environment.
+`sweb xcode` materializes `.swiftweb/generated`, opens `.swiftweb/generated/dev`
+in Xcode, and exposes the `CounterApp-dev` scheme. Running that scheme starts the
+same `SwiftWebDevRuntime` used by `sweb dev`, including FSEvents rebuild, child
+restart, parent PID cleanup, typed dev events, and reload-token fallback signaling.
+If port `3000` is already in use, add `SWIFT_WEB_DEV_PORT` to the Xcode scheme
+environment.
 
 Build the user app library only:
 
 ```bash
-swift build --package-path Examples/CounterApp
+swift build
 ```
 
 ## Build WASM Runtime
 
 ```bash
 sweb build \
-  --package-path Examples/CounterApp \
   --wasm \
   --swift-sdk swift-6.3.1-RELEASE_wasm \
   -c release

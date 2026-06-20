@@ -5,7 +5,7 @@ public enum WebStyleProperty: Sendable, Equatable {
     case background
     case overlay
     case tint
-    case border(width: WebUILength)
+    case border(width: Length)
 
     func style(for resolvedStyle: ResolvedStyle) -> Style {
         if !resolvedStyle.style.isEmpty {
@@ -58,17 +58,6 @@ public enum WebStyleProperty: Sendable, Equatable {
             "swui-style-tint"
         case .border:
             "swui-style-border"
-        }
-    }
-}
-
-extension WebUILength {
-    var cssValue: String {
-        switch self {
-        case .css(let value):
-            value
-        case .infinity:
-            "100%"
         }
     }
 }
