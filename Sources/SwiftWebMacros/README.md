@@ -13,7 +13,7 @@ It owns syntax analysis and generated Swift declarations for page types and acti
 | Route registration | Generates calls that lower page paths to Vapor route registration. |
 | Parameter checks | Cross-checks path parameters with `Params` declarations where possible. |
 | Metadata lowering | Generates calls to async page metadata before response encoding. |
-| Server action references | Validates current `@ServerAction distributed func` declarations and generates typed action references plus runtime descriptors. |
+| Server action references | Validates `@ServerAction` actor methods and generates typed action references, runtime descriptors, and internal invocation bridges. |
 | Diagnostics | Emits compile-time errors for unsupported or inconsistent page declarations. |
 
 ## Boundary With SwiftWeb
@@ -39,26 +39,29 @@ SwiftWeb has two server interaction methods, and only one of them is owned by Sw
 
 ## Server Action Lowering
 
-In the current implementation, `@ServerAction` belongs on a `distributed func`. The macro validates that the function is a supported server-side command boundary and generates a typed `ActionReference` that can be exported to SwiftWebUI button/form rendering.
+`@ServerAction` belongs on a normal actor method inside a `distributed actor`. The macro validates that the function is a supported server-side command boundary and generates a typed `ActionReference` that can be exported to SwiftWebUI button/form rendering.
 
 ```mermaid
 flowchart LR
-  A["@ServerAction distributed func"] --> B["signature validation"]
+  A["@ServerAction func"] --> B["signature validation"]
   B --> C["ServerActionDescriptor"]
   B --> D["instance ActionReference<Input, Output>"]
+  B --> I["generated distributed bridge"]
   C --> E["@Page page-owned service registration"]
   D --> F["SwiftWebUI Button/Form"]
   E --> G["SwiftWeb ActionGateway"]
-  G --> H["typed distributed func invoker"]
+  G --> I
+  I --> H["normal actor method"]
 ```
 
-The `distributed` requirement is a current implementation constraint for actor identity and typed invoker registration. It is not the reason a developer chooses Server Action. A developer chooses Server Action when a rendered UI command should mutate server state and produce an `ActionResult`.
+The distributed actor requirement is an implementation constraint for actor identity and typed invoker registration. The action method itself is not distributed because Server Action is a page command handle, not a direct RPC method. The macro owns the generated bridge that lets the runtime invoke the local actor method safely. A developer chooses Server Action when a rendered UI command should mutate server state and produce an `ActionResult`.
 
 The macro should reject unsupported signatures instead of letting invalid actions fail at runtime.
 
 | Requirement | Reason |
 |---|---|
-| Function is `distributed` | Current runtime registry uses a `WebActorSystem` actor identity and actor-bound invoker. |
+| Function is declared inside a `distributed actor` | Current runtime registry uses a `WebActorSystem` actor identity and actor-bound invoker. |
+| Function is not `distributed` | Server Action is a page command boundary, not an Apple distributed actor RPC endpoint. |
 | Input is `Codable & Sendable` | Client and gateway need a stable transport contract. |
 | Output is `Codable & Sendable` or `ActionResult` | Runtime needs typed result encoding. |
 | Context is `ActionInvocationContext` | Actor methods receive normalized request context, not raw Vapor request state. |

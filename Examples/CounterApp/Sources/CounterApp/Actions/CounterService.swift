@@ -20,13 +20,13 @@ distributed actor CounterService: CounterServiceProtocol {
     }
 
     @ServerAction
-    distributed func increment(_ input: NoActionInput, context: ActionInvocationContext) async throws -> ActionResult {
+    func increment(_ input: NoActionInput, context: ActionInvocationContext) async throws -> ActionResult {
         _ = try await increment()
         return .invalidate(.page)
     }
 
     @ServerAction
-    distributed func decrement(_ input: NoActionInput, context: ActionInvocationContext) async throws -> ActionResult {
+    func decrement(_ input: NoActionInput, context: ActionInvocationContext) async throws -> ActionResult {
         _ = try await decrement()
         return .invalidate(.page)
     }

@@ -13,7 +13,7 @@ struct CounterPage {
     }
 
     var description: String? {
-        get async { "Client and server counters for validating SwiftWeb state, hydration, and distributed server actions." }
+        get async { "Client and server counters for validating SwiftWeb state, hydration, server actions, and distributed RPC." }
     }
 
     var cache: CachePolicy {

@@ -14,7 +14,7 @@ It is intentionally separate from the `SwiftWeb` production runtime. Application
 | HMR events | Emits typed style, client component, server restart, page patch, full reload, and error events. |
 | Persistent DevHost | Keeps the public dev port alive, streams HMR events, proxies requests to the active Vapor worker, and swaps workers after server rebuilds. |
 | Browser dev runtime | Injects development-only HMR script and boundary metadata when `SWIFT_WEB_DEV=1`. |
-| Cleanup | Removes generated build caches through `swift-web clean`. |
+| Cleanup | Removes generated build caches through `sweb clean`. |
 | WASM tooling | Resolves the configured Swift WASM SDK and builds generated client runtime products. |
 | Host tooling | Resolves the Swift executable used for generated Vapor worker builds independently from the WASM toolchain. |
 
@@ -47,7 +47,7 @@ Host worker builds are separate from Client WASM builds. `SwiftWebDevServerProce
 
 ```mermaid
 flowchart LR
-  A["swift-web dev / storyboard"] --> B["DevHost"]
+  A["sweb dev / storyboard"] --> B["DevHost"]
   B --> C["host worker build"]
   B --> D["client WASM build"]
   C --> E["SwiftWebHostSwiftToolchain"]
@@ -56,7 +56,7 @@ flowchart LR
   F --> H["Client WASM artifact"]
 ```
 
-Dev artifact processing strips debug/producers custom sections and writes `<artifact>.wasm.size.json` so size attribution is available during framework work. It does not write gzip or Brotli sidecars by default, because local HMR should not spend seconds recompressing every standalone Swift/WASM product. Production `swift-web build --wasm` owns precompressed sidecars and reuses them through `<artifact>.wasm.compression.json` when the post-processed WASM content hash and compression signature are unchanged.
+Dev artifact processing strips debug/producers custom sections and writes `<artifact>.wasm.size.json` so size attribution is available during framework work. It does not write gzip or Brotli sidecars by default, because local HMR should not spend seconds recompressing every standalone Swift/WASM product. Production `sweb build --wasm` owns precompressed sidecars and reuses them through `<artifact>.wasm.compression.json` when the post-processed WASM content hash and compression signature are unchanged.
 
 File changes are coalesced before classification. A burst of save events is treated as one change set so style patches, client WASM rebuilds, and worker rebuilds are planned together rather than racing through separate rebuild cycles.
 
@@ -91,7 +91,7 @@ flowchart LR
 flowchart LR
   A["production app"] --> B["SwiftWeb"]
   B --> C["no-op hooks"]
-  D["swift-web dev"] --> E["SwiftWebDevelopment"]
+  D["sweb dev"] --> E["SwiftWebDevelopment"]
   E --> F["generated/dev app-server-dev"]
   F --> G["SwiftWebDevelopmentHooksRuntime.install()"]
   G --> H["HMR routes and browser injection"]

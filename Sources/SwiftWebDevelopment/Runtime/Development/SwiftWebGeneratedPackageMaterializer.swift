@@ -1139,7 +1139,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
         static func main() async throws {
             let environment = ProcessInfo.processInfo.environment
             let appPackagePath = environment["SWIFT_WEB_APP_PACKAGE_PATH"] ?? "\(Self.swiftStringLiteral(appPackageDirectory.path))"
-            let product = environment["SWIFT_WEB_DEV_PRODUCT"] ?? "\(Self.swiftStringLiteral(developmentServerProductName))"
+            let product = environment["SWIFT_WEB_DEV_PRODUCT"] ?? "\(Self.swiftStringLiteral(serverProductName))"
             let host = environment["SWIFT_WEB_DEV_HOST"] ?? "127.0.0.1"
             let port = try integerEnvironment("SWIFT_WEB_DEV_PORT", in: environment, defaultValue: 3000)
 

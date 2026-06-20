@@ -48,8 +48,8 @@ Build timing:
 
 | Measurement | Result | Notes |
 |---|---:|---|
-| Cold `swift-web build --wasm` SwiftPM product build | 74.87s | From SwiftPM output. Includes compile and link for runtime-only generated WASM graph. |
-| Cold `swift-web build --wasm` full command | 399.67s | Includes production artifact processing and compression. |
+| Cold `sweb build --wasm` SwiftPM product build | 74.87s | From SwiftPM output. Includes compile and link for runtime-only generated WASM graph. |
+| Cold `sweb build --wasm` full command | 399.67s | Includes production artifact processing and compression. |
 | Same-environment direct warm SwiftPM build | 1.95s real / 1.65s SwiftPM | Re-linked the product without recompiling targets. |
 | Warm CLI full command after an intervening non-CLI direct build | 281.38s | Not a clean no-op measurement; included 48.48s of SwiftPM work and production artifact processing. Repeat with one controlled command path before using as a regression gate. |
 
@@ -90,7 +90,7 @@ flowchart LR
 
 The JavaScriptKit fix removed the avoidable macro dependency from the browser graph. The
 remaining browser-runtime work is not primarily SwiftSyntax. Dev startup should track the
-SwiftPM build plus development artifact processing, while production `swift-web build
+SwiftPM build plus development artifact processing, while production `sweb build
 --wasm` now caches gzip/Brotli sidecars when the post-processed WASM content hash and
 compression signature are unchanged. Brotli q11 remains a production-only cost when the
 artifact content changes.
@@ -118,7 +118,7 @@ pass:
 
 | Area | Requirement |
 |---|---|
-| Baseline | Measure clean and warm `swift-web dev` startup for a minimal skeleton, CounterApp, and Storyboard. |
+| Baseline | Measure clean and warm `sweb dev` startup for a minimal skeleton, CounterApp, and Storyboard. |
 | Attribution | Record which packages and targets dominate wall-clock time. Include SwiftSyntax, Vapor, NIOHTTPServer, and app target compile time separately. |
 | Incremental behavior | Measure app-only page edits, client-only component edits, style-only edits, and package manifest edits. |
 | Cache behavior | Verify generated `.build`, DerivedData, and WASM artifact cache reuse. |
@@ -134,7 +134,7 @@ pass:
 | Prebuilt framework binaries | Determine which SwiftWeb runtime products can be distributed as binary artifacts without hurting local framework development. |
 | Package graph split | Determine whether `SwiftWebCore`, `SwiftWeb`, `SwiftWebDevelopment`, and Storyboard can reduce dependency graph breadth further. |
 | Vapor stack revision | Measure the locked Vapor HTTP stack separately and avoid accidental `swift-http-server` branch drift during generated package builds. |
-| Brotli policy | Decide whether local `swift-web build --wasm` should default to q11 or require an explicit production compression mode. |
+| Brotli policy | Decide whether local `sweb build --wasm` should default to q11 or require an explicit production compression mode. |
 
 ## Non-Goals For HMR Stabilization
 

@@ -407,7 +407,7 @@ async function launchDevServer(appRoot, scratchRoot, port) {
       report.serverLogTail.splice(0, report.serverLogTail.length - 160);
     }
     for (const line of lines) {
-      console.log(`[swift-web dev] ${line}`);
+      console.log(`[sweb dev] ${line}`);
     }
   };
   child.stdout.on("data", appendLog);
@@ -441,7 +441,7 @@ async function resolveSwiftWebExecutable() {
       "--package-path",
       swiftWebRoot,
       "--product",
-      "swift-web",
+      "sweb",
     ],
     {
       cwd: swiftWebRoot,
@@ -472,12 +472,12 @@ async function resolveSwiftWebExecutable() {
     .filter(Boolean)
     .at(-1);
   if (!binPath) {
-    throw new Error("Unable to resolve swift-web binary path.");
+    throw new Error("Unable to resolve sweb binary path.");
   }
 
-  const executable = path.join(binPath, "swift-web");
+  const executable = path.join(binPath, "sweb");
   if (!existsSync(executable)) {
-    throw new Error(`Resolved swift-web executable does not exist: ${executable}`);
+    throw new Error(`Resolved sweb executable does not exist: ${executable}`);
   }
   return executable;
 }

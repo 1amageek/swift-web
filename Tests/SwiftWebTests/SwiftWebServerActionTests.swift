@@ -9,7 +9,7 @@ import Vapor
 @Suite
 struct SwiftWebServerActionTests {
     @Test
-    func serverActionDescriptorInvokesTypedDistributedFunction() async throws {
+    func serverActionDescriptorInvokesTypedActorFunction() async throws {
         try await withApplication { application in
             let service = RuntimeCounterService(actorSystem: .shared)
             let reference = service.incrementAction
@@ -161,7 +161,7 @@ private distributed actor RuntimeCounterService {
     }
 
     @ServerAction
-    distributed func increment(_ input: NoActionInput, context: ActionInvocationContext) async throws -> ActionResult {
+    func increment(_ input: NoActionInput, context: ActionInvocationContext) async throws -> ActionResult {
         value += 1
         return .invalidate(.page)
     }

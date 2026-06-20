@@ -53,7 +53,7 @@ private distributed actor PageOwnedCounterService {
     typealias ActorSystem = WebActorSystem
 
     @ServerAction
-    distributed func increment(_ input: NoActionInput, context: ActionInvocationContext) async throws -> ActionResult {
+    func increment(_ input: NoActionInput, context: ActionInvocationContext) async throws -> ActionResult {
         .invalidate(.page)
     }
 }

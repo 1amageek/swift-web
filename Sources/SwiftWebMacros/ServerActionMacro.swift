@@ -10,12 +10,17 @@ public struct ServerActionMacro: PeerMacro {
         in context: some MacroExpansionContext
     ) throws -> [DeclSyntax] {
         guard let function = declaration.as(FunctionDeclSyntax.self) else {
-            context.diagnose(node: Syntax(declaration), message: "@ServerAction can only be attached to a distributed function")
+            context.diagnose(node: Syntax(declaration), message: "@ServerAction can only be attached to a function")
             return []
         }
 
-        guard function.modifiers.contains(where: { $0.name.text == "distributed" }) else {
-            context.diagnose(node: Syntax(function), message: "@ServerAction function must be distributed")
+        guard ServerActionModel.actorTypeName(in: context) != nil else {
+            context.diagnose(node: Syntax(function), message: "@ServerAction function must be declared inside a distributed actor")
+            return []
+        }
+
+        guard !function.modifiers.contains(where: { $0.name.text == "distributed" }) else {
+            context.diagnose(node: Syntax(function), message: "@ServerAction function must not be distributed")
             return []
         }
 
@@ -25,10 +30,15 @@ public struct ServerActionMacro: PeerMacro {
         }
 
         let descriptorName = "_swiftweb_\(model.functionName)ServerActionDescriptor"
+        let bridgeName = "_swiftweb_\(model.functionName)ServerActionBridge"
         let actionName = "\(model.functionName)Action"
 
         return [
             DeclSyntax(stringLiteral: """
+            distributed func \(bridgeName)(_ input: \(model.inputType), context: SwiftWeb.ActionInvocationContext) async throws -> \(model.outputType) {
+                try await \(model.functionName)(\(model.inputInvocationArgument), context: context)
+            }
+
             let \(descriptorName): SwiftWeb.ServerActionDescriptor = SwiftWeb.ServerActionDescriptor(
                 actorType: \(model.actorTypeName).self,
                 actorName: String(reflecting: \(model.actorTypeName).self),
@@ -38,7 +48,7 @@ public struct ServerActionMacro: PeerMacro {
                 outputType: \(model.outputType).self,
                 capabilityToken: "\(model.capabilityToken)"
             ) { actor, input, context in
-                try await actor.\(model.functionName)(\(model.inputInvocationArgument), context: context)
+                try await actor.\(bridgeName)(input, context: context)
             }
 
             nonisolated var \(actionName): SwiftWeb.ActionReference<\(model.inputType), \(model.outputType)> {
@@ -129,9 +139,10 @@ struct ServerActionModel {
         self.isValid = valid
     }
 
-    private static func actorTypeName(in context: some MacroExpansionContext) -> String? {
+    fileprivate static func actorTypeName(in context: some MacroExpansionContext) -> String? {
         for syntax in context.lexicalContext.reversed() {
-            if let actor = syntax.as(ActorDeclSyntax.self) {
+            if let actor = syntax.as(ActorDeclSyntax.self),
+               actor.modifiers.contains(where: { $0.name.text == "distributed" }) {
                 return actor.name.text
             }
         }

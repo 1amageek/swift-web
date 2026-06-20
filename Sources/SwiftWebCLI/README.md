@@ -1,6 +1,6 @@
 # SwiftWebCLI
 
-SwiftWebCLI provides the `swift-web` executable.
+SwiftWebCLI provides the `sweb` executable.
 
 It owns command parsing and project scaffolding. Generated package materialization and development server orchestration live in `SwiftWebDevelopment`.
 
@@ -8,8 +8,9 @@ It owns command parsing and project scaffolding. Generated package materializati
 
 | Area | Responsibility |
 |---|---|
-| Command parsing | Parses `swift-web` command names and command-line options. |
+| Command parsing | Parses `sweb` command names and command-line options. |
 | Project creation | Generates minimal named app skeletons through the `new` command. |
+| Prepare command | Materializes generated dev, server, and WASM packages for existing app packages. |
 | Generated package | Delegates `.swiftweb/generated` materialization to `SwiftWebDevelopment`. |
 | Dev command | Parses CLI options and delegates to `SwiftWebDevelopment.SwiftWebDevRuntime`. |
 | Build command | Builds the generated server product or generated WASM runtime product. |
@@ -17,14 +18,15 @@ It owns command parsing and project scaffolding. Generated package materializati
 
 ## New Command
 
-`swift-web new <AppName>` creates the smallest runnable SwiftWeb package. It gives the package, library product, target, source directory, and `SwiftWeb.App` type the provided app name.
+`sweb new <AppName>` creates the smallest runnable SwiftWeb package. It gives the package, library product, target, source directory, and `SwiftWeb.App` type the provided app name.
 
 ```mermaid
 flowchart LR
-  A["swift-web new MyApp"] --> B["Package.swift"]
+  A["sweb new MyApp"] --> B["Package.swift"]
   A --> C["Sources/MyApp/App.swift"]
   A --> D["Sources/MyApp/Routes/HomePage.swift"]
-  A --> E[".swiftweb/generated"]
+  A --> E["prepare"]
+  E --> F[".swiftweb/generated"]
 ```
 
 | Generated file | Responsibility |
@@ -32,14 +34,33 @@ flowchart LR
 | `Package.swift` | Declares the app library and depends on `SwiftWeb` plus `SwiftHTML`. |
 | `Sources/<AppName>/App.swift` | Mounts the app routes through `SwiftWeb.App`. |
 | `Sources/<AppName>/Routes/HomePage.swift` | Defines a single `@Page("/")` route that renders `Hello World`. |
-| `.swiftweb/generated` | Generated launcher package for dev/server builds. |
+| `.swiftweb/generated` | Generated launcher and WASM packages created through the same prepare path used for existing apps. |
+
+## Prepare Command
+
+`sweb prepare` materializes generated packages for an existing SwiftWeb app without building or running them. `sweb new` uses the same prepare path after writing the initial app skeleton.
+
+```mermaid
+flowchart LR
+  A["Existing App package"] --> B["sweb prepare"]
+  C["sweb new"] --> D["App skeleton"]
+  D --> B
+  B --> E[".swiftweb/generated/server"]
+  B --> F[".swiftweb/generated/dev"]
+  B --> G[".swiftweb/generated/wasm"]
+```
+
+| Option | Behavior |
+|---|---|
+| `--package-path <directory>` | Selects the existing app package. Defaults to the current directory. |
+| `--product <name>` | Selects the generated server product name. Defaults to `app-server`. |
 
 ## Package Boundary
 
 ```mermaid
 flowchart TD
   A["User Package.swift"] --> B["App library target"]
-  C["swift-web CLI"] --> D[".swiftweb/generated/server"]
+  C["sweb prepare/dev/build"] --> D[".swiftweb/generated/server"]
   C --> E[".swiftweb/generated/dev"]
   C --> F[".swiftweb/generated/wasm"]
   D --> G["AppServerLauncher"]
@@ -59,7 +80,7 @@ Client WASM bundle generation follows the contract in [`docs/ClientBundleLoading
 
 ```mermaid
 flowchart LR
-  A["swift-web dev"] --> B["DevCommand parse"]
+  A["sweb dev"] --> B["DevCommand parse"]
   B --> C["SwiftWebDevRuntime"]
   C --> D["materialize .swiftweb/generated"]
   D --> E["host Swift build generated/dev app-server-dev"]
@@ -91,7 +112,7 @@ The public DevHost is a long-lived development control plane that keeps the conf
 
 ```mermaid
 flowchart LR
-  A["swift-web storyboard"] --> B["generate .swiftweb/storyboard"]
+  A["sweb storyboard"] --> B["generate .swiftweb/storyboard"]
   B --> C["generate .swiftweb/storyboard/.swiftweb/generated"]
   C --> D["SwiftWebDevRuntime"]
   D --> E["http://127.0.0.1:3001/storyboard"]
@@ -99,7 +120,7 @@ flowchart LR
   E --> G["documented component catalog"]
 ```
 
-`swift-web storyboard` is a framework inspection tool. It does not edit the user's app source. It generates a managed package under `.swiftweb/storyboard`, mounts `StoryboardPage`, and runs on port `3001` by default so it can stay open beside an app running through `swift-web dev` on port `3000`.
+`sweb storyboard` is a framework inspection tool. It does not edit the user's app source. It generates a managed package under `.swiftweb/storyboard`, mounts `StoryboardPage`, and runs on port `3001` by default so it can stay open beside an app running through `sweb dev` on port `3000`.
 
 The storyboard follows the checked-in design reference and only lists components that are part of the current SwiftWebUI public surface. It documents semantic `Text(as:)`, container and layout primitives, actions, navigation, presentation, selection/input, and status components through stable per-component paths such as `/storyboard/list` and `/storyboard/stacks`.
 
@@ -107,9 +128,9 @@ The storyboard follows the checked-in design reference and only lists components
 
 ```mermaid
 flowchart LR
-  A["swift-web build"] --> B["materialize .swiftweb/generated"]
+  A["sweb build"] --> B["materialize .swiftweb/generated"]
   B --> C["server build"]
-  A2["swift-web build --wasm"] --> B
+  A2["sweb build --wasm"] --> B
   B --> D["WASM build"]
   C --> E["app-server"]
   D --> F["<AppName>WasmRuntime"]
@@ -152,12 +173,12 @@ flowchart LR
 | `.swiftweb/generated/wasm/Sources/JavaScriptKit` | Runtime-only JavaScriptKit source copy. BridgeJS macro definitions and `swift-syntax` are not included in the WASM package graph. |
 | `.swiftweb/generated/wasm/Sources/_CJavaScriptKit` | C shim target required by the runtime-only JavaScriptKit target. |
 | `.swiftweb/generated/wasm/Sources/*WasmRuntime` | App-specific WASM export entrypoint. |
-| `.swiftweb/storyboard` | Managed app package generated by `swift-web storyboard` for visual component inspection. |
+| `.swiftweb/storyboard` | Managed app package generated by `sweb storyboard` for visual component inspection. |
 | `swift-html` package dependency | Client HTML runtime used by the app and server packages; WASM uses a runtime-only source copy to keep macro dependencies out. |
 
 The JavaScriptKit boundary is an accepted decision in [`docs/BrowserRuntimeJavaScriptKitDecision.md`](../../docs/BrowserRuntimeJavaScriptKitDecision.md). SwiftWebUI features should be modeled as SwiftWebUI primitives first; generated browser WASM packages do not include JavaScriptKit BridgeJS or `swift-syntax` unless a future explicit opt-in mode is added.
 
-Open `.swiftweb/generated/dev` in Xcode to run the generated `<AppName>-dev` scheme. That scheme builds `SwiftWebDevLauncher`, which starts the same `SwiftWebDevRuntime` used by `swift-web dev`.
+Open `.swiftweb/generated/dev` in Xcode to run the generated `<AppName>-dev` scheme. That scheme builds `SwiftWebDevLauncher`, which starts the same `SwiftWebDevRuntime` used by `sweb dev`.
 
 The generated `app-server-dev` worker target intentionally depends on `SwiftWebDevelopmentHooks` rather than full `SwiftWebDevelopment`.
 
@@ -176,11 +197,11 @@ This boundary keeps the worker out of the watcher, proxy, SwiftSyntax classifier
 
 ## Clean Command
 
-`swift-web clean` removes generated build products that are safe to recreate. It is intended to keep repeated dev, Storyboard, and WASM builds from accumulating unnecessary storage.
+`sweb clean` removes generated build products that are safe to recreate. It is intended to keep repeated dev, Storyboard, and WASM builds from accumulating unnecessary storage.
 
 ```mermaid
 flowchart LR
-  A["swift-web clean"] --> B[".swiftweb/generated/.build"]
+  A["sweb clean"] --> B[".swiftweb/generated/.build"]
   A --> C[".swiftweb/storyboard/.swiftweb/generated/.build"]
   A --> D[".swiftweb/wasm-tools"]
   A -. --swiftpm .-> E["package .build"]
@@ -221,5 +242,5 @@ generated packages can reuse the same content-addressed artifact.
 - Child server cleanup is part of the dev runtime contract, not something each app should implement manually.
 - Templates should demonstrate supported features without becoming the source of runtime behavior.
 - The storyboard is generated output for framework authors. It must stay isolated from application source and should cover style regressions broadly enough to make visual changes reviewable.
-- Storyboard materialization replaces only managed generated sources by default. Build caches are cleaned by `swift-web clean` so normal regeneration does not throw away useful incremental build state.
+- Storyboard materialization replaces only managed generated sources by default. Build caches are cleaned by `sweb clean` so normal regeneration does not throw away useful incremental build state.
 - Generated projects should depend on library APIs rather than private implementation details.

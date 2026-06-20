@@ -96,7 +96,7 @@ Non-solutions:
 
 Before this TODO can be closed:
 
-1. `swift build --product swift-web` must run under the selected host toolchain policy.
+1. `swift build --product sweb` must run under the selected host toolchain policy.
 2. The policy must be documented as either true Swift 6.3 host support or explicit host/WASM split support.
 3. Browser E2E must exercise Storyboard/dev HMR with the documented policy.
 4. The E2E report must record both host Swift version and WASM Swift SDK.

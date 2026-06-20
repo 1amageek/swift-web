@@ -67,7 +67,7 @@ struct StoryboardCommand {
                 print("SwiftWeb storyboard generated at \(directory.path)")
             },
             didSkipServer: { packageDirectory in
-                print("Run: swift-web storyboard --package-path \(packageDirectory.path)")
+                print("Run: sweb storyboard --package-path \(packageDirectory.path)")
             },
             willStartServer: { host, port in
                 print("SwiftWeb storyboard starting at http://\(host):\(port)")

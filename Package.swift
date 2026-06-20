@@ -43,7 +43,7 @@ let package = Package(
         .library(name: "SwiftWebDevelopmentHooks", targets: ["SwiftWebDevelopmentHooks"]),
         .library(name: "SwiftWebDevelopment", targets: ["SwiftWebDevelopment"]),
         .library(name: "SwiftWebStoryboard", targets: ["SwiftWebStoryboard"]),
-        .executable(name: "swift-web", targets: ["SwiftWebCLI"]),
+        .executable(name: "sweb", targets: ["SwiftWebCLI"]),
     ],
     dependencies: [
         .package(url: "https://github.com/1amageek/swift-html.git", from: "0.5.0"),

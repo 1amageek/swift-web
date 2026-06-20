@@ -45,8 +45,8 @@ SwiftWeb separates dev responsiveness from production transfer optimization:
 
 | Mode | Artifact processing | Compression sidecars |
 |---|---|---|
-| `swift-web dev` / Storyboard dev | Strip debug, `name`, `producers`, and `sourceMappingURL` custom sections; write `<artifact>.wasm.size.json`; include the processing signature in the build stamp. | Disabled by default to keep local HMR builds fast. Stale `.gz` and `.br` sidecars are removed. |
-| `swift-web build --wasm` | Strip the same custom sections; run `wasm-opt -Oz` when Binaryen is available; write `<artifact>.wasm.size.json`. | Writes `.gz` and `.br` sidecars. Brotli defaults to quality 11 and can be changed with `SWIFTWEB_WASM_BROTLI_QUALITY`. Existing sidecars are reused when `<artifact>.wasm.compression.json` matches the post-processed WASM content hash and compression signature. |
+| `sweb dev` / Storyboard dev | Strip debug, `name`, `producers`, and `sourceMappingURL` custom sections; write `<artifact>.wasm.size.json`; include the processing signature in the build stamp. | Disabled by default to keep local HMR builds fast. Stale `.gz` and `.br` sidecars are removed. |
+| `sweb build --wasm` | Strip the same custom sections; run `wasm-opt -Oz` when Binaryen is available; write `<artifact>.wasm.size.json`. | Writes `.gz` and `.br` sidecars. Brotli defaults to quality 11 and can be changed with `SWIFTWEB_WASM_BROTLI_QUALITY`. Existing sidecars are reused when `<artifact>.wasm.compression.json` matches the post-processed WASM content hash and compression signature. |
 | Runtime asset route | Serves raw `.wasm` unless the request accepts an available `.br` or `.gz` sidecar. | Adds `Content-Encoding` and `Vary: Accept-Encoding` for sidecar responses. |
 
 `SWIFTWEB_WASM_OPTIMIZE=0` disables `wasm-opt` even for production builds. `SWIFTWEB_WASM_OPTIMIZE=1` enables it for dev builds when the tool is available, but this is intended for diagnostics because it slows HMR.

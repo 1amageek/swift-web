@@ -27,7 +27,7 @@ flowchart LR
 | `SwiftWebUIRuntime` | Browser-side WASM runtime bridge for SwiftWebUI client components. |
 | `SwiftWebActors` | Shared distributed actor runtime support for server/client actor calls. |
 | `SwiftWebDevelopment` | Development server, generated packages, HMR, Storyboard, and WASM build tooling. |
-| `swift-web` | CLI for new projects, dev server, Storyboard, and production builds. |
+| `sweb` | CLI for new projects, dev server, Storyboard, and production builds. |
 
 ## Requirements
 
@@ -104,7 +104,7 @@ CLI from the checkout:
 ```bash
 git clone https://github.com/1amageek/swift-web.git
 cd swift-web
-xcrun swift run swift-web --help
+xcrun swift run sweb --help
 ```
 
 ### 2. Create An App
@@ -112,7 +112,7 @@ xcrun swift run swift-web --help
 Generate a new app package next to the SwiftWeb checkout:
 
 ```bash
-xcrun swift run swift-web new MyApp --output ../MyApp
+xcrun swift run sweb new MyApp --output ../MyApp
 ```
 
 The generated app has this shape:
@@ -123,18 +123,28 @@ MyApp
 ├─ Sources/MyApp/App.swift
 ├─ Sources/MyApp/Routes/HomePage.swift
 └─ .swiftweb/generated
+   ├─ server
+   ├─ dev
+   └─ wasm
 ```
 
 The app package depends on the local SwiftWeb checkout and released `swift-html 0.5.0`.
 Generated launchers, dev packages, server packages, and WASM packages stay under
 `.swiftweb/generated`.
 
+You can materialize the generated development environment for any existing SwiftWeb app
+without building or running it:
+
+```bash
+xcrun swift run sweb prepare --package-path ../MyApp
+```
+
 ### 3. Run The Development Server
 
 From the SwiftWeb checkout:
 
 ```bash
-xcrun swift run swift-web dev --package-path ../MyApp
+xcrun swift run sweb dev --package-path ../MyApp
 ```
 
 Open:
@@ -148,7 +158,7 @@ worker process, watches source changes, and sends browser update events.
 
 ```mermaid
 flowchart LR
-  A["swift-web dev"] --> B["materialize generated package"]
+  A["sweb dev"] --> B["materialize generated package"]
   B --> C["build app server"]
   C --> D["run worker"]
   D --> E["watch files"]
@@ -241,7 +251,7 @@ elements remain available when you need exact HTML control.
 Run the SwiftWebUI component Storyboard from the SwiftWeb checkout:
 
 ```bash
-xcrun swift run swift-web storyboard
+xcrun swift run sweb storyboard
 ```
 
 Open:
@@ -258,7 +268,7 @@ your app package.
 Build the generated server package:
 
 ```bash
-xcrun swift run swift-web build --package-path ../MyApp
+xcrun swift run sweb build --package-path ../MyApp
 ```
 
 Build browser WASM artifacts:
@@ -267,7 +277,7 @@ Build browser WASM artifacts:
 export SWIFT_WEB_WASM_SWIFT=/Users/1amageek/Library/Developer/Toolchains/swift-6.3.1-RELEASE.xctoolchain/usr/bin/swift
 export SWIFT_WEB_WASM_TOOLCHAIN_BIN=/Users/1amageek/Library/Developer/Toolchains/swift-6.3.1-RELEASE.xctoolchain/usr/bin
 
-xcrun swift run swift-web build \
+xcrun swift run sweb build \
   --package-path ../MyApp \
   --wasm \
   --swift-sdk swift-6.3.1-RELEASE_wasm \
@@ -283,7 +293,7 @@ The repository includes a sample app with server actions, page invalidation, and
 client-side counter component:
 
 ```bash
-xcrun swift run swift-web dev --package-path Examples/CounterApp
+xcrun swift run sweb dev --package-path Examples/CounterApp
 ```
 
 Open:
@@ -296,11 +306,12 @@ http://127.0.0.1:3000/counter
 
 | Command | Purpose |
 |---|---|
-| `swift-web new <AppName>` | Generate a minimal SwiftWeb app package. |
-| `swift-web dev` | Run the development server with generated packages and HMR. |
-| `swift-web storyboard` | Run the SwiftWebUI component Storyboard. |
-| `swift-web build` | Build the generated production server package. |
-| `swift-web build --wasm` | Build browser WASM runtime artifacts and production sidecars. |
+| `sweb new <AppName>` | Generate a minimal SwiftWeb app package. |
+| `sweb prepare` | Materialize generated server, dev, and WASM packages for an existing app. |
+| `sweb dev` | Run the development server with generated packages and HMR. |
+| `sweb storyboard` | Run the SwiftWebUI component Storyboard. |
+| `sweb build` | Build the generated production server package. |
+| `sweb build --wasm` | Build browser WASM runtime artifacts and production sidecars. |
 
 ## Browser Runtime
 

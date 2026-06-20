@@ -16,7 +16,7 @@ npm run install-webkit
 npm run counter-wasm:webkit
 ```
 
-The test copies `Examples/CounterApp` into a temporary directory, rewrites its dependencies to the local `swift-web` and `swift-html` packages, starts `swift-web dev`, and validates:
+The test copies `Examples/CounterApp` into a temporary directory, rewrites its dependencies to the local `swift-web` and `swift-html` packages, starts `sweb dev`, and validates:
 
 - browser WASM runtime readiness
 - WASM asset fetch and instantiation metrics
@@ -34,7 +34,7 @@ The E2E uses a split toolchain policy:
 
 | Toolchain | Purpose |
 |---|---|
-| Host Swift | Builds the `swift-web` CLI and runs the Vapor-backed dev host. It currently needs a Swift 6.4-capable toolchain because Vapor 5 alpha depends on the current Apple HTTP server stack. |
+| Host Swift | Builds the `sweb` CLI and runs the Vapor-backed dev host. It currently needs a Swift 6.4-capable toolchain because Vapor 5 alpha depends on the current Apple HTTP server stack. |
 | WASM Swift SDK | Builds client runtime bundles and remains pinned to `swift-6.3.1-RELEASE_wasm` by default. |
 
 Environment variables:
@@ -42,7 +42,7 @@ Environment variables:
 | Name | Purpose |
 |---|---|
 | `SWIFTWEB_BROWSER_E2E` | Must be `1` to run. Otherwise the script exits successfully without work. |
-| `SWIFTWEB_E2E_HOST_SWIFT_EXECUTABLE` | Swift executable used to build the host `swift-web` CLI. Defaults to `xcrun swift`. |
+| `SWIFTWEB_E2E_HOST_SWIFT_EXECUTABLE` | Swift executable used to build the host `sweb` CLI. Defaults to `xcrun swift`. |
 | `SWIFTWEB_E2E_HEADFUL` | Set to `1` to show the browser. |
 | `SWIFTWEB_E2E_PORT` | Fixed port. If omitted, an available port is selected. |
 | `SWIFTWEB_E2E_TIMEOUT_MS` | Overall wait timeout for server, runtime, and HMR phases. |

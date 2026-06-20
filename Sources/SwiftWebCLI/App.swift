@@ -38,6 +38,8 @@ struct CommandLineInterface {
         switch command {
         case "new":
             try NewCommand.parse(parser).run()
+        case "prepare":
+            try PrepareCommand.parse(parser).run()
         case "build":
             try BuildCommand.parse(parser).run()
         case "clean":
@@ -57,14 +59,16 @@ struct CommandLineInterface {
         print(
             """
             Usage:
-              swift-web new <AppName> [--output <directory>] [--force]
-              swift-web build [--package-path <directory>] [--product <name>] [--wasm] [--swift-sdk <sdk>] [-c debug|release]
-              swift-web clean [--package-path <directory>] [--storyboard] [--swiftpm] [--all]
-              swift-web dev [--package-path <directory>] [--product <name>] [--host <host>] [--port <port>]
-              swift-web storyboard [--package-path <directory>] [--output <directory>] [--host <host>] [--port <port>] [--no-run] [--force]
+              sweb new <AppName> [--output <directory>] [--force]
+              sweb prepare [--package-path <directory>] [--product <name>]
+              sweb build [--package-path <directory>] [--product <name>] [--wasm] [--swift-sdk <sdk>] [-c debug|release]
+              sweb clean [--package-path <directory>] [--storyboard] [--swiftpm] [--all]
+              sweb dev [--package-path <directory>] [--product <name>] [--host <host>] [--port <port>]
+              sweb storyboard [--package-path <directory>] [--output <directory>] [--host <host>] [--port <port>] [--no-run] [--force]
 
             Commands:
               new         Create a minimal SwiftWeb app skeleton.
+              prepare     Materialize generated dev, server, and WASM packages for an existing app.
               build       Build the generated server or WASM runtime package.
               clean       Remove SwiftWeb generated build artifacts. Pass --swiftpm to remove the package .build too.
               dev         Run a SwiftWeb app with rebuild, server restart, and dev browser updates on changes.

@@ -20,7 +20,7 @@ It owns page routing, request context, route actions, streaming, uploads, WebSoc
 | Uploads | Provides upload route registration and upload context types. |
 | WebSockets | Provides WebSocket route registration and context wrappers. |
 | WASM hosting | Serves runtime host scripts, JavaScriptKit runtime support, manifests, and WASM assets. |
-| Development hook boundary | Provides no-op production hooks that `SwiftWebDevelopment` can install during `swift-web dev`. |
+| Development hook boundary | Provides no-op production hooks that `SwiftWebDevelopment` can install during `sweb dev`. |
 
 ## Directory Layout
 
@@ -170,11 +170,11 @@ flowchart LR
 
 WASM builds use the same generated package boundary but switch to a client-only graph. The generated package copies the app's client components plus runtime-only `SwiftHTML`, `SwiftWebActors`, `SwiftWebUI`, `SwiftWebUIRuntime`, and JavaScriptKit source targets. It intentionally excludes SwiftHTML preview macros, JavaScriptKit BridgeJS macros, and their `swift-syntax` toolchain dependencies from the WASM package graph. `SwiftHTML` and `SwiftWebUI` stay browser-runtime neutral, while `SwiftWebUIRuntime` carries the JavaScriptKit-backed browser adapter used by the generated WASM runtime targets.
 
-`SwiftPMWasmArtifact.location(target:)` resolves the served `.wasm` file from the user app package root, the app's `.swiftweb/generated` package root, and local `.package(path:)` dependency roots. This lets `swift-web build --wasm` write into the shared SwiftWeb scratch directory while the app still declares the asset from its own `clientRuntime`.
+`SwiftPMWasmArtifact.location(target:)` resolves the served `.wasm` file from the user app package root, the app's `.swiftweb/generated` package root, and local `.package(path:)` dependency roots. This lets `sweb build --wasm` write into the shared SwiftWeb scratch directory while the app still declares the asset from its own `clientRuntime`.
 
 Client bundle loading is contract-first and documented in [`docs/ClientBundleLoadingDesign.md`](../../docs/ClientBundleLoadingDesign.md). `SwiftWeb` hosts resolved manifests and content-hashed WASM assets; `ClientComponent` contracts and modifiers decide bundle/load policy, while the runtime validates those contracts and serves the resulting assets.
 
-WASM asset routes are sidecar-aware. If a built artifact has `.wasm.br` or `.wasm.gz` siblings, `SwiftWeb` selects the best accepted variant from `Accept-Encoding` and sets `Content-Encoding` plus `Vary: Accept-Encoding`. The production artifact processor that creates those sidecars lives in `SwiftWebDevelopment` / `swift-web build --wasm`; `SwiftWeb` only owns HTTP serving.
+WASM asset routes are sidecar-aware. If a built artifact has `.wasm.br` or `.wasm.gz` siblings, `SwiftWeb` selects the best accepted variant from `Accept-Encoding` and sets `Content-Encoding` plus `Vary: Accept-Encoding`. The production artifact processor that creates those sidecars lives in `SwiftWebDevelopment` / `sweb build --wasm`; `SwiftWeb` only owns HTTP serving.
 
 ## Server Interaction Methods
 
@@ -218,19 +218,20 @@ flowchart TD
   C --> D["auth / csrf / rate limit / decode"]
   D --> E["ServerActionRegistry"]
   E --> F["typed descriptor invoker"]
-  F --> G["distributed actor service"]
-  G --> H["DB / queue / LLM / external API"]
-  H --> I["ActionResult"]
+  F --> G["generated action bridge"]
+  G --> H["normal actor method"]
+  H --> I["DB / queue / LLM / external API"]
+  I --> J["ActionResult"]
 ```
 
-In the current implementation, `@ServerAction` is attached to a `distributed actor` method because the registry uses actor identity and the generated descriptor stores an actor-bound invoker. This is an implementation constraint, not the conceptual reason to choose a Server Action. Choose Server Action because the browser is submitting a page command and expects an `ActionResult`.
+In the current implementation, `@ServerAction` is attached to a normal method on a `distributed actor` because the registry uses actor identity and the generated descriptor stores an actor-bound invoker. The macro generates an internal invocation bridge for the runtime. The action method itself is not distributed; Server Action is a page command model, not the `@Resolvable` RPC model.
 
 ```swift
 distributed actor ReservationService {
     typealias ActorSystem = WebActorSystem
 
     @ServerAction
-    distributed func reserve(
+    func reserve(
         _ input: ReservationInput,
         context: ActionInvocationContext
     ) async throws -> ActionResult {
@@ -338,14 +339,14 @@ flowchart LR
 
 ### Vapor Architecture
 
-Vapor hosts the transport and security boundary. The service execution boundary remains a typed Distributed Actor method. SwiftWeb does not reconstruct compiler-internal mangled distributed targets from form metadata.
+Vapor hosts the transport and security boundary. The service execution boundary remains a typed actor method on a registered distributed actor service, reached through the macro-generated action bridge. SwiftWeb does not reconstruct compiler-internal mangled distributed targets from form metadata.
 
 | Layer | Responsibility |
 |---|---|
 | `SwiftWebActors.WebActorSystem` | Provides the local Distributed Actor system and ActorRuntime-backed registry primitives. |
 | `Application.swiftWebServerActions` | Holds generated action descriptors, actor identities, and typed invokers exposed to the gateway. |
 | Vapor middleware | Provides session, authentication, CSRF, rate limiting, tracing, and request IDs. |
-| `ActionGateway` | Decodes input, builds `ActionInvocationContext`, resolves the registered action, invokes the typed distributed method, maps errors, and encodes `ActionResult`. |
+| `ActionGateway` | Decodes input, builds `ActionInvocationContext`, resolves the registered action, invokes the generated action bridge, maps errors, and encodes `ActionResult`. |
 | `WebActorGateway` | Receives raw ActorRuntime invocation envelopes for `@Resolvable` distributed service calls. |
 | Distributed Actor service | Owns server state, domain mutation, external side effects, and session-scoped behavior. |
 
@@ -360,7 +361,7 @@ sequenceDiagram
   G->>G: auth / csrf / decode / validate
   G->>R: resolve actor identity + descriptor
   R-->>G: typed invoker
-  G->>A: distributed func invocation
+  G->>A: generated action bridge
   A-->>G: ActionResult
   G-->>C: reload / redirect / patch / validation error
 ```
