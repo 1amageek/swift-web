@@ -10,6 +10,7 @@ public struct Menu<Label: HTML, Content: HTML>: WebUIAttributeComponent {
     private let attributes: [HTMLAttribute]
     private let label: Label
     private let content: Content
+    @Environment(\.menuStyle) private var menuStyle
 
     public init(
         _ attributes: HTMLAttribute...,
@@ -25,7 +26,7 @@ public struct Menu<Label: HTML, Content: HTML>: WebUIAttributeComponent {
     public var body: some HTML {
         Element(
             "details",
-            attributes: mergedAttributes(class: "swui-menu", extra: attributes)
+            attributes: mergedAttributes(class: controlClassName("swui-menu", menuStyle.className), extra: attributes)
         ) {
             Element(
                 "summary",

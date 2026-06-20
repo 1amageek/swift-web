@@ -21,6 +21,7 @@ public struct TabView<Content: HTML>: WebUIAttributeComponent {
     private let sourceColumn: Int
 
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.tabViewStyle) private var tabViewStyle
 
     public init(
         selection: Binding<String>,
@@ -43,7 +44,7 @@ public struct TabView<Content: HTML>: WebUIAttributeComponent {
         Element(
             "div",
             attributes: mergedAttributes(
-                class: "swui-tabview \(LayoutClass.fillHorizontal)",
+                class: controlClassName("swui-tabview", tabViewStyle.className, LayoutClass.fillHorizontal),
                 extra: tabViewAttributes
             )
         ) {

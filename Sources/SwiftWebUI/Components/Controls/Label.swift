@@ -4,6 +4,7 @@ public struct Label<Title: HTML, Icon: HTML>: WebUIAttributeComponent {
     private let title: Title
     private let icon: Icon
     private let attributes: [HTMLAttribute]
+    @Environment(\.labelStyle) private var labelStyle
 
     public init(
         @HTMLBuilder title: () -> Title,
@@ -19,7 +20,7 @@ public struct Label<Title: HTML, Icon: HTML>: WebUIAttributeComponent {
         Element(
             "span",
             attributes: mergedAttributes(
-                class: "swui-label",
+                class: controlClassName("swui-label", labelStyle.className),
                 extra: attributes
             )
         ) {

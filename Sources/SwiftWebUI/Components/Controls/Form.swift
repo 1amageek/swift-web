@@ -5,6 +5,7 @@ public struct Form<Content: HTML>: WebUIAttributeComponent {
     private let method: FormMethod
     private let attributes: [HTMLAttribute]
     private let content: Content
+    @Environment(\.formStyle) private var formStyle
 
     public init(
         action: String,
@@ -23,7 +24,7 @@ public struct Form<Content: HTML>: WebUIAttributeComponent {
         Element(
             "form",
             attributes: mergedAttributes(
-                class: "swui-form",
+                class: controlClassName("swui-form", formStyle.className),
                 extra: [.action(action), .method(method)] + attributes
             )
         ) {

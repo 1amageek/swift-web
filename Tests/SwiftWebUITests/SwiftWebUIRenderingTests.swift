@@ -1,6 +1,7 @@
 import Foundation
 import SwiftHTML
 import SwiftWebUI
+import Synchronization
 import Testing
 
 @Suite
@@ -137,6 +138,7 @@ struct SwiftWebUIRenderingTests {
     .style(.minHeight("120px"))
     .padding(.small)
     .padding(.horizontal, .large)
+    .padding(.vertical, .pageInline)
     .render()
 
     #expect(
@@ -146,6 +148,8 @@ struct SwiftWebUIRenderingTests {
     #expect(rendered.contains("min-height: 120px"))
     #expect(rendered.contains("padding-left: var(--swui-space-lg)"))
     #expect(rendered.contains("padding-right: var(--swui-space-lg)"))
+    #expect(rendered.contains("padding-top: var(--swui-page-inline-padding)"))
+    #expect(rendered.contains("padding-bottom: var(--swui-page-inline-padding)"))
   }
 
   @Test
@@ -340,7 +344,7 @@ struct SwiftWebUIRenderingTests {
   }
 
   @Test
-  func mutableModifiersApplyWithoutWrapperElements() {
+  func swiftUIModifiersRenderAsWrapperGraph() {
     let rendered = NavigationStack {
       Text("Counter")
         .as(.h1)
@@ -351,7 +355,10 @@ struct SwiftWebUIRenderingTests {
     .navigationTitle("Counter")
     .render()
 
-    #expect(!rendered.contains("swui-modifier"))
+    #expect(rendered.contains("swui-modifier"))
+    #expect(rendered.contains("swui-semantic-modifier"))
+    #expect(rendered.contains("swui-text-style-modifier"))
+    #expect(rendered.contains("swui-style-foreground"))
     #expect(rendered.contains("<nav class=\"swui-navigation-stack\""))
     #expect(rendered.contains("data-navigation-title=\"Counter\""))
     #expect(rendered.contains("<h1 class=\"swui-text\""))
@@ -403,9 +410,8 @@ struct SwiftWebUIRenderingTests {
     .frame(maxHeight: "320px")
     .render()
 
-    #expect(
-      rendered.contains("class=\"swui-scroll-view swui-scroll-view-hidden-indicators swui-fill-v\"")
-    )
+    #expect(rendered.contains("class=\"swui-frame swui-fill-v\""))
+    #expect(rendered.contains("class=\"swui-scroll-view swui-scroll-view-hidden-indicators\""))
     #expect(rendered.contains("class=\"swui-lazy-vstack\""))
     #expect(rendered.contains("data-lazy=\"vertical\""))
     #expect(rendered.contains("class=\"swui-section swui-fill-h\""))
@@ -415,6 +421,144 @@ struct SwiftWebUIRenderingTests {
     #expect(rendered.contains("class=\"swui-zstack\""))
     #expect(rendered.contains("<img class=\"swui-image\" src=\"/hero.png\" alt=\"/hero.png\">"))
     #expect(rendered.contains("max-height: 320px"))
+  }
+
+  @Test
+  func rendersSwiftUILikeLayoutModifierSurface() {
+    let rendered = Text("Layout")
+      .padding(.horizontal, 12)
+      .padding(EdgeInsets(top: 1, leading: 2, bottom: 3, trailing: 4))
+      .frame(
+        minWidth: 80,
+        idealWidth: 120,
+        maxWidth: .infinity,
+        minHeight: 24,
+        idealHeight: 48,
+        maxHeight: 96,
+        alignment: .topLeading
+      )
+      .offset(x: 4, y: 8)
+      .position(CGPoint(x: 24, y: 36))
+      .containerRelativeFrame(.horizontal, count: 3, span: 2, spacing: 8, alignment: .leading)
+      .alignmentGuide(.leading) { _ in 7 }
+      .render()
+
+    #expect(rendered.contains("padding-left: 12px"))
+    #expect(rendered.contains("padding-right: 12px"))
+    #expect(rendered.contains("padding: 1px 4px 3px 2px"))
+    #expect(rendered.contains("min-width: 80px"))
+    #expect(rendered.contains("--swui-ideal-width: 120px"))
+    #expect(rendered.contains("--swui-ideal-height: 48px"))
+    #expect(rendered.contains("max-height: 96px"))
+    #expect(rendered.contains("transform: translate(4px, 8px)"))
+    #expect(rendered.contains("position: absolute"))
+    #expect(rendered.contains("left: 24px"))
+    #expect(rendered.contains("top: 36px"))
+    #expect(rendered.contains("calc((100% - 2 * 8px) / 3)"))
+    #expect(rendered.contains("data-alignment-guide-horizontal=\"leading\""))
+    #expect(rendered.contains("--swui-alignment-guide-horizontal: 7px"))
+  }
+
+  @Test
+  func rendersSafeAreaModifiers() {
+    let rendered = VStack {
+      Text("Safe")
+    }
+    .ignoresSafeArea(.container, edges: [.top, .bottom])
+    .safeAreaPadding(.horizontal, 16)
+    .safeAreaInset(edge: VerticalEdge.top, spacing: 4) {
+      Text("Inset")
+    }
+    .render()
+
+    #expect(rendered.contains("class=\"swui-safe-area-inset swui-safe-area-inset-top\""))
+    #expect(rendered.contains("class=\"swui-safe-area-inset-content\""))
+    #expect(rendered.contains("data-safe-area-regions=\"container\""))
+    #expect(rendered.contains("margin-top: calc(env(safe-area-inset-top) * -1)"))
+    #expect(rendered.contains("padding-bottom: env(safe-area-inset-bottom)"))
+    #expect(rendered.contains("padding-left: calc(env(safe-area-inset-left) + 16px)"))
+    #expect(rendered.contains("gap: 4px"))
+
+    let paddedInsets = Text("Insets")
+      .safeAreaPadding(EdgeInsets(top: 1, leading: 2, bottom: 3, trailing: 4))
+      .render()
+
+    #expect(paddedInsets.contains("padding-top: calc(env(safe-area-inset-top) + 1px)"))
+    #expect(paddedInsets.contains("padding-left: calc(env(safe-area-inset-left) + 2px)"))
+    #expect(paddedInsets.contains("padding-bottom: calc(env(safe-area-inset-bottom) + 3px)"))
+    #expect(paddedInsets.contains("padding-right: calc(env(safe-area-inset-right) + 4px)"))
+  }
+
+  @Test
+  func rendersSwiftUILikeAppearanceModifiers() {
+    let styles = Text("Appearance")
+      .background(.accent)
+      .overlay(.primary)
+      .render()
+    let shapedEnvironmentBackground = Text("Shape")
+      .background(ColorSchemeShapeStyle(), in: .rect(cornerRadius: 6))
+      .environment(\.colorScheme, .dark)
+      .render()
+    let layers = Text("Layered")
+      .background(alignment: .topLeading) {
+        Text("Background")
+      }
+      .overlay(alignment: .bottomTrailing) {
+        Text("Overlay")
+      }
+      .render()
+    let shape = Text("Shape")
+      .clipShape(.capsule)
+      .clipped()
+      .opacity(0.5)
+      .shadow(radius: 4, x: 1, y: 2)
+      .render()
+    let filters = Text("Filters")
+      .blur(radius: 3)
+      .brightness(0.2)
+      .contrast(1.2)
+      .saturation(0.8)
+      .grayscale(0.4)
+      .hueRotation(.degrees(30))
+      .colorInvert()
+      .render()
+    let compositing = Text("Compositing")
+      .colorMultiply("#ff0000")
+      .blendMode(.multiply)
+      .rotationEffect(.degrees(10), anchor: .topLeading)
+      .scaleEffect(x: 2, y: 3, anchor: .bottomTrailing)
+      .allowsHitTesting(false)
+      .compositingGroup()
+      .drawingGroup(colorMode: .linear)
+      .render()
+    let rendered = styles + layers + shape + filters + compositing
+
+    #expect(rendered.contains("swui-style-background"))
+    #expect(rendered.contains("swui-style-overlay"))
+    #expect(styles.contains("margin-top: calc(env(safe-area-inset-top) * -1)"))
+    #expect(styles.contains("padding-right: env(safe-area-inset-right)"))
+    #expect(shapedEnvironmentBackground.contains("background: #111111"))
+    #expect(shapedEnvironmentBackground.contains("border-radius: 6px"))
+    #expect(rendered.contains("class=\"swui-layered swui-background-layered\""))
+    #expect(rendered.contains("class=\"swui-layered swui-overlay-layered\""))
+    #expect(rendered.contains("border-radius: var(--swui-radius-pill)"))
+    #expect(rendered.contains("overflow: hidden"))
+    #expect(rendered.contains("opacity: 0.5"))
+    #expect(rendered.contains("box-shadow: 1px 2px 4px rgba(0, 0, 0, 0.33)"))
+    #expect(rendered.contains("filter: blur(3px)"))
+    #expect(rendered.contains("filter: brightness(1.2)"))
+    #expect(rendered.contains("filter: contrast(1.2)"))
+    #expect(rendered.contains("filter: saturate(0.8)"))
+    #expect(rendered.contains("filter: grayscale(0.4)"))
+    #expect(rendered.contains("filter: hue-rotate(30deg)"))
+    #expect(rendered.contains("filter: invert(1)"))
+    #expect(rendered.contains("background-color: #ff0000"))
+    #expect(rendered.contains("mix-blend-mode: multiply"))
+    #expect(rendered.contains("transform: rotate(10deg)"))
+    #expect(rendered.contains("transform: scale(2, 3)"))
+    #expect(rendered.contains("pointer-events: none"))
+    #expect(rendered.contains("isolation: isolate"))
+    #expect(rendered.contains("data-drawing-group=\"linear\""))
   }
 
   @Test
@@ -428,14 +572,13 @@ struct SwiftWebUIRenderingTests {
     }
     .render()
 
-    // fixedSize() pins the element to its intrinsic size on both axes
-    // (high hugging priority) and blocks upward fill propagation.
+    // fixedSize() is a SwiftUI-style modifier wrapper. The sizing intent
+    // belongs to the modifier node rather than the leaf component.
     #expect(
       rendered.contains(
-        "class=\"swui-badge swui-material swui-material-thin swui-hug-h swui-hug-v\""))
-    // frame(maxWidth: .infinity) gives low horizontal hugging priority so
-    // the element greedily fills the available width.
-    #expect(rendered.contains("class=\"swui-badge swui-material swui-material-thin swui-fill-h\""))
+        "class=\"swui-modifier swui-attribute swui-box-modifier swui-hug-h swui-hug-v\""))
+    // frame(maxWidth: .infinity) creates an outer frame that owns fill intent.
+    #expect(rendered.contains("class=\"swui-frame swui-fill-h\""))
     // Leading alignment within an expanded frame stays axis-neutral
     // (text-align only); child arrangement is owned by the element type.
     #expect(rendered.contains("text-align: left"))
@@ -647,6 +790,388 @@ struct SwiftWebUIRenderingTests {
   }
 
   @Test
+  func rendersSwiftUILikeTextModifiers() {
+    let typography = Text("Title")
+      .font(.title)
+      .fontWeight(.semibold)
+      .fontDesign(.rounded)
+      .bold(false)
+      .italic()
+      .monospaced(false)
+      .render()
+    let wrapping = Text("Wrapping")
+      .lineLimit(2)
+      .lineSpacing(4)
+      .multilineTextAlignment(.center)
+      .truncationMode(.tail)
+      .allowsTightening(false)
+      .minimumScaleFactor(0.8)
+      .render()
+    let transforms = Text("Transform")
+      .textCase(.uppercase)
+      .fontWidth(.expanded)
+      .kerning(1)
+      .tracking(2)
+      .baselineOffset(3)
+      .render()
+    let decorations = Text("Decoration")
+      .underline(pattern: .dash, color: "red")
+      .strikethrough(pattern: .dot, color: "blue")
+      .textSelection(.enabled)
+      .render()
+    let hierarchicalForeground = Text("Hierarchy")
+      .foregroundStyle(.primary, .secondary, .accent)
+      .render()
+    let rendered = typography + wrapping + transforms + decorations + hierarchicalForeground
+
+    #expect(rendered.contains("font-size: 2rem"))
+    #expect(rendered.contains("font-weight: 600"))
+    #expect(rendered.contains("SF Pro Rounded"))
+    #expect(rendered.contains("font-style: italic"))
+    #expect(rendered.contains("-webkit-line-clamp: 2"))
+    #expect(rendered.contains("--swui-line-spacing: 4px"))
+    #expect(rendered.contains("text-align: center"))
+    #expect(rendered.contains("text-overflow: ellipsis"))
+    #expect(rendered.contains("font-kerning: none"))
+    #expect(rendered.contains("--swui-minimum-scale-factor: 0.8"))
+    #expect(rendered.contains("text-transform: uppercase"))
+    #expect(rendered.contains("font-stretch: 112.5%"))
+    #expect(rendered.contains("letter-spacing: 1px"))
+    #expect(rendered.contains("letter-spacing: 2px"))
+    #expect(rendered.contains("vertical-align: 3px"))
+    #expect(rendered.contains("text-decoration-style: dashed"))
+    #expect(rendered.contains("text-decoration-color: red"))
+    #expect(rendered.contains("text-decoration-style: dotted"))
+    #expect(rendered.contains("text-decoration-color: blue"))
+    #expect(rendered.contains("user-select: text"))
+    #expect(rendered.contains("--swui-foreground-primary: var(--swui-text)"))
+    #expect(rendered.contains("--swui-foreground-secondary: var(--swui-text-muted)"))
+    #expect(rendered.contains("--swui-foreground-tertiary: var(--swui-accent)"))
+  }
+
+  @Test
+  func rendersControlStyleEnvironmentModifiers() {
+    @State var title = "Draft"
+    @State var enabled = true
+    @State var tab = "home"
+
+    let rendered = VStack {
+      TextField("Title", text: $title)
+      Toggle("Enabled", isOn: $enabled)
+      Label("Favorite", systemImage: "star")
+      List {
+        ListRow {
+          Text("Row")
+        }
+      }
+      Form(action: "/nested") {
+        TextField("Nested", text: $title)
+      }
+      Menu("Options") {
+        Text("Edit")
+      }
+      ProgressView("Loading", value: 0.4)
+      Gauge(value: 0.7, label: "CPU")
+      TabView(selection: $tab) {
+        Tab("Home", value: "home") {
+          Text("Home")
+        }
+      }
+    }
+    .textFieldStyle(.plain)
+    .toggleStyle(.checkbox)
+    .labelStyle(.iconOnly)
+    .listStyle(.grouped)
+    .formStyle(.columns)
+    .menuStyle(.button)
+    .progressViewStyle(.linear)
+    .gaugeStyle(.accessoryLinear)
+    .tabViewStyle(.page)
+    .render()
+
+    #expect(rendered.contains("swui-text-field-style-plain"))
+    #expect(rendered.contains("swui-toggle-style-checkbox"))
+    #expect(rendered.contains("swui-label-style-iconOnly"))
+    #expect(rendered.contains("swui-list-style-grouped"))
+    #expect(rendered.contains("swui-form-style-columns"))
+    #expect(rendered.contains("swui-menu-style-button"))
+    #expect(rendered.contains("swui-progress-style-linear"))
+    #expect(rendered.contains("swui-gauge-style-accessoryLinear"))
+    #expect(rendered.contains("swui-tabview-style-page"))
+  }
+
+  @Test
+  func rendersFormEventAndFocusModifiers() {
+    @State var title = "Draft"
+    @FocusState var focused = false
+
+    let rendered = Form(action: "/submit") {
+      TextField("Title", text: $title)
+        .textContentType(.name)
+        .submitLabel(.done)
+        .onSubmit {}
+        .focused($focused)
+    }
+    .onSubmit(of: .all) {}
+    .submitScope(false)
+    .focusable()
+    .onChange(of: title, initial: true) { _ in }
+    .render()
+
+    #expect(rendered.contains("autocomplete=\"name\""))
+    #expect(rendered.contains("enterkeyhint=\"done\""))
+    #expect(rendered.contains("data-event-submit="))
+    #expect(rendered.contains("data-event-focus="))
+    #expect(rendered.contains("data-event-blur="))
+    #expect(rendered.contains("data-submit-triggers=\"all\""))
+    #expect(rendered.contains("data-submit-scope=\"nonblocking\""))
+    #expect(rendered.contains("tabindex=\"0\""))
+    #expect(rendered.contains("data-focusable=\"true\""))
+    #expect(rendered.contains("data-change-observer=\"value\""))
+    #expect(rendered.contains("data-change-initial=\"true\""))
+  }
+
+  @Test
+  func onChangeInvokesInitialAndChangedValues() throws {
+    let recorder = ChangeRecorder<Int>()
+    let store = StateStore()
+
+    let first = OnChangeProbe(value: 1, recorder: recorder)
+      .renderArtifact(stateStore: store)
+    #expect(recorder.records == [ChangeRecord(oldValue: 1, newValue: 1)])
+    #expect(try store.snapshot(schemaHash: first.hydration.stateSchemaHash).values.count == 1)
+
+    _ = OnChangeProbe(value: 1, recorder: recorder)
+      .renderArtifact(stateStore: store)
+    #expect(recorder.records == [ChangeRecord(oldValue: 1, newValue: 1)])
+
+    _ = OnChangeProbe(value: 3, recorder: recorder)
+      .renderArtifact(stateStore: store)
+    #expect(recorder.records == [
+      ChangeRecord(oldValue: 1, newValue: 1),
+      ChangeRecord(oldValue: 1, newValue: 3),
+    ])
+  }
+
+  @Test
+  func focusedEqualsClearsOptionalFocusState() throws {
+    @State var title = ""
+    @FocusState var focusedField: FocusField?
+
+    let artifact = TextField("Title", text: $title)
+      .focused($focusedField, equals: .title)
+      .renderArtifact()
+
+    let focusIn = try #require(artifact.clientHandlers.handlers.first { $0.eventName == "focusin" })
+    let focusOut = try #require(artifact.clientHandlers.handlers.first { $0.eventName == "focusout" })
+
+    focusIn.invoke()
+    #expect(focusedField == .title)
+
+    focusOut.invoke()
+    #expect(focusedField == nil)
+  }
+
+  @Test
+  func rendersLifecycleAndGestureEventModifiers() {
+    let lifecycle = Text("Lifecycle")
+      .onAppear {}
+      .onDisappear {}
+      .task(id: "profile") {}
+      .render()
+    let gestures = Text("Gestures")
+      .onTapGesture(count: 2) {}
+      .onLongPressGesture(minimumDuration: 0.75, maximumDistance: 12, pressing: { _ in }) {}
+      .render()
+    let hover = Text("Hover")
+      .onHover { _ in }
+      .onContinuousHover(coordinateSpace: .global) { _ in }
+      .help("Help text")
+      .render()
+    let rendered = lifecycle + gestures + hover
+
+    #expect(rendered.contains("data-lifecycle=\"appear\""))
+    #expect(rendered.contains("data-lifecycle=\"disappear\""))
+    #expect(rendered.contains("data-task=\"true\""))
+    #expect(rendered.contains("data-task-id=\"profile\""))
+    #expect(rendered.contains("data-event-appear="))
+    #expect(rendered.contains("data-event-disappear="))
+    #expect(rendered.contains("data-tap-count=\"2\""))
+    #expect(rendered.contains("data-event-click="))
+    #expect(rendered.contains("data-long-press-minimum-duration=\"0.75\""))
+    #expect(rendered.contains("data-long-press-maximum-distance=\"12px\""))
+    #expect(rendered.contains("data-event-pointerdown="))
+    #expect(rendered.contains("data-event-pointerup="))
+    #expect(rendered.contains("data-event-mouseenter="))
+    #expect(rendered.contains("data-event-mouseleave="))
+    #expect(rendered.contains("data-event-mousemove="))
+    #expect(rendered.contains("data-hover-coordinate-space=\"global\""))
+    #expect(rendered.contains("title=\"Help text\""))
+    #expect(rendered.contains("aria-description=\"Help text\""))
+  }
+
+  @Test
+  func rendersRawDOMEventModifiersOnAttributeMutableComponents() {
+    @State var title = "Draft"
+
+    let rendered = TextField("Title", text: $title)
+      .onKeyDown { _ in }
+      .onKeyUp { _ in }
+      .onFocus { _ in }
+      .onBlur { _ in }
+      .onMouseDown { _ in }
+      .onMouseUp { _ in }
+      .onPointerMove { _ in }
+      .onDragStart { _ in }
+      .onDragOver { _ in }
+      .onDrop { _ in }
+      .onInvalid { _ in }
+      .onScroll { _ in }
+      .render()
+
+    #expect(rendered.contains("data-event-keydown="))
+    #expect(rendered.contains("data-event-keyup="))
+    #expect(rendered.contains("data-event-focus="))
+    #expect(rendered.contains("data-event-blur="))
+    #expect(rendered.contains("data-event-mousedown="))
+    #expect(rendered.contains("data-event-mouseup="))
+    #expect(rendered.contains("data-event-pointermove="))
+    #expect(rendered.contains("data-event-dragstart="))
+    #expect(rendered.contains("data-event-dragover="))
+    #expect(rendered.contains("data-event-drop="))
+    #expect(rendered.contains("data-event-invalid="))
+    #expect(rendered.contains("data-event-scroll="))
+  }
+
+  @Test
+  func rendersSwiftUILikeAccessibilityMetadataModifiers() {
+    let labels = Text("Accessible")
+      .accessibilityIdentifier("save-button")
+      .accessibilityLabel("Save", isEnabled: true)
+      .accessibilityHint("Stores the draft", isEnabled: true)
+      .accessibilityValue("Ready", isEnabled: true)
+      .accessibilityHidden(false)
+      .accessibilityInputLabels(["Save", "Store"])
+      .render()
+    let traits = Text("Traits")
+      .accessibilityAddTraits([.isButton, .isSelected, .isModal])
+      .accessibilityRemoveTraits(.isImage)
+      .accessibilityElement(children: .combine)
+      .accessibilitySortPriority(3)
+      .accessibilityHeading(.h2)
+      .render()
+    let rendered = labels + traits
+
+    #expect(rendered.contains("data-accessibility-identifier=\"save-button\""))
+    #expect(rendered.contains("aria-label=\"Save\""))
+    #expect(rendered.contains("aria-description=\"Stores the draft\""))
+    #expect(rendered.contains("aria-valuetext=\"Ready\""))
+    #expect(rendered.contains("aria-hidden=\"false\""))
+    #expect(rendered.contains("data-accessibility-input-labels=\"Save|Store\""))
+    #expect(rendered.contains("data-accessibility-add-traits=\"isButton isSelected isModal\""))
+    #expect(rendered.contains("role=\"button\""))
+    #expect(rendered.contains("aria-selected=\"true\""))
+    #expect(rendered.contains("aria-modal=\"true\""))
+    #expect(rendered.contains("data-accessibility-remove-traits=\"isImage\""))
+    #expect(rendered.contains("data-accessibility-child-behavior=\"combine\""))
+    #expect(rendered.contains("data-accessibility-sort-priority=\"3\""))
+    #expect(rendered.contains("role=\"heading\""))
+    #expect(rendered.contains("aria-level=\"2\""))
+  }
+
+  @Test
+  func rendersSwiftUILikeAccessibilityActionModifiers() {
+    let actions = Text("Action")
+      .accessibilityAction(.default) {}
+      .accessibilityAction(named: "Delete") {}
+      .accessibilityAdjustableAction { _ in }
+      .render()
+    let points = Text("Points")
+      .accessibilityActivationPoint(.center)
+      .accessibilityActivationPoint(CGPoint(x: 12, y: 24))
+      .accessibilityDragPoint(.top, description: "Drag from top")
+      .accessibilityDropPoint(.bottom, description: "Drop at bottom")
+      .accessibilityRespondsToUserInteraction(false)
+      .render()
+    let rendered = actions + points
+
+    #expect(rendered.contains("data-accessibility-action=\"default\""))
+    #expect(rendered.contains("data-accessibility-action=\"Delete\""))
+    #expect(rendered.contains("data-event-accessibilityaction="))
+    #expect(rendered.contains("data-accessibility-adjustable=\"true\""))
+    #expect(rendered.contains("data-event-accessibilityadjust="))
+    #expect(rendered.contains("data-event-keydown="))
+    #expect(rendered.contains("data-accessibility-activation-point=\"50% 50%\""))
+    #expect(rendered.contains("data-accessibility-activation-point=\"12px 24px\""))
+    #expect(rendered.contains("data-accessibility-drag-point=\"50% 0%\""))
+    #expect(rendered.contains("data-accessibility-drag-description=\"Drag from top\""))
+    #expect(rendered.contains("data-accessibility-drop-point=\"50% 100%\""))
+    #expect(rendered.contains("data-accessibility-drop-description=\"Drop at bottom\""))
+    #expect(rendered.contains("data-accessibility-responds-to-user-interaction=\"false\""))
+  }
+
+  @Test
+  func accessibilityModifiersAttachToMutableElements() {
+    let rendered = Button("Save") {}
+      .accessibilityLabel("Save")
+      .accessibilityHint("Stores the draft")
+      .accessibilityAction(.default) {}
+      .render()
+
+    #expect(rendered.contains("<button"))
+    #expect(rendered.contains("aria-label=\"Save\""))
+    #expect(rendered.contains("aria-description=\"Stores the draft\""))
+    #expect(rendered.contains("data-accessibility-action=\"default\""))
+    #expect(!rendered.contains("swui-semantic-modifier\"><button"))
+  }
+
+  @Test
+  func tapGestureHonorsRequiredClickCount() throws {
+    let recorder = GestureRecorder()
+
+    let artifact = Text("Tap")
+      .onTapGesture(count: 2) {
+        recorder.increment()
+      }
+      .renderArtifact()
+
+    let click = try #require(artifact.clientHandlers.handlers.first { $0.eventName == "click" })
+    click.invoke()
+    #expect(recorder.count == 0)
+
+    click.invoke()
+    #expect(recorder.count == 1)
+  }
+
+  @Test(.timeLimit(.minutes(1)))
+  func longPressGestureWaitsForMinimumDuration() async throws {
+    let recorder = GestureRecorder()
+    let pressing = PressingRecorder()
+
+    let artifact = Text("Hold")
+      .onLongPressGesture(minimumDuration: 0.02, maximumDistance: 10, pressing: { isPressing in
+        pressing.append(isPressing)
+      }) {
+        recorder.increment()
+      }
+      .renderArtifact()
+
+    let pointerDown = try #require(artifact.clientHandlers.handlers.first { $0.eventName == "pointerdown" })
+    let pointerUp = try #require(artifact.clientHandlers.handlers.first { $0.eventName == "pointerup" })
+
+    pointerDown.invoke(with: DOMEvent(clientX: 0, clientY: 0))
+    pointerUp.invoke(with: DOMEvent(clientX: 0, clientY: 0))
+    try await Task.sleep(for: .milliseconds(40))
+    #expect(recorder.count == 0)
+
+    pointerDown.invoke(with: DOMEvent(clientX: 0, clientY: 0))
+    try await Task.sleep(for: .milliseconds(40))
+    #expect(recorder.count == 1)
+    pointerUp.invoke(with: DOMEvent(clientX: 0, clientY: 0))
+    #expect(pressing.values == [true, false, true, false])
+  }
+
+  @Test
   func rendersSegmentedAndInlinePickerStyles() {
     @State var status = "published"
     @State var visibility = "public"
@@ -766,12 +1291,98 @@ struct SwiftWebUIRenderingTests {
     .searchable(text: $query)
     .render()
 
-    #expect(rendered.contains("class=\"swui-searchable swui-fill-h\""))
+    #expect(rendered.contains("class=\"swui-searchable swui-search-placement-automatic swui-fill-h\""))
+    #expect(rendered.contains("data-search-presented=\"true\""))
     #expect(rendered.contains("role=\"search\""))
     #expect(rendered.contains("class=\"swui-search-field swui-material swui-material-thin\""))
     #expect(rendered.contains("type=\"search\""))
     #expect(rendered.contains("placeholder=\"Search\""))
     #expect(rendered.contains("aria-label=\"Search\""))
+  }
+
+  @Test
+  func rendersSearchablePlacementAndPresentationBinding() {
+    @State var query = ""
+    @State var isPresented = false
+
+    let rendered = VStack {
+      Text("Items")
+    }
+    .searchable(text: $query, isPresented: $isPresented, placement: .toolbar, prompt: "Filter")
+    .render()
+
+    #expect(rendered.contains("class=\"swui-searchable swui-search-placement-toolbar swui-fill-h\""))
+    #expect(rendered.contains("data-search-presented=\"false\""))
+    #expect(!rendered.contains("role=\"search\""))
+    #expect(!rendered.contains("placeholder=\"Filter\""))
+  }
+
+  @Test
+  func rendersSearchSuggestionsScopesAndCompletion() throws {
+    @State var query = ""
+    @State var scope = "all"
+    @State var tokens = ["swift", "wasm"]
+
+    let artifact = VStack {
+      Text("Items")
+    }
+    .searchable(text: $query) {
+      Text("Apple").searchCompletion("apple")
+      Text("Banana").searchCompletion("banana")
+    }
+    .searchTokens($tokens) { token in
+      Text(token)
+    }
+    .searchScopes($scope) {
+      SearchScope("All", value: "all")
+      SearchScope("Favorites", value: "favorites")
+    }
+    .renderArtifact()
+    let rendered = artifact.html
+
+    #expect(rendered.contains("class=\"swui-search-suggestions\" role=\"listbox\""))
+    #expect(rendered.contains("data-search-completion=\"apple\""))
+    #expect(rendered.contains("data-search-completion=\"banana\""))
+    #expect(rendered.contains("class=\"swui-search-tokens\""))
+    #expect(rendered.contains("class=\"swui-search-token\" type=\"button\" data-search-token=\"swift\""))
+    #expect(rendered.contains("data-search-token=\"wasm\""))
+    #expect(rendered.contains("class=\"swui-search-scopes\" role=\"radiogroup\""))
+    #expect(rendered.contains("data-search-scope=\"all\""))
+    #expect(rendered.contains("name=\"swui-search-scopes-"))
+    #expect(rendered.contains("checked"))
+    #expect(rendered.contains("data-search-scope=\"favorites\""))
+
+    let scopeChange = try #require(artifact.clientHandlers.handlers.first { $0.eventName == "change" })
+    scopeChange.invoke(with: DOMEvent(value: "favorites"))
+    #expect(scope == "favorites")
+
+    let tokenClick = try #require(artifact.clientHandlers.handlers.first { $0.eventName == "click" })
+    tokenClick.invoke(with: DOMEvent())
+    #expect(tokens == ["wasm"])
+  }
+
+  @Test
+  func searchScopesUseDistinctNativeRadioGroups() {
+    @State var firstScope = "all"
+    @State var secondScope = "all"
+
+    let rendered = VStack {
+      Text("First")
+        .searchScopes($firstScope) {
+          SearchScope("All", value: "all")
+          SearchScope("Favorites", value: "favorites")
+        }
+      Text("Second")
+        .searchScopes($secondScope) {
+          SearchScope("All", value: "all")
+          SearchScope("Recent", value: "recent")
+        }
+    }
+    .render()
+
+    let names = searchScopeGroupNames(in: rendered)
+    #expect(names.count == 4)
+    #expect(Set(names).count == 2)
   }
 
   @Test
@@ -895,5 +1506,74 @@ struct SwiftWebUIRenderingTests {
 
   private func countOccurrences(of needle: String, in haystack: String) -> Int {
     haystack.components(separatedBy: needle).count - 1
+  }
+}
+
+private enum FocusField: Hashable, Codable, Sendable {
+  case title
+}
+
+private struct ColorSchemeShapeStyle: WebShapeStyle {
+  func resolve(in context: StyleResolutionContext) -> ResolvedStyle {
+    ResolvedStyle(cssValue: context.colorScheme == .dark ? "#111111" : "#eeeeee")
+  }
+}
+
+private struct ChangeRecord<Value: Equatable>: Equatable {
+  var oldValue: Value
+  var newValue: Value
+}
+
+private final class ChangeRecorder<Value: Equatable> {
+  private(set) var records: [ChangeRecord<Value>] = []
+
+  func record(oldValue: Value, newValue: Value) {
+    records.append(ChangeRecord(oldValue: oldValue, newValue: newValue))
+  }
+}
+
+private final class GestureRecorder: Sendable {
+  private let storage = Mutex(0)
+
+  var count: Int {
+    storage.withLock { $0 }
+  }
+
+  func increment() {
+    storage.withLock { $0 += 1 }
+  }
+}
+
+private final class PressingRecorder: Sendable {
+  private let storage = Mutex([Bool]())
+
+  var values: [Bool] {
+    storage.withLock { $0 }
+  }
+
+  func append(_ value: Bool) {
+    storage.withLock { $0.append(value) }
+  }
+}
+
+private func searchScopeGroupNames(in rendered: String) -> [String] {
+  rendered.components(separatedBy: "name=\"").dropFirst().compactMap { part in
+    guard let end = part.firstIndex(of: "\"") else {
+      return nil
+    }
+    let name = String(part[..<end])
+    return name.hasPrefix("swui-search-scopes-") ? name : nil
+  }
+}
+
+private struct OnChangeProbe: ClientComponent {
+  let value: Int
+  let recorder: ChangeRecorder<Int>
+
+  var body: some HTML {
+    Text("Value")
+      .onChange(of: value, initial: true) { oldValue, newValue in
+        recorder.record(oldValue: oldValue, newValue: newValue)
+      }
   }
 }

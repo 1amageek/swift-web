@@ -12,6 +12,7 @@ public struct ProgressView: WebUIAttributeComponent {
     private let value: Double?
     private let total: Double
     private let attributes: [HTMLAttribute]
+    @Environment(\.progressViewStyle) private var progressViewStyle
 
     /// Creates an indeterminate progress view with an optional label.
     public init(_ label: String? = nil) {
@@ -42,7 +43,7 @@ public struct ProgressView: WebUIAttributeComponent {
         Element(
             "div",
             attributes: mergedAttributes(
-                class: "swui-progress",
+                class: controlClassName("swui-progress", progressViewStyle.className),
                 extra: attributes
             )
         ) {

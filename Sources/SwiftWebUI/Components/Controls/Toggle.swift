@@ -7,6 +7,7 @@ public struct Toggle: WebUIAttributeComponent {
     private let attributes: [HTMLAttribute]
     @Environment(\.controlSize) private var controlSize
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.toggleStyle) private var toggleStyle
 
     public init(
         _ title: String,
@@ -21,7 +22,10 @@ public struct Toggle: WebUIAttributeComponent {
 
     @HTMLBuilder
     public var body: some HTML {
-        Element("label", attributes: [.class("swui-toggle \(controlSize.className)")]) {
+        Element(
+            "label",
+            attributes: [.class(controlClassName("swui-toggle", toggleStyle.className, controlSize.className))]
+        ) {
             Element("input", attributes: inputAttributes, isVoid: true)
             // The track composes the shared thin material for its fill, backdrop
             // blur, and rim; the thumb keeps the track's own `::after` overlay,

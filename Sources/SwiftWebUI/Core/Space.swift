@@ -5,6 +5,7 @@ public enum Space: String, Sendable {
     case medium = "var(--swui-space-md)"
     case large = "var(--swui-space-lg)"
     case xlarge = "var(--swui-space-xl)"
+    case pageInline = "var(--swui-page-inline-padding)"
 }
 
 func stackSpacingValue(_ spacing: Space?) -> String {

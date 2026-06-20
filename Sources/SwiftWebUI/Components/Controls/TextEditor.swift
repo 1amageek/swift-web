@@ -9,6 +9,7 @@ public struct TextEditor: WebUIAttributeComponent {
     private let text: Binding<String>
     private let attributes: [HTMLAttribute]
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.textFieldStyle) private var textFieldStyle
 
     public init(text: Binding<String>, _ attributes: HTMLAttribute...) {
         self.text = text
@@ -29,7 +30,12 @@ public struct TextEditor: WebUIAttributeComponent {
         Element(
             "textarea",
             attributes: mergedAttributes(
-                class: "swui-text-editor \(MaterialClass.material) \(MaterialClass.thin)",
+                class: controlClassName(
+                    "swui-text-editor",
+                    textFieldStyle.className,
+                    MaterialClass.material,
+                    MaterialClass.thin
+                ),
                 styles: .custom("--swui-material-tint", "var(--swui-field-background)"),
                 extra: [
                     .onInput { event in

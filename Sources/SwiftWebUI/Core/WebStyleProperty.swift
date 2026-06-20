@@ -3,6 +3,7 @@ import SwiftHTML
 public enum WebStyleProperty: Sendable, Equatable {
     case foreground
     case background
+    case overlay
     case tint
     case border(width: WebUILength)
 
@@ -24,6 +25,8 @@ public enum WebStyleProperty: Sendable, Equatable {
             return .color(resolvedStyle.cssValue)
         case .background:
             return .background(resolvedStyle.cssValue)
+        case .overlay:
+            return .boxShadow("inset 0 0 0 9999px \(resolvedStyle.cssValue)")
         case .tint:
             return Style {
                 .custom("--swui-tint", resolvedStyle.cssValue)
@@ -31,6 +34,30 @@ public enum WebStyleProperty: Sendable, Equatable {
             }
         case .border(let width):
             return .border("\(width.cssValue) solid \(resolvedStyle.cssValue)")
+        }
+    }
+
+    var modifierRole: HTMLModifierRole {
+        switch self {
+        case .foreground, .tint:
+            .textStyle
+        case .background, .overlay, .border:
+            .box
+        }
+    }
+
+    var modifierClassName: String {
+        switch self {
+        case .foreground:
+            "swui-style-foreground"
+        case .background:
+            "swui-style-background"
+        case .overlay:
+            "swui-style-overlay"
+        case .tint:
+            "swui-style-tint"
+        case .border:
+            "swui-style-border"
         }
     }
 }

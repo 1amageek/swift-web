@@ -1,23 +1,23 @@
 import SwiftHTML
 
-public extension WebUIAttributeMutableHTML {
+public extension HTML {
     /// Fill the surface with a `Material`, clipped to `shape`.
     ///
     /// Mirrors SwiftUI `background(_:in:)`. The material owns the fill and
     /// backdrop recipe; the shape only contributes the `border-radius` that
     /// clips the surface and its `backdrop-filter`.
-    func background(_ material: Material, in shape: Shape = .rect) -> Self {
-        addingAttributes(materialSurfaceAttributes(classNames: material.classNames, shape: shape))
+    func background(_ material: Material, in shape: Shape = .rect) -> ModifiedContent<Self, HTMLAttributeModifier> {
+        modifier(HTMLAttributeModifier(materialSurfaceAttributes(classNames: material.classNames, shape: shape)))
     }
 
     /// Apply a Liquid Glass effect, clipped to `shape`.
     ///
     /// Mirrors SwiftUI `glassEffect(_:in:)`. `Glass.identity` is a no-op.
-    func glassEffect(_ glass: Glass = .regular, in shape: Shape = .capsule) -> Self {
+    func glassEffect(_ glass: Glass = .regular, in shape: Shape = .capsule) -> ModifiedContent<Self, HTMLAttributeModifier> {
         guard let attributes = glass.attributes(in: shape) else {
-            return self
+            return modifier(HTMLAttributeModifier([]))
         }
-        return addingAttributes(attributes)
+        return modifier(HTMLAttributeModifier(attributes))
     }
 }
 

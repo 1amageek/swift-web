@@ -287,10 +287,24 @@ xcrun swift run sweb build \
 Production WASM builds strip debug/producers sections, optionally run `wasm-opt -Oz`,
 write `<artifact>.wasm.size.json`, and create cached `.gz` / `.br` sidecars.
 
-### 8. Try The Counter Example
+### 8. Try The Examples
 
-The repository includes a sample app with server actions, page invalidation, and a
-client-side counter component:
+The repository includes a minimal hello world app and a counter app with server
+actions, page invalidation, and a client-side counter component.
+
+Run the minimal app:
+
+```bash
+xcrun swift run sweb dev --package-path Examples/HelloWorld
+```
+
+Open:
+
+```text
+http://127.0.0.1:3000/
+```
+
+Run the counter app:
 
 ```bash
 xcrun swift run sweb dev --package-path Examples/CounterApp

@@ -6,6 +6,7 @@ public struct TextField: WebUIAttributeComponent {
     private let attributes: [HTMLAttribute]
     @Environment(\.controlSize) private var controlSize
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.textFieldStyle) private var textFieldStyle
 
     public init(
         _ title: String,
@@ -43,7 +44,13 @@ public struct TextField: WebUIAttributeComponent {
             Element(
                 "input",
                 attributes: mergedAttributes(
-                    class: "swui-text-field \(controlSize.className) \(MaterialClass.material) \(MaterialClass.thin)",
+                    class: controlClassName(
+                        "swui-text-field",
+                        textFieldStyle.className,
+                        controlSize.className,
+                        MaterialClass.material,
+                        MaterialClass.thin
+                    ),
                     styles: .custom("--swui-material-tint", "var(--swui-field-background)"),
                     extra: typeAttribute + [.placeholder(title)] + disabledAttributes + attributes
                 ),

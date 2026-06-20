@@ -20,4 +20,12 @@ public struct StyleResolutionContext: Sendable {
         self.layoutDirection = layoutDirection
         self.controlState = controlState
     }
+
+    public static let `default` = StyleResolutionContext(
+        theme: .system,
+        styleSystem: .default,
+        colorScheme: .light,
+        layoutDirection: .leftToRight,
+        controlState: .enabled
+    )
 }

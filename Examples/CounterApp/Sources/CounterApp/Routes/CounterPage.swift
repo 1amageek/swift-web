@@ -58,7 +58,7 @@ struct CounterPage {
             Link("Reload page", href: "/counter")
         }
         .frame(maxWidth: "920px")
-        .padding(.horizontal, "var(--swui-page-inline-padding)")
+        .padding(.horizontal, .pageInline)
         .padding(.vertical, .xlarge)
         .environment(\.theme, .system)
     }

@@ -9,6 +9,7 @@ public struct Gauge: WebUIAttributeComponent {
     private let bounds: ClosedRange<Double>
     private let label: String?
     private let attributes: [HTMLAttribute]
+    @Environment(\.gaugeStyle) private var gaugeStyle
 
     public init(
         value: Double,
@@ -38,7 +39,7 @@ public struct Gauge: WebUIAttributeComponent {
         Element(
             "div",
             attributes: mergedAttributes(
-                class: "swui-gauge",
+                class: controlClassName("swui-gauge", gaugeStyle.className),
                 extra: attributes
             )
         ) {

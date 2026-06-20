@@ -60,7 +60,7 @@ public struct Alignment: Sendable, Equatable {
     }
 }
 
-public extension WebUIAttributeComponent {
+public extension WebUIAttributeMutableHTML {
     func attribute(_ attribute: HTMLAttribute) -> Self {
         addingAttributes([attribute])
     }
@@ -105,10 +105,6 @@ public extension WebUIAttributeComponent {
         attribute(.value(value))
     }
 
-    func hidden(_ condition: Bool = true) -> Self {
-        condition ? attribute(.hidden) : self
-    }
-
     func onClick(_ handler: @escaping () -> Void) -> Self {
         attribute(.onClick(handler))
     }
@@ -125,35 +121,6 @@ public extension WebUIAttributeComponent {
         attribute(.onChange(handler))
     }
 
-    func padding(_ length: Space = .medium) -> Self {
-        style(.padding(length.rawValue))
-    }
-
-    func padding(_ edges: Edge.Set, _ length: Space = .medium) -> Self {
-        style(edgePaddingStyle(edges: edges, value: length.rawValue))
-    }
-
-    func padding(_ edges: Edge.Set, _ value: String) -> Self {
-        style(edgePaddingStyle(edges: edges, value: value))
-    }
-
-    func padding(_ value: String) -> Self {
-        style(.padding(value))
-    }
-
-    @available(*, deprecated, renamed: "foregroundStyle")
-    func foregroundColor(_ value: String) -> Self {
-        style(.color(value))
-    }
-
-    func background(_ value: String) -> Self {
-        style(.background(value))
-    }
-
-    func cornerRadius(_ value: String) -> Self {
-        style(.borderRadius(value))
-    }
-
     func style(_ style: Style) -> Self {
         addingAttributes([styleAttribute(style)])
     }
@@ -161,15 +128,77 @@ public extension WebUIAttributeComponent {
     func style(@StyleBuilder _ content: () -> Style) -> Self {
         style(content())
     }
+}
 
-    /// Pin the element to its intrinsic size so it neither expands nor blocks
-    /// parent fill propagation. Mirrors SwiftUI `fixedSize()`.
-    func fixedSize() -> Self {
+public extension HTML {
+    func padding() -> ModifiedContent<Self, HTMLAttributeModifier> {
+        padding(.all, Space.medium.rawValue)
+    }
+
+    func hidden(_ condition: Bool = true) -> ModifiedContent<Self, HTMLAttributeModifier> {
+        condition ? modifier(HTMLAttributeModifier([.hidden])) : modifier(HTMLAttributeModifier([]))
+    }
+
+    func padding(_ length: Space = .medium) -> ModifiedContent<Self, HTMLAttributeModifier> {
+        padding(.all, length)
+    }
+
+    func padding(_ length: WebUILength) -> ModifiedContent<Self, HTMLAttributeModifier> {
+        padding(.all, length.cssValue)
+    }
+
+    func padding(_ edges: Edge.Set, _ length: Space = .medium) -> ModifiedContent<Self, HTMLAttributeModifier> {
+        padding(edges, length.rawValue)
+    }
+
+    func padding(_ edges: Edge.Set = .all, _ length: WebUILength?) -> ModifiedContent<Self, HTMLAttributeModifier> {
+        padding(edges, length?.cssValue ?? Space.medium.rawValue)
+    }
+
+    func padding(_ insets: EdgeInsets) -> ModifiedContent<Self, HTMLAttributeModifier> {
+        modifier(HTMLAttributeModifier([styleAttribute(.padding(insets.cssValue))]))
+    }
+
+    func padding(_ edges: Edge.Set, _ value: String) -> ModifiedContent<Self, HTMLAttributeModifier> {
+        modifier(HTMLAttributeModifier([styleAttribute(edgePaddingStyle(edges: edges, value: value))]))
+    }
+
+    func padding(_ value: String) -> ModifiedContent<Self, HTMLAttributeModifier> {
+        modifier(HTMLAttributeModifier([styleAttribute(.padding(value))]))
+    }
+
+    func background(_ value: String) -> ModifiedContent<Self, HTMLAttributeModifier> {
+        modifier(HTMLAttributeModifier([styleAttribute(.background(value))]))
+    }
+
+    func cornerRadius(_ value: String) -> ModifiedContent<Self, HTMLAttributeModifier> {
+        modifier(HTMLAttributeModifier([styleAttribute(.borderRadius(value))]))
+    }
+
+    func clipShape(_ shape: Shape) -> ModifiedContent<Self, HTMLAttributeModifier> {
+        modifier(HTMLAttributeModifier([styleAttribute(.borderRadius(shape.cornerRadiusValue))]))
+    }
+
+    func opacity(_ value: Double) -> ModifiedContent<Self, HTMLAttributeModifier> {
+        modifier(HTMLAttributeModifier([styleAttribute(.opacity(trimmedNumber(value)))]))
+    }
+
+    func shadow(
+        color: String = "rgba(0, 0, 0, 0.33)",
+        radius: WebUILength,
+        x: WebUILength = 0,
+        y: WebUILength = 0
+    ) -> ModifiedContent<Self, HTMLAttributeModifier> {
+        modifier(HTMLAttributeModifier([
+            styleAttribute(.boxShadow("\(x.cssValue) \(y.cssValue) \(radius.cssValue) \(color)"))
+        ]))
+    }
+
+    func fixedSize() -> ModifiedContent<Self, HTMLAttributeModifier> {
         fixedSize(horizontal: true, vertical: true)
     }
 
-    /// Pin the element to its intrinsic size along the selected axes.
-    func fixedSize(horizontal: Bool, vertical: Bool) -> Self {
+    func fixedSize(horizontal: Bool, vertical: Bool) -> ModifiedContent<Self, HTMLAttributeModifier> {
         var tokens: [String] = []
         if horizontal {
             tokens.append(LayoutClass.hugHorizontal)
@@ -178,47 +207,41 @@ public extension WebUIAttributeComponent {
             tokens.append(LayoutClass.hugVertical)
         }
         guard !tokens.isEmpty else {
-            return self
+            return modifier(HTMLAttributeModifier([]))
         }
-        return addingAttributes([.class(tokens.joined(separator: " "))])
+        return modifier(HTMLAttributeModifier([.class(tokens.joined(separator: " "))]))
     }
 
-    /// Relative growth weight among expanding siblings, mirroring SwiftUI
-    /// `layoutPriority(_:)`. Higher values claim more of the available space on
-    /// the parent's main axis.
-    func layoutPriority(_ value: Double) -> Self {
-        style(.custom("flex-grow", trimmedNumber(value)))
+    func layoutPriority(_ value: Double) -> ModifiedContent<Self, HTMLAttributeModifier> {
+        modifier(HTMLAttributeModifier([styleAttribute(.custom("flex-grow", trimmedNumber(value)))]))
     }
+}
 
+public extension HTML {
     func frame(
         width: WebUILength? = nil,
         minWidth: WebUILength? = nil,
+        idealWidth: WebUILength? = nil,
         maxWidth: WebUILength? = nil,
         height: WebUILength? = nil,
         minHeight: WebUILength? = nil,
+        idealHeight: WebUILength? = nil,
         maxHeight: WebUILength? = nil,
         alignment: Alignment = .center
-    ) -> Self {
-        let layout = frameLayout(
+    ) -> Frame<Self> {
+        Frame(
             width: width,
             minWidth: minWidth,
+            idealWidth: idealWidth,
             maxWidth: maxWidth,
             height: height,
             minHeight: minHeight,
+            idealHeight: idealHeight,
             maxHeight: maxHeight,
             alignment: alignment
-        )
-        var attributes: [HTMLAttribute] = []
-        if !layout.classes.isEmpty {
-            attributes.append(.class(layout.classes.joined(separator: " ")))
+        ) {
+            self
         }
-        var style = layout.style
-        // Axis-neutral content alignment for the element itself. Flex children
-        // are positioned by the element's own `alignment:`; `text-align` aligns
-        // inline/text content of a leaf within an expanded frame.
-        style.append(.textAlign(alignment.textAlign))
-        attributes.append(styleAttribute(style))
-        return addingAttributes(attributes)
     }
 }
 
@@ -260,33 +283,41 @@ func edgePaddingStyle(edges: Edge.Set, value: String) -> Style {
     return style
 }
 
-public struct Frame<Content: HTML>: Component {
+public struct Frame<Content: HTML>: WebUIAttributeComponent {
     private let width: WebUILength?
     private let minWidth: WebUILength?
+    private let idealWidth: WebUILength?
     private let maxWidth: WebUILength?
     private let height: WebUILength?
     private let minHeight: WebUILength?
+    private let idealHeight: WebUILength?
     private let maxHeight: WebUILength?
     private let alignment: Alignment
+    private let attributes: [HTMLAttribute]
     private let content: Content
 
     public init(
         width: WebUILength? = nil,
         minWidth: WebUILength? = nil,
+        idealWidth: WebUILength? = nil,
         maxWidth: WebUILength? = nil,
         height: WebUILength? = nil,
         minHeight: WebUILength? = nil,
+        idealHeight: WebUILength? = nil,
         maxHeight: WebUILength? = nil,
         alignment: Alignment = .center,
         @HTMLBuilder _ content: () -> Content
     ) {
         self.width = width
         self.minWidth = minWidth
+        self.idealWidth = idealWidth
         self.maxWidth = maxWidth
         self.height = height
         self.minHeight = minHeight
+        self.idealHeight = idealHeight
         self.maxHeight = maxHeight
         self.alignment = alignment
+        self.attributes = []
         self.content = content()
     }
 
@@ -295,9 +326,11 @@ public struct Frame<Content: HTML>: Component {
         let layout = frameLayout(
             width: width,
             minWidth: minWidth,
+            idealWidth: idealWidth,
             maxWidth: maxWidth,
             height: height,
             minHeight: minHeight,
+            idealHeight: idealHeight,
             maxHeight: maxHeight,
             alignment: alignment
         )
@@ -307,37 +340,56 @@ public struct Frame<Content: HTML>: Component {
         let style = frameWrapperStyle(layout.style, alignment: alignment)
         Element(
             "div",
-            attributes: [
-                .class((["swui-frame"] + layout.classes).joined(separator: " ")),
-                styleAttribute(style),
-            ]
+            attributes: mergedAttributes(
+                class: (["swui-frame"] + layout.classes).joined(separator: " "),
+                styles: style,
+                extra: attributes
+            )
         ) {
             content
         }
     }
-}
 
-public extension HTML {
-    func frame(
-        width: WebUILength? = nil,
-        minWidth: WebUILength? = nil,
-        maxWidth: WebUILength? = nil,
-        height: WebUILength? = nil,
-        minHeight: WebUILength? = nil,
-        maxHeight: WebUILength? = nil,
-        alignment: Alignment = .center
-    ) -> Frame<Self> {
-        Frame(
+    public func addingAttributes(_ attributes: [HTMLAttribute]) -> Self {
+        Self(
             width: width,
             minWidth: minWidth,
+            idealWidth: idealWidth,
             maxWidth: maxWidth,
             height: height,
             minHeight: minHeight,
+            idealHeight: idealHeight,
             maxHeight: maxHeight,
-            alignment: alignment
-        ) {
-            self
-        }
+            alignment: alignment,
+            attributes: self.attributes + attributes,
+            content: content
+        )
+    }
+
+    private init(
+        width: WebUILength?,
+        minWidth: WebUILength?,
+        idealWidth: WebUILength?,
+        maxWidth: WebUILength?,
+        height: WebUILength?,
+        minHeight: WebUILength?,
+        idealHeight: WebUILength?,
+        maxHeight: WebUILength?,
+        alignment: Alignment,
+        attributes: [HTMLAttribute],
+        content: Content
+    ) {
+        self.width = width
+        self.minWidth = minWidth
+        self.idealWidth = idealWidth
+        self.maxWidth = maxWidth
+        self.height = height
+        self.minHeight = minHeight
+        self.idealHeight = idealHeight
+        self.maxHeight = maxHeight
+        self.alignment = alignment
+        self.attributes = attributes
+        self.content = content
     }
 }
 
@@ -359,9 +411,11 @@ func styleAttribute(@StyleBuilder _ content: () -> Style) -> HTMLAttribute {
 func frameLayout(
     width: WebUILength?,
     minWidth: WebUILength?,
+    idealWidth: WebUILength?,
     maxWidth: WebUILength?,
     height: WebUILength?,
     minHeight: WebUILength?,
+    idealHeight: WebUILength?,
     maxHeight: WebUILength?,
     alignment: Alignment
 ) -> (classes: [String], style: Style) {
@@ -374,6 +428,12 @@ func frameLayout(
     // row-oriented flex alignment because it genuinely positions its child.
     var style = Style {
         .boxSizing("border-box")
+    }
+    if let idealWidth {
+        style.append(.custom("--swui-ideal-width", idealWidth.cssValue))
+    }
+    if let idealHeight {
+        style.append(.custom("--swui-ideal-height", idealHeight.cssValue))
     }
 
     resolveAxis(

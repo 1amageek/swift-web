@@ -3,10 +3,16 @@ import SwiftHTML
 public struct WebStyleModifier<ShapeStyle: WebShapeStyle>: ComponentModifier {
     private let property: WebStyleProperty
     private let style: ShapeStyle
+    private let ignoredSafeAreaEdges: Edge.Set?
 
-    init(property: WebStyleProperty, style: ShapeStyle) {
+    init(
+        property: WebStyleProperty,
+        style: ShapeStyle,
+        ignoredSafeAreaEdges: Edge.Set? = nil
+    ) {
         self.property = property
         self.style = style
+        self.ignoredSafeAreaEdges = ignoredSafeAreaEdges
     }
 
     @Environment(\.theme) private var theme
@@ -19,7 +25,7 @@ public struct WebStyleModifier<ShapeStyle: WebShapeStyle>: ComponentModifier {
     @HTMLBuilder
     public func body(content: ModifierContent) -> some HTML {
         Element(
-            "span",
+            "div",
             attributes: mergedAttributes(
                 class: className,
                 styles: styleValue,
@@ -50,11 +56,15 @@ public struct WebStyleModifier<ShapeStyle: WebShapeStyle>: ComponentModifier {
     }
 
     private var styleValue: Style {
-        property.style(for: resolvedStyle)
+        var style = property.style(for: resolvedStyle)
+        if let ignoredSafeAreaEdges {
+            style.append(safeAreaExpansionStyle(edges: ignoredSafeAreaEdges))
+        }
+        return style
     }
 
     private var className: String {
-        (["swui-modifier", "swui-style"] + resolvedStyle.classNames)
+        (["swui-modifier", "swui-style", property.modifierRole.className, property.modifierClassName] + resolvedStyle.classNames)
             .joined(separator: " ")
     }
 }

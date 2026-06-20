@@ -1,31 +1,159 @@
 import SwiftHTML
 
-public extension WebUIAttributeMutableHTML {
-    func foregroundStyle<ShapeStyle: WebShapeStyle>(
-        _ style: ShapeStyle
-    ) -> ResolvedWebStyleContent<Self, ShapeStyle> {
-        ResolvedWebStyleContent(content: self, property: .foreground, style: style)
+public struct ForegroundStylesModifier: ComponentModifier {
+    private let styles: [AnyWebShapeStyle]
+
+    init(_ styles: [AnyWebShapeStyle]) {
+        self.styles = styles
     }
 
-    func backgroundStyle<ShapeStyle: WebShapeStyle>(
-        _ style: ShapeStyle
-    ) -> ResolvedWebStyleContent<Self, ShapeStyle> {
-        ResolvedWebStyleContent(content: self, property: .background, style: style)
+    @Environment(\.theme) private var theme
+    @Environment(\.styleSystem) private var styleSystem
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.layoutDirection) private var layoutDirection
+    @Environment(\.controlState) private var controlState
+    @Environment(\.isEnabled) private var isEnabled
+
+    @HTMLBuilder
+    public func body(content: ModifierContent) -> some HTML {
+        Element(
+            "div",
+            attributes: mergedAttributes(
+                class: className,
+                styles: styleValue,
+                extra: []
+            )
+        ) {
+            content
+        }
     }
 
-    func border<ShapeStyle: WebShapeStyle>(
-        _ style: ShapeStyle,
-        width: WebUILength = 1
-    ) -> ResolvedWebStyleContent<Self, ShapeStyle> {
-        ResolvedWebStyleContent(content: self, property: .border(width: width), style: style)
+    private var resolvedStyles: [ResolvedStyle] {
+        styles.map { style in
+            style.resolve(in: StyleResolutionContext(
+                theme: theme,
+                styleSystem: styleSystem,
+                colorScheme: colorScheme,
+                layoutDirection: layoutDirection,
+                controlState: resolvedControlState
+            ))
+        }
     }
 
-    func webStyle(_ style: Style) -> AttributeAppliedContent<Self> {
-        applyingAttributes([styleAttribute(style)])
+    private var resolvedControlState: ControlState {
+        ControlState(
+            isEnabled: isEnabled,
+            isPressed: controlState.isPressed,
+            isFocused: controlState.isFocused,
+            isSelected: controlState.isSelected
+        )
     }
 
-    func webStyle(@StyleBuilder _ content: () -> Style) -> AttributeAppliedContent<Self> {
-        webStyle(content())
+    private var styleValue: Style {
+        let resolved = resolvedStyles
+        var style = Style()
+        if let primary = resolved.first {
+            style.append(WebStyleProperty.foreground.style(for: primary))
+        }
+        for (index, resolvedStyle) in resolved.enumerated() where !resolvedStyle.cssValue.isEmpty {
+            style.append(.custom("--swui-foreground-\(foregroundStyleName(at: index))", resolvedStyle.cssValue))
+        }
+        return style
+    }
+
+    private var className: String {
+        (
+            [
+                "swui-modifier",
+                "swui-style",
+                HTMLModifierRole.textStyle.className,
+                WebStyleProperty.foreground.modifierClassName,
+                "swui-style-foreground-hierarchical",
+            ] + resolvedStyles.flatMap(\.classNames)
+        )
+        .joined(separator: " ")
+    }
+
+    private func foregroundStyleName(at index: Int) -> String {
+        switch index {
+        case 0:
+            "primary"
+        case 1:
+            "secondary"
+        case 2:
+            "tertiary"
+        default:
+            "level-\(index + 1)"
+        }
+    }
+}
+
+public struct ShapeBackgroundStyleModifier<ShapeStyle: WebShapeStyle>: ComponentModifier {
+    private let style: ShapeStyle
+    private let shape: Shape
+
+    init(style: ShapeStyle, shape: Shape) {
+        self.style = style
+        self.shape = shape
+    }
+
+    @Environment(\.theme) private var theme
+    @Environment(\.styleSystem) private var styleSystem
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.layoutDirection) private var layoutDirection
+    @Environment(\.controlState) private var controlState
+    @Environment(\.isEnabled) private var isEnabled
+
+    @HTMLBuilder
+    public func body(content: ModifierContent) -> some HTML {
+        Element(
+            "div",
+            attributes: mergedAttributes(
+                class: className,
+                styles: styleValue,
+                extra: []
+            )
+        ) {
+            content
+        }
+    }
+
+    private var resolvedStyle: ResolvedStyle {
+        style.resolve(in: StyleResolutionContext(
+            theme: theme,
+            styleSystem: styleSystem,
+            colorScheme: colorScheme,
+            layoutDirection: layoutDirection,
+            controlState: resolvedControlState
+        ))
+    }
+
+    private var resolvedControlState: ControlState {
+        ControlState(
+            isEnabled: isEnabled,
+            isPressed: controlState.isPressed,
+            isFocused: controlState.isFocused,
+            isSelected: controlState.isSelected
+        )
+    }
+
+    private var styleValue: Style {
+        var style = WebStyleProperty.background.style(for: resolvedStyle)
+        style.append(.borderRadius(shape.cornerRadiusValue))
+        return style
+    }
+
+    private var className: String {
+        (
+            [
+                "swui-modifier",
+                "swui-style",
+                HTMLModifierRole.box.className,
+                WebStyleProperty.background.modifierClassName,
+                "swui-style-shaped-background",
+            ] + resolvedStyle.classNames
+        )
+        .joined(separator: " ")
     }
 }
 
@@ -36,10 +164,54 @@ public extension HTML {
         modifier(WebStyleModifier(property: .foreground, style: style))
     }
 
+    func foregroundStyle<Primary: WebShapeStyle, Secondary: WebShapeStyle>(
+        _ primary: Primary,
+        _ secondary: Secondary
+    ) -> ModifiedContent<Self, ForegroundStylesModifier> {
+        modifier(ForegroundStylesModifier([
+            AnyWebShapeStyle(primary),
+            AnyWebShapeStyle(secondary),
+        ]))
+    }
+
+    func foregroundStyle<Primary: WebShapeStyle, Secondary: WebShapeStyle, Tertiary: WebShapeStyle>(
+        _ primary: Primary,
+        _ secondary: Secondary,
+        _ tertiary: Tertiary
+    ) -> ModifiedContent<Self, ForegroundStylesModifier> {
+        modifier(ForegroundStylesModifier([
+            AnyWebShapeStyle(primary),
+            AnyWebShapeStyle(secondary),
+            AnyWebShapeStyle(tertiary),
+        ]))
+    }
+
+    func background<ShapeStyle: WebShapeStyle>(
+        _ style: ShapeStyle,
+        ignoresSafeAreaEdges edges: Edge.Set = .all
+    ) -> ModifiedContent<Self, WebStyleModifier<ShapeStyle>> {
+        modifier(WebStyleModifier(property: .background, style: style, ignoredSafeAreaEdges: edges))
+    }
+
+    func background<ShapeStyle: WebShapeStyle>(
+        _ style: ShapeStyle,
+        in shape: Shape
+    ) -> ModifiedContent<Self, ShapeBackgroundStyleModifier<ShapeStyle>> {
+        modifier(ShapeBackgroundStyleModifier(style: style, shape: shape))
+    }
+
+    func background(
+        in shape: Shape
+    ) -> ModifiedContent<Self, HTMLAttributeModifier> {
+        modifier(HTMLAttributeModifier([
+            styleAttribute(.borderRadius(shape.cornerRadiusValue))
+        ]))
+    }
+
     func backgroundStyle<ShapeStyle: WebShapeStyle>(
         _ style: ShapeStyle
     ) -> ModifiedContent<Self, WebStyleModifier<ShapeStyle>> {
-        modifier(WebStyleModifier(property: .background, style: style))
+        background(style)
     }
 
     func tint<ShapeStyle: WebShapeStyle>(

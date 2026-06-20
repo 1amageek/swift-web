@@ -4,6 +4,7 @@ public struct List<Content: HTML>: WebUIAttributeComponent {
     private let spacing: Space
     private let attributes: [HTMLAttribute]
     private let content: Content
+    @Environment(\.listStyle) private var listStyle
 
     public init(
         spacing: Space = .small,
@@ -20,7 +21,7 @@ public struct List<Content: HTML>: WebUIAttributeComponent {
         Element(
             "div",
             attributes: mergedAttributes(
-                class: "swui-list \(LayoutClass.fillHorizontal)",
+                class: controlClassName("swui-list", listStyle.className, LayoutClass.fillHorizontal),
                 styles: .gap(spacing.rawValue),
                 extra: [.role("list")] + attributes
             )

@@ -160,6 +160,23 @@ enum ThemeStylesheet {
       rule(".swui-frame") {
         .display("flex")
       }
+      rule(".swui-layered") {
+        .display("grid")
+          .boxSizing("border-box")
+      }
+      rule(".swui-layered > .swui-layer") {
+        .gridArea("1 / 1")
+          .boxSizing("border-box")
+      }
+      rule(".swui-layer-background") {
+        .zIndex("0")
+      }
+      rule(".swui-layer-content") {
+        .zIndex("1")
+      }
+      rule(".swui-layer-overlay") {
+        .zIndex("2")
+      }
       rule(".swui-spacer") {
         .flex("1 1 auto")
       }
@@ -189,6 +206,45 @@ enum ThemeStylesheet {
       rule(".swui-toolbar") {
         .padding("var(--swui-space-sm) var(--swui-space-md)")
           .borderRadius("var(--swui-radius-large)")
+      }
+      rule(".swui-label-style-titleOnly .swui-label-icon") {
+        .display("none")
+      }
+      rule(".swui-label-style-iconOnly .swui-label-title") {
+        .display("none")
+      }
+      rule(
+        """
+        .swui-text-field-style-plain,
+        .swui-text-editor.swui-text-field-style-plain
+        """
+      ) {
+        .background("transparent")
+          .border("0")
+          .boxShadow("none")
+      }
+      rule(".swui-text-field-style-squareBorder") {
+        .borderRadius("0")
+      }
+      rule(".swui-list-style-plain") {
+        .border("0")
+          .background("transparent")
+      }
+      rule(
+        """
+        .swui-list-style-grouped,
+        .swui-list-style-insetGrouped
+        """
+      ) {
+        .padding("var(--swui-space-sm)")
+          .borderRadius("var(--swui-radius-large)")
+          .background("color-mix(in srgb, var(--swui-surface-raised) 72%, transparent)")
+      }
+      rule(".swui-toggle-style-checkbox .swui-toggle-control") {
+        .borderRadius("var(--swui-radius-small)")
+      }
+      rule(".swui-tabview-style-page .swui-tab-item") {
+        .display("none")
       }
       // MARK: Sizing intent markers (parent-axis aware)
       // Horizontal fill under a column parent -> stretch the cross axis.
@@ -508,13 +564,27 @@ enum ThemeStylesheet {
       rule(".swui-modifier") {
         .boxSizing("border-box")
       }
+      rule(".swui-box-modifier") {
+        .display("block")
+      }
       rule(
         """
-        .swui-style,
-        .swui-attribute
+        .swui-text-style-modifier,
+        .swui-semantic-modifier
         """
       ) {
-        .display("inline")
+        .display("contents")
+      }
+      rule(".swui-text-style-modifier .swui-text") {
+        .fontFamily("inherit")
+          .fontSize("inherit")
+          .fontStyle("inherit")
+          .fontWeight("inherit")
+          .textAlign("inherit")
+          .textDecoration("inherit")
+      }
+      rule(".swui-style-foreground .swui-text") {
+        .color("inherit")
       }
       rule(".swui-label") {
         .display("inline-flex")
@@ -1095,6 +1165,49 @@ enum ThemeStylesheet {
           .padding("var(--swui-field-padding)")
           .color("var(--swui-text)")
           .font("inherit")
+      }
+      rule(".swui-search-suggestion-host, .swui-search-scoped") {
+        .display("flex")
+          .flexDirection("column")
+          .gap("var(--swui-space-sm)")
+      }
+      rule(".swui-search-suggestions") {
+        .display("flex")
+          .flexDirection("column")
+          .gap("var(--swui-space-xs)")
+      }
+      rule(".swui-search-tokenized") {
+        .display("flex")
+          .flexDirection("column")
+          .gap("var(--swui-space-sm)")
+      }
+      rule(".swui-search-tokens") {
+        .display("flex")
+          .gap("var(--swui-space-xs)")
+          .flexWrap("wrap")
+      }
+      rule(".swui-search-token") {
+        .display("inline-flex")
+          .alignItems("center")
+          .gap("var(--swui-space-xs)")
+          .border("var(--swui-field-border)")
+          .borderRadius("var(--swui-radius-pill)")
+          .background("var(--swui-surface-raised)")
+          .color("var(--swui-text)")
+          .padding("2px var(--swui-space-sm)")
+          .font("inherit")
+          .lineHeight("var(--swui-line-height-tight)")
+          .cursor("pointer")
+      }
+      rule(".swui-search-scopes") {
+        .display("flex")
+          .gap("var(--swui-space-xs)")
+          .flexWrap("wrap")
+      }
+      rule(".swui-search-scope") {
+        .display("inline-flex")
+          .alignItems("center")
+          .gap("var(--swui-space-xs)")
       }
       // MARK: Presentation (alert / confirmationDialog / sheet / popover)
       // The shared `<dialog>` overlay composes the material primitive; this
@@ -1792,6 +1905,57 @@ enum ThemeStylesheet {
     color: var(--swui-text);
     font: inherit;
     font-size: 14px;
+  }
+
+  .swui-search-suggestion-host,
+  .swui-search-scoped {
+    display: flex;
+    flex-direction: column;
+    gap: var(--swui-space-sm);
+  }
+
+  .swui-search-suggestions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--swui-space-xs);
+  }
+
+  .swui-search-tokenized {
+    display: flex;
+    flex-direction: column;
+    gap: var(--swui-space-sm);
+  }
+
+  .swui-search-tokens {
+    display: flex;
+    gap: var(--swui-space-xs);
+    flex-wrap: wrap;
+  }
+
+  .swui-search-token {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--swui-space-xs);
+    border: var(--swui-field-border);
+    border-radius: var(--swui-radius-pill);
+    background: var(--swui-surface-raised);
+    color: var(--swui-text);
+    padding: 2px var(--swui-space-sm);
+    font: inherit;
+    line-height: var(--swui-line-height-tight);
+    cursor: pointer;
+  }
+
+  .swui-search-scopes {
+    display: flex;
+    gap: var(--swui-space-xs);
+    flex-wrap: wrap;
+  }
+
+  .swui-search-scope {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--swui-space-xs);
   }
   """
 
