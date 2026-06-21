@@ -477,7 +477,7 @@ public struct ClientChart: ClientComponent, Sendable {
     public var body: some HTML {
         GroupBox {
             Heading("Chart")
-            Text("Loaded when the chart approaches the viewport.", tone: .muted)
+            Text("Loaded when the chart approaches the viewport.").foregroundStyle(.secondary)
         }
     }
 }

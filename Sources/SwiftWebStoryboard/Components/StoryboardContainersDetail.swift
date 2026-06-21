@@ -15,7 +15,7 @@ struct ContainersDetail: Component {
                 VStack(alignment: .leading, spacing: .small) {
                     Heading("Storage", level: .subsection)
                     Text("iCloud Drive")
-                    Text("128 GB of 200 GB used", tone: .muted)
+                    Text("128 GB of 200 GB used").foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -44,7 +44,7 @@ struct ContainersDetail: Component {
                 ListRow {
                     Text("Bluetooth")
                     Spacer()
-                    Text("Off", tone: .muted)
+                    Text("Off").foregroundStyle(.secondary)
                 }
                 ListRow {
                     Text("Updates")
@@ -63,18 +63,18 @@ struct ContainersDetail: Component {
             } header: {
                 Heading("Account", level: .subsection)
             } footer: {
-                Text("Signed in as ada@example.com", tone: .muted)
+                Text("Signed in as ada@example.com").foregroundStyle(.secondary)
             }
         case "disclosuregroup":
             DisclosureGroup("Advanced options", isExpanded: advancedOptionsExpanded) {
                 VStack(alignment: .leading, spacing: .small) {
-                    Text("Nested content reveals when expanded.", tone: .muted)
+                    Text("Nested content reveals when expanded.").foregroundStyle(.secondary)
                     Label("Verbose logging", systemImage: "doc.text")
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             DisclosureGroup("Collapsed by default") {
-                Text("Hidden until toggled.", tone: .muted)
+                Text("Hidden until toggled.").foregroundStyle(.secondary)
             }
         case "grid":
             Grid(alignment: .center, horizontalSpacing: 8, verticalSpacing: 8) {
@@ -95,7 +95,7 @@ struct ContainersDetail: Component {
                             Image(systemName: "envelope")
                             VStack(alignment: .leading, spacing: .xsmall) {
                                 Text(name)
-                                Text("Message preview", tone: .muted)
+                                Text("Message preview").foregroundStyle(.secondary)
                             }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -132,7 +132,7 @@ struct ContainersDetail: Component {
                 VStack(alignment: .leading, spacing: .small) {
                     Heading("Storage", level: .subsection)
                     Text("iCloud Drive")
-                    Text("128 GB of 200 GB used", tone: .muted)
+                    Text("128 GB of 200 GB used").foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }

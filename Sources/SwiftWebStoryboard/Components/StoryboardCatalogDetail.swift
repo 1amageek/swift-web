@@ -26,13 +26,13 @@ struct CatalogDetail: Component {
     let advancedOptionsExpanded: Binding<Bool>
 
     var body: some HTML {
-        div(.class("storyboard-detail")) {
+        main(.class("storyboard-detail")) {
             div(.class("storyboard-detail-content")) {
                 if let item = catalogItem(for: selection) {
                     let spec = catalogDetailSpec(for: item)
                     detailHeader(item: item, spec: spec)
                     previewSection()
-                    codeSection(title: "Usage", text: spec.snippet, language: "swift", showsLineNumbers: true)
+                    codeSection(anchor: "usage", title: "Usage", text: spec.snippet, language: "swift", showsLineNumbers: true)
                     if showsRenderedHTML {
                         renderedHTMLSection()
                     }
@@ -50,14 +50,14 @@ struct CatalogDetail: Component {
     @HTMLBuilder
     private func detailHeader(item: CatalogItem, spec: CatalogDetailSpec) -> some HTML {
         if let category = catalogCategory(for: item.id) {
-            div(.class("storyboard-breadcrumb")) {
+            nav(.class("storyboard-breadcrumb"), .aria("label", "Breadcrumb")) {
                 span {
                     category.title
                 }
-                span(.class("storyboard-breadcrumb-separator")) {
+                span(.class("storyboard-breadcrumb-separator"), .aria("hidden", "true")) {
                     "/"
                 }
-                span(.class("storyboard-breadcrumb-current")) {
+                span(.class("storyboard-breadcrumb-current"), .aria("current", "page")) {
                     item.name
                 }
             }
@@ -72,7 +72,7 @@ struct CatalogDetail: Component {
 
     @HTMLBuilder
     private func previewSection() -> some HTML {
-        div(.class("storyboard-section-title")) {
+        h2(.class("storyboard-section-title"), .id("preview")) {
             "Preview"
         }
         div(.class("storyboard-preview-frame")) {
@@ -121,14 +121,14 @@ struct CatalogDetail: Component {
                 CatalogTextControl(label: "Notes", value: notes, placeholder: "Notes")
             }
         default:
-            rawHTML("")
+            EmptyHTML()
         }
     }
 
     @HTMLBuilder
-    private func codeSection(title: String, text: String, language: String, showsLineNumbers: Bool) -> some HTML {
-        div(.class("storyboard-section")) {
-            div(.class("storyboard-section-title")) {
+    private func codeSection(anchor: String, title: String, text: String, language: String, showsLineNumbers: Bool) -> some HTML {
+        section(.class("storyboard-section"), .id(anchor)) {
+            h2(.class("storyboard-section-title")) {
                 title
             }
             CodeBlock(
@@ -142,11 +142,11 @@ struct CatalogDetail: Component {
 
     @HTMLBuilder
     private func renderedHTMLSection() -> some HTML {
-        div(.class("storyboard-section")) {
-            div(.class("storyboard-section-title tight")) {
+        section(.class("storyboard-section"), .id("rendered-html")) {
+            h2(.class("storyboard-section-title tight")) {
                 "Rendered HTML"
             }
-            div(.class("storyboard-section-caption")) {
+            p(.class("storyboard-section-caption")) {
                 "The DOM SwiftWebUI emits for the preview above."
             }
             CodeBlock(
@@ -160,11 +160,11 @@ struct CatalogDetail: Component {
 
     @HTMLBuilder
     private func propertiesSection(_ properties: [CatalogProperty]) -> some HTML {
-        div(.class("storyboard-section")) {
-            div(.class("storyboard-section-title tight")) {
+        section(.class("storyboard-section"), .id("properties")) {
+            h2(.class("storyboard-section-title tight")) {
                 "Properties"
             }
-            div(.class("storyboard-section-caption")) {
+            p(.class("storyboard-section-caption")) {
                 "The parameters and modifiers that configure this component."
             }
             CatalogPropertyPanel(properties: properties)
@@ -173,8 +173,8 @@ struct CatalogDetail: Component {
 
     @HTMLBuilder
     private func relatedSection(item: CatalogItem) -> some HTML {
-        div(.class("storyboard-section bottom")) {
-            div(.class("storyboard-section-title related")) {
+        section(.class("storyboard-section bottom"), .id("related")) {
+            h2(.class("storyboard-section-title related")) {
                 "Related"
             }
             CatalogRelatedPanel(selection: item.id)

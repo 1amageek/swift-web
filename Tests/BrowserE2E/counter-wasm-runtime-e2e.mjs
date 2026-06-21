@@ -136,7 +136,7 @@ public struct CounterValue: Component {
 
     public var body: some HTML {
         VStack(spacing: .xsmall) {
-            Text(label, as: .small, tone: .muted)
+            Text(label, as: .small).foregroundStyle(.secondary)
             Text(String(value), as: .strong)
                 .font(.largeTitle)
                 .foregroundStyle(.accent)
@@ -157,9 +157,9 @@ public struct ClientDeferredCounter: ClientComponent, Sendable {
             VStack(spacing: .large) {
                 Heading("Deferred Client Counter")
                 Text(
-                    "This counter hydrates only after user interaction.",
-                    tone: .muted
+                    "This counter hydrates only after user interaction."
                 )
+                .foregroundStyle(.secondary)
                 CounterValue(label: "Deferred value", value: value)
                 Button("Increment deferred") {
                     value += 1
@@ -188,7 +188,7 @@ public struct ClientVisibleCounter: ClientComponent, Sendable {
         GroupBox {
             VStack(spacing: .large) {
                 Heading("Visible Client Counter")
-                Text("This counter hydrates when it enters the viewport.", tone: .muted)
+                Text("This counter hydrates when it enters the viewport.").foregroundStyle(.secondary)
                 CounterValue(label: "Visible value", value: value)
                 Button("Increment visible") {
                     value += 1
@@ -210,7 +210,7 @@ public struct ClientIdleCounter: ClientComponent, Sendable {
         GroupBox {
             VStack(spacing: .large) {
                 Heading("Idle Client Counter")
-                Text("This counter hydrates during the browser idle stage.", tone: .muted)
+                Text("This counter hydrates during the browser idle stage.").foregroundStyle(.secondary)
                 CounterValue(label: "Idle value", value: value)
                 Button("Increment idle") {
                     value += 1
@@ -232,7 +232,7 @@ public struct ClientManualCounter: ClientComponent, Sendable {
         GroupBox {
             VStack(spacing: .large) {
                 Heading("Manual Client Counter")
-                Text("This counter hydrates only when the runtime explicitly loads its bundle.", tone: .muted)
+                Text("This counter hydrates only when the runtime explicitly loads its bundle.").foregroundStyle(.secondary)
                 CounterValue(label: "Manual value", value: value)
                 Button("Increment manual") {
                     value += 1

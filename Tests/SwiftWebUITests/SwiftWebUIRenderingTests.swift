@@ -13,13 +13,13 @@ struct SwiftWebUIRenderingTests {
         VStack(spacing: .small) {
           Badge("SwiftWeb")
           Heading("Counter", level: .page)
-          Text("Client and server counters.", tone: .muted)
+          Text("Client and server counters.").foregroundStyle(.secondary)
         }
         Grid(alignment: .center, horizontalSpacing: 5.0, verticalSpacing: 5.0) {
           GridRow {
             GroupBox {
               Heading("Client Counter")
-              Text("Runs in WASM.", tone: .muted)
+              Text("Runs in WASM.").foregroundStyle(.secondary)
               Text("0", as: .strong)
                 .accessibilityIdentifier("counter-value")
             }
@@ -189,13 +189,15 @@ struct SwiftWebUIRenderingTests {
       Text("Page Title", as: .h1)
       Text("Inline value")
         .as(.span)
-      Text("Muted caption", as: .small, tone: .muted)
+      Text("Muted caption", as: .small).foregroundStyle(.secondary)
     }
     .render()
 
     #expect(rendered.contains("<h1 class=\"swui-text\">Page Title</h1>"))
     #expect(rendered.contains("<span class=\"swui-text\">Inline value</span>"))
-    #expect(rendered.contains("<small class=\"swui-text swui-text-muted\">Muted caption</small>"))
+    #expect(rendered.contains("<small class=\"swui-text"))
+    #expect(rendered.contains("color: var(--swui-text-muted)"))
+    #expect(rendered.contains(">Muted caption</small>"))
   }
 
   @Test

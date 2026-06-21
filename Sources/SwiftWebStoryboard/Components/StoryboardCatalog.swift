@@ -54,7 +54,7 @@ public struct StoryboardCatalog: ClientComponent, Sendable {
     }
 
     public var body: some HTML {
-        main(.class("storyboard-page")) {
+        div(.class("storyboard-page")) {
             VStack(spacing: Space.none) {
                 CatalogTopBar(theme: $theme)
                 HStack(alignment: .top, spacing: Space.none) {

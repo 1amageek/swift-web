@@ -6,6 +6,7 @@ struct CatalogTopBar: Component {
     let theme: Binding<Theme>
 
     var body: some HTML {
+        header(.class("storyboard-landmark")) {
         HStack(spacing: .medium) {
             HStack(spacing: .small) {
                 div(.class("storyboard-mark")) {
@@ -33,10 +34,10 @@ struct CatalogTopBar: Component {
             }
 
             HStack(spacing: .large) {
-                Element("a", attributes: [.href("#"), .class("storyboard-topbar-link is-muted")]) {
+                a(.href("#"), .class("storyboard-topbar-link is-muted")) {
                     "Docs"
                 }
-                Element("a", attributes: [.href("#"), .class("storyboard-topbar-link")]) {
+                a(.href("#"), .class("storyboard-topbar-link")) {
                     "GitHub ↗"
                 }
                 HStack(spacing: .xsmall) {
@@ -49,6 +50,7 @@ struct CatalogTopBar: Component {
         }
         .class("storyboard-topbar")
         .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 
     private func themeButton(_ title: String, value: Theme) -> some HTML {
@@ -63,10 +65,11 @@ struct CatalogSidebar: Component {
     let selection: String
 
     var body: some HTML {
+        nav(.class("storyboard-landmark"), .aria("label", "Components")) {
         VStack(alignment: .leading, spacing: .large) {
             ForEach(catalogCategories) { category in
                 VStack(alignment: .leading, spacing: .xsmall) {
-                    Text(category.title, as: .small, tone: .muted)
+                    Text(category.title, as: .h2).foregroundStyle(.secondary)
                         .class("storyboard-sidebar-section-title")
                     VStack(alignment: .leading, spacing: .xsmall) {
                         ForEach(category.items) { item in
@@ -82,6 +85,7 @@ struct CatalogSidebar: Component {
         }
         .class("storyboard-sidebar")
         .frame(width: 226, alignment: .leading)
+        }
     }
 }
 
@@ -111,32 +115,37 @@ struct CatalogInspector: Component {
     let selection: String
 
     var body: some HTML {
+        nav(.class("storyboard-landmark"), .aria("labelledby", "on-this-page-title")) {
         VStack(alignment: .leading, spacing: .medium) {
-            div(.class("storyboard-inspector-title")) {
+            h2(.class("storyboard-inspector-title"), .id("on-this-page-title")) {
                 "On This Page"
             }
             VStack(alignment: .leading, spacing: .medium) {
-                inspectorLink("Preview", selected: true)
-                inspectorLink("Usage")
+                inspectorLink("Preview", anchor: "preview", selected: true)
+                inspectorLink("Usage", anchor: "usage")
                 if showsRenderedHTML {
-                    inspectorLink("Rendered HTML")
+                    inspectorLink("Rendered HTML", anchor: "rendered-html")
                 }
-                inspectorLink("Properties")
-                inspectorLink("Related")
+                inspectorLink("Properties", anchor: "properties")
+                inspectorLink("Related", anchor: "related")
             }
             .class("storyboard-inspector-nav")
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .class("storyboard-inspector")
         .frame(width: 184, alignment: .leading)
+        }
     }
 
     private var showsRenderedHTML: Bool {
         !["gridsystem", "spacing", "alignment", "responsive", "safearea"].contains(selection)
     }
 
-    private func inspectorLink(_ title: String, selected: Bool = false) -> some HTML {
-        span(.class("storyboard-inspector-link\(selected ? " is-selected" : "")")) {
+    private func inspectorLink(_ title: String, anchor: String, selected: Bool = false) -> some HTML {
+        a(
+            .href("#\(anchor)"),
+            .class("storyboard-inspector-link\(selected ? " is-selected" : "")")
+        ) {
             title
         }
     }

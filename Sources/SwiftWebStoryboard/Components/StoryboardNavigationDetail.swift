@@ -14,13 +14,13 @@ struct NavigationDetail: Component {
         case "tabview":
             TabView(selection: tab) {
                 Tab("Summary", systemImage: "doc.text", value: "summary") {
-                    Text("Summary panel content.", tone: .muted)
+                    Text("Summary panel content.").foregroundStyle(.secondary)
                 }
                 Tab("Activity", systemImage: "chart.bar", value: "activity") {
-                    Text("Activity panel content.", tone: .muted)
+                    Text("Activity panel content.").foregroundStyle(.secondary)
                 }
                 Tab("Settings", systemImage: "gear", value: "settings") {
-                    Text("Settings panel content.", tone: .muted)
+                    Text("Settings panel content.").foregroundStyle(.secondary)
                 }
             }
         case "navigationlink":

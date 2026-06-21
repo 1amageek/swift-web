@@ -20,7 +20,7 @@ struct HelloPage {
                 Pane(span: 12) {
                     VStack(spacing: .large) {
                         Heading("Hello, World!", level: .page)
-                        Text("This is the smallest SwiftWeb example.", tone: .muted)
+                        Text("This is the smallest SwiftWeb example.").foregroundStyle(.secondary)
                     }
                 }
             }

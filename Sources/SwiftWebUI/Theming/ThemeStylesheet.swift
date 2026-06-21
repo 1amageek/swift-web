@@ -688,6 +688,7 @@ enum ThemeStylesheet {
       }
       rule(".swui-section-footer") {
         .fontSize("13px")
+          .color("var(--swui-text-muted)")
       }
       rule(".swui-list") {
         .display("grid")

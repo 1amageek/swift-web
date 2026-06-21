@@ -35,7 +35,7 @@ struct FoundationsDetail: Component {
                             div {}
                         }
                     }
-                    Text("8px grid", as: .small, tone: .muted)
+                    Text("8px grid", as: .small).foregroundStyle(.secondary)
                         .class("storyboard-spacing-grid-label")
                         .monospaced()
                 }
@@ -48,7 +48,7 @@ struct FoundationsDetail: Component {
                         "View"
                     }
                 }
-                Text("default · .center", as: .small, tone: .muted)
+                Text("default · .center", as: .small).foregroundStyle(.secondary)
                     .monospaced()
             }
             .class("storyboard-centered-demo")
@@ -58,12 +58,12 @@ struct FoundationsDetail: Component {
                     ListRow {
                         Text("Wi-Fi")
                         Spacer()
-                        Text("On", tone: .muted)
+                        Text("On").foregroundStyle(.secondary)
                     }
                     ListRow {
                         Text("Bluetooth")
                         Spacer()
-                        Text("Off", tone: .muted)
+                        Text("Off").foregroundStyle(.secondary)
                     }
                 }
                 Text(".swui-list .swui-text { ... }", as: .code)
@@ -81,7 +81,7 @@ struct FoundationsDetail: Component {
                     div { "span 4" }
                     div { "span 4" }
                 }
-                Text("large · > 1024px · 12 columns", as: .small, tone: .muted)
+                Text("large · > 1024px · 12 columns", as: .small).foregroundStyle(.secondary)
                     .monospaced()
             }
             .class("storyboard-centered-demo")
@@ -94,7 +94,7 @@ struct FoundationsDetail: Component {
                     }
                     div(.class("storyboard-phone-home")) {}
                 }
-                Text("iPhone (notch + home indicator)", as: .small, tone: .muted)
+                Text("iPhone (notch + home indicator)", as: .small).foregroundStyle(.secondary)
                     .monospaced()
             }
             .class("storyboard-centered-demo")
@@ -126,7 +126,7 @@ struct FoundationsDetail: Component {
 
     private func spacingBar(_ label: String, width: Double, active: Bool) -> some HTML {
         HStack(spacing: .small) {
-            Text(label, as: .small, tone: .muted)
+            Text(label, as: .small).foregroundStyle(.secondary)
                 .class("storyboard-spacing-label")
                 .monospaced()
             div(.class("storyboard-spacing-bar\(active ? " is-active" : "")")) {}

@@ -11,11 +11,11 @@ public struct ClientCounter: ClientComponent, Sendable {
             VStack(spacing: .large) {
                 Heading("Client Counter")
                 Text(
-                    "This state is owned by a ClientComponent running in WASM.",
-                    tone: .muted
+                    "This state is owned by a ClientComponent running in WASM."
                 )
+                .foregroundStyle(.secondary)
                 VStack(spacing: .xsmall) {
-                    Text("Client value", as: .small, tone: .muted)
+                    Text("Client value", as: .small).foregroundStyle(.secondary)
                     Text(String(value), as: .strong)
                         .font(.largeTitle)
                         .foregroundStyle(.accent)

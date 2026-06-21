@@ -128,7 +128,7 @@ public extension Section where Parent == Heading, Footer == Text {
         self.init(content: content) {
             Heading(title, level: .subsection)
         } footer: {
-            Text(footer, tone: .muted)
+            Text(footer)
         }
     }
 }

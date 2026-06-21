@@ -22,13 +22,13 @@ struct PresentationDetail: Component {
             .sheet(isPresented: showsSheet) {
                 VStack(alignment: .leading, spacing: .medium) {
                     Heading("Sheet", level: .section)
-                    Text("A sheet composes the thick material and lifts to the top layer.", tone: .muted)
+                    Text("A sheet composes the thick material and lifts to the top layer.").foregroundStyle(.secondary)
                     Button("Done") { showsSheet.wrappedValue = false }
                 }
             }
             .popover(isPresented: showsPopover) {
                 VStack(alignment: .leading, spacing: .small) {
-                    Text("Popover content anchored to its source.", tone: .muted)
+                    Text("Popover content anchored to its source.").foregroundStyle(.secondary)
                     Button("Close") { showsPopover.wrappedValue = false }
                 }
             }

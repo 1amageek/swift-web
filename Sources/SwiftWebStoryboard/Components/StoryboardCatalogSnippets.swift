@@ -35,7 +35,7 @@ func catalogSnippet(for id: String) -> String {
           HStack {
               Text("Wi-Fi")
               Spacer()
-              Text("On", tone: .muted)
+              Text("On").foregroundStyle(.secondary)
           }
       }
       """
@@ -224,7 +224,7 @@ func catalogSnippet(for id: String) -> String {
       GroupBox("Storage") {
           VStack(alignment: .leading, spacing: .small) {
               Text("iCloud Drive")
-              Text("128 GB of 200 GB used", tone: .muted)
+              Text("128 GB of 200 GB used").foregroundStyle(.secondary)
           }
       }
       """
@@ -255,7 +255,7 @@ func catalogSnippet(for id: String) -> String {
           ListRow {
               Text("Bluetooth")
               Spacer()
-              Text("Off", tone: .muted)
+              Text("Off").foregroundStyle(.secondary)
           }
       }
       """
@@ -270,7 +270,7 @@ func catalogSnippet(for id: String) -> String {
       } header: {
           Heading("Account", level: .subsection)
       } footer: {
-          Text("Signed in as ada@example.com", tone: .muted)
+          Text("Signed in as ada@example.com").foregroundStyle(.secondary)
       }
       """
   case "disclosuregroup":
@@ -279,7 +279,7 @@ func catalogSnippet(for id: String) -> String {
 
       DisclosureGroup("Advanced options", isExpanded: $advancedOptionsExpanded) {
           VStack(alignment: .leading, spacing: .small) {
-              Text("Nested content reveals when expanded.", tone: .muted)
+              Text("Nested content reveals when expanded.").foregroundStyle(.secondary)
               Label("Verbose logging", systemImage: "doc.text")
           }
       }
@@ -372,10 +372,10 @@ func catalogSnippet(for id: String) -> String {
     return """
       TabView(selection: $tab) {
           Tab("Summary", systemImage: "doc.text", value: "summary") {
-              Text("Summary panel content.", tone: .muted)
+              Text("Summary panel content.").foregroundStyle(.secondary)
           }
           Tab("Settings", systemImage: "gear", value: "settings") {
-              Text("Settings panel content.", tone: .muted)
+              Text("Settings panel content.").foregroundStyle(.secondary)
           }
       }
       """
@@ -407,7 +407,7 @@ func catalogSnippet(for id: String) -> String {
       .sheet(isPresented: $showsSheet) {
           VStack(alignment: .leading, spacing: .medium) {
               Heading("Sheet", level: .section)
-              Text("A sheet lifts a panel to the top layer.", tone: .muted)
+              Text("A sheet lifts a panel to the top layer.").foregroundStyle(.secondary)
               Button("Done") { showsSheet = false }
           }
       }

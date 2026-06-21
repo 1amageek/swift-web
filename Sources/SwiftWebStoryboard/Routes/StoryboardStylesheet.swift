@@ -47,6 +47,12 @@ struct StoryboardStylesheet: Component {
         min-height: 0;
     }
 
+    /* Semantic landmark wrappers (header/nav/aside) stay transparent to the
+       flex layout, so the SwiftWebUI stack inside remains the flex item. */
+    .storyboard-landmark {
+        display: contents;
+    }
+
     .storyboard-topbar {
         flex: none;
         z-index: 40;
@@ -213,6 +219,7 @@ struct StoryboardStylesheet: Component {
     }
 
     .storyboard-sidebar-section-title {
+        margin: 0;
         text-transform: uppercase;
         letter-spacing: .05em;
         font-size: 11px;
@@ -321,7 +328,7 @@ struct StoryboardStylesheet: Component {
         font-size: 12.5px;
         font-weight: 640;
         line-height: 1.3;
-        margin-bottom: 7px;
+        margin: 0 0 7px;
     }
 
     .storyboard-section-title.tight {
@@ -333,7 +340,7 @@ struct StoryboardStylesheet: Component {
     }
 
     .storyboard-section-caption {
-        margin-bottom: 8px;
+        margin: 0 0 8px;
         color: var(--ui-text-2);
         font-size: 12.5px;
         line-height: 1.5;
@@ -510,9 +517,8 @@ struct StoryboardStylesheet: Component {
         cursor: pointer;
     }
 
-    .storyboard-related-link .swui-text-muted {
+    .storyboard-related-link p {
         margin-top: 2px;
-        color: var(--ui-text-2);
         font-size: 12.5px;
         line-height: 1.4;
     }
@@ -538,6 +544,7 @@ struct StoryboardStylesheet: Component {
         color: var(--ui-text-2);
         font-size: 12.5px;
         line-height: 1.35;
+        text-decoration: none;
     }
 
     .storyboard-inspector-link.is-selected {

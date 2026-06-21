@@ -17,7 +17,7 @@ struct LayoutDetail: Component {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             Divider()
-            Text("Above and below are separated by a Divider.", as: .small, tone: .muted)
+            Text("Above and below are separated by a Divider.", as: .small).foregroundStyle(.secondary)
         case "divider":
             VStack(alignment: .leading, spacing: .small) {
                 Text("Section one")
@@ -29,7 +29,7 @@ struct LayoutDetail: Component {
         case "hug-fill":
             HStack(spacing: .small) {
                 Badge("fixedSize()")
-                Text("stays at content width", tone: .muted)
+                Text("stays at content width").foregroundStyle(.secondary)
             }
             .padding(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
             .background(.mix(.accent, 12, .surfaceRaised))
@@ -39,7 +39,7 @@ struct LayoutDetail: Component {
 
             HStack(spacing: .small) {
                 Badge("frame(maxWidth: .infinity)")
-                Text("stretches to the full column", tone: .muted)
+                Text("stretches to the full column").foregroundStyle(.secondary)
             }
             .padding(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
             .background(.mix(.accent, 12, .surfaceRaised))
@@ -51,7 +51,7 @@ struct LayoutDetail: Component {
                 Image(systemName: "checkmark.seal.fill")
                 VStack(alignment: .leading, spacing: .xsmall) {
                     Text("Ada Lovelace")
-                    Text("Mathematician", tone: .muted)
+                    Text("Mathematician").foregroundStyle(.secondary)
                 }
                 Spacer()
                 Button("Follow").buttonStyle(.borderedProminent)

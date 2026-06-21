@@ -38,11 +38,11 @@ struct CounterPage {
                                 VStack(spacing: .large) {
                                     Heading("Server Counter")
                                     Text(
-                                        "Each button posts a delta to Vapor. The value is read from server state on the next render.",
-                                        tone: .muted
+                                        "Each button posts a delta to Vapor. The value is read from server state on the next render."
                                     )
+                                    .foregroundStyle(.secondary)
                                     VStack(spacing: .xsmall) {
-                                        Text("Server value", as: .small, tone: .muted)
+                                        Text("Server value", as: .small).foregroundStyle(.secondary)
                                         Text(String(serverValue), as: .strong)
                                             .font(.largeTitle)
                                             .foregroundStyle(.accent)

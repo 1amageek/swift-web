@@ -33,7 +33,7 @@ struct CatalogPropertyRow: Component {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            Text(property.summary, tone: .muted)
+            Text(property.summary).foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .class("storyboard-property-row")
@@ -46,9 +46,9 @@ struct CatalogRelatedPanel: Component {
     var body: some HTML {
         HStack(spacing: .medium) {
             ForEach(relatedItems) { item in
-                Element("a", attributes: [.href(item.path), .class("storyboard-related-link")]) {
+                a(.href(item.path), .class("storyboard-related-link")) {
                     Text(item.name, as: .strong)
-                    Text(item.summary, tone: .muted)
+                    Text(item.summary).foregroundStyle(.secondary)
                 }
             }
         }
