@@ -1,7 +1,8 @@
 import SwiftHTML
 
-public struct TextField: WebUIAttributeComponent {
-    private let title: String
+public struct TextField<Label: HTML>: WebUIAttributeComponent {
+    private let label: Label
+    private let placeholder: String?
     private let type: InputType
     private let attributes: [HTMLAttribute]
     @Environment(\.controlSize) private var controlSize
@@ -9,11 +10,13 @@ public struct TextField: WebUIAttributeComponent {
     @Environment(\.textFieldStyle) private var textFieldStyle
 
     public init(
-        _ title: String,
         text: Binding<String>,
-        _ attributes: HTMLAttribute...
+        prompt: Text? = nil,
+        _ attributes: HTMLAttribute...,
+        @HTMLBuilder label: () -> Label
     ) {
-        self.title = title
+        self.label = label()
+        self.placeholder = prompt?.plainValue
         self.type = .text
         self.attributes = [.value(text), .onInput { event in
             text.wrappedValue = event.value ?? ""
@@ -21,11 +24,13 @@ public struct TextField: WebUIAttributeComponent {
     }
 
     init(
-        title: String,
+        label: Label,
+        placeholder: String?,
         type: InputType,
         attributes: [HTMLAttribute]
     ) {
-        self.title = title
+        self.label = label
+        self.placeholder = placeholder
         self.type = type
         self.attributes = attributes
     }
@@ -34,7 +39,7 @@ public struct TextField: WebUIAttributeComponent {
     public var body: some HTML {
         Element("label", attributes: [.class("swui-field \(LayoutClass.fillHorizontal)")]) {
             span(.class("swui-field-label")) {
-                title
+                label
             }
             // The field composes the shared thin material so its fill and
             // backdrop blur track the active design style. `<input>` is a
@@ -52,7 +57,7 @@ public struct TextField: WebUIAttributeComponent {
                         MaterialClass.thin
                     ),
                     styles: .custom("--swui-material-tint", "var(--swui-field-background)"),
-                    extra: typeAttribute + [.placeholder(title)] + disabledAttributes + attributes
+                    extra: typeAttribute + placeholderAttribute + disabledAttributes + attributes
                 ),
                 isVoid: true
             )
@@ -60,7 +65,7 @@ public struct TextField: WebUIAttributeComponent {
     }
 
     public func addingAttributes(_ attributes: [HTMLAttribute]) -> Self {
-        Self(title: title, type: type, attributes: self.attributes + attributes)
+        Self(label: label, placeholder: placeholder, type: type, attributes: self.attributes + attributes)
     }
 
     private var disabledAttributes: [HTMLAttribute] {
@@ -75,5 +80,30 @@ public struct TextField: WebUIAttributeComponent {
     private var typeAttribute: [HTMLAttribute] {
         let hasExplicitType = attributes.contains { $0.name == "type" }
         return hasExplicitType ? [] : [.type(type)]
+    }
+
+    private var placeholderAttribute: [HTMLAttribute] {
+        guard let placeholder else {
+            return []
+        }
+        return [.placeholder(placeholder)]
+    }
+}
+
+public extension TextField where Label == text {
+    init(
+        _ title: String,
+        text: Binding<String>,
+        prompt: Text? = nil,
+        _ attributes: HTMLAttribute...
+    ) {
+        self.init(
+            label: SwiftHTML.text(title),
+            placeholder: prompt?.plainValue ?? title,
+            type: .text,
+            attributes: [.value(text), .onInput { event in
+                text.wrappedValue = event.value ?? ""
+            }] + attributes
+        )
     }
 }

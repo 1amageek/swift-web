@@ -1,7 +1,6 @@
 import SwiftHTML
 
 public struct Button<Label: HTML>: WebUIAttributeComponent {
-    private let prominence: ButtonProminence
     private let attributes: [HTMLAttribute]
     private let action: (any ActionRepresentable)?
     private let label: Label
@@ -16,10 +15,8 @@ public struct Button<Label: HTML>: WebUIAttributeComponent {
     @Environment(\.isInsideForm) private var isInsideForm
 
     public init(
-        prominence: ButtonProminence = .secondary,
         @HTMLBuilder label: () -> Label
     ) {
-        self.prominence = prominence
         self.attributes = [.type(ButtonType.button)]
         self.action = nil
         self.label = label()
@@ -27,10 +24,8 @@ public struct Button<Label: HTML>: WebUIAttributeComponent {
 
     public init(
         action: @escaping () -> Void,
-        prominence: ButtonProminence = .secondary,
         @HTMLBuilder label: () -> Label
     ) {
-        self.prominence = prominence
         self.attributes = [.type(ButtonType.button), .onClick(action)]
         self.action = nil
         self.label = label()
@@ -38,10 +33,8 @@ public struct Button<Label: HTML>: WebUIAttributeComponent {
 
     public init(
         action: any ActionRepresentable,
-        prominence: ButtonProminence = .secondary,
         @HTMLBuilder label: () -> Label
     ) {
-        self.prominence = prominence
         self.attributes = []
         self.action = action
         self.label = label()
@@ -49,12 +42,10 @@ public struct Button<Label: HTML>: WebUIAttributeComponent {
 
     public init(
         action: ButtonAction,
-        prominence: ButtonProminence = .secondary,
         @HTMLBuilder label: () -> Label
     ) {
         self.init(
             action: action as any ActionRepresentable,
-            prominence: prominence,
             label: label
         )
     }
@@ -83,7 +74,6 @@ public struct Button<Label: HTML>: WebUIAttributeComponent {
 
     public func addingAttributes(_ attributes: [HTMLAttribute]) -> Self {
         Self(
-            prominence: prominence,
             attributes: self.attributes + attributes,
             action: action,
             label: label
@@ -91,20 +81,22 @@ public struct Button<Label: HTML>: WebUIAttributeComponent {
     }
 
     private init(
-        prominence: ButtonProminence,
         attributes: [HTMLAttribute],
         action: (any ActionRepresentable)?,
         label: Label
     ) {
-        self.prominence = prominence
         self.attributes = attributes
         self.action = action
         self.label = label
     }
 
     private var styleConfiguration: ButtonStyleConfiguration {
+        // Prominence is expressed through `.buttonStyle(...)` (e.g.
+        // `.borderedProminent`), matching SwiftUI. The configuration's
+        // prominence stays at the non-prominent baseline so the `.automatic`
+        // style resolves to the bordered treatment.
         ButtonStyleConfiguration(
-            prominence: prominence,
+            prominence: .secondary,
             controlSize: controlSize,
             isEnabled: isEnabled,
             tint: tint
@@ -234,41 +226,35 @@ private struct ButtonActionHiddenFields: ServerComponent {
 }
 
 public extension Button where Label == text {
-    init(
-        _ title: String,
-        prominence: ButtonProminence = .secondary
-    ) {
-        self.init(prominence: prominence) {
+    init(_ title: String) {
+        self.init {
             title
         }
     }
 
     init(
         _ title: String,
-        prominence: ButtonProminence = .secondary,
         action: @escaping () -> Void
     ) {
-        self.init(action: action, prominence: prominence) {
+        self.init(action: action) {
             title
         }
     }
 
     init(
         _ title: String,
-        action: any ActionRepresentable,
-        prominence: ButtonProminence = .secondary
+        action: any ActionRepresentable
     ) {
-        self.init(action: action, prominence: prominence) {
+        self.init(action: action) {
             title
         }
     }
 
     init(
         _ title: String,
-        action: ButtonAction,
-        prominence: ButtonProminence = .secondary
+        action: ButtonAction
     ) {
-        self.init(action: action, prominence: prominence) {
+        self.init(action: action) {
             title
         }
     }

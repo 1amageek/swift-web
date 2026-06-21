@@ -1,15 +1,17 @@
 import SwiftHTML
 
-public struct SecureField: WebUIAttributeComponent {
-    private let field: TextField
+public struct SecureField<Label: HTML>: WebUIAttributeComponent {
+    private let field: TextField<Label>
 
     public init(
-        _ title: String,
         text: Binding<String>,
-        _ attributes: HTMLAttribute...
+        prompt: Text? = nil,
+        _ attributes: HTMLAttribute...,
+        @HTMLBuilder label: () -> Label
     ) {
         self.field = TextField(
-            title: title,
+            label: label(),
+            placeholder: prompt?.plainValue,
             type: .password,
             attributes: [.value(text), .onInput { event in
                 text.wrappedValue = event.value ?? ""
@@ -26,7 +28,27 @@ public struct SecureField: WebUIAttributeComponent {
         Self(field: field.addingAttributes(attributes))
     }
 
-    private init(field: TextField) {
+    private init(field: TextField<Label>) {
         self.field = field
+    }
+}
+
+public extension SecureField where Label == text {
+    init(
+        _ title: String,
+        text: Binding<String>,
+        prompt: Text? = nil,
+        _ attributes: HTMLAttribute...
+    ) {
+        self.init(
+            field: TextField(
+                label: SwiftHTML.text(title),
+                placeholder: prompt?.plainValue ?? title,
+                type: .password,
+                attributes: [.value(text), .onInput { event in
+                    text.wrappedValue = event.value ?? ""
+                }] + attributes
+            )
+        )
     }
 }

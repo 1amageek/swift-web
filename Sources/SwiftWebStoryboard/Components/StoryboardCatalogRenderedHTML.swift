@@ -48,7 +48,7 @@ func catalogRenderedHTML(for id: String) -> String {
     case "picker":
         return #"<div class="swui-picker-segmented"><button class="swui-picker-segment sel">List</button></div>"#
     case "datepicker":
-        return #"<input class="swui-text-field" type="date">"#
+        return #"<input class="swui-date-picker" type="date">"#
     case "colorpicker":
         return ##"<input type="color" value="#1769e0">"##
     case "color":
@@ -58,15 +58,15 @@ func catalogRenderedHTML(for id: String) -> String {
     case "colorvalue":
         return #"<div class="swui-color" style="background-color:#007aff;"></div>"#
     case "label":
-        return #"<span class="swui-label"><span class="swui-label-icon"></span><span class="swui-label-title">Verified</span></span>"#
+        return #"<span class="swui-label"><span class="swui-label-icon"><span class="swui-image" data-system-name="checkmark.seal.fill"></span></span><span class="swui-label-title">Verified</span></span>"#
     case "groupbox":
-        return #"<div class="swui-group-box"><h3 class="swui-heading">Storage</h3></div>"#
+        return #"<div class="swui-group-box"><div class="swui-group-box-title">Storage</div></div>"#
     case "list":
         return #"<div class="swui-list" role="list"><div class="swui-list-row" role="listitem">Wi-Fi</div></div>"#
     case "section":
-        return #"<section class="swui-section"><h3 class="swui-section-header">Account</h3></section>"#
+        return #"<section class="swui-section"><div class="swui-section-header">Account</div></section>"#
     case "disclosuregroup":
-        return #"<details class="swui-disclosure" open><summary class="swui-disclosure-summary">Advanced options</summary></details>"#
+        return #"<details class="swui-disclosure-group" open><summary class="swui-disclosure-summary">Advanced options</summary></details>"#
     case "grid":
         return #"<div class="swui-grid"><div class="swui-grid-cell"></div></div>"#
     case "lazy":

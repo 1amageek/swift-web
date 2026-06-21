@@ -2,20 +2,20 @@ import SwiftHTML
 
 public struct StyleSystem: Codable, Sendable, Equatable, Identifiable {
     public var id: String
-    public var root: Root
-    public var layout: Layout
-    public var surface: Surface
-    public var typography: Typography
-    public var control: Control
-    public var button: Button
-    public var field: Field
-    public var badge: Badge
-    public var navigation: Navigation
-    public var toggle: Toggle
-    public var motion: Motion
-    public var material: Material
+    var root: Root
+    var layout: Layout
+    var surface: Surface
+    var typography: Typography
+    var control: Control
+    var button: Button
+    var field: Field
+    var badge: Badge
+    var navigation: Navigation
+    var toggle: Toggle
+    var motion: Motion
+    var material: Material
 
-    public init(
+    init(
         id: String,
         root: Root,
         layout: Layout,
@@ -45,7 +45,7 @@ public struct StyleSystem: Codable, Sendable, Equatable, Identifiable {
         self.material = material
     }
 
-    public func overriding(_ override: Override) -> StyleSystem {
+    func overriding(_ override: Override) -> StyleSystem {
         var style = self
         if let id = override.id {
             style.id = id
@@ -90,23 +90,23 @@ public struct StyleSystem: Codable, Sendable, Equatable, Identifiable {
     }
 }
 
-public extension StyleSystem {
+extension StyleSystem {
     struct Override: Codable, Sendable, Equatable {
-        public var id: String?
-        public var root: Root.Override?
-        public var layout: Layout.Override?
-        public var surface: Surface.Override?
-        public var typography: Typography.Override?
-        public var control: Control.Override?
-        public var button: Button.Override?
-        public var field: Field.Override?
-        public var badge: Badge.Override?
-        public var navigation: Navigation.Override?
-        public var toggle: Toggle.Override?
-        public var motion: Motion.Override?
-        public var material: Material.Override?
+        var id: String?
+        var root: Root.Override?
+        var layout: Layout.Override?
+        var surface: Surface.Override?
+        var typography: Typography.Override?
+        var control: Control.Override?
+        var button: Button.Override?
+        var field: Field.Override?
+        var badge: Badge.Override?
+        var navigation: Navigation.Override?
+        var toggle: Toggle.Override?
+        var motion: Motion.Override?
+        var material: Material.Override?
 
-        public init(
+        init(
             id: String? = nil,
             root: Root.Override? = nil,
             layout: Layout.Override? = nil,
@@ -138,26 +138,26 @@ public extension StyleSystem {
     }
 
     struct Root: Codable, Sendable, Equatable {
-        public var pageInlinePadding: String
-        public var stackSpacing: String
+        var pageInlinePadding: String
+        var stackSpacing: String
 
-        public init(pageInlinePadding: String, stackSpacing: String) {
+        init(pageInlinePadding: String, stackSpacing: String) {
             self.pageInlinePadding = pageInlinePadding
             self.stackSpacing = stackSpacing
         }
 
-        public func overriding(_ override: Override) -> Root {
+        func overriding(_ override: Override) -> Root {
             Root(
                 pageInlinePadding: override.pageInlinePadding ?? pageInlinePadding,
                 stackSpacing: override.stackSpacing ?? stackSpacing
             )
         }
 
-        public struct Override: Codable, Sendable, Equatable {
-            public var pageInlinePadding: String?
-            public var stackSpacing: String?
+        struct Override: Codable, Sendable, Equatable {
+            var pageInlinePadding: String?
+            var stackSpacing: String?
 
-            public init(pageInlinePadding: String? = nil, stackSpacing: String? = nil) {
+            init(pageInlinePadding: String? = nil, stackSpacing: String? = nil) {
                 self.pageInlinePadding = pageInlinePadding
                 self.stackSpacing = stackSpacing
             }
@@ -165,33 +165,33 @@ public extension StyleSystem {
     }
 
     struct Layout: Codable, Sendable, Equatable {
-        public var lazyIntrinsicSize: String
+        var lazyIntrinsicSize: String
 
-        public init(lazyIntrinsicSize: String) {
+        init(lazyIntrinsicSize: String) {
             self.lazyIntrinsicSize = lazyIntrinsicSize
         }
 
-        public func overriding(_ override: Override) -> Layout {
+        func overriding(_ override: Override) -> Layout {
             Layout(
                 lazyIntrinsicSize: override.lazyIntrinsicSize ?? lazyIntrinsicSize
             )
         }
 
-        public struct Override: Codable, Sendable, Equatable {
-            public var lazyIntrinsicSize: String?
+        struct Override: Codable, Sendable, Equatable {
+            var lazyIntrinsicSize: String?
 
-            public init(lazyIntrinsicSize: String? = nil) {
+            init(lazyIntrinsicSize: String? = nil) {
                 self.lazyIntrinsicSize = lazyIntrinsicSize
             }
         }
     }
 
     struct Surface: Codable, Sendable, Equatable {
-        public var containerBorder: String
-        public var containerRadius: String
-        public var containerShadow: String
+        var containerBorder: String
+        var containerRadius: String
+        var containerShadow: String
 
-        public init(
+        init(
             containerBorder: String,
             containerRadius: String,
             containerShadow: String
@@ -201,7 +201,7 @@ public extension StyleSystem {
             self.containerShadow = containerShadow
         }
 
-        public func overriding(_ override: Override) -> Surface {
+        func overriding(_ override: Override) -> Surface {
             Surface(
                 containerBorder: override.containerBorder ?? containerBorder,
                 containerRadius: override.containerRadius ?? containerRadius,
@@ -209,12 +209,12 @@ public extension StyleSystem {
             )
         }
 
-        public struct Override: Codable, Sendable, Equatable {
-            public var containerBorder: String?
-            public var containerRadius: String?
-            public var containerShadow: String?
+        struct Override: Codable, Sendable, Equatable {
+            var containerBorder: String?
+            var containerRadius: String?
+            var containerShadow: String?
 
-            public init(
+            init(
                 containerBorder: String? = nil,
                 containerRadius: String? = nil,
                 containerShadow: String? = nil
@@ -227,12 +227,12 @@ public extension StyleSystem {
     }
 
     struct Typography: Codable, Sendable, Equatable {
-        public var pageHeadingSize: String
-        public var pageHeadingLineHeight: String
-        public var sectionHeadingSize: String
-        public var subsectionHeadingSize: String
+        var pageHeadingSize: String
+        var pageHeadingLineHeight: String
+        var sectionHeadingSize: String
+        var subsectionHeadingSize: String
 
-        public init(
+        init(
             pageHeadingSize: String,
             pageHeadingLineHeight: String,
             sectionHeadingSize: String,
@@ -244,7 +244,7 @@ public extension StyleSystem {
             self.subsectionHeadingSize = subsectionHeadingSize
         }
 
-        public func overriding(_ override: Override) -> Typography {
+        func overriding(_ override: Override) -> Typography {
             Typography(
                 pageHeadingSize: override.pageHeadingSize ?? pageHeadingSize,
                 pageHeadingLineHeight: override.pageHeadingLineHeight ?? pageHeadingLineHeight,
@@ -253,13 +253,13 @@ public extension StyleSystem {
             )
         }
 
-        public struct Override: Codable, Sendable, Equatable {
-            public var pageHeadingSize: String?
-            public var pageHeadingLineHeight: String?
-            public var sectionHeadingSize: String?
-            public var subsectionHeadingSize: String?
+        struct Override: Codable, Sendable, Equatable {
+            var pageHeadingSize: String?
+            var pageHeadingLineHeight: String?
+            var sectionHeadingSize: String?
+            var subsectionHeadingSize: String?
 
-            public init(
+            init(
                 pageHeadingSize: String? = nil,
                 pageHeadingLineHeight: String? = nil,
                 sectionHeadingSize: String? = nil,
@@ -274,13 +274,13 @@ public extension StyleSystem {
     }
 
     struct Control: Codable, Sendable, Equatable {
-        public var miniHeight: String
-        public var smallHeight: String
-        public var regularHeight: String
-        public var largeHeight: String
-        public var disabledOpacity: String
+        var miniHeight: String
+        var smallHeight: String
+        var regularHeight: String
+        var largeHeight: String
+        var disabledOpacity: String
 
-        public init(
+        init(
             miniHeight: String,
             smallHeight: String,
             regularHeight: String,
@@ -294,7 +294,7 @@ public extension StyleSystem {
             self.disabledOpacity = disabledOpacity
         }
 
-        public func overriding(_ override: Override) -> Control {
+        func overriding(_ override: Override) -> Control {
             Control(
                 miniHeight: override.miniHeight ?? miniHeight,
                 smallHeight: override.smallHeight ?? smallHeight,
@@ -304,14 +304,14 @@ public extension StyleSystem {
             )
         }
 
-        public struct Override: Codable, Sendable, Equatable {
-            public var miniHeight: String?
-            public var smallHeight: String?
-            public var regularHeight: String?
-            public var largeHeight: String?
-            public var disabledOpacity: String?
+        struct Override: Codable, Sendable, Equatable {
+            var miniHeight: String?
+            var smallHeight: String?
+            var regularHeight: String?
+            var largeHeight: String?
+            var disabledOpacity: String?
 
-            public init(
+            init(
                 miniHeight: String? = nil,
                 smallHeight: String? = nil,
                 regularHeight: String? = nil,
@@ -328,16 +328,16 @@ public extension StyleSystem {
     }
 
     struct Button: Codable, Sendable, Equatable {
-        public var radius: String
-        public var primaryBackground: String
-        public var primaryForeground: String
-        public var secondaryBackground: String
-        public var secondaryForeground: String
-        public var secondaryBorder: String
-        public var secondaryHoverBackground: String
-        public var plainForeground: String
+        var radius: String
+        var primaryBackground: String
+        var primaryForeground: String
+        var secondaryBackground: String
+        var secondaryForeground: String
+        var secondaryBorder: String
+        var secondaryHoverBackground: String
+        var plainForeground: String
 
-        public init(
+        init(
             radius: String,
             primaryBackground: String,
             primaryForeground: String,
@@ -357,7 +357,7 @@ public extension StyleSystem {
             self.plainForeground = plainForeground
         }
 
-        public func overriding(_ override: Override) -> Button {
+        func overriding(_ override: Override) -> Button {
             Button(
                 radius: override.radius ?? radius,
                 primaryBackground: override.primaryBackground ?? primaryBackground,
@@ -370,17 +370,17 @@ public extension StyleSystem {
             )
         }
 
-        public struct Override: Codable, Sendable, Equatable {
-            public var radius: String?
-            public var primaryBackground: String?
-            public var primaryForeground: String?
-            public var secondaryBackground: String?
-            public var secondaryForeground: String?
-            public var secondaryBorder: String?
-            public var secondaryHoverBackground: String?
-            public var plainForeground: String?
+        struct Override: Codable, Sendable, Equatable {
+            var radius: String?
+            var primaryBackground: String?
+            var primaryForeground: String?
+            var secondaryBackground: String?
+            var secondaryForeground: String?
+            var secondaryBorder: String?
+            var secondaryHoverBackground: String?
+            var plainForeground: String?
 
-            public init(
+            init(
                 radius: String? = nil,
                 primaryBackground: String? = nil,
                 primaryForeground: String? = nil,
@@ -403,13 +403,13 @@ public extension StyleSystem {
     }
 
     struct Field: Codable, Sendable, Equatable {
-        public var background: String
-        public var border: String
-        public var radius: String
-        public var padding: String
-        public var labelSize: String
+        var background: String
+        var border: String
+        var radius: String
+        var padding: String
+        var labelSize: String
 
-        public init(background: String, border: String, radius: String, padding: String, labelSize: String) {
+        init(background: String, border: String, radius: String, padding: String, labelSize: String) {
             self.background = background
             self.border = border
             self.radius = radius
@@ -417,7 +417,7 @@ public extension StyleSystem {
             self.labelSize = labelSize
         }
 
-        public func overriding(_ override: Override) -> Field {
+        func overriding(_ override: Override) -> Field {
             Field(
                 background: override.background ?? background,
                 border: override.border ?? border,
@@ -427,14 +427,14 @@ public extension StyleSystem {
             )
         }
 
-        public struct Override: Codable, Sendable, Equatable {
-            public var background: String?
-            public var border: String?
-            public var radius: String?
-            public var padding: String?
-            public var labelSize: String?
+        struct Override: Codable, Sendable, Equatable {
+            var background: String?
+            var border: String?
+            var radius: String?
+            var padding: String?
+            var labelSize: String?
 
-            public init(
+            init(
                 background: String? = nil,
                 border: String? = nil,
                 radius: String? = nil,
@@ -451,13 +451,13 @@ public extension StyleSystem {
     }
 
     struct Badge: Codable, Sendable, Equatable {
-        public var background: String
-        public var border: String
-        public var foreground: String
-        public var radius: String
-        public var padding: String
+        var background: String
+        var border: String
+        var foreground: String
+        var radius: String
+        var padding: String
 
-        public init(background: String, border: String, foreground: String, radius: String, padding: String) {
+        init(background: String, border: String, foreground: String, radius: String, padding: String) {
             self.background = background
             self.border = border
             self.foreground = foreground
@@ -465,7 +465,7 @@ public extension StyleSystem {
             self.padding = padding
         }
 
-        public func overriding(_ override: Override) -> Badge {
+        func overriding(_ override: Override) -> Badge {
             Badge(
                 background: override.background ?? background,
                 border: override.border ?? border,
@@ -475,14 +475,14 @@ public extension StyleSystem {
             )
         }
 
-        public struct Override: Codable, Sendable, Equatable {
-            public var background: String?
-            public var border: String?
-            public var foreground: String?
-            public var radius: String?
-            public var padding: String?
+        struct Override: Codable, Sendable, Equatable {
+            var background: String?
+            var border: String?
+            var foreground: String?
+            var radius: String?
+            var padding: String?
 
-            public init(
+            init(
                 background: String? = nil,
                 border: String? = nil,
                 foreground: String? = nil,
@@ -499,19 +499,19 @@ public extension StyleSystem {
     }
 
     struct Navigation: Codable, Sendable, Equatable {
-        public var gap: String
-        public var linkForeground: String
-        public var linkDecoration: String
-        public var linkHoverDecoration: String
+        var gap: String
+        var linkForeground: String
+        var linkDecoration: String
+        var linkHoverDecoration: String
 
-        public init(gap: String, linkForeground: String, linkDecoration: String, linkHoverDecoration: String) {
+        init(gap: String, linkForeground: String, linkDecoration: String, linkHoverDecoration: String) {
             self.gap = gap
             self.linkForeground = linkForeground
             self.linkDecoration = linkDecoration
             self.linkHoverDecoration = linkHoverDecoration
         }
 
-        public func overriding(_ override: Override) -> Navigation {
+        func overriding(_ override: Override) -> Navigation {
             Navigation(
                 gap: override.gap ?? gap,
                 linkForeground: override.linkForeground ?? linkForeground,
@@ -520,13 +520,13 @@ public extension StyleSystem {
             )
         }
 
-        public struct Override: Codable, Sendable, Equatable {
-            public var gap: String?
-            public var linkForeground: String?
-            public var linkDecoration: String?
-            public var linkHoverDecoration: String?
+        struct Override: Codable, Sendable, Equatable {
+            var gap: String?
+            var linkForeground: String?
+            var linkDecoration: String?
+            var linkHoverDecoration: String?
 
-            public init(
+            init(
                 gap: String? = nil,
                 linkForeground: String? = nil,
                 linkDecoration: String? = nil,
@@ -541,13 +541,13 @@ public extension StyleSystem {
     }
 
     struct Toggle: Codable, Sendable, Equatable {
-        public var width: String
-        public var height: String
-        public var thumbSize: String
-        public var thumbOffset: String
-        public var checkedThumbOffset: String
+        var width: String
+        var height: String
+        var thumbSize: String
+        var thumbOffset: String
+        var checkedThumbOffset: String
 
-        public init(width: String, height: String, thumbSize: String, thumbOffset: String, checkedThumbOffset: String) {
+        init(width: String, height: String, thumbSize: String, thumbOffset: String, checkedThumbOffset: String) {
             self.width = width
             self.height = height
             self.thumbSize = thumbSize
@@ -555,7 +555,7 @@ public extension StyleSystem {
             self.checkedThumbOffset = checkedThumbOffset
         }
 
-        public func overriding(_ override: Override) -> Toggle {
+        func overriding(_ override: Override) -> Toggle {
             Toggle(
                 width: override.width ?? width,
                 height: override.height ?? height,
@@ -565,14 +565,14 @@ public extension StyleSystem {
             )
         }
 
-        public struct Override: Codable, Sendable, Equatable {
-            public var width: String?
-            public var height: String?
-            public var thumbSize: String?
-            public var thumbOffset: String?
-            public var checkedThumbOffset: String?
+        struct Override: Codable, Sendable, Equatable {
+            var width: String?
+            var height: String?
+            var thumbSize: String?
+            var thumbOffset: String?
+            var checkedThumbOffset: String?
 
-            public init(
+            init(
                 width: String? = nil,
                 height: String? = nil,
                 thumbSize: String? = nil,
@@ -589,26 +589,26 @@ public extension StyleSystem {
     }
 
     struct Motion: Codable, Sendable, Equatable {
-        public var quick: String
-        public var standard: String
+        var quick: String
+        var standard: String
 
-        public init(quick: String, standard: String) {
+        init(quick: String, standard: String) {
             self.quick = quick
             self.standard = standard
         }
 
-        public func overriding(_ override: Override) -> Motion {
+        func overriding(_ override: Override) -> Motion {
             Motion(
                 quick: override.quick ?? quick,
                 standard: override.standard ?? standard
             )
         }
 
-        public struct Override: Codable, Sendable, Equatable {
-            public var quick: String?
-            public var standard: String?
+        struct Override: Codable, Sendable, Equatable {
+            var quick: String?
+            var standard: String?
 
-            public init(quick: String? = nil, standard: String? = nil) {
+            init(quick: String? = nil, standard: String? = nil) {
                 self.quick = quick
                 self.standard = standard
             }
@@ -624,17 +624,17 @@ public extension StyleSystem {
     /// SVG refraction. `solidFill` is the opaque fallback used where
     /// `backdrop-filter` is unsupported or reduced-transparency is requested.
     struct Material: Codable, Sendable, Equatable {
-        public var tint: String
-        public var opacity: String
-        public var opacityStep: String
-        public var blur: String
-        public var saturate: String
-        public var brightness: String
-        public var rim: String
-        public var refraction: String
-        public var solidFill: String
+        var tint: String
+        var opacity: String
+        var opacityStep: String
+        var blur: String
+        var saturate: String
+        var brightness: String
+        var rim: String
+        var refraction: String
+        var solidFill: String
 
-        public init(
+        init(
             tint: String,
             opacity: String,
             opacityStep: String,
@@ -656,7 +656,7 @@ public extension StyleSystem {
             self.solidFill = solidFill
         }
 
-        public func overriding(_ override: Override) -> Material {
+        func overriding(_ override: Override) -> Material {
             Material(
                 tint: override.tint ?? tint,
                 opacity: override.opacity ?? opacity,
@@ -670,18 +670,18 @@ public extension StyleSystem {
             )
         }
 
-        public struct Override: Codable, Sendable, Equatable {
-            public var tint: String?
-            public var opacity: String?
-            public var opacityStep: String?
-            public var blur: String?
-            public var saturate: String?
-            public var brightness: String?
-            public var rim: String?
-            public var refraction: String?
-            public var solidFill: String?
+        struct Override: Codable, Sendable, Equatable {
+            var tint: String?
+            var opacity: String?
+            var opacityStep: String?
+            var blur: String?
+            var saturate: String?
+            var brightness: String?
+            var rim: String?
+            var refraction: String?
+            var solidFill: String?
 
-            public init(
+            init(
                 tint: String? = nil,
                 opacity: String? = nil,
                 opacityStep: String? = nil,
@@ -800,75 +800,81 @@ public extension StyleSystem {
 
     static let material = StyleSystem(id: "material") {
         .root {
-            .pageInlinePadding("clamp(16px, 5vw, 32px)")
+            .pageInlinePadding(.clamp(min: 16, ideal: .vw(5), max: 32))
         }
         .surface {
-            .containerRadius("12px")
-            .containerShadow("0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08)")
+            .containerRadius(12)
+            .containerShadow(.layers([
+                .drop(y: 1, blur: 3, color: .rgba(0, 0, 0, 0.12)),
+                .drop(y: 1, blur: 2, color: .rgba(0, 0, 0, 0.08)),
+            ]))
         }
         .control {
-            .regularHeight("40px")
-            .largeHeight("48px")
+            .regularHeight(40)
+            .largeHeight(48)
         }
         .button {
-            .radius("20px")
-            .secondaryBackground("color-mix(in srgb, var(--swui-surface-raised) 88%, var(--swui-accent))")
-            .secondaryHoverBackground("color-mix(in srgb, var(--swui-surface-raised) 78%, var(--swui-accent))")
+            .radius(20)
+            .secondaryBackground(.mix(.surfaceRaised, 88, .accent))
+            .secondaryHoverBackground(.mix(.surfaceRaised, 78, .accent))
         }
         .field {
-            .radius("8px")
-            .padding("8px 12px")
+            .radius(8)
+            .padding(vertical: 8, horizontal: 12)
         }
         .motion {
-            .quick("150ms cubic-bezier(0.2, 0, 0, 1)")
+            .quick(.init(milliseconds: 150, curve: .cubicBezier(0.2, 0, 0, 1)))
         }
     }
 
     static let liquidGlass = StyleSystem(id: "liquid-glass") {
         .root {
-            .pageInlinePadding("clamp(18px, 5vw, 36px)")
+            .pageInlinePadding(.clamp(min: 18, ideal: .vw(5), max: 36))
         }
         .surface {
-            .containerBorder("1px solid color-mix(in srgb, #ffffff 34%, var(--swui-border))")
-            .containerRadius("22px")
-            .containerShadow("0 18px 48px rgba(15, 23, 42, 0.18)")
+            .containerBorder(.solid(width: 1, color: .mix(.white, 34, .border)))
+            .containerRadius(22)
+            .containerShadow(.drop(y: 18, blur: 48, color: .rgba(15, 23, 42, 0.18)))
         }
         .control {
-            .regularHeight("40px")
-            .largeHeight("48px")
-            .disabledOpacity("0.62")
+            .regularHeight(40)
+            .largeHeight(48)
+            .disabledOpacity(0.62)
         }
         .button {
             // The secondary surface fill + translucency now come from the shared
             // material primitive (the bordered button composes `.thinMaterial`).
             // Only the glassy rim border stays a per-button difference; the tint
             // hues stay opaque so the material owns the translucency.
-            .radius("999px")
-            .secondaryBorder("color-mix(in srgb, var(--swui-border) 58%, transparent)")
+            .radius(999)
+            .secondaryBorder(.mix(.border, 58, .clear))
         }
         .badge {
             // Fill + translucency come from the shared material; only the glassy
             // rim border is overridden here.
-            .border("1px solid color-mix(in srgb, var(--swui-border) 54%, transparent)")
+            .border(.solid(width: 1, color: .mix(.border, 54, .clear)))
         }
         .motion {
-            .quick("160ms cubic-bezier(0.16, 1, 0.3, 1)")
-            .standard("240ms cubic-bezier(0.16, 1, 0.3, 1)")
+            .quick(.init(milliseconds: 160, curve: .cubicBezier(0.16, 1, 0.3, 1)))
+            .standard(.init(milliseconds: 240, curve: .cubicBezier(0.16, 1, 0.3, 1)))
         }
         .material {
             // Real Liquid Glass: translucent surface tint scaled per level, a
             // wide backdrop blur with boosted saturation, a specular rim, and the
             // SVG displacement refraction. `solidFill` is the opaque fallback for
             // browsers without `backdrop-filter` and for reduced-transparency.
-            .tint("var(--swui-surface)")
-            .opacity("0.62")
-            .opacityStep("0.07")
-            .blur("24px")
-            .saturate("1.6")
-            .brightness("1.05")
-            .rim("inset 0 1px 0 0 color-mix(in srgb, #ffffff 70%, transparent), inset 0 -1px 1px 0 color-mix(in srgb, #000000 12%, transparent)")
-            .refraction("url(\"#swui-glass-refraction\")")
-            .solidFill("color-mix(in srgb, var(--swui-surface) 88%, var(--swui-border))")
+            .tint(.surface)
+            .opacity(0.62)
+            .opacityStep(0.07)
+            .blur(24)
+            .saturate(1.6)
+            .brightness(1.05)
+            .rim(.layers([
+                .inset(y: 1, blur: 0, spread: 0, color: .mix(.white, 70, .clear)),
+                .inset(y: .px(-1), blur: 1, spread: 0, color: .mix(.black, 12, .clear)),
+            ]))
+            .refraction(.svgFilter(id: "swui-glass-refraction"))
+            .solidFill(.mix(.surface, 88, .border))
         }
     }
 }

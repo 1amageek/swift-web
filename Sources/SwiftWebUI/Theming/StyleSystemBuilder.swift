@@ -1,11 +1,11 @@
 public struct StyleSystemOverrideStep {
     private let applyOverride: (inout StyleSystem.Override) -> Void
 
-    public init(_ applyOverride: @escaping (inout StyleSystem.Override) -> Void) {
+    init(_ applyOverride: @escaping (inout StyleSystem.Override) -> Void) {
         self.applyOverride = applyOverride
     }
 
-    public func apply(to override: inout StyleSystem.Override) {
+    func apply(to override: inout StyleSystem.Override) {
         applyOverride(&override)
     }
 

@@ -13,11 +13,10 @@ public struct Menu<Label: HTML, Content: HTML>: WebUIAttributeComponent {
     @Environment(\.menuStyle) private var menuStyle
 
     public init(
-        _ attributes: HTMLAttribute...,
         @HTMLBuilder content: () -> Content,
         @HTMLBuilder label: () -> Label
     ) {
-        self.attributes = attributes
+        self.attributes = []
         self.content = content()
         self.label = label()
     }

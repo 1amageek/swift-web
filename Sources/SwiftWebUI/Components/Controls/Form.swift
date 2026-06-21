@@ -1,11 +1,21 @@
 import SwiftHTML
 
 public struct Form<Content: HTML>: WebUIAttributeComponent {
-    private let action: String
+    private let action: String?
     private let method: FormMethod
     private let attributes: [HTMLAttribute]
     private let content: Content
     @Environment(\.formStyle) private var formStyle
+
+    public init(
+        _ attributes: HTMLAttribute...,
+        @HTMLBuilder content: () -> Content
+    ) {
+        self.action = nil
+        self.method = .post
+        self.attributes = attributes
+        self.content = content()
+    }
 
     public init(
         action: String,
@@ -25,7 +35,7 @@ public struct Form<Content: HTML>: WebUIAttributeComponent {
             "form",
             attributes: mergedAttributes(
                 class: controlClassName("swui-form", formStyle.className),
-                extra: [.action(action), .method(method)] + attributes
+                extra: formAttributes + attributes
             )
         ) {
             content.environment(\.isInsideForm, true)
@@ -36,10 +46,17 @@ public struct Form<Content: HTML>: WebUIAttributeComponent {
         Self(action: action, method: method, attributes: self.attributes + attributes, content: content)
     }
 
-    private init(action: String, method: FormMethod, attributes: [HTMLAttribute], content: Content) {
+    private init(action: String?, method: FormMethod, attributes: [HTMLAttribute], content: Content) {
         self.action = action
         self.method = method
         self.attributes = attributes
         self.content = content
+    }
+
+    private var formAttributes: [HTMLAttribute] {
+        guard let action else {
+            return []
+        }
+        return [.action(action), .method(method)]
     }
 }

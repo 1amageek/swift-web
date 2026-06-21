@@ -229,11 +229,11 @@ StyleSystem is also an environment value:
 ```swift
 let style = StyleSystem(id: "brand") {
     .surface {
-        .containerRadius("18px")
-        .containerShadow("none")
+        .containerRadius(18)
+        .containerShadow(.none)
     }
     .button {
-        .radius("999px")
+        .radius(999)
     }
 }
 

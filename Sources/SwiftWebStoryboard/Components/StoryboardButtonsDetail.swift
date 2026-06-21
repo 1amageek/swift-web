@@ -11,29 +11,29 @@ struct ButtonsDetail: Component {
         switch selection {
         case "button-styles":
             HStack(spacing: .small) {
-                Button("Glass", prominence: .primary)
+                Button("Glass").buttonStyle(.borderedProminent)
                     .buttonStyle(.glass)
-                Button("Glass prominent", prominence: .primary)
+                Button("Glass prominent").buttonStyle(.borderedProminent)
                     .buttonStyle(.glassProminent)
                 Button("Plain")
                     .buttonStyle(.plain)
             }
         case "control-sizes":
             HStack(spacing: .small) {
-                Button("Mini", prominence: .primary)
+                Button("Mini").buttonStyle(.borderedProminent)
                     .controlSize(.mini)
-                Button("Small", prominence: .primary)
+                Button("Small").buttonStyle(.borderedProminent)
                     .controlSize(.small)
-                Button("Regular", prominence: .primary)
+                Button("Regular").buttonStyle(.borderedProminent)
                     .controlSize(.regular)
-                Button("Large", prominence: .primary)
+                Button("Large").buttonStyle(.borderedProminent)
                     .controlSize(.large)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         case "button-states":
             HStack(spacing: .small) {
-                Button("Enabled", prominence: .primary)
-                Button("Disabled", prominence: .primary)
+                Button("Enabled").buttonStyle(.borderedProminent)
+                Button("Disabled").buttonStyle(.borderedProminent)
                     .disabled()
                 SubmitButton("Submit")
                     .disabled()
@@ -41,14 +41,14 @@ struct ButtonsDetail: Component {
             .frame(maxWidth: .infinity, alignment: .leading)
         case "links":
             HStack(spacing: .small) {
-                Link("Documentation", href: "#")
+                Link("Documentation", destination: URL(string: "#")!)
                     .buttonStyle(.glassProminent)
-                Link("Inline anchor", href: "#")
+                Link("Inline anchor", destination: URL(string: "#")!)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         default:
             HStack(spacing: .small) {
-                Button("Primary", prominence: .primary)
+                Button("Primary").buttonStyle(.borderedProminent)
                 Button("Secondary")
                 Button("Plain")
                     .buttonStyle(.plain)

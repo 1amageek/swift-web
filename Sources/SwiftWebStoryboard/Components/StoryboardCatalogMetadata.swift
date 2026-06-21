@@ -94,7 +94,7 @@ private func catalogProperties(for id: String) -> [CatalogProperty] {
         ]
     case "color":
         return [
-            CatalogProperty("tint", values: ".accent / .danger / .css(String)", summary: "Sets the component accent without changing the global theme."),
+            CatalogProperty("tint", values: ".accent / .danger / .hex(Int)", summary: "Sets the component accent without changing the global theme."),
             CatalogProperty("foregroundStyle", values: "semantic or CSS color", summary: "Overrides foreground color for a scoped component."),
             CatalogProperty("background", values: "semantic token or CSS color", summary: "Applies a local fill when a component needs a custom surface."),
         ]
@@ -227,14 +227,15 @@ private func catalogProperties(for id: String) -> [CatalogProperty] {
     case "disclosuregroup":
         return [
             CatalogProperty("title", values: "String", summary: "Disclosure label."),
-            CatalogProperty("isExpanded", values: "Binding<Bool> or Bool", summary: "Controls open state."),
+            CatalogProperty("isExpanded", values: "Binding<Bool>", summary: "Controls open state."),
             CatalogProperty("content", values: "@HTMLBuilder", summary: "Revealed content."),
         ]
     case "grid":
         return [
-            CatalogProperty("minColumnWidth", values: "CSS length", summary: "Responsive wrapping threshold."),
-            CatalogProperty("spacing", values: "Space", summary: "Gap between cells."),
-            CatalogProperty("content", values: "@HTMLBuilder", summary: "Grid cells."),
+            CatalogProperty("alignment", values: "Alignment", summary: "Default alignment for cells."),
+            CatalogProperty("horizontalSpacing", values: "Double?", summary: "Horizontal gap between cells in points."),
+            CatalogProperty("verticalSpacing", values: "Double?", summary: "Vertical gap between rows in points."),
+            CatalogProperty("content", values: "GridRow", summary: "Rows that contain grid cells."),
         ]
     case "lazy":
         return [

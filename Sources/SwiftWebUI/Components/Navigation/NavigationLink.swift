@@ -1,16 +1,17 @@
+import Foundation
 import SwiftHTML
 
 public struct NavigationLink<Label: HTML>: WebUIAttributeComponent {
-    private let href: String
+    private let destination: URL
     private let attributes: [HTMLAttribute]
     private let label: Label
 
     public init(
-        href: String,
+        destination: URL,
         _ attributes: HTMLAttribute...,
         @HTMLBuilder label: () -> Label
     ) {
-        self.href = href
+        self.destination = destination
         self.attributes = attributes
         self.label = label()
     }
@@ -22,7 +23,7 @@ public struct NavigationLink<Label: HTML>: WebUIAttributeComponent {
             attributes: mergedAttributes(
                 class: "swui-navigation-link",
                 extra: [
-                    .href(href),
+                    .href(destination.relativeString),
                     HTMLAttribute("data-navigation-link", "true"),
                 ] + attributes
             )
@@ -32,18 +33,18 @@ public struct NavigationLink<Label: HTML>: WebUIAttributeComponent {
     }
 
     public func addingAttributes(_ attributes: [HTMLAttribute]) -> Self {
-        Self(href: href, attributes: self.attributes + attributes, label: label)
+        Self(destination: destination, attributes: self.attributes + attributes, label: label)
     }
 
-    private init(href: String, attributes: [HTMLAttribute], label: Label) {
-        self.href = href
+    private init(destination: URL, attributes: [HTMLAttribute], label: Label) {
+        self.destination = destination
         self.attributes = attributes
         self.label = label
     }
 }
 
 public extension NavigationLink where Label == text {
-    init(_ title: String, href: String, _ attributes: HTMLAttribute...) {
-        self.init(href: href, attributes: attributes, label: text(title))
+    init(_ title: String, destination: URL, _ attributes: HTMLAttribute...) {
+        self.init(destination: destination, attributes: attributes, label: text(title))
     }
 }

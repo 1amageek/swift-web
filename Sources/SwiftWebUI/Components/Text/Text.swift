@@ -40,6 +40,10 @@ public struct Text: WebUIAttributeComponent {
         self.attributes = attributes
     }
 
+    var plainValue: String {
+        value
+    }
+
     private var className: String {
         var classes: [String]
         switch tone {

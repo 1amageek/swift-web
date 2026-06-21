@@ -81,20 +81,21 @@ func catalogSnippet(for id: String) -> String {
   case "color":
     return """
       HStack(spacing: .small) {
-          Button("Accent", prominence: .primary)
+          Button("Accent").buttonStyle(.borderedProminent)
               .tint(.accent)
-          Button("Danger", prominence: .primary)
+          Button("Danger").buttonStyle(.borderedProminent)
               .tint(.danger)
-          Button("Custom", prominence: .primary)
-              .tint(.css("#22a06b"))
+          Button("Custom").buttonStyle(.borderedProminent)
+              .tint(.hex(0x22A06B))
       }
       """
   case "button":
     return """
       HStack(spacing: .small) {
-          Button("Primary", prominence: .primary) {
+          Button("Primary") {
               count += 1
           }
+          .buttonStyle(.borderedProminent)
           Button("Secondary") {
               count -= 1
           }
@@ -103,9 +104,9 @@ func catalogSnippet(for id: String) -> String {
   case "button-styles":
     return """
       HStack(spacing: .small) {
-          Button("Glass", prominence: .primary)
+          Button("Glass").buttonStyle(.borderedProminent)
               .buttonStyle(.glass)
-          Button("Glass prominent", prominence: .primary)
+          Button("Glass prominent").buttonStyle(.borderedProminent)
               .buttonStyle(.glassProminent)
           Button("Plain")
               .buttonStyle(.plain)
@@ -123,8 +124,8 @@ func catalogSnippet(for id: String) -> String {
   case "button-states":
     return """
       HStack(spacing: .small) {
-          Button("Enabled", prominence: .primary)
-          Button("Disabled", prominence: .primary)
+          Button("Enabled").buttonStyle(.borderedProminent)
+          Button("Disabled").buttonStyle(.borderedProminent)
               .disabled()
           SubmitButton("Submit")
               .disabled()
@@ -133,9 +134,9 @@ func catalogSnippet(for id: String) -> String {
   case "links":
     return """
       HStack(spacing: .small) {
-          Link("Documentation", href: "/docs")
+          Link("Documentation", destination: URL(string: "/docs")!)
               .buttonStyle(.glassProminent)
-          Link("Inline anchor", href: "/docs")
+          Link("Inline anchor", destination: URL(string: "/docs")!)
       }
       """
   case "textfield":
@@ -191,7 +192,7 @@ func catalogSnippet(for id: String) -> String {
           VStack(alignment: .leading, spacing: .medium) {
               Label("Email address", systemImage: "envelope")
               HStack(spacing: .small) {
-                  SubmitButton("Subscribe", prominence: .primary)
+                  SubmitButton("Subscribe").buttonStyle(.borderedProminent)
                       .name("intent")
                       .value("subscribe")
                   SubmitButton("Unsubscribe")
@@ -232,7 +233,7 @@ func catalogSnippet(for id: String) -> String {
       Toolbar {
           Button("Back")
           Spacer()
-          Button("Save", prominence: .primary)
+          Button("Save").buttonStyle(.borderedProminent)
       }
       """
   case "badge":
@@ -260,17 +261,23 @@ func catalogSnippet(for id: String) -> String {
       """
   case "section":
     return """
-      Section("Account", footer: "Signed in as ada@example.com") {
+      Section {
           VStack(alignment: .leading, spacing: .small) {
               Text("Profile")
               Text("Security")
               Text("Notifications")
           }
+      } header: {
+          Heading("Account", level: .subsection)
+      } footer: {
+          Text("Signed in as ada@example.com", tone: .muted)
       }
       """
   case "disclosuregroup":
     return """
-      DisclosureGroup("Advanced options", isExpanded: true) {
+      @State private var advancedOptionsExpanded = true
+
+      DisclosureGroup("Advanced options", isExpanded: $advancedOptionsExpanded) {
           VStack(alignment: .leading, spacing: .small) {
               Text("Nested content reveals when expanded.", tone: .muted)
               Label("Verbose logging", systemImage: "doc.text")
@@ -279,31 +286,39 @@ func catalogSnippet(for id: String) -> String {
       """
   case "grid":
     return """
-      Grid(minColumnWidth: "120px", spacing: .small) {
-          Badge("Cell 1")
-          Badge("Cell 2")
-          Badge("Cell 3")
-          Badge("Cell 4")
+      Grid(alignment: .center, horizontalSpacing: 8, verticalSpacing: 8) {
+          GridRow {
+              Badge("Cell 1")
+              Badge("Cell 2")
+          }
+          GridRow {
+              Badge("Cell 3")
+              Badge("Cell 4")
+          }
       }
       """
   case "lazy":
     return """
-      Grid(minColumnWidth: "220px", spacing: .large) {
-          LazyVStack(alignment: .leading, spacing: .small) {
-              Badge("Row 1")
-              Badge("Row 2")
+      Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 16) {
+          GridRow {
+              LazyVStack(alignment: .leading, spacing: .small) {
+                  Badge("Row 1")
+                  Badge("Row 2")
+              }
+              LazyHStack(spacing: .small) {
+                  Badge("A")
+                  Badge("B")
+              }
           }
-          LazyHStack(spacing: .small) {
-              Badge("A")
-              Badge("B")
-          }
-          LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: .small) {
-              Badge("1")
-              Badge("2")
-          }
-          LazyHGrid(rows: [GridItem(.fixed(28)), GridItem(.fixed(28))], spacing: .small) {
-              Badge("1")
-              Badge("2")
+          GridRow {
+              LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: .small) {
+                  Badge("1")
+                  Badge("2")
+              }
+              LazyHGrid(rows: [GridItem(.fixed(28)), GridItem(.fixed(28))], spacing: .small) {
+                  Badge("1")
+                  Badge("2")
+              }
           }
       }
       """
@@ -338,17 +353,17 @@ func catalogSnippet(for id: String) -> String {
     return """
       NavigationStack {
           VStack(alignment: .leading, spacing: .small) {
-              NavigationLink("Overview", href: "#")
-              NavigationLink("Components", href: "#components")
-              NavigationLink("Tokens", href: "#tokens")
+              NavigationLink("Overview", destination: URL(string: "#")!)
+              NavigationLink("Components", destination: URL(string: "#components")!)
+              NavigationLink("Tokens", destination: URL(string: "#tokens")!)
           }
       }
       """
   case "navigationlink":
     return """
       VStack(alignment: .leading, spacing: .small) {
-          NavigationLink("Overview", href: "#overview")
-          NavigationLink(href: "#settings") {
+          NavigationLink("Overview", destination: URL(string: "#overview")!)
+          NavigationLink(destination: URL(string: "#settings")!) {
               Label("Settings", systemImage: "gear")
           }
       }
@@ -399,16 +414,18 @@ func catalogSnippet(for id: String) -> String {
       """
   case "stacks":
     return """
-      Grid(minColumnWidth: "180px", spacing: .large) {
-          VStack(alignment: .leading, spacing: .small) {
-              Badge("Top")
-              Badge("Middle")
-              Badge("Bottom")
-          }
-          HStack(spacing: .small) {
-              Badge("A")
-              Badge("B")
-              Badge("C")
+      Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 16) {
+          GridRow {
+              VStack(alignment: .leading, spacing: .small) {
+                  Badge("Top")
+                  Badge("Middle")
+                  Badge("Bottom")
+              }
+              HStack(spacing: .small) {
+                  Badge("A")
+                  Badge("B")
+                  Badge("C")
+              }
           }
       }
       """

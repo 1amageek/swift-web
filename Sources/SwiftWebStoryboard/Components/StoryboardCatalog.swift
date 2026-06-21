@@ -32,6 +32,7 @@ public struct StoryboardCatalog: ClientComponent, Sendable {
     @State private var showsConfirmation = false
     @State private var showsSheet = false
     @State private var showsPopover = false
+    @State private var advancedOptionsExpanded = true
 
     public init(initialSelection: String = catalogDefaultSelection) {
         self.selection = catalogSelectionID(for: initialSelection)
@@ -78,7 +79,8 @@ public struct StoryboardCatalog: ClientComponent, Sendable {
                         showsAlert: $showsAlert,
                         showsConfirmation: $showsConfirmation,
                         showsSheet: $showsSheet,
-                        showsPopover: $showsPopover
+                        showsPopover: $showsPopover,
+                        advancedOptionsExpanded: $advancedOptionsExpanded
                     )
                     CatalogInspector(selection: selection)
                 }

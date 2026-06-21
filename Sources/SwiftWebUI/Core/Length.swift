@@ -73,6 +73,10 @@ public enum Length: Sendable, Equatable, ExpressibleByIntegerLiteral, Expressibl
         .value(value, .fr)
     }
 
+    public static func clamp(min: Length, ideal: Length, max: Length) -> Self {
+        .custom("clamp(\(min.cssValue), \(ideal.cssValue), \(max.cssValue))")
+    }
+
     var cssValue: String {
         switch self {
         case .value(let value, let unit):

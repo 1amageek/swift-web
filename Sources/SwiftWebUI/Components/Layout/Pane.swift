@@ -21,7 +21,7 @@ public struct Pane<Content: HTML>: WebUIAttributeComponent {
             "div",
             attributes: mergedAttributes(
                 class: "swui-grid-pane",
-                styles: .custom("grid-column", "span \(span)"),
+                styles: .gridColumn("span \(span)"),
                 extra: attributes
             )
         ) {

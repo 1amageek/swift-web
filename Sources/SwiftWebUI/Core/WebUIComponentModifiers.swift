@@ -119,7 +119,9 @@ public extension WebUIAttributeMutableHTML {
 
 public extension HTML {
     func padding() -> ModifiedContent<Self, HTMLAttributeModifier> {
-        padding(.all, Space.medium.rawValue)
+        modifier(HTMLAttributeModifier([
+            styleAttribute(edgePaddingStyle(edges: .all, value: Space.medium.rawValue))
+        ]))
     }
 
     func hidden(_ condition: Bool = true) -> ModifiedContent<Self, HTMLAttributeModifier> {
@@ -131,39 +133,29 @@ public extension HTML {
     }
 
     func padding(_ length: Length) -> ModifiedContent<Self, HTMLAttributeModifier> {
-        padding(.all, length.cssValue)
+        modifier(HTMLAttributeModifier([
+            styleAttribute(edgePaddingStyle(edges: .all, value: length.cssValue))
+        ]))
     }
 
     func padding(_ edges: Edge.Set, _ length: Space = .medium) -> ModifiedContent<Self, HTMLAttributeModifier> {
-        padding(edges, length.rawValue)
+        modifier(HTMLAttributeModifier([
+            styleAttribute(edgePaddingStyle(edges: edges, value: length.rawValue))
+        ]))
     }
 
     func padding(_ edges: Edge.Set = .all, _ length: Length?) -> ModifiedContent<Self, HTMLAttributeModifier> {
-        padding(edges, length?.cssValue ?? Space.medium.rawValue)
+        modifier(HTMLAttributeModifier([
+            styleAttribute(edgePaddingStyle(edges: edges, value: length?.cssValue ?? Space.medium.rawValue))
+        ]))
     }
 
     func padding(_ insets: EdgeInsets) -> ModifiedContent<Self, HTMLAttributeModifier> {
         modifier(HTMLAttributeModifier([styleAttribute(.padding(insets.cssValue))]))
     }
 
-    func padding(_ edges: Edge.Set, _ value: String) -> ModifiedContent<Self, HTMLAttributeModifier> {
-        modifier(HTMLAttributeModifier([styleAttribute(edgePaddingStyle(edges: edges, value: value))]))
-    }
-
-    func padding(_ value: String) -> ModifiedContent<Self, HTMLAttributeModifier> {
-        modifier(HTMLAttributeModifier([styleAttribute(.padding(value))]))
-    }
-
-    func background(_ value: String) -> ModifiedContent<Self, HTMLAttributeModifier> {
-        modifier(HTMLAttributeModifier([styleAttribute(.background(value))]))
-    }
-
     func cornerRadius(_ value: Length) -> ModifiedContent<Self, HTMLAttributeModifier> {
         modifier(HTMLAttributeModifier([styleAttribute(.borderRadius(value.cssValue))]))
-    }
-
-    func cornerRadius(_ value: String) -> ModifiedContent<Self, HTMLAttributeModifier> {
-        cornerRadius(.custom(value))
     }
 
     func clipShape(_ shape: Shape) -> ModifiedContent<Self, HTMLAttributeModifier> {
@@ -204,7 +196,7 @@ public extension HTML {
     }
 
     func layoutPriority(_ value: Double) -> ModifiedContent<Self, HTMLAttributeModifier> {
-        modifier(HTMLAttributeModifier([styleAttribute(.custom("flex-grow", trimmedNumber(value)))]))
+        modifier(HTMLAttributeModifier([styleAttribute(.flexGrow(trimmedNumber(value)))]))
     }
 }
 
@@ -505,7 +497,7 @@ private func resolveAxis(
         style.append(.custom(maxProperty, pixelValue(max)))
         classes.append(fillClass)
         if centersWhenBounded {
-            style.append(.custom("margin-inline", "auto"))
+            style.append(.marginInline("auto"))
         }
     }
 }

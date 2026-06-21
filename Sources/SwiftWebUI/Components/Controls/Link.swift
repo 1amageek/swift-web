@@ -1,8 +1,9 @@
+import Foundation
 import SwiftHTML
 
-public struct Link: WebUIAttributeComponent {
-    private let text: String
-    private let href: String
+public struct Link<Label: HTML>: WebUIAttributeComponent {
+    private let destination: URL
+    private let label: Label
     private let attributes: [HTMLAttribute]
     @Environment(\.theme) private var theme
     @Environment(\.styleSystem) private var styleSystem
@@ -14,12 +15,12 @@ public struct Link: WebUIAttributeComponent {
     @Environment(\.buttonStyle) private var buttonStyle
 
     public init(
-        _ text: String,
-        href: String,
-        _ attributes: HTMLAttribute...
+        destination: URL,
+        _ attributes: HTMLAttribute...,
+        @HTMLBuilder label: () -> Label
     ) {
-        self.text = text
-        self.href = href
+        self.destination = destination
+        self.label = label()
         self.attributes = attributes
     }
 
@@ -33,17 +34,17 @@ public struct Link: WebUIAttributeComponent {
                 extra: linkAttributes + attributes
             )
         ) {
-            text
+            label
         }
     }
 
     public func addingAttributes(_ attributes: [HTMLAttribute]) -> Self {
-        Self(text, href: href, attributes: self.attributes + attributes)
+        Self(destination: destination, attributes: self.attributes + attributes, label: label)
     }
 
-    private init(_ text: String, href: String, attributes: [HTMLAttribute]) {
-        self.text = text
-        self.href = href
+    private init(destination: URL, attributes: [HTMLAttribute], label: Label) {
+        self.destination = destination
+        self.label = label
         self.attributes = attributes
     }
 
@@ -81,12 +82,18 @@ public struct Link: WebUIAttributeComponent {
 
     private var linkAttributes: [HTMLAttribute] {
         if isEnabled {
-            return [.href(href)]
+            return [.href(destination.relativeString)]
         }
         return [
             .aria("disabled", "true"),
             .tabindex(-1),
             styleAttribute(.pointerEvents("none")),
         ]
+    }
+}
+
+public extension Link where Label == text {
+    init(_ title: String, destination: URL, _ attributes: HTMLAttribute...) {
+        self.init(destination: destination, attributes: attributes, label: text(title))
     }
 }

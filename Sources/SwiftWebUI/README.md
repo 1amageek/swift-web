@@ -69,7 +69,7 @@ flowchart LR
 - Default CSS should be declared through SwiftHTML `Style` helpers and `Stylesheet` rules, not concatenated raw stylesheet strings.
 - Concrete CSS property output should use SwiftHTML generated standard property helpers so SwiftWebUI does not maintain a separate CSS property surface.
 - Public styling should prefer `foregroundStyle`, `backgroundStyle`, and `tint` over color-specific APIs.
-- `Space` is the component spacing scale. Page margins and responsive grid insets belong to `GridSystem` and `StyleSystem.root.pageInlinePadding`; outer width constraints belong to `.frame(maxWidth:)`.
+- `Space` is the component spacing scale. Page margins and responsive grid insets belong to `GridSystem` and the `StyleSystem` `.root { .pageInlinePadding(...) }` token; outer width constraints belong to `.frame(maxWidth:)`.
 - Modifiers should be ordered wrapper values that work on any `HTML`, not only components that store attributes directly.
 - Control state should flow through environment values such as `isEnabled`, `controlSize`, `tint`, and `buttonStyle`.
 - Semantic HTML should be explicit. `Text("Title", as: .h1)` changes the tag without requiring a separate component.
@@ -101,19 +101,19 @@ Every chrome surface — group box, toolbar, badge, field, toggle track, and the
 ```swift
 let glass = StyleSystem(id: "glass") {
     .surface {
-        .containerRadius("22px")
-        .containerShadow("0 18px 48px rgba(15, 23, 42, 0.18)")
+        .containerRadius(22)
+        .containerShadow(.drop(y: 18, blur: 48, color: .rgba(15, 23, 42, 0.18)))
     }
     .button {
-        .radius("999px")
+        .radius(999)
     }
     .material {
-        .opacity("0.62")
-        .opacityStep("0.07")
-        .blur("24px")
-        .saturate("1.6")
-        .refraction("url(\"#swui-glass-refraction\")")
-        .solidFill("color-mix(in srgb, var(--swui-surface) 88%, var(--swui-border))")
+        .opacity(0.62)
+        .opacityStep(0.07)
+        .blur(24)
+        .saturate(1.6)
+        .refraction(.svgFilter(id: "swui-glass-refraction"))
+        .solidFill(.mix(.surface, 88, .border))
     }
 }
 

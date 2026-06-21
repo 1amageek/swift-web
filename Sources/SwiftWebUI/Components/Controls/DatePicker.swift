@@ -11,8 +11,8 @@ import SwiftHTML
 /// use `Calendar.current` (the runtime's calendar and time zone). This is an
 /// explicit, documented choice — the same one SwiftUI makes through its
 /// environment calendar — not a silent default.
-public struct DatePicker: WebUIAttributeComponent {
-    private let title: String
+public struct DatePicker<Label: HTML>: WebUIAttributeComponent {
+    private let label: Label
     private let selection: Binding<Date>
     private let displayedComponents: DatePickerComponents
     private let attributes: [HTMLAttribute]
@@ -20,24 +20,24 @@ public struct DatePicker: WebUIAttributeComponent {
     @Environment(\.isEnabled) private var isEnabled
 
     public init(
-        _ title: String,
         selection: Binding<Date>,
-        displayedComponents: DatePickerComponents = [.date],
-        _ attributes: HTMLAttribute...
+        displayedComponents: DatePickerComponents = [.hourAndMinute, .date],
+        _ attributes: HTMLAttribute...,
+        @HTMLBuilder label: () -> Label
     ) {
-        self.title = title
+        self.label = label()
         self.selection = selection
         self.displayedComponents = displayedComponents
         self.attributes = attributes
     }
 
     private init(
-        title: String,
+        label: Label,
         selection: Binding<Date>,
         displayedComponents: DatePickerComponents,
         attributes: [HTMLAttribute]
     ) {
-        self.title = title
+        self.label = label
         self.selection = selection
         self.displayedComponents = displayedComponents
         self.attributes = attributes
@@ -49,7 +49,7 @@ public struct DatePicker: WebUIAttributeComponent {
         let type = displayedComponents.inputType
         Element("label", attributes: [.class("swui-field swui-date-picker-field")]) {
             span(.class("swui-field-label")) {
-                title
+                label
             }
             Element(
                 "input",
@@ -64,8 +64,8 @@ public struct DatePicker: WebUIAttributeComponent {
                                   let parsed = Self.parse(raw, type: type, base: selection.wrappedValue)
                             else {
                                 // A cleared or unparseable value is intentionally
-                                // ignored: `Binding<Date>` cannot represent an
-                                // empty selection, so the prior date is kept.
+                                // ignored: `Binding<Date>` cannot represent an empty
+                                // selection, so the prior date is kept.
                                 return
                             }
                             selection.wrappedValue = parsed
@@ -79,7 +79,7 @@ public struct DatePicker: WebUIAttributeComponent {
 
     public func addingAttributes(_ attributes: [HTMLAttribute]) -> Self {
         Self(
-            title: title,
+            label: label,
             selection: selection,
             displayedComponents: displayedComponents,
             attributes: self.attributes + attributes
@@ -158,5 +158,21 @@ public struct DatePicker: WebUIAttributeComponent {
         let digits = String(value)
         guard digits.count < width else { return digits }
         return String(repeating: "0", count: width - digits.count) + digits
+    }
+}
+
+public extension DatePicker where Label == text {
+    init(
+        _ title: String,
+        selection: Binding<Date>,
+        displayedComponents: DatePickerComponents = [.hourAndMinute, .date],
+        _ attributes: HTMLAttribute...
+    ) {
+        self.init(
+            label: text(title),
+            selection: selection,
+            displayedComponents: displayedComponents,
+            attributes: attributes
+        )
     }
 }

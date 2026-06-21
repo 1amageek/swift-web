@@ -31,20 +31,20 @@ struct LayoutDetail: Component {
                 Badge("fixedSize()")
                 Text("stays at content width", tone: .muted)
             }
-            .padding(.all, "12px 16px")
-            .background("color-mix(in srgb, var(--swui-accent) 12%, var(--swui-surface-raised))")
-            .cornerRadius("12px")
-            .style { .border("1px solid color-mix(in srgb, var(--swui-accent) 32%, transparent)") }
+            .padding(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+            .background(.mix(.accent, 12, .surfaceRaised))
+            .cornerRadius(12)
+            .border(.mix(.accent, 32, .clear))
             .fixedSize()
 
             HStack(spacing: .small) {
                 Badge("frame(maxWidth: .infinity)")
                 Text("stretches to the full column", tone: .muted)
             }
-            .padding(.all, "12px 16px")
-            .background("color-mix(in srgb, var(--swui-accent) 12%, var(--swui-surface-raised))")
-            .cornerRadius("12px")
-            .style { .border("1px solid color-mix(in srgb, var(--swui-accent) 32%, transparent)") }
+            .padding(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+            .background(.mix(.accent, 12, .surfaceRaised))
+            .cornerRadius(12)
+            .border(.mix(.accent, 32, .clear))
             .frame(maxWidth: .infinity, alignment: .leading)
         default:
             HStack(spacing: .small) {
@@ -54,7 +54,7 @@ struct LayoutDetail: Component {
                     Text("Mathematician", tone: .muted)
                 }
                 Spacer()
-                Button("Follow", prominence: .primary)
+                Button("Follow").buttonStyle(.borderedProminent)
             }
             .frame(maxWidth: 420, alignment: .leading)
         }

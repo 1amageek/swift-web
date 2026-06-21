@@ -4,6 +4,7 @@ public struct Slider: WebUIAttributeComponent {
     private let value: Binding<Double>
     private let bounds: ClosedRange<Double>
     private let step: Double?
+    private let onEditingChanged: (Bool) -> Void
     private let attributes: [HTMLAttribute]
     @Environment(\.controlSize) private var controlSize
     @Environment(\.isEnabled) private var isEnabled
@@ -12,11 +13,13 @@ public struct Slider: WebUIAttributeComponent {
         value: Binding<Double>,
         in bounds: ClosedRange<Double> = 0...1,
         step: Double? = nil,
+        onEditingChanged: @escaping (Bool) -> Void = { _ in },
         _ attributes: HTMLAttribute...
     ) {
         self.value = value
         self.bounds = bounds
         self.step = step
+        self.onEditingChanged = onEditingChanged
         self.attributes = attributes
     }
 
@@ -33,18 +36,26 @@ public struct Slider: WebUIAttributeComponent {
     }
 
     public func addingAttributes(_ attributes: [HTMLAttribute]) -> Self {
-        Self(value: value, bounds: bounds, step: step, attributes: self.attributes + attributes)
+        Self(
+            value: value,
+            bounds: bounds,
+            step: step,
+            onEditingChanged: onEditingChanged,
+            attributes: self.attributes + attributes
+        )
     }
 
     private init(
         value: Binding<Double>,
         bounds: ClosedRange<Double>,
         step: Double?,
+        onEditingChanged: @escaping (Bool) -> Void,
         attributes: [HTMLAttribute]
     ) {
         self.value = value
         self.bounds = bounds
         self.step = step
+        self.onEditingChanged = onEditingChanged
         self.attributes = attributes
     }
 
@@ -61,6 +72,7 @@ public struct Slider: WebUIAttributeComponent {
                 else {
                     return
                 }
+                onEditingChanged(true)
                 value.wrappedValue = doubleValue
             },
         ]

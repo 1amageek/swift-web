@@ -1,17 +1,14 @@
 import SwiftHTML
 
 public struct List<Content: HTML>: WebUIAttributeComponent {
-    private let spacing: Space
     private let attributes: [HTMLAttribute]
     private let content: Content
     @Environment(\.listStyle) private var listStyle
 
     public init(
-        spacing: Space = .small,
         _ attributes: HTMLAttribute...,
         @HTMLBuilder content: () -> Content
     ) {
-        self.spacing = spacing
         self.attributes = attributes
         self.content = content()
     }
@@ -22,7 +19,7 @@ public struct List<Content: HTML>: WebUIAttributeComponent {
             "div",
             attributes: mergedAttributes(
                 class: controlClassName("swui-list", listStyle.className, LayoutClass.fillHorizontal),
-                styles: .gap(spacing.rawValue),
+                styles: .gap(Space.small.rawValue),
                 extra: [.role("list")] + attributes
             )
         ) {
@@ -31,11 +28,10 @@ public struct List<Content: HTML>: WebUIAttributeComponent {
     }
 
     public func addingAttributes(_ attributes: [HTMLAttribute]) -> Self {
-        Self(spacing: spacing, attributes: self.attributes + attributes, content: content)
+        Self(attributes: self.attributes + attributes, content: content)
     }
 
-    private init(spacing: Space, attributes: [HTMLAttribute], content: Content) {
-        self.spacing = spacing
+    private init(attributes: [HTMLAttribute], content: Content) {
         self.attributes = attributes
         self.content = content
     }

@@ -5,24 +5,25 @@ import SwiftHTML
 /// Lowers to a native `<input type="color">`. Selection is bound as a
 /// `#rrggbb` hex string, the value format the native color input uses; this
 /// layer has no `Color` value type, so the hex string is the honest interface.
-public struct ColorPicker: WebUIAttributeComponent {
-    private let title: String
+public struct ColorPicker<Label: HTML>: WebUIAttributeComponent {
+    private let label: Label
     private let selection: Binding<String>
     private let attributes: [HTMLAttribute]
     @Environment(\.isEnabled) private var isEnabled
 
     public init(
-        _ title: String,
         selection: Binding<String>,
-        _ attributes: HTMLAttribute...
+        supportsOpacity: Bool = true,
+        _ attributes: HTMLAttribute...,
+        @HTMLBuilder label: () -> Label
     ) {
-        self.title = title
+        self.label = label()
         self.selection = selection
         self.attributes = attributes
     }
 
-    private init(title: String, selection: Binding<String>, attributes: [HTMLAttribute]) {
-        self.title = title
+    private init(label: Label, selection: Binding<String>, attributes: [HTMLAttribute]) {
+        self.label = label
         self.selection = selection
         self.attributes = attributes
     }
@@ -32,7 +33,7 @@ public struct ColorPicker: WebUIAttributeComponent {
         let selection = self.selection
         Element("label", attributes: [.class("swui-field swui-color-picker")]) {
             span(.class("swui-field-label")) {
-                title
+                label
             }
             Element(
                 "input",
@@ -52,10 +53,21 @@ public struct ColorPicker: WebUIAttributeComponent {
     }
 
     public func addingAttributes(_ attributes: [HTMLAttribute]) -> Self {
-        Self(title: title, selection: selection, attributes: self.attributes + attributes)
+        Self(label: label, selection: selection, attributes: self.attributes + attributes)
     }
 
     private var disabledAttributes: [HTMLAttribute] {
         isEnabled ? [] : [.disabled, .aria("disabled", "true")]
+    }
+}
+
+public extension ColorPicker where Label == text {
+    init(
+        _ title: String,
+        selection: Binding<String>,
+        supportsOpacity: Bool = true,
+        _ attributes: HTMLAttribute...
+    ) {
+        self.init(label: text(title), selection: selection, attributes: attributes)
     }
 }

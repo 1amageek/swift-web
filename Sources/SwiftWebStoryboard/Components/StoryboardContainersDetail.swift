@@ -6,6 +6,7 @@ import SwiftWebUI
 
 struct ContainersDetail: Component {
     let selection: String
+    let advancedOptionsExpanded: Binding<Bool>
 
     var body: some HTML {
         switch selection {
@@ -31,7 +32,7 @@ struct ContainersDetail: Component {
                     .buttonStyle(.plain)
                 Spacer()
                 Button("Preview")
-                Button("Save", prominence: .primary)
+                Button("Save").buttonStyle(.borderedProminent)
             }
         case "list":
             List {
@@ -52,16 +53,20 @@ struct ContainersDetail: Component {
                 }
             }
         case "section":
-            Section("Account", footer: "Signed in as ada@example.com") {
+            Section {
                 VStack(alignment: .leading, spacing: .small) {
                     Text("Profile")
                     Text("Security")
                     Text("Notifications")
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+            } header: {
+                Heading("Account", level: .subsection)
+            } footer: {
+                Text("Signed in as ada@example.com", tone: .muted)
             }
         case "disclosuregroup":
-            DisclosureGroup("Advanced options", isExpanded: true) {
+            DisclosureGroup("Advanced options", isExpanded: advancedOptionsExpanded) {
                 VStack(alignment: .leading, spacing: .small) {
                     Text("Nested content reveals when expanded.", tone: .muted)
                     Label("Verbose logging", systemImage: "doc.text")
@@ -72,11 +77,15 @@ struct ContainersDetail: Component {
                 Text("Hidden until toggled.", tone: .muted)
             }
         case "grid":
-            Grid(minColumnWidth: "120px", spacing: .small) {
-                Badge("Cell 1")
-                Badge("Cell 2")
-                Badge("Cell 3")
-                Badge("Cell 4")
+            Grid(alignment: .center, horizontalSpacing: 8, verticalSpacing: 8) {
+                GridRow {
+                    Badge("Cell 1")
+                    Badge("Cell 2")
+                }
+                GridRow {
+                    Badge("Cell 3")
+                    Badge("Cell 4")
+                }
             }
         case "lazy":
             ScrollView(.vertical) {
@@ -92,13 +101,13 @@ struct ContainersDetail: Component {
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
-                .padding(.all, "8px")
+                .padding(.all, 8)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(width: 280, height: 160)
-            .background("var(--swui-surface-raised)")
-            .cornerRadius("12px")
-            .style { .border("1px solid var(--swui-border)") }
+            .background(.surfaceRaised)
+            .cornerRadius(12)
+            .border(.border)
         case "scrollview":
             ScrollView(.vertical) {
                 VStack(alignment: .leading, spacing: .small) {
@@ -111,13 +120,13 @@ struct ContainersDetail: Component {
                     Badge("Item 07")
                     Badge("Item 08")
                 }
-                .padding(.all, "8px")
+                .padding(.all, 8)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(maxWidth: .infinity, height: 160)
-            .background("var(--swui-surface-raised)")
-            .cornerRadius("12px")
-            .style { .border("1px solid var(--swui-border)") }
+            .background(.surfaceRaised)
+            .cornerRadius(12)
+            .border(.border)
         default:
             div(.class("swui-group-box storyboard-groupbox-demo")) {
                 VStack(alignment: .leading, spacing: .small) {

@@ -8,11 +8,11 @@ public struct NavigationStack<Content: HTML>: WebUIAttributeComponent {
     public init(
         path: Binding<NavigationPath>? = nil,
         _ attributes: HTMLAttribute...,
-        @HTMLBuilder content: () -> Content
+        @HTMLBuilder root: () -> Content
     ) {
         self.path = path
         self.attributes = attributes
-        self.content = content()
+        self.content = root()
     }
 
     @HTMLBuilder

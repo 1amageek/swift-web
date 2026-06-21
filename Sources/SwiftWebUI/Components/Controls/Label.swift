@@ -44,8 +44,8 @@ public struct Label<Title: HTML, Icon: HTML>: WebUIAttributeComponent {
     }
 }
 
-public extension Label where Title == text, Icon == text {
+public extension Label where Title == text, Icon == Image {
     init(_ title: String, systemImage: String) {
-        self.init(title: text(title), icon: text(systemImage), attributes: [])
+        self.init(title: text(title), icon: Image(systemName: systemImage), attributes: [])
     }
 }

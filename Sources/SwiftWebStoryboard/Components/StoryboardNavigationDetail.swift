@@ -25,8 +25,8 @@ struct NavigationDetail: Component {
             }
         case "navigationlink":
             VStack(alignment: .leading, spacing: .small) {
-                NavigationLink("Overview", href: "#overview")
-                NavigationLink(href: "#settings") {
+                NavigationLink("Overview", destination: URL(string: "#overview")!)
+                NavigationLink(destination: URL(string: "#settings")!) {
                     Label("Settings", systemImage: "gear")
                 }
             }
@@ -41,13 +41,12 @@ struct NavigationDetail: Component {
         default:
             NavigationStack {
                 VStack(alignment: .leading, spacing: .small) {
-                    NavigationLink("Overview", href: "#")
-                    NavigationLink("Components", href: "#components")
-                    NavigationLink("Tokens", href: "#tokens")
+                    NavigationLink("Overview", destination: URL(string: "#")!)
+                    NavigationLink("Components", destination: URL(string: "#components")!)
+                    NavigationLink("Tokens", destination: URL(string: "#tokens")!)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
     }
 }
-

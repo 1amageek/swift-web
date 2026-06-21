@@ -2,9 +2,12 @@ import SwiftHTML
 
 public struct Stepper: WebUIAttributeComponent {
     private let title: String
-    private let value: Binding<Int>
+    private let value: Binding<Int>?
     private let step: Int
     private let bounds: ClosedRange<Int>?
+    private let onIncrement: (() -> Void)?
+    private let onDecrement: (() -> Void)?
+    private let onEditingChanged: (Bool) -> Void
     private let attributes: [HTMLAttribute]
     @Environment(\.controlSize) private var controlSize
     @Environment(\.isEnabled) private var isEnabled
@@ -15,12 +18,33 @@ public struct Stepper: WebUIAttributeComponent {
         value: Binding<Int>,
         step: Int = 1,
         in bounds: ClosedRange<Int>? = nil,
+        onEditingChanged: @escaping (Bool) -> Void = { _ in },
         _ attributes: HTMLAttribute...
     ) {
         self.title = title
         self.value = value
         self.step = step
         self.bounds = bounds
+        self.onIncrement = nil
+        self.onDecrement = nil
+        self.onEditingChanged = onEditingChanged
+        self.attributes = attributes
+    }
+
+    public init(
+        _ title: String,
+        onIncrement: (() -> Void)?,
+        onDecrement: (() -> Void)?,
+        onEditingChanged: @escaping (Bool) -> Void = { _ in },
+        _ attributes: HTMLAttribute...
+    ) {
+        self.title = title
+        self.value = nil
+        self.step = 1
+        self.bounds = nil
+        self.onIncrement = onIncrement
+        self.onDecrement = onDecrement
+        self.onEditingChanged = onEditingChanged
         self.attributes = attributes
     }
 
@@ -29,6 +53,9 @@ public struct Stepper: WebUIAttributeComponent {
         let value = self.value
         let step = self.step
         let bounds = self.bounds
+        let onIncrement = self.onIncrement
+        let onDecrement = self.onDecrement
+        let onEditingChanged = self.onEditingChanged
 
         Element(
             "div",
@@ -38,25 +65,40 @@ public struct Stepper: WebUIAttributeComponent {
                 extra: [.role("group"), .aria("label", title)] + attributes
             )
         ) {
+            span(.class("swui-stepper-label")) {
+                title
+            }
             stepperButton(
                 symbol: "−",
                 label: "Decrement \(title)",
                 isEnabled: canDecrement
             ) {
-                value.wrappedValue = Self.clamped(value.wrappedValue - step, bounds: bounds)
+                onEditingChanged(true)
+                if let value {
+                    value.wrappedValue = Self.clamped(value.wrappedValue - step, bounds: bounds)
+                } else {
+                    onDecrement?()
+                }
             }
-            span(
-                .class("swui-stepper-value val"),
-                .aria("live", "polite")
-            ) {
-                String(value.wrappedValue)
+            if let value {
+                span(
+                    .class("swui-stepper-value val"),
+                    .aria("live", "polite")
+                ) {
+                    String(value.wrappedValue)
+                }
             }
             stepperButton(
                 symbol: "+",
                 label: "Increment \(title)",
                 isEnabled: canIncrement
             ) {
-                value.wrappedValue = Self.clamped(value.wrappedValue + step, bounds: bounds)
+                onEditingChanged(true)
+                if let value {
+                    value.wrappedValue = Self.clamped(value.wrappedValue + step, bounds: bounds)
+                } else {
+                    onIncrement?()
+                }
             }
         }
     }
@@ -67,21 +109,30 @@ public struct Stepper: WebUIAttributeComponent {
             value: value,
             step: step,
             bounds: bounds,
+            onIncrement: onIncrement,
+            onDecrement: onDecrement,
+            onEditingChanged: onEditingChanged,
             attributes: self.attributes + attributes
         )
     }
 
     private init(
         title: String,
-        value: Binding<Int>,
+        value: Binding<Int>?,
         step: Int,
         bounds: ClosedRange<Int>?,
+        onIncrement: (() -> Void)?,
+        onDecrement: (() -> Void)?,
+        onEditingChanged: @escaping (Bool) -> Void,
         attributes: [HTMLAttribute]
     ) {
         self.title = title
         self.value = value
         self.step = step
         self.bounds = bounds
+        self.onIncrement = onIncrement
+        self.onDecrement = onDecrement
+        self.onEditingChanged = onEditingChanged
         self.attributes = attributes
     }
 
@@ -97,6 +148,9 @@ public struct Stepper: WebUIAttributeComponent {
         guard isEnabled else {
             return false
         }
+        guard let value else {
+            return onDecrement != nil
+        }
         guard let bounds else {
             return true
         }
@@ -106,6 +160,9 @@ public struct Stepper: WebUIAttributeComponent {
     private var canIncrement: Bool {
         guard isEnabled else {
             return false
+        }
+        guard let value else {
+            return onIncrement != nil
         }
         guard let bounds else {
             return true

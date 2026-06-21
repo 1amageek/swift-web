@@ -47,8 +47,8 @@ Spacing follows the same boundary:
 | Design concern | Public API | Token owner |
 |---|---|---|
 | Component-local gaps and padding | `Space` and spacing-taking modifiers/components | `Theme.spacing` |
-| Default stack rhythm | `VStack(spacing: nil)`, `HStack(spacing: nil)`, lazy stacks | `StyleSystem.root.stackSpacing` |
-| Page inline margins and responsive grid inset | `GridSystem` | `StyleSystem.root.pageInlinePadding` |
+| Default stack rhythm | `VStack(spacing: nil)`, `HStack(spacing: nil)`, lazy stacks | `StyleSystem` `.root { .stackSpacing(...) }` |
+| Page inline margins and responsive grid inset | `GridSystem` | `StyleSystem` `.root { .pageInlinePadding(...) }` |
 | Page width constraint | `.frame(maxWidth:)` | Explicit numeric value supplied by the caller |
 | Browser safe-area compensation | `safeAreaPadding`, `safeAreaInset`, `ignoresSafeArea` | CSS `env(safe-area-inset-*)` plus explicit user length |
 
@@ -200,7 +200,7 @@ The default token scale is rhythm-first:
 | `Space.medium` | 12 | Default stack and control-local gaps. |
 | `Space.large` | 16 | Form, container, and readable group gaps. |
 | `Space.xlarge` | 24 | Section and page vertical rhythm. |
-| `StyleSystem.root.pageInlinePadding` | `clamp(16px, 4vw, 24px)` | Responsive page inline inset through `GridSystem`; combine with `.frame(maxWidth:)` for capped layouts. |
+| `StyleSystem` `.root { .pageInlinePadding(...) }` | `clamp(16px, 4vw, 24px)` | Responsive page inline inset through `GridSystem`; combine with `.frame(maxWidth:)` for capped layouts. |
 
 Component tokens map semantic tiers to CSS variables. One-off raw values
 require a component-specific reason and should live in stylesheet rules rather

@@ -4,28 +4,25 @@ import SwiftHTML
 ///
 /// Lowers to a native `<meter>` element. The meter track composes the shared
 /// ultra-thin material so its fill tracks the active design style.
-public struct Gauge: WebUIAttributeComponent {
+public struct Gauge<Label: HTML>: WebUIAttributeComponent {
     private let value: Double
     private let bounds: ClosedRange<Double>
-    private let label: String?
+    private let label: Label
     private let attributes: [HTMLAttribute]
     @Environment(\.gaugeStyle) private var gaugeStyle
 
     public init(
         value: Double,
         in bounds: ClosedRange<Double> = 0...1,
-        label: String? = nil
+        @HTMLBuilder label: () -> Label
     ) {
-        self.value = value
-        self.bounds = bounds
-        self.label = label
-        self.attributes = []
+        self.init(value: value, bounds: bounds, label: label(), attributes: [])
     }
 
     private init(
         value: Double,
         bounds: ClosedRange<Double>,
-        label: String?,
+        label: Label,
         attributes: [HTMLAttribute]
     ) {
         self.value = value
@@ -43,10 +40,8 @@ public struct Gauge: WebUIAttributeComponent {
                 extra: attributes
             )
         ) {
-            if let label {
-                span(.class("swui-gauge-label")) {
-                    label
-                }
+            span(.class("swui-gauge-label")) {
+                label
             }
             // `<meter>` is a replaced element: the material's `::before`
             // rim/refraction overlay does not paint here, but its fill and
@@ -67,5 +62,14 @@ public struct Gauge: WebUIAttributeComponent {
 
     public func addingAttributes(_ attributes: [HTMLAttribute]) -> Self {
         Self(value: value, bounds: bounds, label: label, attributes: self.attributes + attributes)
+    }
+}
+
+public extension Gauge where Label == text {
+    /// Creates a gauge whose label is plain inline text.
+    init(value: Double, in bounds: ClosedRange<Double> = 0...1, label: String) {
+        self.init(value: value, in: bounds) {
+            text(label)
+        }
     }
 }

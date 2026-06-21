@@ -6,31 +6,40 @@ import SwiftHTML
 /// Lowers to a native `<details>`/`<summary>` pair, so expansion works without
 /// any client runtime. The surface composes the shared `regularMaterial`
 /// recipe.
-public struct DisclosureGroup<Content: HTML>: WebUIAttributeComponent {
-    private let title: String
-    private let isExpanded: Bool
+public struct DisclosureGroup<Label: HTML, Content: HTML>: WebUIAttributeComponent {
+    private let label: Label
+    private let isExpanded: Binding<Bool>?
     private let attributes: [HTMLAttribute]
     private let content: Content
 
     public init(
-        _ title: String,
-        isExpanded: Bool = false,
-        _ attributes: HTMLAttribute...,
-        @HTMLBuilder content: () -> Content
+        @HTMLBuilder content: () -> Content,
+        @HTMLBuilder label: () -> Label
     ) {
-        self.title = title
+        self.label = label()
+        self.isExpanded = nil
+        self.attributes = []
+        self.content = content()
+    }
+
+    public init(
+        isExpanded: Binding<Bool>,
+        @HTMLBuilder content: () -> Content,
+        @HTMLBuilder label: () -> Label
+    ) {
+        self.label = label()
         self.isExpanded = isExpanded
-        self.attributes = attributes
+        self.attributes = []
         self.content = content()
     }
 
     private init(
-        title: String,
-        isExpanded: Bool,
+        label: Label,
+        isExpanded: Binding<Bool>?,
         attributes: [HTMLAttribute],
         content: Content
     ) {
-        self.title = title
+        self.label = label
         self.isExpanded = isExpanded
         self.attributes = attributes
         self.content = content
@@ -42,11 +51,11 @@ public struct DisclosureGroup<Content: HTML>: WebUIAttributeComponent {
             "details",
             attributes: mergedAttributes(
                 class: "swui-disclosure-group \(MaterialClass.material) \(MaterialClass.regular)",
-                extra: (isExpanded ? [HTMLAttribute.open] : []) + attributes
+                extra: openAttributes + attributes
             )
         ) {
-            summary(.class("swui-disclosure-summary")) {
-                title
+            Element("summary", attributes: summaryAttributes) {
+                label
             }
             Element(
                 "div",
@@ -59,10 +68,45 @@ public struct DisclosureGroup<Content: HTML>: WebUIAttributeComponent {
 
     public func addingAttributes(_ attributes: [HTMLAttribute]) -> Self {
         Self(
-            title: title,
+            label: label,
             isExpanded: isExpanded,
             attributes: self.attributes + attributes,
             content: content
         )
+    }
+
+    private var openAttributes: [HTMLAttribute] {
+        guard isExpanded?.wrappedValue == true else {
+            return []
+        }
+        return [.open]
+    }
+
+    private var summaryAttributes: [HTMLAttribute] {
+        var result: [HTMLAttribute] = [.class("swui-disclosure-summary")]
+        if let isExpanded {
+            result.append(.onClick {
+                isExpanded.wrappedValue.toggle()
+            })
+        }
+        return result
+    }
+}
+
+public extension DisclosureGroup where Label == text {
+    init(_ title: String, @HTMLBuilder content: () -> Content) {
+        self.init(content: content) {
+            title
+        }
+    }
+
+    init(
+        _ title: String,
+        isExpanded: Binding<Bool>,
+        @HTMLBuilder content: () -> Content
+    ) {
+        self.init(isExpanded: isExpanded, content: content) {
+            title
+        }
     }
 }

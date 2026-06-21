@@ -63,7 +63,7 @@ public struct GridSystem<Content: HTML>: WebUIAttributeComponent {
         Style {
             .custom("--swui-grid-system-columns", "\(columns)")
             .custom("--swui-grid-system-gutter", gutter.rawValue)
-            .custom("padding-block", verticalPadding.rawValue)
+            .paddingBlock(verticalPadding.rawValue)
         }
     }
 }

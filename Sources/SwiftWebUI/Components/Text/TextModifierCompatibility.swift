@@ -105,7 +105,7 @@ public extension HTML {
         }
         return modifier(HTMLAttributeModifier([
             styleAttribute(Style {
-                .custom("display", "-webkit-box")
+                .display("-webkit-box")
                 .custom("-webkit-line-clamp", "\(number)")
                 .custom("-webkit-box-orient", "vertical")
                 .overflow("hidden")

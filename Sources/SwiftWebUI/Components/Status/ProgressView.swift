@@ -7,32 +7,34 @@ import SwiftHTML
 /// element; an indeterminate progress (no `value`) lowers to a circular spinner
 /// driven by a CSS animation. The bar track composes the shared ultra-thin
 /// material so its fill tracks the active design style.
-public struct ProgressView: WebUIAttributeComponent {
-    private let label: String?
+public struct ProgressView<Label: HTML>: WebUIAttributeComponent {
+    private let label: Label
+    private let showsLabel: Bool
+    private let accessibilityLabel: String?
     private let value: Double?
     private let total: Double
     private let attributes: [HTMLAttribute]
     @Environment(\.progressViewStyle) private var progressViewStyle
 
-    /// Creates an indeterminate progress view with an optional label.
-    public init(_ label: String? = nil) {
-        self.label = label
-        self.value = nil
-        self.total = 1.0
-        self.attributes = []
+    public init(
+        value: Double?,
+        total: Double = 1.0,
+        @HTMLBuilder label: () -> Label
+    ) {
+        self.init(label: label(), showsLabel: true, accessibilityLabel: nil, value: value, total: total, attributes: [])
     }
 
-    /// Creates a determinate progress view that completes when `value` reaches
-    /// `total`. A nil `value` renders an indeterminate spinner.
-    public init(_ label: String? = nil, value: Double?, total: Double = 1.0) {
+    private init(
+        label: Label,
+        showsLabel: Bool,
+        accessibilityLabel: String?,
+        value: Double?,
+        total: Double,
+        attributes: [HTMLAttribute]
+    ) {
         self.label = label
-        self.value = value
-        self.total = total
-        self.attributes = []
-    }
-
-    private init(label: String?, value: Double?, total: Double, attributes: [HTMLAttribute]) {
-        self.label = label
+        self.showsLabel = showsLabel
+        self.accessibilityLabel = accessibilityLabel
         self.value = value
         self.total = total
         self.attributes = attributes
@@ -47,7 +49,7 @@ public struct ProgressView: WebUIAttributeComponent {
                 extra: attributes
             )
         ) {
-            if let label {
+            if showsLabel {
                 span(.class("swui-progress-label")) {
                     label
                 }
@@ -63,7 +65,7 @@ public struct ProgressView: WebUIAttributeComponent {
                         styleAttribute(.custom("--swui-material-tint", "var(--swui-field-background)")),
                         .value(value),
                         .max(total),
-                    ],
+                    ] + accessibilityAttributes,
                     isVoid: false
                 ) {}
             } else {
@@ -76,18 +78,48 @@ public struct ProgressView: WebUIAttributeComponent {
     }
 
     public func addingAttributes(_ attributes: [HTMLAttribute]) -> Self {
-        Self(label: label, value: value, total: total, attributes: self.attributes + attributes)
+        Self(
+            label: label,
+            showsLabel: showsLabel,
+            accessibilityLabel: accessibilityLabel,
+            value: value,
+            total: total,
+            attributes: self.attributes + attributes
+        )
     }
 
     private var indeterminateAttributes: [HTMLAttribute] {
-        var result: [HTMLAttribute] = [
+        [
             .class("swui-progress-spinner"),
             .role("progressbar"),
             .aria("busy", "true"),
-        ]
-        if let label {
-            result.append(.aria("label", label))
+        ] + accessibilityAttributes
+    }
+
+    private var accessibilityAttributes: [HTMLAttribute] {
+        guard let accessibilityLabel else {
+            return []
         }
-        return result
+        return [.aria("label", accessibilityLabel)]
+    }
+}
+
+public extension ProgressView where Label == EmptyHTML {
+    init() {
+        self.init(label: EmptyHTML(), showsLabel: false, accessibilityLabel: nil, value: nil, total: 1.0, attributes: [])
+    }
+
+    init(value: Double?, total: Double = 1.0) {
+        self.init(label: EmptyHTML(), showsLabel: false, accessibilityLabel: nil, value: value, total: total, attributes: [])
+    }
+}
+
+public extension ProgressView where Label == text {
+    init(_ title: String) {
+        self.init(label: text(title), showsLabel: true, accessibilityLabel: title, value: nil, total: 1.0, attributes: [])
+    }
+
+    init(_ title: String, value: Double?, total: Double = 1.0) {
+        self.init(label: text(title), showsLabel: true, accessibilityLabel: title, value: value, total: total, attributes: [])
     }
 }

@@ -257,6 +257,7 @@ public var body: some AppContent {
 Import `SwiftWebUI` when you want the higher-level component layer:
 
 ```swift
+import Foundation
 import SwiftHTML
 import SwiftWeb
 import SwiftWebUI
@@ -271,7 +272,7 @@ struct HomePage {
                         Text("Hello SwiftWeb")
                             .font(.title)
 
-                        Button("Continue", href: "/about")
+                        Link("Continue", destination: URL(string: "/about")!)
                             .buttonStyle(.borderedProminent)
                     }
                 }

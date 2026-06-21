@@ -23,6 +23,7 @@ struct CatalogDetail: Component {
     let showsConfirmation: Binding<Bool>
     let showsSheet: Binding<Bool>
     let showsPopover: Binding<Bool>
+    let advancedOptionsExpanded: Binding<Bool>
 
     var body: some HTML {
         div(.class("storyboard-detail")) {
@@ -193,7 +194,7 @@ struct CatalogDetail: Component {
             CodeBlock(catalogSnippet(for: "code"), language: "swift")
                 .frame(maxWidth: .infinity, alignment: .leading)
         case "groupbox", "list", "section", "disclosuregroup", "grid", "lazy", "scrollview", "toolbar", "badge":
-            ContainersDetail(selection: selection)
+            ContainersDetail(selection: selection, advancedOptionsExpanded: advancedOptionsExpanded)
         case "tabview", "navigationstack", "navigationlink", "searchable":
             NavigationDetail(selection: selection, tab: tab, query: query)
         case "stacks", "spacer", "divider", "hug-fill":

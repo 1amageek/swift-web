@@ -1,7 +1,8 @@
 import SwiftHTML
 
-public struct Picker<Content: HTML>: WebUIAttributeComponent {
-    private let title: String
+public struct Picker<Label: HTML, Content: HTML>: WebUIAttributeComponent {
+    private let label: Label
+    private let labelText: String?
     private let selection: Binding<String>
     private let attributes: [HTMLAttribute]
     private let content: Content
@@ -10,12 +11,13 @@ public struct Picker<Content: HTML>: WebUIAttributeComponent {
     @Environment(\.pickerStyle) private var pickerStyle
 
     public init(
-        _ title: String,
         selection: Binding<String>,
         _ attributes: HTMLAttribute...,
-        @HTMLBuilder content: () -> Content
+        @HTMLBuilder content: () -> Content,
+        @HTMLBuilder label: () -> Label
     ) {
-        self.title = title
+        self.label = label()
+        self.labelText = nil
         self.selection = selection
         self.attributes = attributes
         self.content = content()
@@ -34,7 +36,7 @@ public struct Picker<Content: HTML>: WebUIAttributeComponent {
     private var menuField: some HTML {
         Element("label", attributes: [.class("swui-picker-field \(LayoutClass.fillHorizontal)")]) {
             span(.class("swui-field-label")) {
-                title
+                label
             }
             // The picker composes the shared thin material for its fill and
             // backdrop blur. `<select>` is a replaced element, so the `::before`
@@ -63,7 +65,7 @@ public struct Picker<Content: HTML>: WebUIAttributeComponent {
             attributes: [.class("swui-picker-field \(LayoutClass.fillHorizontal)")]
         ) {
             span(.class("swui-field-label")) {
-                title
+                label
             }
             Element(
                 "div",
@@ -81,16 +83,24 @@ public struct Picker<Content: HTML>: WebUIAttributeComponent {
     }
 
     public func addingAttributes(_ attributes: [HTMLAttribute]) -> Self {
-        Self(title: title, selection: selection, attributes: self.attributes + attributes, content: content)
+        Self(
+            label: label,
+            labelText: labelText,
+            selection: selection,
+            attributes: self.attributes + attributes,
+            content: content
+        )
     }
 
     private init(
-        title: String,
+        label: Label,
+        labelText: String?,
         selection: Binding<String>,
         attributes: [HTMLAttribute],
         content: Content
     ) {
-        self.title = title
+        self.label = label
+        self.labelText = labelText
         self.selection = selection
         self.attributes = attributes
         self.content = content
@@ -139,13 +149,15 @@ public struct Picker<Content: HTML>: WebUIAttributeComponent {
         let selection = self.selection
         var result: [HTMLAttribute] = [
             HTMLAttribute("role", "radiogroup"),
-            .aria("label", title),
             .onChange { event in
                 if let value = event.value {
                     selection.wrappedValue = value
                 }
             },
         ]
+        if let labelText {
+            result.append(.aria("label", labelText))
+        }
         if !isEnabled {
             result.append(.aria("disabled", "true"))
         }
@@ -153,13 +165,24 @@ public struct Picker<Content: HTML>: WebUIAttributeComponent {
         return result
     }
 
-    // A stable radio-group `name` derived from the title so the options are
-    // mutually exclusive natively. Segmented/inline pickers on one page should
-    // use distinct titles to avoid sharing a group.
+    // A stable radio-group `name` derived from the textual label so the options
+    // are mutually exclusive natively. Segmented/inline pickers on one page
+    // should use distinct labels to avoid sharing a group.
     private var groupName: String {
-        let sanitized = String(title.lowercased().map { character in
+        let sanitized = String((labelText ?? "picker").lowercased().map { character in
             character.isLetter || character.isNumber ? character : "-"
         })
         return "swui-picker-\(sanitized)"
+    }
+}
+
+public extension Picker where Label == text {
+    init(
+        _ title: String,
+        selection: Binding<String>,
+        _ attributes: HTMLAttribute...,
+        @HTMLBuilder content: () -> Content
+    ) {
+        self.init(label: text(title), labelText: title, selection: selection, attributes: attributes, content: content())
     }
 }

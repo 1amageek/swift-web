@@ -21,13 +21,13 @@ struct FoundationsDetail: Component {
         case "spacing":
             HStack(spacing: .large) {
                 VStack(alignment: .leading, spacing: .xsmall) {
-                    spacingBar("4", width: "12px", active: false)
-                    spacingBar("8", width: "24px", active: true)
-                    spacingBar("16", width: "48px", active: false)
-                    spacingBar("24", width: "72px", active: false)
-                    spacingBar("32", width: "96px", active: false)
-                    spacingBar("40", width: "120px", active: false)
-                    spacingBar("48", width: "144px", active: false)
+                    spacingBar("4", width: 12, active: false)
+                    spacingBar("8", width: 24, active: true)
+                    spacingBar("16", width: 48, active: false)
+                    spacingBar("24", width: 72, active: false)
+                    spacingBar("32", width: 96, active: false)
+                    spacingBar("40", width: 120, active: false)
+                    spacingBar("48", width: 144, active: false)
                 }
                 VStack(spacing: .xsmall) {
                     div(.class("storyboard-spacing-tile")) {
@@ -107,12 +107,12 @@ struct FoundationsDetail: Component {
             .class("storyboard-centered-demo")
         case "color":
             HStack(spacing: .small) {
-                Button("Accent", prominence: .primary)
+                Button("Accent").buttonStyle(.borderedProminent)
                     .tint(.accent)
-                Button("Danger", prominence: .primary)
+                Button("Danger").buttonStyle(.borderedProminent)
                     .tint(.danger)
-                Button("Custom", prominence: .primary)
-                    .tint(.css("#22a06b"))
+                Button("Custom").buttonStyle(.borderedProminent)
+                    .tint(.hex(0x22A06B))
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         default:
@@ -124,13 +124,13 @@ struct FoundationsDetail: Component {
         }
     }
 
-    private func spacingBar(_ label: String, width: String, active: Bool) -> some HTML {
+    private func spacingBar(_ label: String, width: Double, active: Bool) -> some HTML {
         HStack(spacing: .small) {
             Text(label, as: .small, tone: .muted)
                 .class("storyboard-spacing-label")
                 .monospaced()
             div(.class("storyboard-spacing-bar\(active ? " is-active" : "")")) {}
-                .frame(width: .css(width))
+                .frame(width: width)
             if active {
                 Text("base unit", as: .small)
                     .class("storyboard-spacing-base-label")

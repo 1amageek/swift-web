@@ -2,9 +2,9 @@ import SwiftHTML
 
 public struct GridItem: Sendable, Equatable {
     public enum Size: Sendable, Equatable {
-        case fixed(Length)
-        case flexible(minimum: Length = 10, maximum: Length = .infinity)
-        case adaptive(minimum: Length, maximum: Length = .infinity)
+        case fixed(Double)
+        case flexible(minimum: Double = 10, maximum: Double = .infinity)
+        case adaptive(minimum: Double, maximum: Double = .infinity)
     }
 
     public var size: Size
@@ -34,20 +34,15 @@ func gridTemplateTracks(_ items: [GridItem]) -> String {
 
 private func gridTemplateTrack(_ size: GridItem.Size) -> String {
     switch size {
-    case .fixed(let length):
-        cssLength(length, infinityValue: "1fr")
+    case .fixed(let value):
+        cssTrackLength(value, infinityValue: "1fr")
     case .flexible(let minimum, let maximum):
-        "minmax(\(cssLength(minimum, infinityValue: "0")), \(cssLength(maximum, infinityValue: "1fr")))"
+        "minmax(\(cssTrackLength(minimum, infinityValue: "0")), \(cssTrackLength(maximum, infinityValue: "1fr")))"
     case .adaptive(let minimum, let maximum):
-        "repeat(auto-fit, minmax(\(cssLength(minimum, infinityValue: "0")), \(cssLength(maximum, infinityValue: "1fr"))))"
+        "repeat(auto-fit, minmax(\(cssTrackLength(minimum, infinityValue: "0")), \(cssTrackLength(maximum, infinityValue: "1fr"))))"
     }
 }
 
-func cssLength(_ length: Length, infinityValue: String) -> String {
-    switch length {
-    case .infinity:
-        infinityValue
-    default:
-        length.cssValue
-    }
+func cssTrackLength(_ value: Double, infinityValue: String) -> String {
+    value.isInfinite ? infinityValue : pixelValue(value)
 }

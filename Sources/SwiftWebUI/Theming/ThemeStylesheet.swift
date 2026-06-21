@@ -3,7 +3,7 @@ import SwiftHTML
 enum ThemeStylesheet {
   static func stylesheet(for theme: Theme, styleSystem: StyleSystem) -> Stylesheet {
     Stylesheet {
-      baseStylesheet
+      componentStylesheet
       materialStylesheet
       rule("[data-theme=\"\(cssAttributeString(theme.name))\"]") {
         theme.cssVariableStyle
@@ -14,18 +14,17 @@ enum ThemeStylesheet {
     }
   }
 
-  /// The full stylesheet text, including the material fallback at-rules that
-  /// `CSSRule` cannot express. `@supports`/`@media` blocks are appended raw
-  /// because the rule model is flat (`selector { declarations }`); they are an
-  /// explicit, designed degradation, not a silent fallback.
+  /// The full stylesheet text. Component rules live in the typed `Stylesheet`
+  /// model; only the material fallback at-rules and the spinner keyframes are
+  /// appended raw, because the flat `CSSRule` model (`selector { declarations }`)
+  /// cannot express `@supports`/`@media`/`@keyframes`. They are an explicit,
+  /// designed degradation, not a silent fallback.
   static func css(for theme: Theme, styleSystem: StyleSystem) -> String {
     stylesheet(for: theme, styleSystem: styleSystem).cssText
       + "\n"
       + materialFallbackCSS
       + "\n"
       + progressSpinnerKeyframes
-      + "\n"
-      + designContractCSS
   }
 
   private static func cssAttributeString(_ value: String) -> String {
@@ -55,7 +54,7 @@ enum ThemeStylesheet {
     return escaped
   }
 
-  private static var baseStylesheet: Stylesheet {
+  private static var componentStylesheet: Stylesheet {
     Stylesheet {
       rule(
         """
@@ -90,7 +89,7 @@ enum ThemeStylesheet {
       rule(".swui-root .swui-root") {
         .minHeight("auto")
           .borderRadius("var(--swui-radius-large)")
-          .padding("var(--swui-space-md)")
+          .padding(.space(.medium))
       }
       rule(
         """
@@ -181,27 +180,27 @@ enum ThemeStylesheet {
         .flex("1 1 auto")
       }
       rule(".swui-grid") {
-        .display("grid")
-          .alignItems("stretch")
-          .justifyItems("stretch")
+        .display("table")
+          .borderCollapse("separate")
+          .borderSpacing("var(--swui-grid-horizontal-spacing) var(--swui-grid-vertical-spacing)")
           .boxSizing("border-box")
       }
       rule(".swui-grid-system") {
         .display("grid")
           .gridTemplateColumns("repeat(var(--swui-grid-system-columns), minmax(0, 1fr))")
-          .columnGap("var(--swui-grid-system-gutter)")
+          .columnGap(.gridSystemGutter)
           .rowGap("var(--swui-grid-system-gutter)")
         .width("100%")
           .boxSizing("border-box")
           .margin("0 auto")
-          .paddingInline("var(--swui-page-inline-padding)")
+          .paddingInline(.pageInlinePadding)
       }
       rule(".swui-grid-pane") {
         .boxSizing("border-box")
           .minWidth("0")
       }
       // GroupBox composes the shared material primitive and keeps only the
-      // container chrome: border, radius, and the elevated drop shadow.
+      // container chrome: padding, border, radius, and the elevated drop shadow.
       rule(".swui-group-box") {
           .display("flex")
           .flexDirection("column")
@@ -210,6 +209,7 @@ enum ThemeStylesheet {
           .borderRadius("var(--swui-container-radius)")
           .boxSizing("border-box")
           .boxShadow("var(--swui-container-shadow)")
+          .padding(.space(.medium))
       }
       rule(".swui-group-box-title") {
         .margin("0 0 var(--swui-space-sm) 0")
@@ -218,7 +218,7 @@ enum ThemeStylesheet {
       // from the shared `bar` material (composed in `Toolbar`); this rule
       // adds the padding and radius that give the bar its shape.
       rule(".swui-toolbar") {
-        .padding("var(--swui-space-sm) var(--swui-space-md)")
+        .padding(.space(.small), .space(.medium))
           .borderRadius("var(--swui-radius-large)")
       }
       rule(".swui-label-style-titleOnly .swui-label-icon") {
@@ -250,7 +250,7 @@ enum ThemeStylesheet {
         .swui-list-style-insetGrouped
         """
       ) {
-        .padding("var(--swui-space-sm)")
+        .padding(.space(.small))
           .borderRadius("var(--swui-radius-large)")
           .background("color-mix(in srgb, var(--swui-surface-raised) 72%, transparent)")
       }
@@ -425,7 +425,7 @@ enum ThemeStylesheet {
       }
       rule(".swui-inline-code") {
         .display("inline-block")
-          .padding("0 0.35em")
+          .padding(.zero, .em(0.35))
           .border("1px solid var(--swui-border)")
           .borderRadius("var(--swui-radius-small)")
           .background("color-mix(in srgb, var(--swui-surface-raised) 88%, var(--swui-accent))")
@@ -436,7 +436,7 @@ enum ThemeStylesheet {
       rule(".swui-preformatted") {
         .maxWidth("100%")
           .overflowX("auto")
-          .padding("var(--swui-space-md)")
+          .padding(.space(.medium))
           .border("1px solid var(--swui-border)")
           .borderRadius("var(--swui-radius-medium)")
           .background("color-mix(in srgb, var(--swui-surface-raised) 92%, var(--swui-accent))")
@@ -451,7 +451,7 @@ enum ThemeStylesheet {
         .maxWidth("100%")
           .margin("0")
           .overflowX("auto")
-          .padding("var(--swui-space-md) 0")
+          .padding(.space(.medium), .zero)
           .border("1px solid var(--swui-border)")
           .borderRadius("var(--swui-radius-medium)")
           .background("color-mix(in srgb, var(--swui-surface-raised) 92%, var(--swui-accent))")
@@ -469,8 +469,8 @@ enum ThemeStylesheet {
       rule(".swui-code-line") {
         .display("grid")
           .gridTemplateColumns("minmax(3ch, auto) 1fr")
-          .columnGap("var(--swui-space-md)")
-          .padding("0 var(--swui-space-md)")
+          .columnGap(.space(.medium))
+          .padding(.zero, .space(.medium))
           .whiteSpace("pre")
       }
       rule(".swui-code-line-plain") {
@@ -489,11 +489,11 @@ enum ThemeStylesheet {
         .display("inline-flex")
           .alignItems("center")
           .justifyContent("center")
-          .gap("var(--swui-space-sm)")
+          .gap(.space(.small))
           .border("1px solid transparent")
           .borderRadius("var(--swui-button-radius)")
           .minHeight("var(--swui-control-regular-height)")
-          .padding("0 var(--swui-space-lg)")
+          .padding(.zero, .space(.large))
           .font("inherit")
           .cursor("pointer")
           .textDecoration("none")
@@ -507,12 +507,12 @@ enum ThemeStylesheet {
       }
       rule(".swui-control-mini") {
         .minHeight("var(--swui-control-mini-height)")
-          .paddingInline("var(--swui-space-sm)")
+          .paddingInline(.space(.small))
           .fontSize("12px")
       }
       rule(".swui-control-small") {
         .minHeight("var(--swui-control-small-height)")
-          .paddingInline("var(--swui-space-md)")
+          .paddingInline(.space(.medium))
           .fontSize("14px")
       }
       rule(".swui-control-regular") {
@@ -520,7 +520,7 @@ enum ThemeStylesheet {
       }
       rule(".swui-control-large") {
         .minHeight("var(--swui-control-large-height)")
-          .paddingInline("var(--swui-space-xl)")
+          .paddingInline(.space(.xlarge))
           .fontSize("17px")
       }
       rule(".swui-button-primary") {
@@ -543,7 +543,7 @@ enum ThemeStylesheet {
         .color("var(--swui-control-tint, var(--swui-button-plain-foreground))")
           .background("transparent")
           .borderColor("transparent")
-          .paddingInline("0")
+          .paddingInline(.zero)
       }
       // Glass buttons take their fill from the shared `swui-glass` recipe, so
       // these rules only set semantic text/border behavior. The plain glass
@@ -603,7 +603,7 @@ enum ThemeStylesheet {
       rule(".swui-label") {
         .display("inline-flex")
           .alignItems("center")
-          .gap("var(--swui-space-sm)")
+          .gap(.space(.small))
       }
       rule(".swui-label-icon") {
         .display("inline-flex")
@@ -621,7 +621,7 @@ enum ThemeStylesheet {
           .alignItems("center")
           .width("fit-content")
           .borderRadius("var(--swui-badge-radius)")
-          .padding("var(--swui-badge-padding)")
+          .padding(.badgePadding)
           .border("var(--swui-badge-border)")
           .color("var(--swui-badge-foreground)")
           .fontSize("12px")
@@ -640,7 +640,7 @@ enum ThemeStylesheet {
       }
       rule(".swui-navigation-stack") {
         .display("grid")
-          .gap("var(--swui-navigation-gap)")
+          .gap(.navigationGap)
           .boxSizing("border-box")
           .width("fit-content")
           .maxWidth("100%")
@@ -683,7 +683,7 @@ enum ThemeStylesheet {
       }
       rule(".swui-section") {
         .display("grid")
-          .gap("var(--swui-space-md)")
+          .gap(.space(.medium))
           .boxSizing("border-box")
       }
       rule(".swui-section-footer") {
@@ -696,7 +696,7 @@ enum ThemeStylesheet {
       rule(".swui-list-row") {
         .display("flex")
           .alignItems("center")
-          .gap("var(--swui-space-sm)")
+          .gap(.space(.small))
           .boxSizing("border-box")
       }
       rule(".swui-list-row .swui-text") {
@@ -710,12 +710,12 @@ enum ThemeStylesheet {
       }
       rule(".swui-field") {
         .display("grid")
-          .gap("var(--swui-space-xs)")
+          .gap(.space(.xsmall))
           .color("var(--swui-text)")
       }
       rule(".swui-picker-field") {
         .display("grid")
-          .gap("var(--swui-space-xs)")
+          .gap(.space(.xsmall))
       }
       rule(
         """
@@ -741,7 +741,7 @@ enum ThemeStylesheet {
         .minHeight("var(--swui-control-regular-height)")
           .border("var(--swui-field-border)")
           .borderRadius("var(--swui-field-radius)")
-          .padding("var(--swui-field-padding)")
+          .padding(.fieldPadding)
           .boxSizing("border-box")
           .color("var(--swui-text)")
           .font("inherit")
@@ -753,7 +753,7 @@ enum ThemeStylesheet {
       rule(".swui-toggle") {
         .display("inline-flex")
           .alignItems("center")
-          .gap("var(--swui-space-sm)")
+          .gap(.space(.small))
           .color("var(--swui-text)")
           .cursor("pointer")
       }
@@ -780,7 +780,7 @@ enum ThemeStylesheet {
           .width("var(--swui-toggle-thumb-size)")
           .height("var(--swui-toggle-thumb-size)")
           .left("var(--swui-toggle-thumb-offset)")
-          .top("var(--swui-toggle-thumb-offset)")
+          .top(.toggleThumbOffset)
           .borderRadius("999px")
           .background("var(--swui-text-muted)")
           .transition("transform var(--swui-motion-quick), background var(--swui-motion-quick)")
@@ -809,7 +809,7 @@ enum ThemeStylesheet {
       rule(".swui-progress") {
         .display("flex")
           .flexDirection("column")
-          .gap("var(--swui-space-xs)")
+          .gap(.space(.xsmall))
           .boxSizing("border-box")
       }
       rule(".swui-progress-label") {
@@ -857,7 +857,7 @@ enum ThemeStylesheet {
       rule(".swui-gauge") {
         .display("flex")
           .flexDirection("column")
-          .gap("var(--swui-space-xs)")
+          .gap(.space(.xsmall))
           .boxSizing("border-box")
       }
       rule(".swui-gauge-label") {
@@ -911,19 +911,19 @@ enum ThemeStylesheet {
       rule(".swui-disclosure-summary") {
         .display("flex")
           .alignItems("center")
-          .gap("var(--swui-space-sm)")
-          .padding("var(--swui-space-md)")
+          .gap(.space(.small))
+          .padding(.space(.medium))
           .cursor("pointer")
           .fontWeight("600")
           .color("var(--swui-text)")
           .userSelect("none")
-          .custom("list-style", "none")
+          .listStyle("none")
       }
       rule(".swui-disclosure-summary::-webkit-details-marker") {
         .display("none")
       }
       rule(".swui-disclosure-content") {
-        .padding("0 var(--swui-space-md) var(--swui-space-md)")
+        .padding(.zero, .space(.medium), .space(.medium), .space(.medium))
           .color("var(--swui-text)")
       }
 
@@ -935,7 +935,7 @@ enum ThemeStylesheet {
           .width("100%")
           .border("var(--swui-field-border)")
           .borderRadius("var(--swui-field-radius)")
-          .padding("var(--swui-field-padding)")
+          .padding(.fieldPadding)
           .boxSizing("border-box")
           .color("var(--swui-text)")
           .font("inherit")
@@ -950,7 +950,7 @@ enum ThemeStylesheet {
           .flexDirection("row")
           .alignItems("center")
           .justifyContent("space-between")
-          .gap("var(--swui-space-sm)")
+          .gap(.space(.small))
           .cursor("pointer")
       }
       // No material on the swatch — it must show the chosen color verbatim.
@@ -959,7 +959,7 @@ enum ThemeStylesheet {
           .custom("-webkit-appearance", "none")
           .width("44px")
           .height("28px")
-          .padding("0")
+          .padding(.zero)
           .border("var(--swui-field-border)")
           .borderRadius("var(--swui-radius-small)")
           .background("transparent")
@@ -967,7 +967,7 @@ enum ThemeStylesheet {
           .boxSizing("border-box")
       }
       rule(".swui-color-picker-input::-webkit-color-swatch-wrapper") {
-        .padding("0")
+        .padding(.zero)
       }
       rule(".swui-color-picker-input::-webkit-color-swatch") {
         .border("none")
@@ -988,8 +988,8 @@ enum ThemeStylesheet {
         .display("inline-flex")
           .flexDirection("row")
           .alignItems("stretch")
-          .gap("2px")
-          .padding("3px")
+          .gap(.px(2))
+          .padding(.px(2))
           .minHeight("var(--swui-control-regular-height)")
           .borderRadius("var(--swui-button-radius)")
           .boxSizing("border-box")
@@ -998,7 +998,7 @@ enum ThemeStylesheet {
       rule(".swui-picker-inline") {
         .display("flex")
           .flexDirection("column")
-          .gap("var(--swui-space-xs)")
+          .gap(.space(.xsmall))
       }
       rule(".swui-picker-segment") {
         .position("relative")
@@ -1028,11 +1028,11 @@ enum ThemeStylesheet {
       }
       rule(".swui-picker-segmented .swui-picker-segment-label") {
         .minHeight("calc(var(--swui-control-regular-height) - 6px)")
-          .padding("0 12px")
-          .borderRadius("calc(var(--swui-button-radius) - 3px)")
+          .padding(.px(6), .px(14))
+          .borderRadius("calc(var(--swui-button-radius) - 2px)")
           .textAlign("center")
           .lineHeight("1")
-          .custom("white-space", "nowrap")
+          .whiteSpace("nowrap")
           .transition("background var(--swui-motion-quick), color var(--swui-motion-quick)")
       }
       rule(".swui-picker-segmented .swui-picker-segment-input:checked ~ .swui-picker-segment-label")
@@ -1042,8 +1042,8 @@ enum ThemeStylesheet {
       }
       rule(".swui-picker-inline .swui-picker-segment-label") {
         .justifyContent("flex-start")
-          .gap("var(--swui-space-sm)")
-          .padding("var(--swui-space-xs) 0")
+          .gap(.space(.small))
+          .padding(.space(.xsmall), .zero)
       }
       rule(".swui-picker-inline .swui-picker-segment-label::before") {
         .content("\"\"")
@@ -1077,8 +1077,8 @@ enum ThemeStylesheet {
       rule(".swui-menu-label") {
         .display("inline-flex")
           .alignItems("center")
-          .gap("var(--swui-space-xs)")
-          .padding("var(--swui-field-padding)")
+          .gap(.space(.xsmall))
+          .padding(.fieldPadding)
           .borderRadius("var(--swui-radius-pill)")
           .cursor("pointer")
           .userSelect("none")
@@ -1090,13 +1090,13 @@ enum ThemeStylesheet {
       }
       rule(".swui-menu-content") {
         .position("absolute")
-          .top("calc(100% + var(--swui-space-xs))")
+          .top(.menuOffset(.xsmall))
           .insetInlineStart("0")
           .minWidth("180px")
           .display("flex")
           .flexDirection("column")
-          .gap("2px")
-          .padding("var(--swui-space-xs)")
+          .gap(.px(2))
+          .padding(.space(.xsmall))
           .borderRadius("var(--swui-radius-medium)")
           .boxShadow("var(--swui-container-shadow)")
           .zIndex("40")
@@ -1114,7 +1114,7 @@ enum ThemeStylesheet {
         .display("flex")
           .flexWrap("wrap")
           .alignItems("center")
-          .gap("var(--swui-space-xs)")
+          .gap(.space(.xsmall))
       }
       rule(".swui-tab") {
         .display("contents")
@@ -1130,8 +1130,8 @@ enum ThemeStylesheet {
         .order("0")
           .display("inline-flex")
           .alignItems("center")
-          .gap("var(--swui-space-xs)")
-          .padding("var(--swui-field-padding)")
+          .gap(.space(.xsmall))
+          .padding(.fieldPadding)
           .borderRadius("var(--swui-radius-pill)")
           .cursor("pointer")
           .userSelect("none")
@@ -1151,7 +1151,7 @@ enum ThemeStylesheet {
           .flexBasis("100%")
           .width("100%")
           .display("none")
-          .paddingBlockStart("var(--swui-space-sm)")
+          .paddingBlockStart(.space(.small))
       }
       rule(".swui-tab-item:has(.swui-tab-input:checked) + .swui-tab-panel") {
         .display("block")
@@ -1164,7 +1164,7 @@ enum ThemeStylesheet {
       rule(".swui-searchable") {
         .display("flex")
           .flexDirection("column")
-          .gap("var(--swui-space-sm)")
+          .gap(.space(.small))
       }
       rule(".swui-search-bar") {
         .display("flex")
@@ -1176,52 +1176,52 @@ enum ThemeStylesheet {
           .minHeight("var(--swui-control-regular-height)")
           .border("var(--swui-field-border)")
           .borderRadius("var(--swui-radius-pill)")
-          .padding("var(--swui-field-padding)")
+          .padding(.fieldPadding)
           .color("var(--swui-text)")
           .font("inherit")
       }
       rule(".swui-search-suggestion-host, .swui-search-scoped") {
         .display("flex")
           .flexDirection("column")
-          .gap("var(--swui-space-sm)")
+          .gap(.space(.small))
       }
       rule(".swui-search-suggestions") {
         .display("flex")
           .flexDirection("column")
-          .gap("var(--swui-space-xs)")
+          .gap(.space(.xsmall))
       }
       rule(".swui-search-tokenized") {
         .display("flex")
           .flexDirection("column")
-          .gap("var(--swui-space-sm)")
+          .gap(.space(.small))
       }
       rule(".swui-search-tokens") {
         .display("flex")
-          .gap("var(--swui-space-xs)")
+          .gap(.space(.xsmall))
           .flexWrap("wrap")
       }
       rule(".swui-search-token") {
         .display("inline-flex")
           .alignItems("center")
-          .gap("var(--swui-space-xs)")
+          .gap(.space(.xsmall))
           .border("var(--swui-field-border)")
           .borderRadius("var(--swui-radius-pill)")
           .background("var(--swui-surface-raised)")
           .color("var(--swui-text)")
-          .padding("2px var(--swui-space-sm)")
+          .padding(.px(2), .space(.small))
           .font("inherit")
           .lineHeight("var(--swui-line-height-tight)")
           .cursor("pointer")
       }
       rule(".swui-search-scopes") {
         .display("flex")
-          .gap("var(--swui-space-xs)")
+          .gap(.space(.xsmall))
           .flexWrap("wrap")
       }
       rule(".swui-search-scope") {
         .display("inline-flex")
           .alignItems("center")
-          .gap("var(--swui-space-xs)")
+          .gap(.space(.xsmall))
       }
       // MARK: Presentation (alert / confirmationDialog / sheet / popover)
       // The shared `<dialog>` overlay composes the material primitive; this
@@ -1230,7 +1230,7 @@ enum ThemeStylesheet {
       // overlay costs no layout while hidden.
       rule(".swui-presentation") {
         .margin("auto")
-          .padding("0")
+          .padding(.zero)
           .boxSizing("border-box")
           .width("100%")
           .maxWidth("min(92vw, 28rem)")
@@ -1244,7 +1244,7 @@ enum ThemeStylesheet {
       // `<dialog open>` degradation when the client runtime is absent.
       rule(".swui-presentation[open]") {
         .position("fixed")
-          .top("0")
+          .top(.zero)
           .right("0")
           .bottom("0")
           .left("0")
@@ -1255,13 +1255,13 @@ enum ThemeStylesheet {
       rule(".swui-presentation::backdrop") {
         .background("color-mix(in srgb, var(--swui-text) 32%, transparent)")
           .custom("-webkit-backdrop-filter", "blur(2px)")
-          .custom("backdrop-filter", "blur(2px)")
+          .backdropFilter("blur(2px)")
       }
       rule(".swui-presentation-surface") {
         .display("flex")
           .flexDirection("column")
-          .gap("var(--swui-space-md)")
-          .padding("var(--swui-space-lg)")
+          .gap(.space(.medium))
+          .padding(.space(.large))
           .boxSizing("border-box")
       }
       rule(".swui-presentation-title") {
@@ -1277,7 +1277,7 @@ enum ThemeStylesheet {
       rule(".swui-presentation-actions") {
         .display("flex")
           .flexWrap("wrap")
-          .gap("var(--swui-space-sm)")
+          .gap(.space(.small))
           .justifyContent("flex-end")
       }
       // Action sheets stack their choices full width, matching the native
@@ -1294,685 +1294,125 @@ enum ThemeStylesheet {
           .borderBottomRightRadius("0")
       }
       rule(".swui-presentation-sheet[open]") {
-        .top("auto")
+        .top(.auto)
       }
       // The popover reads as a compact panel. True source anchoring needs the
       // CSS anchor positioning API; until then it presents centered.
       rule(".swui-presentation-popover") {
         .maxWidth("min(92vw, 20rem)")
       }
+      rule(".swui-grid-row > *") {
+        .display("table-cell")
+          .verticalAlign("var(--swui-grid-cell-vertical-alignment)")
+          .textAlign("var(--swui-grid-cell-horizontal-alignment)")
+      }
+      // Native form controls inherit the page font.
+      rule(
+        """
+        input,
+        button,
+        select,
+        textarea
+        """
+      ) {
+        .fontFamily("inherit")
+      }
+      // Button size variants use native-like compact dimensions, which are
+      // tighter than the generic `swui-control-*` sizing; they are
+      // component-specific values that live in the stylesheet rather than the
+      // component body.
+      rule(".swui-button.swui-control-mini") {
+        .minHeight("0")
+          .padding(.px(4), .px(9))
+          .borderRadius("var(--swui-radius-small)")
+          .fontSize("11px")
+      }
+      rule(".swui-button.swui-control-small") {
+        .minHeight("0")
+          .padding(.px(5), .px(11))
+          .fontSize("12px")
+      }
+      rule(".swui-button.swui-control-regular") {
+        .minHeight("0")
+          .padding(.px(7), .px(14))
+          .fontSize("14px")
+      }
+      rule(".swui-button.swui-control-large") {
+        .minHeight("0")
+          .padding(.px(10), .px(20))
+          .fontSize("16px")
+      }
+      rule(".swui-list-row:last-child") {
+        .borderBottom("0")
+      }
+      rule(".swui-section-header") {
+        .margin("0")
+          .padding(.px(10), .px(14), .px(6), .px(14))
+          .background("color-mix(in srgb, var(--swui-text-muted) 7%, transparent)")
+          .color("var(--swui-text-muted)")
+          .fontSize("11.5px")
+          .fontWeight("700")
+          .letterSpacing("0.05em")
+          .textTransform("uppercase")
+      }
+      rule(
+        """
+        .swui-text-field:focus,
+        .swui-text-editor:focus
+        """
+      ) {
+        .borderColor("var(--swui-accent)")
+      }
+      rule(".swui-stepper") {
+        .display("inline-flex")
+          .alignItems("center")
+          .width("fit-content")
+          .maxWidth("100%")
+          .minHeight("0")
+          .padding(.zero)
+          .overflow("hidden")
+          .background("var(--swui-surface-raised)")
+          .border("1px solid var(--swui-border)")
+          .borderRadius("var(--swui-button-radius)")
+          .color("var(--swui-text)")
+          .boxSizing("border-box")
+      }
+      rule(".swui-stepper-button") {
+        .display("inline-flex")
+          .alignItems("center")
+          .justifyContent("center")
+          .width("32px")
+          .height("31px")
+          .minHeight("0")
+          .padding(.zero)
+          .border("0")
+          .background("transparent")
+          .color("var(--swui-control-tint, var(--swui-accent))")
+          .font("inherit")
+          .fontSize("16px")
+          .fontWeight("500")
+          .lineHeight("1")
+          .cursor("pointer")
+      }
+      rule(
+        """
+        .swui-stepper-value,
+        .swui-stepper .val
+        """
+      ) {
+        .display("flex")
+          .alignItems("center")
+          .justifyContent("center")
+          .minWidth("42px")
+          .height("31px")
+          .borderLeft("1px solid var(--swui-border)")
+          .borderRight("1px solid var(--swui-border)")
+          .color("var(--swui-text)")
+          .fontVariantNumeric("tabular-nums")
+          .textAlign("center")
+      }
     }
   }
-
-  private static let designContractCSS = """
-
-  input,
-  button,
-  select,
-  textarea {
-    font-family: inherit;
-  }
-
-  .swui-root {
-    min-height: auto;
-    color: var(--swui-text);
-    font-family: var(--swui-font-family);
-  }
-
-  .swui-vstack,
-  .swui-lazy-vstack {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .swui-hstack,
-  .swui-lazy-hstack,
-  .swui-toolbar {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-  }
-
-  .swui-spacer {
-    flex: 1 1 auto;
-  }
-
-  .swui-divider {
-    width: 100%;
-    height: 1px;
-    border: 0;
-    background: var(--swui-border);
-  }
-
-  .swui-hstack > .swui-divider,
-  .swui-lazy-hstack > .swui-divider,
-  .swui-toolbar > .swui-divider {
-    width: 1px;
-    height: auto;
-    align-self: stretch;
-  }
-
-  .swui-heading {
-    margin: 0;
-    color: var(--swui-text);
-    font-weight: 600;
-    line-height: 1.2;
-    letter-spacing: 0;
-  }
-
-  .swui-heading-page {
-    font-size: 30px;
-    font-weight: 680;
-  }
-
-  .swui-heading-section {
-    font-size: 22px;
-  }
-
-  .swui-heading-subsection {
-    font-size: 17px;
-  }
-
-  .swui-text {
-    margin: 0;
-    color: var(--swui-text);
-    font-size: 14px;
-    line-height: 1.5;
-  }
-
-  .swui-text-muted {
-    color: var(--swui-text-muted);
-  }
-
-  .swui-inline-code {
-    display: inline-block;
-    padding: 1px 0.4em;
-    border: 0;
-    border-radius: var(--swui-radius-small);
-    background: color-mix(in srgb, var(--swui-surface-raised) 86%, var(--swui-accent));
-    font-family: var(--swui-mono-font-family);
-    font-size: 0.9em;
-    line-height: 1.5;
-  }
-
-  .swui-code-block {
-    min-width: 360px;
-    max-width: 560px;
-    margin: 0;
-    overflow: auto;
-    padding: 14px 0;
-    border: 1px solid var(--swui-border);
-    border-radius: 12px;
-    background: color-mix(in srgb, var(--swui-surface-raised) 92%, var(--swui-accent));
-    color: var(--swui-text);
-    font-family: var(--swui-mono-font-family);
-    font-size: 13px;
-    line-height: 1.65;
-    box-sizing: border-box;
-  }
-
-  .swui-code-line {
-    display: grid;
-    grid-template-columns: minmax(2.5ch, auto) 1fr;
-    column-gap: 16px;
-    padding: 0 18px;
-    white-space: pre;
-  }
-
-  .swui-code-line-plain {
-    display: block;
-    padding: 0 18px;
-    white-space: pre;
-  }
-
-  .swui-code-line-number {
-    opacity: 0.4;
-    color: var(--swui-text);
-    text-align: right;
-    user-select: none;
-  }
-
-  .swui-code-line-content {
-    white-space: pre;
-    font-family: var(--swui-mono-font-family);
-  }
-
-  .swui-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    min-width: max-content;
-    border: 1px solid transparent;
-    border-radius: var(--swui-button-radius);
-    padding: 7px 14px;
-    box-sizing: border-box;
-    color: var(--swui-text);
-    font: inherit;
-    font-size: 14px;
-    font-weight: 500;
-    line-height: 1;
-    white-space: nowrap;
-    text-decoration: none;
-    cursor: pointer;
-  }
-
-  .swui-button.swui-control-mini {
-    min-height: 0;
-    padding: 4px 9px;
-    border-radius: var(--swui-radius-small);
-    font-size: 11px;
-  }
-
-  .swui-button.swui-control-small {
-    min-height: 0;
-    padding: 5px 11px;
-    font-size: 12px;
-  }
-
-  .swui-button.swui-control-regular {
-    min-height: 0;
-    padding: 7px 14px;
-    font-size: 14px;
-  }
-
-  .swui-button.swui-control-large {
-    min-height: 0;
-    padding: 10px 20px;
-    font-size: 16px;
-  }
-
-  .swui-button-primary {
-    background: var(--swui-control-tint, var(--swui-button-primary-background));
-    color: var(--swui-button-primary-foreground);
-  }
-
-  .swui-button-secondary {
-    background: var(--swui-button-secondary-background);
-    color: var(--swui-button-secondary-foreground);
-    border-color: var(--swui-button-secondary-border);
-  }
-
-  .swui-button-plain {
-    background: transparent;
-    color: var(--swui-control-tint, var(--swui-button-plain-foreground));
-    border-color: transparent;
-  }
-
-  .swui-button-glass {
-    background: color-mix(in srgb, var(--swui-surface) 55%, transparent);
-    color: var(--swui-text);
-    border-color: var(--swui-border);
-    backdrop-filter: blur(10px);
-  }
-
-  .swui-button-glass-prominent {
-    background: var(--swui-control-tint, var(--swui-accent));
-    color: var(--swui-accent-text);
-    border-color: transparent;
-    backdrop-filter: blur(10px);
-  }
-
-  .swui-control-disabled,
-  .swui-button:disabled,
-  .swui-text-field:disabled,
-  .swui-picker:disabled,
-  .swui-slider:disabled {
-    opacity: var(--swui-control-disabled-opacity);
-    cursor: default;
-    pointer-events: none;
-  }
-
-  .swui-group-box {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    background: var(--swui-surface-raised);
-    border: var(--swui-container-border);
-    border-radius: var(--swui-container-radius);
-    box-shadow: var(--swui-container-shadow);
-    box-sizing: border-box;
-  }
-
-  .swui-group-box-title {
-    margin: 0 0 var(--swui-space-sm) 0;
-  }
-
-  .swui-badge {
-    display: inline-flex;
-    align-items: center;
-    width: fit-content;
-    gap: 6px;
-    padding: var(--swui-badge-padding);
-    border: var(--swui-badge-border);
-    border-radius: var(--swui-badge-radius);
-    background: var(--swui-badge-background);
-    color: var(--swui-badge-foreground);
-    font-size: 12.5px;
-    font-weight: 600;
-    line-height: 1.4;
-  }
-
-  .swui-list {
-    display: flex;
-    flex-direction: column;
-    min-width: 260px;
-    overflow: hidden;
-    background: var(--swui-surface-raised);
-    border: 1px solid var(--swui-border);
-    border-radius: 12px;
-    box-sizing: border-box;
-  }
-
-  .swui-list-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 9px 13px;
-    border-bottom: 1px solid var(--swui-border);
-    box-sizing: border-box;
-  }
-
-  .swui-list-row:last-child {
-    border-bottom: 0;
-  }
-
-  .swui-list-row .swui-text {
-    line-height: 1.35;
-  }
-
-  .swui-list-row > .swui-text:first-child {
-    font-weight: 500;
-  }
-
-  .swui-list-row .swui-text-muted {
-    font-size: 13px;
-  }
-
-  .swui-section {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    min-width: 280px;
-    box-sizing: border-box;
-  }
-
-  .swui-section-header {
-    margin: 0;
-    padding: 10px 14px 6px;
-    background: color-mix(in srgb, var(--swui-text-muted) 7%, transparent);
-    color: var(--swui-text-muted);
-    font-size: 11.5px;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-  }
-
-  .swui-section-footer,
-  .swui-section-footer-row {
-    color: var(--swui-text-muted);
-    font-size: 12.5px;
-    line-height: 1.45;
-  }
-
-  .swui-field,
-  .swui-picker-field {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    color: var(--swui-text);
-  }
-
-  .swui-field-label,
-  .swui-toggle-label {
-    color: var(--swui-text-muted);
-    font-size: 12.5px;
-    font-weight: 600;
-  }
-
-  .swui-text-field,
-  .swui-text-editor,
-  .swui-picker,
-  .swui-date-picker {
-    min-height: 0;
-    min-width: 220px;
-    padding: var(--swui-field-padding);
-    border: var(--swui-field-border);
-    border-radius: var(--swui-field-radius);
-    background: var(--swui-field-background);
-    color: var(--swui-text);
-    font: inherit;
-    font-size: 14px;
-    outline: none;
-    box-sizing: border-box;
-  }
-
-  .swui-text-field:focus,
-  .swui-text-editor:focus {
-    border-color: var(--swui-accent);
-  }
-
-  .swui-text-editor {
-    min-height: 80px;
-    width: 100%;
-    line-height: 1.5;
-    resize: vertical;
-  }
-
-  .swui-slider {
-    width: 220px;
-    height: 4px;
-    accent-color: var(--swui-control-tint, var(--swui-accent));
-  }
-
-  .swui-stepper {
-    display: inline-flex;
-    align-items: center;
-    width: fit-content;
-    max-width: 100%;
-    min-height: 0;
-    padding: 0;
-    overflow: hidden;
-    background: var(--swui-surface-raised);
-    border: 1px solid var(--swui-border);
-    border-radius: var(--swui-button-radius);
-    color: var(--swui-text);
-    box-sizing: border-box;
-  }
-
-  .swui-stepper-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 31px;
-    min-height: 0;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: var(--swui-control-tint, var(--swui-accent));
-    font: inherit;
-    font-size: 16px;
-    font-weight: 500;
-    line-height: 1;
-    cursor: pointer;
-  }
-
-  .swui-stepper-value,
-  .swui-stepper .val {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 42px;
-    height: 31px;
-    border-left: 1px solid var(--swui-border);
-    border-right: 1px solid var(--swui-border);
-    color: var(--swui-text);
-    font-variant-numeric: tabular-nums;
-    text-align: center;
-  }
-
-  .swui-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 9px;
-    color: var(--swui-text);
-    font-size: 14px;
-    cursor: pointer;
-  }
-
-  .swui-toggle-control {
-    width: 38px;
-    height: 23px;
-    border: 0;
-    border-radius: var(--swui-radius-pill);
-    background: color-mix(in srgb, var(--swui-text-muted) 45%, transparent);
-    position: relative;
-    flex: none;
-    transition: background var(--swui-motion-quick);
-  }
-
-  .swui-toggle-control::after {
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 19px;
-    height: 19px;
-    border-radius: 50%;
-    background: #fff;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-    content: "";
-    transition: transform var(--swui-motion-quick);
-  }
-
-  .swui-toggle-input:checked + .swui-toggle-control {
-    background: var(--swui-accent);
-  }
-
-  .swui-toggle-input:checked + .swui-toggle-control::after {
-    transform: translateX(15px);
-    background: #fff;
-  }
-
-  .swui-picker-segmented {
-    display: inline-flex;
-    gap: 2px;
-    min-height: 0;
-    padding: 2px;
-    overflow: visible;
-    background: color-mix(in srgb, var(--swui-text-muted) 14%, transparent);
-    border-radius: var(--swui-button-radius);
-  }
-
-  .swui-picker-segmented .swui-picker-segment {
-    flex: 0 0 auto;
-    min-width: max-content;
-    color: var(--swui-text);
-  }
-
-  .swui-picker-segmented .swui-picker-segment-label {
-    min-height: 0;
-    padding: 6px 14px;
-    border-radius: calc(var(--swui-button-radius) - 2px);
-    color: var(--swui-text);
-    font-size: 13px;
-    line-height: 1;
-    white-space: nowrap;
-  }
-
-  .swui-picker-segmented .swui-picker-segment-input:checked ~ .swui-picker-segment-label {
-    background: var(--swui-surface-raised);
-    color: var(--swui-text);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
-    font-weight: 600;
-  }
-
-  .swui-label {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    color: var(--swui-text);
-    font-size: 14px;
-  }
-
-  .swui-label-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 18px;
-    height: 18px;
-    color: var(--swui-accent);
-  }
-
-  .swui-link,
-  .swui-navigation-link {
-    color: var(--swui-accent);
-    text-decoration: none;
-  }
-
-  .swui-navigation-stack {
-    display: flex;
-    flex-direction: column;
-    min-width: 260px;
-    overflow: hidden;
-    background: var(--swui-surface-raised);
-    border: 1px solid var(--swui-border);
-    border-radius: 12px;
-  }
-
-  .swui-navigation-bar {
-    padding: 12px 14px 10px;
-    border-bottom: 1px solid var(--swui-border);
-    color: var(--swui-text);
-    font-size: 18px;
-    font-weight: 680;
-    letter-spacing: 0;
-  }
-
-  .swui-navigation-content {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--swui-space-sm);
-    padding: 12px 14px;
-  }
-
-  .swui-toolbar {
-    min-width: 260px;
-    gap: 10px;
-    padding: 9px 12px;
-    background: var(--swui-surface-raised);
-    border: 1px solid var(--swui-border);
-    border-radius: 12px;
-  }
-
-  .swui-scroll-view {
-    min-width: 240px;
-    max-height: 150px;
-    overflow: auto;
-    padding: 10px;
-    background: var(--swui-surface-raised);
-    border: 1px solid var(--swui-border);
-    border-radius: 12px;
-  }
-
-  .swui-progress {
-    display: flex;
-    flex-direction: column;
-    min-width: 220px;
-    gap: 6px;
-  }
-
-  .swui-progress-bar {
-    width: 220px;
-    height: 7px;
-    border: 0;
-    border-radius: var(--swui-radius-pill);
-    overflow: hidden;
-    background: color-mix(in srgb, var(--swui-text-muted) 24%, transparent);
-  }
-
-  .swui-progress-spinner {
-    width: 26px;
-    height: 26px;
-    border-width: 3px;
-  }
-
-  .swui-gauge {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .swui-disclosure-group {
-    min-width: 260px;
-    overflow: hidden;
-    background: var(--swui-surface-raised);
-    border: 1px solid var(--swui-border);
-    border-radius: 12px;
-  }
-
-  .swui-disclosure-summary {
-    padding: 11px 13px;
-    gap: 10px;
-  }
-
-  .swui-disclosure-content {
-    padding: 0 14px 14px;
-  }
-
-  .swui-searchable {
-    display: flex;
-    flex-direction: column;
-    gap: var(--swui-space-sm);
-  }
-
-  .swui-search-field {
-    width: 100%;
-    min-height: 0;
-    padding: 8px 12px;
-    border: 1px solid var(--swui-border);
-    border-radius: var(--swui-button-radius);
-    background: var(--swui-surface);
-    color: var(--swui-text);
-    font: inherit;
-    font-size: 14px;
-  }
-
-  .swui-search-suggestion-host,
-  .swui-search-scoped {
-    display: flex;
-    flex-direction: column;
-    gap: var(--swui-space-sm);
-  }
-
-  .swui-search-suggestions {
-    display: flex;
-    flex-direction: column;
-    gap: var(--swui-space-xs);
-  }
-
-  .swui-search-tokenized {
-    display: flex;
-    flex-direction: column;
-    gap: var(--swui-space-sm);
-  }
-
-  .swui-search-tokens {
-    display: flex;
-    gap: var(--swui-space-xs);
-    flex-wrap: wrap;
-  }
-
-  .swui-search-token {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--swui-space-xs);
-    border: var(--swui-field-border);
-    border-radius: var(--swui-radius-pill);
-    background: var(--swui-surface-raised);
-    color: var(--swui-text);
-    padding: 2px var(--swui-space-sm);
-    font: inherit;
-    line-height: var(--swui-line-height-tight);
-    cursor: pointer;
-  }
-
-  .swui-search-scopes {
-    display: flex;
-    gap: var(--swui-space-xs);
-    flex-wrap: wrap;
-  }
-
-  .swui-search-scope {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--swui-space-xs);
-  }
-  """
-
   // MARK: Liquid Glass material primitive
 
   /// The single Liquid Glass recipe every chrome surface composes. A surface
@@ -2113,4 +1553,99 @@ enum ThemeStylesheet {
       to { transform: rotate(360deg); }
     }
     """
+}
+
+private extension Length {
+  static let zero: Length = .custom("0")
+  static let auto: Length = .custom("auto")
+  static let pageInlinePadding: Length = .custom("var(--swui-page-inline-padding)")
+  static let gridSystemGutter: Length = .custom("var(--swui-grid-system-gutter)")
+  static let navigationGap: Length = .custom("var(--swui-navigation-gap)")
+  static let badgePadding: Length = .custom("var(--swui-badge-padding)")
+  static let fieldPadding: Length = .custom("var(--swui-field-padding)")
+  static let toggleThumbOffset: Length = .custom("var(--swui-toggle-thumb-offset)")
+
+  static func space(_ value: Space) -> Length {
+    .custom(value.rawValue)
+  }
+
+  static func menuOffset(_ spacing: Space) -> Length {
+    .custom("calc(100% + \(spacing.rawValue))")
+  }
+}
+
+private extension Style {
+  static func padding(_ value: Length) -> Style {
+    .padding(value.cssValue)
+  }
+
+  func padding(_ value: Length) -> Style {
+    appending(Self.padding(value))
+  }
+
+  static func padding(_ vertical: Length, _ horizontal: Length) -> Style {
+    .padding("\(vertical.cssValue) \(horizontal.cssValue)")
+  }
+
+  func padding(_ vertical: Length, _ horizontal: Length) -> Style {
+    appending(Self.padding(vertical, horizontal))
+  }
+
+  static func padding(
+    _ top: Length,
+    _ right: Length,
+    _ bottom: Length,
+    _ left: Length
+  ) -> Style {
+    .padding("\(top.cssValue) \(right.cssValue) \(bottom.cssValue) \(left.cssValue)")
+  }
+
+  func padding(
+    _ top: Length,
+    _ right: Length,
+    _ bottom: Length,
+    _ left: Length
+  ) -> Style {
+    appending(Self.padding(top, right, bottom, left))
+  }
+
+  static func paddingInline(_ value: Length) -> Style {
+    .paddingInline(value.cssValue)
+  }
+
+  func paddingInline(_ value: Length) -> Style {
+    appending(Self.paddingInline(value))
+  }
+
+  static func paddingBlockStart(_ value: Length) -> Style {
+    .paddingBlockStart(value.cssValue)
+  }
+
+  func paddingBlockStart(_ value: Length) -> Style {
+    appending(Self.paddingBlockStart(value))
+  }
+
+  static func gap(_ value: Length) -> Style {
+    .gap(value.cssValue)
+  }
+
+  func gap(_ value: Length) -> Style {
+    appending(Self.gap(value))
+  }
+
+  static func columnGap(_ value: Length) -> Style {
+    .columnGap(value.cssValue)
+  }
+
+  func columnGap(_ value: Length) -> Style {
+    appending(Self.columnGap(value))
+  }
+
+  static func top(_ value: Length) -> Style {
+    .top(value.cssValue)
+  }
+
+  func top(_ value: Length) -> Style {
+    appending(Self.top(value))
+  }
 }

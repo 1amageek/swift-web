@@ -1,10 +1,10 @@
 import SwiftHTML
 
 public struct Spacer: WebUIAttributeComponent {
-    private let minLength: Length?
+    private let minLength: Double?
     private let attributes: [HTMLAttribute]
 
-    public init(minLength: Length? = nil, _ attributes: HTMLAttribute...) {
+    public init(minLength: Double? = nil, _ attributes: HTMLAttribute...) {
         self.minLength = minLength
         self.attributes = attributes
     }
@@ -17,7 +17,7 @@ public struct Spacer: WebUIAttributeComponent {
     private var resolvedAttributes: [HTMLAttribute] {
         var result: [HTMLAttribute] = [.class("swui-spacer")]
         if let minLength {
-            result.append(.style(.minWidth(minLength.cssValue)))
+            result.append(.style(.minWidth(pixelValue(minLength))))
         }
         return mergedAttributes(extra: result + attributes)
     }
@@ -26,7 +26,7 @@ public struct Spacer: WebUIAttributeComponent {
         Self(minLength: minLength, attributes: self.attributes + attributes)
     }
 
-    private init(minLength: Length?, attributes: [HTMLAttribute]) {
+    private init(minLength: Double?, attributes: [HTMLAttribute]) {
         self.minLength = minLength
         self.attributes = attributes
     }

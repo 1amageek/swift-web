@@ -1,7 +1,7 @@
 import SwiftHTML
 
-public struct Toggle: WebUIAttributeComponent {
-    private let title: String
+public struct Toggle<Label: HTML>: WebUIAttributeComponent {
+    private let label: Label
     private let isOn: Binding<Bool>?
     private let initialValue: Bool
     private let attributes: [HTMLAttribute]
@@ -10,11 +10,11 @@ public struct Toggle: WebUIAttributeComponent {
     @Environment(\.toggleStyle) private var toggleStyle
 
     public init(
-        _ title: String,
         isOn: Binding<Bool>,
-        _ attributes: HTMLAttribute...
+        _ attributes: HTMLAttribute...,
+        @HTMLBuilder label: () -> Label
     ) {
-        self.title = title
+        self.label = label()
         self.isOn = isOn
         self.initialValue = isOn.wrappedValue
         self.attributes = attributes
@@ -36,17 +36,27 @@ public struct Toggle: WebUIAttributeComponent {
                 styleAttribute(.custom("--swui-material-tint", "var(--swui-surface-raised)"))
             ) {}
             span(.class("swui-toggle-label")) {
-                title
+                label
             }
         }
     }
 
     public func addingAttributes(_ attributes: [HTMLAttribute]) -> Self {
-        Self(title: title, isOn: isOn, initialValue: initialValue, attributes: self.attributes + attributes)
+        Self(
+            label: label,
+            isOn: isOn,
+            initialValue: initialValue,
+            attributes: self.attributes + attributes
+        )
     }
 
-    private init(title: String, isOn: Binding<Bool>?, initialValue: Bool, attributes: [HTMLAttribute]) {
-        self.title = title
+    private init(
+        label: Label,
+        isOn: Binding<Bool>?,
+        initialValue: Bool,
+        attributes: [HTMLAttribute]
+    ) {
+        self.label = label
         self.isOn = isOn
         self.initialValue = initialValue
         self.attributes = attributes
@@ -71,5 +81,15 @@ public struct Toggle: WebUIAttributeComponent {
         }
         result.append(contentsOf: attributes)
         return result
+    }
+}
+
+public extension Toggle where Label == text {
+    init(
+        _ title: String,
+        isOn: Binding<Bool>,
+        _ attributes: HTMLAttribute...
+    ) {
+        self.init(label: text(title), isOn: isOn, initialValue: isOn.wrappedValue, attributes: attributes)
     }
 }

@@ -338,7 +338,7 @@ public struct ClientNamedToolB: ClientComponent, Sendable {
   );
   const insertedDeferredCounter = updatedCounterPage !== counterPage;
   updatedCounterPage = updatedCounterPage.replace(
-    "            Link(\"Reload page\", href: \"/counter\")",
+    "            Link(\"Reload page\", destination: URL(string: \"/counter\")!)",
     `            GroupBox {
                 VStack(spacing: .small) {
                     Heading("Loading Policy E2E Spacer")
@@ -358,7 +358,7 @@ public struct ClientNamedToolB: ClientComponent, Sendable {
             ClientNamedToolA()
             ClientNamedToolB()
 
-            Link("Reload page", href: "/counter")`
+            Link("Reload page", destination: URL(string: "/counter")!)`
   );
   const insertedLoadingPolicyCounters = updatedCounterPage.includes("ClientManualCounter()");
   if (!insertedDeferredCounter || !insertedLoadingPolicyCounters) {

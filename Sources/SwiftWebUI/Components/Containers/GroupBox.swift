@@ -1,23 +1,17 @@
 import SwiftHTML
 
-public struct GroupBox<Content: HTML>: WebUIAttributeComponent {
-    private let title: String?
+public struct GroupBox<Label: HTML, Content: HTML>: WebUIAttributeComponent {
+    private let label: Label
+    private let showsLabel: Bool
     private let attributes: [HTMLAttribute]
     private let content: Content
 
     public init(
-        @HTMLBuilder content: () -> Content
+        @HTMLBuilder content: () -> Content,
+        @HTMLBuilder label: () -> Label
     ) {
-        self.title = nil
-        self.attributes = []
-        self.content = content()
-    }
-
-    public init(
-        _ title: String,
-        @HTMLBuilder content: () -> Content
-    ) {
-        self.title = title
+        self.label = label()
+        self.showsLabel = true
         self.attributes = []
         self.content = content()
     }
@@ -31,21 +25,40 @@ public struct GroupBox<Content: HTML>: WebUIAttributeComponent {
                 extra: attributes
             )
         ) {
-            if let title {
-                Heading(title, level: .subsection)
-                    .class("swui-group-box-title")
+            if showsLabel {
+                Element("div", attributes: [.class("swui-group-box-title")]) {
+                    label
+                }
             }
             content
         }
     }
 
     public func addingAttributes(_ attributes: [HTMLAttribute]) -> Self {
-        Self(title: title, attributes: self.attributes + attributes, content: content)
+        Self(label: label, showsLabel: showsLabel, attributes: self.attributes + attributes, content: content)
     }
 
-    private init(title: String?, attributes: [HTMLAttribute], content: Content) {
-        self.title = title
+    private init(label: Label, showsLabel: Bool, attributes: [HTMLAttribute], content: Content) {
+        self.label = label
+        self.showsLabel = showsLabel
         self.attributes = attributes
         self.content = content
+    }
+}
+
+public extension GroupBox where Label == EmptyHTML {
+    init(@HTMLBuilder content: () -> Content) {
+        self.init(label: EmptyHTML(), showsLabel: false, attributes: [], content: content())
+    }
+}
+
+public extension GroupBox where Label == Heading {
+    init(
+        _ title: String,
+        @HTMLBuilder content: () -> Content
+    ) {
+        self.init(content: content) {
+            Heading(title, level: .subsection)
+        }
     }
 }

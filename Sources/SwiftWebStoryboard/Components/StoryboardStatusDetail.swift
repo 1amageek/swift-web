@@ -20,4 +20,3 @@ struct StatusDetail: Component {
         }
     }
 }
-

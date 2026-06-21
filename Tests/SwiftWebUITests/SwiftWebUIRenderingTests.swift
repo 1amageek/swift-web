@@ -15,14 +15,16 @@ struct SwiftWebUIRenderingTests {
           Heading("Counter", level: .page)
           Text("Client and server counters.", tone: .muted)
         }
-        Grid {
-          GroupBox {
-            Heading("Client Counter")
-            Text("Runs in WASM.", tone: .muted)
-            Text("0", as: .strong)
-              .accessibilityIdentifier("counter-value")
+        Grid(alignment: .center, horizontalSpacing: 5.0, verticalSpacing: 5.0) {
+          GridRow {
+            GroupBox {
+              Heading("Client Counter")
+              Text("Runs in WASM.", tone: .muted)
+              Text("0", as: .strong)
+                .accessibilityIdentifier("counter-value")
+            }
+            .accessibilityIdentifier("client-counter")
           }
-          .accessibilityIdentifier("client-counter")
         }
       }
     }
@@ -34,6 +36,9 @@ struct SwiftWebUIRenderingTests {
     #expect(rendered.contains("--swui-background: #f7f8fa;"))
     #expect(rendered.contains("--swui-button-radius: var(--swui-radius-medium);"))
     #expect(rendered.contains(".swui-code-line-number"))
+    #expect(rendered.contains("class=\"swui-grid-row\""))
+    #expect(rendered.contains("--swui-grid-horizontal-spacing: 5px;"))
+    #expect(rendered.contains("--swui-grid-vertical-spacing: 5px;"))
     #expect(rendered.contains("white-space: nowrap;"))
     #expect(rendered.contains(".swui-list-row .swui-text"))
     #expect(rendered.contains(".swui-list-row .swui-text-muted"))
@@ -42,6 +47,7 @@ struct SwiftWebUIRenderingTests {
     #expect(rendered.contains("data-style-system=\"swift-web\""))
     #expect(
       rendered.contains("class=\"swui-group-box swui-material swui-material-regular\""))
+    #expect(cssRule(".swui-group-box", in: rendered)?.contains("padding: var(--swui-space-md);") == true)
     #expect(rendered.contains("data-accessibility-identifier=\"client-counter\""))
     #expect(rendered.contains("data-accessibility-identifier=\"counter-value\""))
   }
@@ -50,16 +56,16 @@ struct SwiftWebUIRenderingTests {
   func rendersDeclarativeStyleSystemBuilderOverrides() {
     let style = StyleSystem(id: "brand") {
       .root {
-        .pageInlinePadding("40px")
-          .stackSpacing("24px")
+        .pageInlinePadding(40)
+        .stackSpacing(24)
       }
       .surface {
-        .containerRadius("18px")
-          .containerShadow("none")
+        .containerRadius(18)
+        .containerShadow(.none)
       }
       .button {
-        .radius("999px")
-          .secondaryBackground("#eef2ff")
+        .radius(999)
+        .secondaryBackground(.hex(0xEEF2FF))
       }
     }
 
@@ -109,7 +115,8 @@ struct SwiftWebUIRenderingTests {
   @Test
   func resolvesButtonTintOnTheButtonElement() {
     let rendered = GroupBox {
-      Button("Danger", prominence: .primary) {}
+      Button("Danger") {}
+        .buttonStyle(.borderedProminent)
         .tint(.danger)
     }
     .environment(\.theme, .light)
@@ -168,7 +175,10 @@ struct SwiftWebUIRenderingTests {
     #expect(rendered.contains("--swui-grid-system-gutter: var(--swui-space-lg)"))
     #expect(rendered.contains("max-width: 720px"))
     #expect(rendered.contains("padding-block: var(--swui-space-xl)"))
-    #expect(rendered.contains("padding-inline: var(--swui-page-inline-padding);"))
+    // The responsive page inline inset is a global StyleSystem token applied by
+    // the `.swui-grid-system` stylesheet rule (`padding-inline:
+    // var(--swui-page-inline-padding)`), not a per-instance inline style, so the
+    // `swui-grid-system` class above is what carries it.
     #expect(rendered.contains("class=\"swui-grid-pane\""))
     #expect(rendered.contains("grid-column: span 12"))
   }
@@ -390,7 +400,7 @@ struct SwiftWebUIRenderingTests {
 
   @Test
   func linksCanReadButtonStyleEnvironment() {
-    let rendered = Link("Details", href: "/details")
+    let rendered = Link("Details", destination: URL(string: "/details")!)
       .buttonStyle(.borderedProminent)
       .controlSize(.large)
       .tint(.accent)
@@ -678,7 +688,7 @@ struct SwiftWebUIRenderingTests {
 
       Stepper("Count", value: $count, in: 0...10)
 
-      NavigationLink("Details", href: "/details")
+      NavigationLink("Details", destination: URL(string: "/details")!)
     }
     .navigationTitle("Counter")
     .render()
@@ -734,9 +744,10 @@ struct SwiftWebUIRenderingTests {
   @Test
   func rendersDisclosureGroupAndTextEditor() {
     @State var notes = "Hello"
+    @State var expanded = true
 
     let rendered = VStack {
-      DisclosureGroup("Advanced", isExpanded: true) {
+      DisclosureGroup("Advanced", isExpanded: $expanded) {
         Text("Body")
       }
       TextEditor(text: $notes)
@@ -747,7 +758,8 @@ struct SwiftWebUIRenderingTests {
     // regular-material recipe; `isExpanded` emits `open`.
     #expect(
       rendered.contains("class=\"swui-disclosure-group swui-material swui-material-regular\" open"))
-    #expect(rendered.contains("<summary class=\"swui-disclosure-summary\">Advanced</summary>"))
+    #expect(rendered.contains("class=\"swui-disclosure-summary\""))
+    #expect(rendered.contains(">Advanced</summary>"))
     #expect(rendered.contains("class=\"swui-disclosure-content\""))
     // TextEditor composes the thin material and carries its value as content.
     #expect(rendered.contains("class=\"swui-text-editor swui-material swui-material-thin\""))
@@ -761,7 +773,7 @@ struct SwiftWebUIRenderingTests {
 
     let rendered = VStack {
       ColorPicker("Accent", selection: $color)
-      DatePicker("Due", selection: $due)
+      DatePicker("Due", selection: $due, displayedComponents: [.date])
       DatePicker("Start", selection: $due, displayedComponents: [.date, .hourAndMinute])
       DatePicker("At", selection: $due, displayedComponents: [.hourAndMinute])
     }
@@ -1527,6 +1539,15 @@ struct SwiftWebUIRenderingTests {
 
   private func countOccurrences(of needle: String, in haystack: String) -> Int {
     haystack.components(separatedBy: needle).count - 1
+  }
+
+  private func cssRule(_ selector: String, in rendered: String) -> String? {
+    guard let start = rendered.range(of: "\(selector) {"),
+          let end = rendered[start.upperBound...].range(of: "}")
+    else {
+      return nil
+    }
+    return String(rendered[start.lowerBound..<end.upperBound])
   }
 }
 

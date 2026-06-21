@@ -1,4 +1,5 @@
 import Distributed
+import Foundation
 import SwiftHTML
 import SwiftWeb
 import SwiftWebUI
@@ -59,7 +60,7 @@ struct CounterPage {
                             .frame(maxWidth: .infinity, alignment: .top)
                         }
 
-                        Link("Reload page", href: "/counter")
+                        Link("Reload page", destination: URL(string: "/counter")!)
                     }
                 }
             }
