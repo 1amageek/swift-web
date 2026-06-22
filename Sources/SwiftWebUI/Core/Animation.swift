@@ -15,26 +15,34 @@ public struct Animation: Sendable, Equatable {
         self.delaySeconds = delaySeconds
     }
 
-    /// The framework default: a standard ease-in-out.
-    public static let `default` = Animation(timingFunction: .easeInOut, duration: 0.35)
+    private static let standardDuration = 0.35
 
-    public static func easeInOut(duration: Double = 0.35) -> Animation {
+    /// The framework default: a standard ease-in-out.
+    public static let `default` = Animation(timingFunction: .easeInOut, duration: standardDuration)
+
+    public static let easeInOut = Animation(timingFunction: .easeInOut, duration: standardDuration)
+    public static let easeIn = Animation(timingFunction: .easeIn, duration: standardDuration)
+    public static let easeOut = Animation(timingFunction: .easeOut, duration: standardDuration)
+    public static let linear = Animation(timingFunction: .linear, duration: standardDuration)
+    /// A spring, approximated as a sampled `linear()` easing (see `TimingFunction.spring`).
+    public static let spring = Animation.spring()
+
+    public static func easeInOut(duration: Double) -> Animation {
         Animation(timingFunction: .easeInOut, duration: duration)
     }
 
-    public static func easeIn(duration: Double = 0.35) -> Animation {
+    public static func easeIn(duration: Double) -> Animation {
         Animation(timingFunction: .easeIn, duration: duration)
     }
 
-    public static func easeOut(duration: Double = 0.35) -> Animation {
+    public static func easeOut(duration: Double) -> Animation {
         Animation(timingFunction: .easeOut, duration: duration)
     }
 
-    public static func linear(duration: Double = 0.35) -> Animation {
+    public static func linear(duration: Double) -> Animation {
         Animation(timingFunction: .linear, duration: duration)
     }
 
-    /// A spring, approximated as a sampled `linear()` easing (see `TimingFunction.spring`).
     public static func spring(duration: Double = 0.5, bounce: Double = 0.0) -> Animation {
         Animation(timingFunction: .spring(bounce: bounce), duration: duration)
     }

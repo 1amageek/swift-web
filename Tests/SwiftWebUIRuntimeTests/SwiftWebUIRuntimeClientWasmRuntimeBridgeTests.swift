@@ -1,6 +1,8 @@
 import SwiftHTML
 import SwiftWebUIRuntime
+import Synchronization
 import Testing
+import SwiftWebUI
 
 private struct WasmBridgeCounter: ClientComponent, Sendable {
     @State private var value = 0
@@ -10,6 +12,50 @@ private struct WasmBridgeCounter: ClientComponent, Sendable {
             value += 1
         }) {
             "\(value)"
+        }
+    }
+}
+
+private struct WasmBridgeAnimatedCounter: ClientComponent, Sendable {
+    @State private var value = 0
+
+    var body: some HTML {
+        button(.type(ButtonType.button), .onClick {
+            withAnimation(.easeInOut(duration: 0.3)) {
+                value += 1
+            }
+        }) {
+            "\(value)"
+        }
+    }
+}
+
+/// Records the animation the bridge hands to the DOM host, so the end-to-end seam
+/// (handler → Transaction → host.apply(animation:)) can be asserted on the host
+/// (the production JS host is WASI-only and unobservable from macOS tests).
+private final class AnimationRecordingHost: BrowserDOMHost {
+    struct Record: Sendable {
+        var applyCount = 0
+        var lastAnimation: TransactionAnimation?
+    }
+
+    let state = Mutex(Record())
+
+    func apply(_ batch: BrowserDOMCommandBatch, currentIndex: BrowserHydrationIndex) {
+        state.withLock {
+            $0.applyCount += 1
+            $0.lastAnimation = nil
+        }
+    }
+
+    func apply(
+        _ batch: BrowserDOMCommandBatch,
+        currentIndex: BrowserHydrationIndex,
+        animation: TransactionAnimation?
+    ) {
+        state.withLock {
+            $0.applyCount += 1
+            $0.lastAnimation = animation
         }
     }
 }
@@ -345,6 +391,55 @@ struct SwiftWebUIRuntimeClientWasmRuntimeBridgeTests {
             .updateText(node: HTMLNodeID(0), value: "1"),
         ])
         #expect(update.hydrationIndex?.handlers.map(\.handlerID) == [handler.handlerID])
+    }
+
+    @Test
+    func dispatchWithAnimationDeliversTheAnimationToTheDOMHost() throws {
+        let host = AnimationRecordingHost()
+        let bridge = ClientWasmRuntimeBridge<WasmBridgeAnimatedCounter>(domHost: host) { _ in
+            WasmBridgeAnimatedCounter()
+        }
+        let bootstrap = try bridge.bootstrap(
+            ClientWasmBootstrapRequest(
+                hydrationIndex: .empty,
+                location: ClientWasmBootstrapLocation(
+                    href: "http://127.0.0.1:8080/anim",
+                    search: ""
+                )
+            )
+        )
+        let handler = try #require(bootstrap.hydrationIndex?.handlers.first)
+        _ = try bridge.dispatch(
+            ClientWasmEventRequest(handlerID: handler.handlerID, event: DOMEvent())
+        )
+        let record = host.state.withLock { $0 }
+        #expect(record.applyCount == 1)
+        #expect(record.lastAnimation?.css == "0.3s cubic-bezier(0.42, 0, 0.58, 1) 0s")
+        #expect(record.lastAnimation?.durationMilliseconds == 300)
+    }
+
+    @Test
+    func dispatchWithoutWithAnimationDeliversNoAnimationToTheDOMHost() throws {
+        let host = AnimationRecordingHost()
+        let bridge = ClientWasmRuntimeBridge<WasmBridgeCounter>(domHost: host) { _ in
+            WasmBridgeCounter()
+        }
+        let bootstrap = try bridge.bootstrap(
+            ClientWasmBootstrapRequest(
+                hydrationIndex: .empty,
+                location: ClientWasmBootstrapLocation(
+                    href: "http://127.0.0.1:8080/plain",
+                    search: ""
+                )
+            )
+        )
+        let handler = try #require(bootstrap.hydrationIndex?.handlers.first)
+        _ = try bridge.dispatch(
+            ClientWasmEventRequest(handlerID: handler.handlerID, event: DOMEvent())
+        )
+        let record = host.state.withLock { $0 }
+        #expect(record.applyCount == 1)
+        #expect(record.lastAnimation == nil)
     }
 
     @Test

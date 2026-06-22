@@ -2,6 +2,7 @@
 import Foundation
 import JavaScriptKit
 import SwiftHTML
+import Synchronization
 
 public struct JavaScriptKitBrowserDOMHost: BrowserDOMHost {
     public init() {}
@@ -35,6 +36,12 @@ public enum JavaScriptKitBrowserRuntime {
         }
     }
 
+    // Monotonic token so only the most recent withAnimation's cleanup tears down the
+    // document scope. Without it, an earlier event's timer would strip the scope a
+    // later, still-running withAnimation depends on. Single-threaded (WASI), but
+    // Mutex keeps it Sendable-correct.
+    private static let animationScopeGeneration = Mutex(0)
+
     /// Applies a batch whose changes an explicit `withAnimation` transaction asked
     /// to be interpolated. The whole document is made an animation scope for the
     /// transaction's timing so the existing
@@ -51,6 +58,10 @@ public enum JavaScriptKitBrowserRuntime {
             return
         }
         let body: JSValue = document.body
+        let generation = animationScopeGeneration.withLock { value -> Int in
+            value += 1
+            return value
+        }
         _ = body.classList.add("swui-animation-scope")
         _ = body.style.setProperty("--swui-animation", animation.css)
         // Commit the scope's transition (with the pre-patch values) before mutating,
@@ -59,11 +70,16 @@ public enum JavaScriptKitBrowserRuntime {
         _ = body.offsetHeight.number
         apply(batch, hydrationIndex: hydrationIndex)
         let cleanup = JSOneshotClosure { _ in
-            _ = body.classList.remove("swui-animation-scope")
-            _ = body.style.removeProperty("--swui-animation")
+            // Only the latest withAnimation owns the scope; an earlier timer must not
+            // tear down a scope a later one is still using.
+            let isLatest = animationScopeGeneration.withLock { $0 == generation }
+            if isLatest {
+                _ = body.classList.remove("swui-animation-scope")
+                _ = body.style.removeProperty("--swui-animation")
+            }
             return .undefined
         }
-        _ = JSObject.global.setTimeout!(cleanup, Double(animation.durationMilliseconds))
+        _ = JSObject.global.setTimeout!(cleanup, motionAdjustedDelay(Double(animation.durationMilliseconds)))
     }
 
     private static func apply(
@@ -383,6 +399,26 @@ public enum JavaScriptKitBrowserRuntime {
         node nodeID: HTMLNodeID,
         hydrationIndex: BrowserHydrationIndex
     ) {
+        // A node carrying an exit transition animates out first, then detaches.
+        // This MUST run before the rendered-range fast path below, which would
+        // otherwise delete the node instantly and skip the animation. Only element
+        // nodes (nodeType 1) carry the markers; the exact node is detached directly
+        // (not by index) so a concurrent re-insert of the same slot is unaffected.
+        if let node = resolveDOMNode(nodeID, hydrationIndex: hydrationIndex),
+           node.nodeType.number == 1,
+           node.getAttribute("data-swui-transition").string == "1",
+           let milliseconds = node.getAttribute("data-swui-exit-ms").string.flatMap(Double.init),
+           milliseconds > 0 {
+            _ = node.classList.add("swui-exiting")
+            let removal = JSOneshotClosure { _ in
+                if let parent = resolvedNode(node.parentNode) {
+                    _ = parent.removeChild(node)
+                }
+                return .undefined
+            }
+            _ = JSObject.global.setTimeout!(removal, motionAdjustedDelay(milliseconds))
+            return
+        }
         if let record = hydrationIndex.node(nodeID),
            removeRenderedNode(record, hydrationIndex: hydrationIndex) {
             return
@@ -397,29 +433,20 @@ public enum JavaScriptKitBrowserRuntime {
             reportUnresolvedTarget(nodeID, operation: "removeNode")
             return
         }
-        detachNode(node, from: context.parent)
+        _ = context.parent.removeChild(node)
     }
 
-    /// Detaches a node, animating its exit first when it carries a
-    /// `.transition(_:)` marker. The element gets `.swui-exiting` (which animates
-    /// to its exit state) and is removed only after the transition's duration, so
-    /// the removal animation is visible; otherwise it is removed immediately.
-    private static func detachNode(_ node: JSValue, from parent: JSValue) {
-        // Only element nodes (nodeType 1) carry transition markers; text and
-        // comment nodes have no getAttribute and detach immediately.
-        if node.nodeType.number == 1,
-           node.getAttribute("data-swui-transition").string == "1",
-           let milliseconds = node.getAttribute("data-swui-exit-ms").string.flatMap(Double.init),
-           milliseconds > 0 {
-            _ = node.classList.add("swui-exiting")
-            let removal = JSOneshotClosure { _ in
-                _ = parent.removeChild(node)
-                return .undefined
-            }
-            _ = JSObject.global.setTimeout!(removal, milliseconds)
-        } else {
-            _ = parent.removeChild(node)
+    /// Zero when the user prefers reduced motion (so animated detaches/cleanups
+    /// happen promptly, matching the near-instant CSS), otherwise `milliseconds`.
+    private static func motionAdjustedDelay(_ milliseconds: Double) -> Double {
+        prefersReducedMotion() ? 0 : milliseconds
+    }
+
+    private static func prefersReducedMotion() -> Bool {
+        guard let query = JSObject.global.matchMedia?("(prefers-reduced-motion: reduce)") else {
+            return false
         }
+        return query.matches.boolean ?? false
     }
 
     private static func moveNode(

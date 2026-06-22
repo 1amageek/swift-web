@@ -8,9 +8,18 @@ import SwiftHTML
 ///
 /// Granularity note: unlike SwiftUI — which scopes the animation to the closure —
 /// the web applies an event's changes only after the whole event is handled, so
-/// the animation applies to the entire resulting update (per-event granularity).
-/// Other changes made in the same event are interpolated with the same animation.
-/// Passing `nil` runs `body` without animating.
+/// the animation applies to the *entire* resulting update (per-event granularity).
+/// Two consequences, by design and not silently:
+/// - Other changes made elsewhere in the same event are interpolated with this
+///   animation too.
+/// - If several `withAnimation` calls run in one event, the last one wins for the
+///   whole update; an earlier call's animation does not apply only to its own
+///   changes. Use one `withAnimation` per event when the timing must differ.
+///
+/// Passing `nil` runs `body` without animating. Outside an event being dispatched
+/// (e.g. server-side render) there is no transaction to record on, so `body` runs
+/// unanimated — correct, because there is no client to interpolate.
+@discardableResult
 public func withAnimation<Result>(
     _ animation: Animation? = .default,
     _ body: () throws -> Result

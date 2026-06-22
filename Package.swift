@@ -201,6 +201,7 @@ let package = Package(
             dependencies: [
                 swiftHTMLDependency,
                 "SwiftWebUIRuntime",
+                "SwiftWebUI",
             ],
             swiftSettings: swiftWebSwiftSettings
         ),
