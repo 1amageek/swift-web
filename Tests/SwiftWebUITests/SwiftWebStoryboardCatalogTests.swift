@@ -144,7 +144,8 @@ struct SwiftWebStoryboardCatalogTests {
 
         #expect(rendered.contains("href=\"/storyboard/list\""))
         #expect(rendered.contains("href=\"/storyboard/stacks\""))
-        #expect(rendered.contains("aria-current=\"page\""))
+        // Exactly one row is the current page (not just "at least one").
+        #expect(occurrences(of: "aria-current=\"page\"", in: rendered) == 1)
     }
 
     @Test

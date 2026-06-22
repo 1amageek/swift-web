@@ -334,6 +334,9 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         """))
     #expect(wasmPackageSwift.contains("--export=swiftweb_snapshot_state"))
     #expect(wasmPackageSwift.contains("--export=swiftweb_restore_state"))
+    // The client hydration walk recurses the component tree; deep trees overflow
+    // the default 1MB wasm stack. Pin the larger stack so it can't silently regress.
+    #expect(wasmPackageSwift.contains("stack-size=16777216"))
     #expect(!wasmPackageSwift.contains("exclude: [\"README.md\"]"))
 
     let serverSources = generatedPackage.packageDirectory.appendingPathComponent("Sources")
