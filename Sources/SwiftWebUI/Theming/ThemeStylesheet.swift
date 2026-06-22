@@ -409,6 +409,42 @@ enum ThemeStylesheet {
           .minWidth("0")
           .alignSelf("auto")
       }
+      // A frame that fills an axis must let a CONTAINER child accept that
+      // proposed size and fill too (SwiftUI merges the frame with the view, so a
+      // VStack/HStack in a fill frame grows to the frame). Scoped to containers
+      // so intrinsic content (Text, Image) is still positioned by the frame's
+      // alignment rather than stretched. The frame is a flex row, so a
+      // horizontal fill grows the main axis and a vertical fill stretches cross.
+      rule(
+        """
+        .swui-frame.swui-fill-h > .swui-vstack,
+        .swui-frame.swui-fill-h > .swui-hstack,
+        .swui-frame.swui-fill-h > .swui-lazy-vstack,
+        .swui-frame.swui-fill-h > .swui-lazy-hstack,
+        .swui-frame.swui-fill-h > .swui-zstack,
+        .swui-frame.swui-fill-h > .swui-group-box,
+        .swui-frame.swui-fill-h > .swui-scroll-view,
+        .swui-frame.swui-fill-h > .swui-frame
+        """
+      ) {
+        .flex("1 1 0%")
+          .minWidth("0")
+      }
+      rule(
+        """
+        .swui-frame.swui-fill-v > .swui-vstack,
+        .swui-frame.swui-fill-v > .swui-hstack,
+        .swui-frame.swui-fill-v > .swui-lazy-vstack,
+        .swui-frame.swui-fill-v > .swui-lazy-hstack,
+        .swui-frame.swui-fill-v > .swui-zstack,
+        .swui-frame.swui-fill-v > .swui-group-box,
+        .swui-frame.swui-fill-v > .swui-scroll-view,
+        .swui-frame.swui-fill-v > .swui-frame
+        """
+      ) {
+        .alignSelf("stretch")
+          .minHeight("0")
+      }
       // Explicit hug blocks fill and propagation. Declared after the
       // fill/:has rules so equal-specificity selectors win by source order.
       rule(".swui-hug-h") {
