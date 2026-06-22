@@ -297,6 +297,12 @@ struct StoryboardStylesheet: Component {
           .borderLeft("1px solid var(--ui-border)")
           .background("var(--bg)")
       }
+      // Contain overscroll inside each column so the elastic bounce plays on the
+      // column itself. Without this the overscroll chains to the fixed (non-
+      // scrollable) document, which swallows it and the bounce never appears.
+      rule(".storyboard-page .storyboard-sidebar, .storyboard-page .storyboard-detail, .storyboard-page .storyboard-inspector") {
+        .overscrollBehavior("contain")
+      }
       rule(".storyboard-breadcrumb") {
         .marginBottom("8px")
           .fontSize("12px")
