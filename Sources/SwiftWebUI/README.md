@@ -188,3 +188,39 @@ NavigationStack {
 | `TextField`, `Toggle`, `Slider`, `Stepper`, `Picker` | Use `Binding` as the primary state interface. |
 | `accessibilityLabel`, `accessibilityHint`, `accessibilityValue`, `accessibilityHidden`, `accessibilityRole` | Maps common accessibility intent to semantic attributes. |
 | `NavigationStack`, `NavigationLink`, `navigationTitle` | Creates a navigation graph that can later be connected to browser history and transitions. |
+| `animation(_:value:)`, `transition(_:)`, `withAnimation(_:_:)` | Lower SwiftUI-style animation to CSS so the browser interpolates the change; there is no Swift-side animation engine. |
+
+## Animation
+
+Animation lowers to CSS — the browser performs every interpolation, and SwiftWebUI
+ships no Swift-side animation engine. Three SwiftUI-shaped entry points cover the
+declarative and imperative surfaces:
+
+```swift
+// Declarative: animate a value-driven change across a subtree.
+card
+    .opacity(isOn ? 1 : 0.3)
+    .scaleEffect(isOn ? 1.05 : 1)
+    .animation(.easeInOut(duration: 0.3), value: isOn)
+
+// Declarative: animate insertion and removal.
+if isShown {
+    Banner().transition(.scale.combined(with: .opacity))
+}
+
+// Imperative: animate the state changes a closure makes.
+Button("Toggle") {
+    withAnimation(.spring(duration: 0.4, bounce: 0.3)) { isShown.toggle() }
+}
+```
+
+| API | How it lowers |
+|---|---|
+| `.animation(_:value:)` | A `.swui-animation-scope` wrapper publishes an inherited `--swui-animation` custom property; descendants transition on it. |
+| `.transition(_:)` | Insertion uses CSS `@starting-style`; removal animates before the runtime detaches the node. Presets: `.opacity`, `.scale`, `.move(edge:)`, `.slide`, `.offset`, plus `.asymmetric` / `.combined`. |
+| `withAnimation(_:_:)` | Records the animation on the update's transaction; the runtime makes the document a temporary animation scope for that update. Per-event granularity: the last call in one event wins for the whole update. |
+
+`Animation` exposes `.easeInOut` / `.easeIn` / `.easeOut` / `.linear` / `.spring`
+(and their `duration:` / `bounce:` forms) plus `.delay(_:)` and `.speed(_:)`.
+Springs lower to a sampled CSS `linear()` easing. `prefers-reduced-motion` is
+honored automatically.
