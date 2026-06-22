@@ -86,6 +86,18 @@ enum ThemeStylesheet {
           .borderRadius("var(--swui-radius-large)")
           .padding(.space(.medium))
       }
+      // A page opts into a viewport-filling surface by setting the document body
+      // class to `swui-viewport`: the body is sized to the viewport and clips its
+      // own overflow, so a descendant ScrollView scrolls internally (with native
+      // bounce) instead of the whole page scrolling.
+      rule("body.swui-viewport") {
+        .height("100dvh")
+          .overflow("hidden")
+      }
+      rule("body.swui-viewport > .swui-root") {
+        .height("100%")
+          .minHeight("0")
+      }
       rule(
         """
         .swui-vstack,
