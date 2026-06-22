@@ -30,7 +30,10 @@ struct StoryboardStylesheet: Component {
           .overflow("hidden")
           .background("var(--swui-surface)")
       }
-      rule(".storyboard-page") {
+      // Storyboard-scoped custom properties used by the detail content. Defined on
+      // :root so they survive while the chrome is plain SwiftWebUI (no
+      // .storyboard-page wrapper). Removed once the detail content is migrated.
+      rule(":root") {
         .custom("--bg", "var(--swui-surface)")
           .custom("--bg-sub", "color-mix(in srgb, var(--swui-text-muted) 8%, var(--swui-surface))")
           .custom("--seg-active", "var(--swui-surface-raised)")
@@ -42,18 +45,6 @@ struct StoryboardStylesheet: Component {
           .custom("--code-bg", "color-mix(in srgb, var(--swui-text-muted) 7%, var(--swui-surface))")
           .custom("--code-text", "var(--swui-text)")
           .custom("--shadow", "0 1px 3px rgba(0,0,0,.06), 0 12px 32px rgba(0,0,0,.07)")
-          .height("100vh")
-          .minHeight("100vh")
-          .overflow("hidden")
-          // A flex column so the inner content (and the `.frame` wrappers it sits
-          // in) is bounded by the viewport height; otherwise the layout sizes to
-          // content, overflows the clipped page, and the detail pane cannot scroll.
-          .display("flex")
-          .flexDirection("column")
-          .background("var(--bg)")
-          .color("var(--ui-text)")
-          .fontFamily("-apple-system, BlinkMacSystemFont, \"SF Pro Text\", \"SF Pro Display\", system-ui, sans-serif")
-          .custom("-webkit-font-smoothing", "antialiased")
       }
       rule(".storyboard-page, .storyboard-page *") {
         .boxSizing("border-box")

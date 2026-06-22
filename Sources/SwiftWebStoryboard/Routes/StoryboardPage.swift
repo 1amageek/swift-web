@@ -16,9 +16,12 @@ struct StoryboardPage {
         }
     }
 
-    // The page emits its own chrome CSS, then the catalog. Selection is owned
-    // by the route; global appearance/style-system controls remain client
-    // state inside the catalog.
+    // The catalog is a fixed, viewport-filling app shell whose columns scroll
+    // internally, so the page opts into the viewport body surface.
+    var bodyClass: String? {
+        "swui-viewport"
+    }
+
     @HTMLBuilder
     func body() -> some HTML {
         StoryboardStylesheet()
@@ -49,6 +52,10 @@ struct StoryboardSelectionPage {
         get async {
             catalogItem(for: selectionID)?.summary
         }
+    }
+
+    var bodyClass: String? {
+        "swui-viewport"
     }
 
     @HTMLBuilder

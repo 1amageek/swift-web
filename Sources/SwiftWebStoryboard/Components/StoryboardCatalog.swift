@@ -55,43 +55,42 @@ public struct StoryboardCatalog: ClientComponent, Sendable {
     }
 
     public var body: some HTML {
-        div(.class("storyboard-page")) {
-            VStack(spacing: Space.none) {
-                CatalogTopBar(theme: $theme)
-                HStack(alignment: .top, spacing: Space.none) {
-                    CatalogSidebar(selection: selection)
-                    CatalogDetail(
-                        selection: selection,
-                        name: $name,
-                        email: $email,
-                        secret: $secret,
-                        notes: $notes,
-                        enabled: $enabled,
-                        volume: $volume,
-                        density: $density,
-                        due: $due,
-                        accent: $accent,
-                        pick: $pick,
-                        segment: $segment,
-                        scope: $scope,
-                        menuPick: $menuPick,
-                        tab: $tab,
-                        query: $query,
-                        showsAlert: $showsAlert,
-                        showsConfirmation: $showsConfirmation,
-                        showsSheet: $showsSheet,
-                        showsPopover: $showsPopover,
-                        advancedOptionsExpanded: $advancedOptionsExpanded,
-                        animateOn: $animateOn
-                    )
-                    CatalogInspector(selection: selection)
-                }
-                .class("storyboard-main")
-                .frame(maxWidth: .infinity, alignment: .leading)
+        VStack(spacing: Space.none) {
+            CatalogTopBar(theme: $theme)
+            Divider()
+            HStack(alignment: .top, spacing: Space.none) {
+                CatalogSidebar(selection: selection)
+                Divider()
+                CatalogDetail(
+                    selection: selection,
+                    name: $name,
+                    email: $email,
+                    secret: $secret,
+                    notes: $notes,
+                    enabled: $enabled,
+                    volume: $volume,
+                    density: $density,
+                    due: $due,
+                    accent: $accent,
+                    pick: $pick,
+                    segment: $segment,
+                    scope: $scope,
+                    menuPick: $menuPick,
+                    tab: $tab,
+                    query: $query,
+                    showsAlert: $showsAlert,
+                    showsConfirmation: $showsConfirmation,
+                    showsSheet: $showsSheet,
+                    showsPopover: $showsPopover,
+                    advancedOptionsExpanded: $advancedOptionsExpanded,
+                    animateOn: $animateOn
+                )
+                Divider()
+                CatalogInspector(selection: selection)
             }
-            .class("storyboard-shell")
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .environment(\.theme, theme)
         .environment(\.styleSystem, .swiftWeb)
     }

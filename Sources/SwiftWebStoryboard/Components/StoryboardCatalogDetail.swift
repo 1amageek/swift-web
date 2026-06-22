@@ -27,7 +27,7 @@ struct CatalogDetail: Component {
     let animateOn: Binding<Bool>
 
     var body: some HTML {
-        main(.class("storyboard-detail")) {
+        ScrollView(.vertical) {
             div(.class("storyboard-detail-content")) {
                 if let item = catalogItem(for: selection) {
                     let spec = catalogDetailSpec(for: item)
@@ -41,7 +41,11 @@ struct CatalogDetail: Component {
                     relatedSection(item: item)
                 }
             }
+            .padding(.horizontal, 30)
+            .padding(.vertical, 22)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .accessibilityRole("main")
     }
 
     private var showsRenderedHTML: Bool {
