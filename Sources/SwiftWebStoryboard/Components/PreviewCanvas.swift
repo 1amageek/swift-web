@@ -24,13 +24,13 @@ struct PreviewCanvas<Content: HTML>: Component {
         let surface = Color.surface.resolve(in: .default).cssValue
         // A flex column that centers the demo on both axes — `justify-content`
         // centers vertically (the canvas has a min-height), `align-items` centers
-        // horizontally.
-        div(.style {
+        // horizontally. The `swui-vstack` class opts the canvas into the
+        // framework's fill rules, so a demo with `.frame(maxWidth: .infinity)`
+        // (e.g. GridSystem) stretches to full width instead of staying centered.
+        div(.class("swui-vstack"), .style {
             .width("100%")
             .boxSizing("border-box")
             .minHeight("220px")
-            .display("flex")
-            .flexDirection("column")
             .alignItems("center")
             .justifyContent("center")
             .padding("32px")

@@ -424,6 +424,7 @@ enum ThemeStylesheet {
         .swui-frame.swui-fill-h > .swui-zstack,
         .swui-frame.swui-fill-h > .swui-group-box,
         .swui-frame.swui-fill-h > .swui-scroll-view,
+        .swui-frame.swui-fill-h > .swui-grid-system,
         .swui-frame.swui-fill-h > .swui-frame
         """
       ) {
@@ -439,6 +440,7 @@ enum ThemeStylesheet {
         .swui-frame.swui-fill-v > .swui-zstack,
         .swui-frame.swui-fill-v > .swui-group-box,
         .swui-frame.swui-fill-v > .swui-scroll-view,
+        .swui-frame.swui-fill-v > .swui-grid-system,
         .swui-frame.swui-fill-v > .swui-frame
         """
       ) {

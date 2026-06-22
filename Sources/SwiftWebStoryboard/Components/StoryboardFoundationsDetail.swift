@@ -10,11 +10,13 @@ struct FoundationsDetail: Component {
     var body: some HTML {
         switch selection {
         case "gridsystem":
-            HStack(spacing: .small) {
-                gridPane("span 8")
-                gridPane("span 4")
+            // Use the real GridSystem/Pane so the 8:4 spans resolve on an actual
+            // 12-column grid, matching the Usage snippet below.
+            GridSystem(columns: 12, gutter: .medium) {
+                Pane(span: 8) { gridPane("span 8") }
+                Pane(span: 4) { gridPane("span 4") }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity)
         case "spacing":
             HStack(alignment: .top, spacing: .large) {
                 VStack(alignment: .leading, spacing: .xsmall) {
