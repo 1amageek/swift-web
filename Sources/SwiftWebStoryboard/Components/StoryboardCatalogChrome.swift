@@ -23,7 +23,7 @@ struct CatalogTopBar: Component {
                     .frame(width: 26, height: 26)
                     .background(
                         LinearGradient(
-                            colors: [.hex(0x65A8FF), .hex(0x1769E0)],
+                            colors: [Color(hex: 0x65A8FF), Color(hex: 0x1769E0)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ),
@@ -65,7 +65,7 @@ struct CatalogTopBar: Component {
                     themeButton("Dark", value: .dark)
                 }
                 .padding(3)
-                .background(.surfaceRaised, in: .rect(cornerRadius: 8))
+                .background(Color.secondary.opacity(0.1), in: .rect(cornerRadius: 8))
                 .border(.border, width: 1)
                 .cornerRadius(8)
             }
@@ -80,7 +80,7 @@ struct CatalogTopBar: Component {
             Text(title)
         }
         .font(Font(size: .px(13.5), weight: .medium))
-        .foregroundStyle(muted ? SemanticShapeStyle.secondary : SemanticShapeStyle.primary)
+        .foregroundStyle(muted ? Color.secondary : Color.primary)
     }
 
     private func themeButton(_ title: String, value: Theme) -> some HTML {
@@ -93,7 +93,7 @@ struct CatalogTopBar: Component {
         .padding(.horizontal, 11)
         .frame(height: 30)
         .background(
-            theme.wrappedValue == value ? CSSShapeStyle.white : CSSShapeStyle.clear,
+            Color.surfaceRaised.opacity(theme.wrappedValue == value ? 1 : 0),
             in: .rect(cornerRadius: 6)
         )
     }
@@ -150,12 +150,12 @@ struct CatalogSidebarRow: Component {
             Text(item.name)
         }
         .font(Font(size: .px(13.5), weight: isSelected ? .semibold : .medium))
-        .foregroundStyle(isSelected ? SemanticShapeStyle.accent : SemanticShapeStyle.secondary)
+        .foregroundStyle(isSelected ? Color.accent : Color.secondary)
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            isSelected ? CSSShapeStyle.rgba(51, 102, 255, 0.12) : CSSShapeStyle.clear,
+            Color.accent.opacity(isSelected ? 0.12 : 0),
             in: .rect(cornerRadius: 7)
         )
     }
@@ -204,6 +204,6 @@ struct CatalogInspector: Component {
             Text(title)
         }
         .font(Font(size: .px(13), weight: selected ? .semibold : .regular))
-        .foregroundStyle(selected ? SemanticShapeStyle.accent : SemanticShapeStyle.secondary)
+        .foregroundStyle(selected ? Color.accent : Color.secondary)
     }
 }

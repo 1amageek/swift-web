@@ -31,9 +31,9 @@ struct LayoutDetail: Component {
                 Text("stays at content width").foregroundStyle(.secondary)
             }
             .padding(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
-            .background(.mix(.accent, 12, .surfaceRaised))
+            .background(Color.accent.opacity(0.12))
             .cornerRadius(12)
-            .border(.mix(.accent, 32, .clear))
+            .border(Color.accent.opacity(0.32))
             .fixedSize()
 
             HStack(spacing: .small) {
@@ -41,9 +41,9 @@ struct LayoutDetail: Component {
                 Text("stretches to the full column").foregroundStyle(.secondary)
             }
             .padding(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
-            .background(.mix(.accent, 12, .surfaceRaised))
+            .background(Color.accent.opacity(0.12))
             .cornerRadius(12)
-            .border(.mix(.accent, 32, .clear))
+            .border(Color.accent.opacity(0.32))
             .frame(maxWidth: .infinity, alignment: .leading)
         default:
             HStack(spacing: .small) {

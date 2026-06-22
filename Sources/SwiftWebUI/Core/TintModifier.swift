@@ -1,9 +1,9 @@
 import SwiftHTML
 
-public struct TintModifier<ShapeStyle: WebShapeStyle>: ComponentModifier {
-    private let style: ShapeStyle
+public struct TintModifier<S: ShapeStyle>: ComponentModifier {
+    private let style: S
 
-    init(_ style: ShapeStyle) {
+    init(_ style: S) {
         self.style = style
     }
 

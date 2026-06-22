@@ -813,8 +813,8 @@ public extension StyleSystem {
         .surface {
             .containerRadius(12)
             .containerShadow(.layers([
-                .drop(y: 1, blur: 3, color: .rgba(0, 0, 0, 0.12)),
-                .drop(y: 1, blur: 2, color: .rgba(0, 0, 0, 0.08)),
+                .drop(y: 1, blur: 3, color: Color.black.opacity(0.12)),
+                .drop(y: 1, blur: 2, color: Color.black.opacity(0.08)),
             ]))
         }
         .control {
@@ -823,8 +823,8 @@ public extension StyleSystem {
         }
         .button {
             .radius(20)
-            .secondaryBackground(.mix(.surfaceRaised, 88, .accent))
-            .secondaryHoverBackground(.mix(.surfaceRaised, 78, .accent))
+            .secondaryBackground(Color.surfaceRaised.mix(with: .accent, by: 0.12))
+            .secondaryHoverBackground(Color.surfaceRaised.mix(with: .accent, by: 0.22))
         }
         .field {
             .radius(8)
@@ -840,9 +840,9 @@ public extension StyleSystem {
             .pageInlinePadding(.clamp(min: 18, ideal: .vw(5), max: 36))
         }
         .surface {
-            .containerBorder(.solid(width: 1, color: .mix(.white, 34, .border)))
+            .containerBorder(.solid(width: 1, color: Color.white.mix(with: .border, by: 0.66)))
             .containerRadius(22)
-            .containerShadow(.drop(y: 18, blur: 48, color: .rgba(15, 23, 42, 0.18)))
+            .containerShadow(.drop(y: 18, blur: 48, color: Color(hex: 0x0F172A).opacity(0.18)))
         }
         .control {
             .regularHeight(40)
@@ -855,12 +855,12 @@ public extension StyleSystem {
             // Only the glassy rim border stays a per-button difference; the tint
             // hues stay opaque so the material owns the translucency.
             .radius(999)
-            .secondaryBorder(.mix(.border, 58, .clear))
+            .secondaryBorder(Color.border.opacity(0.58))
         }
         .badge {
             // Fill + translucency come from the shared material; only the glassy
             // rim border is overridden here.
-            .border(.solid(width: 1, color: .mix(.border, 54, .clear)))
+            .border(.solid(width: 1, color: Color.border.opacity(0.54)))
         }
         .motion {
             .quick(.init(milliseconds: 160, curve: .cubicBezier(0.16, 1, 0.3, 1)))
@@ -878,11 +878,11 @@ public extension StyleSystem {
             .saturate(1.6)
             .brightness(1.05)
             .rim(.layers([
-                .inset(y: 1, blur: 0, spread: 0, color: .mix(.white, 70, .clear)),
-                .inset(y: .px(-1), blur: 1, spread: 0, color: .mix(.black, 12, .clear)),
+                .inset(y: 1, blur: 0, spread: 0, color: Color.white.opacity(0.7)),
+                .inset(y: .px(-1), blur: 1, spread: 0, color: Color.black.opacity(0.12)),
             ]))
             .refraction(.svgFilter(id: "swui-glass-refraction"))
-            .solidFill(.mix(.surface, 88, .border))
+            .solidFill(Color.surface.mix(with: .border, by: 0.12))
         }
     }
 }

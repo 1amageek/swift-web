@@ -1,7 +1,7 @@
-public struct AnyWebShapeStyle: WebShapeStyle {
+public struct AnyShapeStyle: ShapeStyle {
     private let resolver: @Sendable (StyleResolutionContext) -> ResolvedStyle
 
-    public init<ShapeStyle: WebShapeStyle>(_ style: ShapeStyle) {
+    public init<S: ShapeStyle>(_ style: S) {
         self.resolver = { context in
             style.resolve(in: context)
         }

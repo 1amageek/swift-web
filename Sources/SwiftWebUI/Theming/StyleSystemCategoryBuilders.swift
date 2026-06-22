@@ -181,21 +181,21 @@ public enum StyleSystemButtonBuilder {
 
 public extension StyleSystemButtonOverrideStep {
     static func radius(_ value: Length) -> Self { Self { $0.radius = value.cssValue } }
-    static func primaryBackground<ShapeStyle: WebShapeStyle>(_ value: ShapeStyle) -> Self { Self { $0.primaryBackground = styleSystemCSSValue(value) } }
-    static func primaryForeground<ShapeStyle: WebShapeStyle>(_ value: ShapeStyle) -> Self { Self { $0.primaryForeground = styleSystemCSSValue(value) } }
-    static func secondaryBackground<ShapeStyle: WebShapeStyle>(_ value: ShapeStyle) -> Self { Self { $0.secondaryBackground = styleSystemCSSValue(value) } }
-    static func secondaryForeground<ShapeStyle: WebShapeStyle>(_ value: ShapeStyle) -> Self { Self { $0.secondaryForeground = styleSystemCSSValue(value) } }
-    static func secondaryBorder<ShapeStyle: WebShapeStyle>(_ value: ShapeStyle) -> Self { Self { $0.secondaryBorder = styleSystemCSSValue(value) } }
-    static func secondaryHoverBackground<ShapeStyle: WebShapeStyle>(_ value: ShapeStyle) -> Self { Self { $0.secondaryHoverBackground = styleSystemCSSValue(value) } }
-    static func plainForeground<ShapeStyle: WebShapeStyle>(_ value: ShapeStyle) -> Self { Self { $0.plainForeground = styleSystemCSSValue(value) } }
+    static func primaryBackground<S: ShapeStyle>(_ value: S) -> Self { Self { $0.primaryBackground = styleSystemCSSValue(value) } }
+    static func primaryForeground<S: ShapeStyle>(_ value: S) -> Self { Self { $0.primaryForeground = styleSystemCSSValue(value) } }
+    static func secondaryBackground<S: ShapeStyle>(_ value: S) -> Self { Self { $0.secondaryBackground = styleSystemCSSValue(value) } }
+    static func secondaryForeground<S: ShapeStyle>(_ value: S) -> Self { Self { $0.secondaryForeground = styleSystemCSSValue(value) } }
+    static func secondaryBorder<S: ShapeStyle>(_ value: S) -> Self { Self { $0.secondaryBorder = styleSystemCSSValue(value) } }
+    static func secondaryHoverBackground<S: ShapeStyle>(_ value: S) -> Self { Self { $0.secondaryHoverBackground = styleSystemCSSValue(value) } }
+    static func plainForeground<S: ShapeStyle>(_ value: S) -> Self { Self { $0.plainForeground = styleSystemCSSValue(value) } }
     func radius(_ value: Length) -> Self { appending(Self.radius(value)) }
-    func primaryBackground<ShapeStyle: WebShapeStyle>(_ value: ShapeStyle) -> Self { appending(Self.primaryBackground(value)) }
-    func primaryForeground<ShapeStyle: WebShapeStyle>(_ value: ShapeStyle) -> Self { appending(Self.primaryForeground(value)) }
-    func secondaryBackground<ShapeStyle: WebShapeStyle>(_ value: ShapeStyle) -> Self { appending(Self.secondaryBackground(value)) }
-    func secondaryForeground<ShapeStyle: WebShapeStyle>(_ value: ShapeStyle) -> Self { appending(Self.secondaryForeground(value)) }
-    func secondaryBorder<ShapeStyle: WebShapeStyle>(_ value: ShapeStyle) -> Self { appending(Self.secondaryBorder(value)) }
-    func secondaryHoverBackground<ShapeStyle: WebShapeStyle>(_ value: ShapeStyle) -> Self { appending(Self.secondaryHoverBackground(value)) }
-    func plainForeground<ShapeStyle: WebShapeStyle>(_ value: ShapeStyle) -> Self { appending(Self.plainForeground(value)) }
+    func primaryBackground<S: ShapeStyle>(_ value: S) -> Self { appending(Self.primaryBackground(value)) }
+    func primaryForeground<S: ShapeStyle>(_ value: S) -> Self { appending(Self.primaryForeground(value)) }
+    func secondaryBackground<S: ShapeStyle>(_ value: S) -> Self { appending(Self.secondaryBackground(value)) }
+    func secondaryForeground<S: ShapeStyle>(_ value: S) -> Self { appending(Self.secondaryForeground(value)) }
+    func secondaryBorder<S: ShapeStyle>(_ value: S) -> Self { appending(Self.secondaryBorder(value)) }
+    func secondaryHoverBackground<S: ShapeStyle>(_ value: S) -> Self { appending(Self.secondaryHoverBackground(value)) }
+    func plainForeground<S: ShapeStyle>(_ value: S) -> Self { appending(Self.plainForeground(value)) }
 }
 
 public struct StyleSystemFieldOverrideStep {
@@ -221,7 +221,7 @@ public enum StyleSystemFieldBuilder {
 }
 
 public extension StyleSystemFieldOverrideStep {
-    static func background<ShapeStyle: WebShapeStyle>(_ value: ShapeStyle) -> Self { Self { $0.background = styleSystemCSSValue(value) } }
+    static func background<S: ShapeStyle>(_ value: S) -> Self { Self { $0.background = styleSystemCSSValue(value) } }
     static func border(_ value: StyleSystemBorder) -> Self { Self { $0.border = value.cssValue } }
     static func radius(_ value: Length) -> Self { Self { $0.radius = value.cssValue } }
     static func padding(_ value: EdgeInsets) -> Self { Self { $0.padding = value.cssValue } }
@@ -229,7 +229,7 @@ public extension StyleSystemFieldOverrideStep {
         Self { $0.padding = "\(vertical.cssValue) \(horizontal.cssValue)" }
     }
     static func labelSize(_ value: Length) -> Self { Self { $0.labelSize = value.cssValue } }
-    func background<ShapeStyle: WebShapeStyle>(_ value: ShapeStyle) -> Self { appending(Self.background(value)) }
+    func background<S: ShapeStyle>(_ value: S) -> Self { appending(Self.background(value)) }
     func border(_ value: StyleSystemBorder) -> Self { appending(Self.border(value)) }
     func radius(_ value: Length) -> Self { appending(Self.radius(value)) }
     func padding(_ value: EdgeInsets) -> Self { appending(Self.padding(value)) }
@@ -260,17 +260,17 @@ public enum StyleSystemBadgeBuilder {
 }
 
 public extension StyleSystemBadgeOverrideStep {
-    static func background<ShapeStyle: WebShapeStyle>(_ value: ShapeStyle) -> Self { Self { $0.background = styleSystemCSSValue(value) } }
+    static func background<S: ShapeStyle>(_ value: S) -> Self { Self { $0.background = styleSystemCSSValue(value) } }
     static func border(_ value: StyleSystemBorder) -> Self { Self { $0.border = value.cssValue } }
-    static func foreground<ShapeStyle: WebShapeStyle>(_ value: ShapeStyle) -> Self { Self { $0.foreground = styleSystemCSSValue(value) } }
+    static func foreground<S: ShapeStyle>(_ value: S) -> Self { Self { $0.foreground = styleSystemCSSValue(value) } }
     static func radius(_ value: Length) -> Self { Self { $0.radius = value.cssValue } }
     static func padding(_ value: EdgeInsets) -> Self { Self { $0.padding = value.cssValue } }
     static func padding(vertical: Length, horizontal: Length) -> Self {
         Self { $0.padding = "\(vertical.cssValue) \(horizontal.cssValue)" }
     }
-    func background<ShapeStyle: WebShapeStyle>(_ value: ShapeStyle) -> Self { appending(Self.background(value)) }
+    func background<S: ShapeStyle>(_ value: S) -> Self { appending(Self.background(value)) }
     func border(_ value: StyleSystemBorder) -> Self { appending(Self.border(value)) }
-    func foreground<ShapeStyle: WebShapeStyle>(_ value: ShapeStyle) -> Self { appending(Self.foreground(value)) }
+    func foreground<S: ShapeStyle>(_ value: S) -> Self { appending(Self.foreground(value)) }
     func radius(_ value: Length) -> Self { appending(Self.radius(value)) }
     func padding(_ value: EdgeInsets) -> Self { appending(Self.padding(value)) }
     func padding(vertical: Length, horizontal: Length) -> Self { appending(Self.padding(vertical: vertical, horizontal: horizontal)) }
@@ -301,12 +301,12 @@ public enum StyleSystemNavigationBuilder {
 public extension StyleSystemNavigationOverrideStep {
     static func gap(_ value: Space) -> Self { Self { $0.gap = value.rawValue } }
     static func gap(_ value: Length) -> Self { Self { $0.gap = value.cssValue } }
-    static func linkForeground<ShapeStyle: WebShapeStyle>(_ value: ShapeStyle) -> Self { Self { $0.linkForeground = styleSystemCSSValue(value) } }
+    static func linkForeground<S: ShapeStyle>(_ value: S) -> Self { Self { $0.linkForeground = styleSystemCSSValue(value) } }
     static func linkDecoration(_ value: StyleSystemTextDecoration) -> Self { Self { $0.linkDecoration = value.cssValue } }
     static func linkHoverDecoration(_ value: StyleSystemTextDecoration) -> Self { Self { $0.linkHoverDecoration = value.cssValue } }
     func gap(_ value: Space) -> Self { appending(Self.gap(value)) }
     func gap(_ value: Length) -> Self { appending(Self.gap(value)) }
-    func linkForeground<ShapeStyle: WebShapeStyle>(_ value: ShapeStyle) -> Self { appending(Self.linkForeground(value)) }
+    func linkForeground<S: ShapeStyle>(_ value: S) -> Self { appending(Self.linkForeground(value)) }
     func linkDecoration(_ value: StyleSystemTextDecoration) -> Self { appending(Self.linkDecoration(value)) }
     func linkHoverDecoration(_ value: StyleSystemTextDecoration) -> Self { appending(Self.linkHoverDecoration(value)) }
 }
@@ -398,7 +398,7 @@ public enum StyleSystemMaterialBuilder {
 }
 
 public extension StyleSystemMaterialOverrideStep {
-    static func tint<ShapeStyle: WebShapeStyle>(_ value: ShapeStyle) -> Self { Self { $0.tint = styleSystemCSSValue(value) } }
+    static func tint<S: ShapeStyle>(_ value: S) -> Self { Self { $0.tint = styleSystemCSSValue(value) } }
     static func opacity(_ value: Double) -> Self { Self { $0.opacity = trimmedNumber(value) } }
     static func opacityStep(_ value: Double) -> Self { Self { $0.opacityStep = trimmedNumber(value) } }
     static func blur(_ value: Length) -> Self { Self { $0.blur = value.cssValue } }
@@ -406,8 +406,8 @@ public extension StyleSystemMaterialOverrideStep {
     static func brightness(_ value: Double) -> Self { Self { $0.brightness = trimmedNumber(value) } }
     static func rim(_ value: StyleSystemShadow) -> Self { Self { $0.rim = value.cssValue } }
     static func refraction(_ value: StyleSystemRefraction) -> Self { Self { $0.refraction = value.cssValue } }
-    static func solidFill<ShapeStyle: WebShapeStyle>(_ value: ShapeStyle) -> Self { Self { $0.solidFill = styleSystemCSSValue(value) } }
-    func tint<ShapeStyle: WebShapeStyle>(_ value: ShapeStyle) -> Self { appending(Self.tint(value)) }
+    static func solidFill<S: ShapeStyle>(_ value: S) -> Self { Self { $0.solidFill = styleSystemCSSValue(value) } }
+    func tint<S: ShapeStyle>(_ value: S) -> Self { appending(Self.tint(value)) }
     func opacity(_ value: Double) -> Self { appending(Self.opacity(value)) }
     func opacityStep(_ value: Double) -> Self { appending(Self.opacityStep(value)) }
     func blur(_ value: Length) -> Self { appending(Self.blur(value)) }
@@ -415,5 +415,5 @@ public extension StyleSystemMaterialOverrideStep {
     func brightness(_ value: Double) -> Self { appending(Self.brightness(value)) }
     func rim(_ value: StyleSystemShadow) -> Self { appending(Self.rim(value)) }
     func refraction(_ value: StyleSystemRefraction) -> Self { appending(Self.refraction(value)) }
-    func solidFill<ShapeStyle: WebShapeStyle>(_ value: ShapeStyle) -> Self { appending(Self.solidFill(value)) }
+    func solidFill<S: ShapeStyle>(_ value: S) -> Self { appending(Self.solidFill(value)) }
 }

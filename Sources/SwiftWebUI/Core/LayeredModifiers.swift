@@ -73,10 +73,10 @@ public extension HTML {
         modifier(OverlayModifier(alignment: alignment) { overlay })
     }
 
-    func overlay<ShapeStyle: WebShapeStyle>(
-        _ style: ShapeStyle,
+    func overlay<S: ShapeStyle>(
+        _ style: S,
         ignoresSafeAreaEdges edges: Edge.Set = .all
-    ) -> ModifiedContent<Self, WebStyleModifier<ShapeStyle>> {
+    ) -> ModifiedContent<Self, WebStyleModifier<S>> {
         modifier(WebStyleModifier(property: .overlay, style: style, ignoredSafeAreaEdges: edges))
     }
 }

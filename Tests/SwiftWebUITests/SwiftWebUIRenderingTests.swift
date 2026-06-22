@@ -65,7 +65,7 @@ struct SwiftWebUIRenderingTests {
       }
       .button {
         .radius(999)
-        .secondaryBackground(.hex(0xEEF2FF))
+        .secondaryBackground(Color(hex: 0xEEF2FF))
       }
     }
 
@@ -1835,7 +1835,7 @@ struct SwiftWebUIRenderingTests {
   func linearGradientLowersToCSS() {
     let rendered = Text("x")
       .background(
-        LinearGradient(colors: [.hex(0x65A8FF), .hex(0x1769E0)], startPoint: .top, endPoint: .bottom)
+        LinearGradient(colors: [Color(hex: 0x65A8FF), Color(hex: 0x1769E0)], startPoint: .top, endPoint: .bottom)
       )
       .render()
     #expect(rendered.contains("linear-gradient(180deg, #65a8ff, #1769e0)"))
@@ -1845,10 +1845,40 @@ struct SwiftWebUIRenderingTests {
   func linearGradientDiagonalAngle() {
     let rendered = Text("x")
       .background(
-        LinearGradient(colors: [.hex(0x000000), .hex(0xffffff)], startPoint: .topLeading, endPoint: .bottomTrailing)
+        LinearGradient(colors: [Color(hex: 0x000000), Color(hex: 0xffffff)], startPoint: .topLeading, endPoint: .bottomTrailing)
       )
       .render()
     #expect(rendered.contains("linear-gradient(135deg, #000000, #ffffff)"))
+  }
+
+  @Test
+  func colorResolvesToCanonicalCSS() {
+    #expect(Color(hex: 0x3366FF).resolve(in: .default).cssValue == "#3366ff")
+    #expect(Color.white.resolve(in: .default).cssValue == "#ffffff")
+    #expect(Color.black.resolve(in: .default).cssValue == "#000000")
+    #expect(Color.clear.resolve(in: .default).cssValue == "transparent")
+    #expect(Color.accent.resolve(in: .default).cssValue == "var(--swui-accent)")
+    #expect(Color.surface.resolve(in: .default).cssValue == "var(--swui-surface)")
+    #expect(Color.primary.resolve(in: .default).cssValue == "var(--swui-text)")
+    #expect(Color(red: 1, green: 0, blue: 0, opacity: 0.5).resolve(in: .default).cssValue == "rgba(255, 0, 0, 0.5)")
+  }
+
+  @Test
+  func colorOpacityAndMixStayThemeAdaptive() {
+    // opacity fades the resolved (theme) color; opacity(0) is transparent.
+    #expect(
+      Color.accent.opacity(0.12).resolve(in: .default).cssValue
+        == "color-mix(in srgb, var(--swui-accent) 12%, transparent)"
+    )
+    #expect(
+      Color.accent.opacity(0).resolve(in: .default).cssValue
+        == "color-mix(in srgb, var(--swui-accent) 0%, transparent)"
+    )
+    // mix(with:by:) blends toward the other color by the given fraction.
+    #expect(
+      Color.surface.mix(with: .border, by: 0.12).resolve(in: .default).cssValue
+        == "color-mix(in srgb, var(--swui-surface), var(--swui-border) 12%)"
+    )
   }
 }
 
@@ -1856,7 +1886,7 @@ private enum FocusField: Hashable, Codable, Sendable {
   case title
 }
 
-private struct ColorSchemeShapeStyle: WebShapeStyle {
+private struct ColorSchemeShapeStyle: ShapeStyle {
   func resolve(in context: StyleResolutionContext) -> ResolvedStyle {
     ResolvedStyle(cssValue: context.colorScheme == .dark ? "#111111" : "#eeeeee")
   }

@@ -7,7 +7,7 @@
 /// `material`) every level renders as an opaque surface, so component code is
 /// style-independent: it always composes a material and the design style decides
 /// whether that reads as glass or as a plain surface.
-public struct Material: WebShapeStyle, Sendable, Equatable {
+public struct Material: ShapeStyle, Sendable, Equatable {
     public enum Level: String, Sendable, Equatable, CaseIterable {
         case ultraThin
         case thin
@@ -46,7 +46,7 @@ public struct Material: WebShapeStyle, Sendable, Equatable {
     }
 }
 
-public extension WebShapeStyle where Self == Material {
+public extension ShapeStyle where Self == Material {
     static var ultraThinMaterial: Material { Material(level: .ultraThin) }
     static var thinMaterial: Material { Material(level: .thin) }
     static var regularMaterial: Material { Material(level: .regular) }

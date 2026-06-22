@@ -1,4 +1,4 @@
-func styleSystemCSSValue<ShapeStyle: WebShapeStyle>(_ style: ShapeStyle) -> String {
+func styleSystemCSSValue<S: ShapeStyle>(_ style: S) -> String {
     style.resolve(in: .default).cssValue
 }
 
@@ -11,7 +11,7 @@ public struct StyleSystemBorder: Sendable, Equatable, Codable {
 
     public static let none = StyleSystemBorder("none")
 
-    public static func solid<ShapeStyle: WebShapeStyle>(width: Length = 1, color: ShapeStyle) -> StyleSystemBorder {
+    public static func solid<S: ShapeStyle>(width: Length = 1, color: S) -> StyleSystemBorder {
         StyleSystemBorder("\(width.cssValue) solid \(styleSystemCSSValue(color))")
     }
 }
@@ -29,7 +29,7 @@ public struct StyleSystemShadow: Sendable, Equatable, Codable {
             y: Length,
             blur: Length,
             spread: Length? = nil,
-            color: some WebShapeStyle
+            color: some ShapeStyle
         ) -> Layer {
             Layer(shadowValue(prefix: nil, x: x, y: y, blur: blur, spread: spread, color: color))
         }
@@ -39,7 +39,7 @@ public struct StyleSystemShadow: Sendable, Equatable, Codable {
             y: Length,
             blur: Length,
             spread: Length? = nil,
-            color: some WebShapeStyle
+            color: some ShapeStyle
         ) -> Layer {
             Layer(shadowValue(prefix: "inset", x: x, y: y, blur: blur, spread: spread, color: color))
         }
@@ -62,7 +62,7 @@ public struct StyleSystemShadow: Sendable, Equatable, Codable {
         y: Length,
         blur: Length,
         spread: Length? = nil,
-        color: some WebShapeStyle
+        color: some ShapeStyle
     ) -> StyleSystemShadow {
         layers([.drop(x: x, y: y, blur: blur, spread: spread, color: color)])
     }
@@ -123,13 +123,13 @@ public struct StyleSystemRefraction: Sendable, Equatable, Codable {
     }
 }
 
-private func shadowValue<ShapeStyle: WebShapeStyle>(
+private func shadowValue<S: ShapeStyle>(
     prefix: String?,
     x: Length,
     y: Length,
     blur: Length,
     spread: Length?,
-    color: ShapeStyle
+    color: S
 ) -> String {
     var parts: [String] = []
     if let prefix {

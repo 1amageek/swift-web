@@ -41,7 +41,7 @@ struct FoundationsDetail: Component {
                     .foregroundStyle(.accent)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(.mix(.accent, 16, .surfaceRaised), in: .rect(cornerRadius: 6))
+                    .background(Color.accent.opacity(0.16), in: .rect(cornerRadius: 6))
                     .frame(maxWidth: 240, maxHeight: 120, alignment: .center)
                     .background(.surfaceRaised, in: .rect(cornerRadius: 10))
                     .border(.border, width: 1)
@@ -72,7 +72,7 @@ struct FoundationsDetail: Component {
                     ForEach(0..<12, id: \.self) { _ in
                         VStack {}
                             .frame(maxWidth: .infinity, height: 40)
-                            .background(.mix(.accent, 8, .surfaceRaised), in: .rect(cornerRadius: 3))
+                            .background(Color.accent.opacity(0.08), in: .rect(cornerRadius: 3))
                     }
                 }
                 .frame(maxWidth: .infinity)
@@ -82,7 +82,7 @@ struct FoundationsDetail: Component {
                             .font(Font(size: .px(12), design: .monospaced))
                             .foregroundStyle(.accent)
                             .frame(maxWidth: .infinity, height: 34, alignment: .center)
-                            .background(.mix(.accent, 16, .surfaceRaised), in: .rect(cornerRadius: 4))
+                            .background(Color.accent.opacity(0.16), in: .rect(cornerRadius: 4))
                     }
                 }
                 .frame(maxWidth: .infinity)
@@ -102,7 +102,7 @@ struct FoundationsDetail: Component {
             VStack(spacing: .small) {
                 VStack {}
                     .frame(width: 120, height: 72)
-                    .background(.hex(0x007AFF), in: .rect(cornerRadius: 12))
+                    .background(Color(hex: 0x007AFF), in: .rect(cornerRadius: 12))
                 Text("Color.blue → #007AFF", as: .small)
                     .font(Font(size: .px(12), design: .monospaced))
                     .foregroundStyle(.secondary)
@@ -114,7 +114,7 @@ struct FoundationsDetail: Component {
                 Button("Danger").buttonStyle(.borderedProminent)
                     .tint(.danger)
                 Button("Custom").buttonStyle(.borderedProminent)
-                    .tint(.hex(0x22A06B))
+                    .tint(Color(hex: 0x22A06B))
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         default:
@@ -130,7 +130,7 @@ struct FoundationsDetail: Component {
             .font(Font(size: .px(12), design: .monospaced))
             .foregroundStyle(.accent)
             .frame(maxWidth: .infinity, height: 56, alignment: .center)
-            .background(.mix(.accent, 12, .surfaceRaised), in: .rect(cornerRadius: 8))
+            .background(Color.accent.opacity(0.12), in: .rect(cornerRadius: 8))
     }
 
     private func tileGrid() -> some HTML {
@@ -140,7 +140,7 @@ struct FoundationsDetail: Component {
                     ForEach(0..<4, id: \.self) { _ in
                         VStack {}
                             .frame(width: 12, height: 12)
-                            .background(.mix(.accent, 20, .surfaceRaised), in: .rect(cornerRadius: 2))
+                            .background(Color.accent.opacity(0.2), in: .rect(cornerRadius: 2))
                     }
                 }
             }
@@ -156,7 +156,7 @@ struct FoundationsDetail: Component {
                 .font(.footnote)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                .background(.mix(.accent, 8, .surfaceRaised), in: .rect(cornerRadius: 10))
+                .background(Color.accent.opacity(0.08), in: .rect(cornerRadius: 10))
             VStack {}
                 .frame(width: 80, height: 5)
                 .background(.secondary, in: .rect(cornerRadius: 3))
@@ -176,7 +176,7 @@ struct FoundationsDetail: Component {
                 .frame(width: 24, alignment: .trailing)
             VStack {}
                 .frame(width: width, height: 10)
-                .background(active ? SemanticShapeStyle.accent : SemanticShapeStyle.border, in: .rect(cornerRadius: 3))
+                .background(active ? Color.accent : Color.border, in: .rect(cornerRadius: 3))
             if active {
                 Text("base unit", as: .small)
                     .font(Font(size: .px(11)))

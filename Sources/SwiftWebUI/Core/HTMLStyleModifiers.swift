@@ -1,9 +1,9 @@
 import SwiftHTML
 
 public struct ForegroundStylesModifier: ComponentModifier {
-    private let styles: [AnyWebShapeStyle]
+    private let styles: [AnyShapeStyle]
 
-    init(_ styles: [AnyWebShapeStyle]) {
+    init(_ styles: [AnyShapeStyle]) {
         self.styles = styles
     }
 
@@ -91,11 +91,11 @@ public struct ForegroundStylesModifier: ComponentModifier {
     }
 }
 
-public struct ShapeBackgroundStyleModifier<ShapeStyle: WebShapeStyle>: ComponentModifier {
-    private let style: ShapeStyle
+public struct ShapeBackgroundStyleModifier<S: ShapeStyle>: ComponentModifier {
+    private let style: S
     private let shape: Shape
 
-    init(style: ShapeStyle, shape: Shape) {
+    init(style: S, shape: Shape) {
         self.style = style
         self.shape = shape
     }
@@ -161,45 +161,45 @@ public struct ShapeBackgroundStyleModifier<ShapeStyle: WebShapeStyle>: Component
 }
 
 public extension HTML {
-    func foregroundStyle<ShapeStyle: WebShapeStyle>(
-        _ style: ShapeStyle
-    ) -> ModifiedContent<Self, WebStyleModifier<ShapeStyle>> {
+    func foregroundStyle<S: ShapeStyle>(
+        _ style: S
+    ) -> ModifiedContent<Self, WebStyleModifier<S>> {
         modifier(WebStyleModifier(property: .foreground, style: style))
     }
 
-    func foregroundStyle<Primary: WebShapeStyle, Secondary: WebShapeStyle>(
+    func foregroundStyle<Primary: ShapeStyle, Secondary: ShapeStyle>(
         _ primary: Primary,
         _ secondary: Secondary
     ) -> ModifiedContent<Self, ForegroundStylesModifier> {
         modifier(ForegroundStylesModifier([
-            AnyWebShapeStyle(primary),
-            AnyWebShapeStyle(secondary),
+            AnyShapeStyle(primary),
+            AnyShapeStyle(secondary),
         ]))
     }
 
-    func foregroundStyle<Primary: WebShapeStyle, Secondary: WebShapeStyle, Tertiary: WebShapeStyle>(
+    func foregroundStyle<Primary: ShapeStyle, Secondary: ShapeStyle, Tertiary: ShapeStyle>(
         _ primary: Primary,
         _ secondary: Secondary,
         _ tertiary: Tertiary
     ) -> ModifiedContent<Self, ForegroundStylesModifier> {
         modifier(ForegroundStylesModifier([
-            AnyWebShapeStyle(primary),
-            AnyWebShapeStyle(secondary),
-            AnyWebShapeStyle(tertiary),
+            AnyShapeStyle(primary),
+            AnyShapeStyle(secondary),
+            AnyShapeStyle(tertiary),
         ]))
     }
 
-    func background<ShapeStyle: WebShapeStyle>(
-        _ style: ShapeStyle,
+    func background<S: ShapeStyle>(
+        _ style: S,
         ignoresSafeAreaEdges edges: Edge.Set = .all
-    ) -> ModifiedContent<Self, WebStyleModifier<ShapeStyle>> {
+    ) -> ModifiedContent<Self, WebStyleModifier<S>> {
         modifier(WebStyleModifier(property: .background, style: style, ignoredSafeAreaEdges: edges))
     }
 
-    func background<ShapeStyle: WebShapeStyle>(
-        _ style: ShapeStyle,
+    func background<S: ShapeStyle>(
+        _ style: S,
         in shape: Shape
-    ) -> ModifiedContent<Self, ShapeBackgroundStyleModifier<ShapeStyle>> {
+    ) -> ModifiedContent<Self, ShapeBackgroundStyleModifier<S>> {
         modifier(ShapeBackgroundStyleModifier(style: style, shape: shape))
     }
 
@@ -211,22 +211,22 @@ public extension HTML {
         ]))
     }
 
-    func backgroundStyle<ShapeStyle: WebShapeStyle>(
-        _ style: ShapeStyle
-    ) -> ModifiedContent<Self, WebStyleModifier<ShapeStyle>> {
+    func backgroundStyle<S: ShapeStyle>(
+        _ style: S
+    ) -> ModifiedContent<Self, WebStyleModifier<S>> {
         background(style)
     }
 
-    func tint<ShapeStyle: WebShapeStyle>(
-        _ style: ShapeStyle
-    ) -> ModifiedContent<Self, TintModifier<ShapeStyle>> {
+    func tint<S: ShapeStyle>(
+        _ style: S
+    ) -> ModifiedContent<Self, TintModifier<S>> {
         modifier(TintModifier(style))
     }
 
-    func border<ShapeStyle: WebShapeStyle>(
-        _ style: ShapeStyle,
+    func border<S: ShapeStyle>(
+        _ style: S,
         width: Length = 1
-    ) -> ModifiedContent<Self, WebStyleModifier<ShapeStyle>> {
+    ) -> ModifiedContent<Self, WebStyleModifier<S>> {
         modifier(WebStyleModifier(property: .border(width: width), style: style))
     }
 

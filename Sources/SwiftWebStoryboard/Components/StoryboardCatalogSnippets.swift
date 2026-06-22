@@ -86,7 +86,7 @@ func catalogSnippet(for id: String) -> String {
           Button("Danger").buttonStyle(.borderedProminent)
               .tint(.danger)
           Button("Custom").buttonStyle(.borderedProminent)
-              .tint(.hex(0x22A06B))
+              .tint(Color(hex: 0x22A06B))
       }
       """
   case "button":

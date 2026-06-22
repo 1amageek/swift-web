@@ -2,13 +2,13 @@ import Foundation
 
 /// A linear gradient style that lowers to a CSS `linear-gradient()`, mirroring
 /// SwiftUI's `LinearGradient(colors:startPoint:endPoint:)`. Usable anywhere a
-/// `WebShapeStyle` is accepted (e.g. `.background(_:)`, `.foregroundStyle(_:)`).
-public struct LinearGradient: WebShapeStyle, Sendable {
-    private let colors: [CSSShapeStyle]
+/// `ShapeStyle` is accepted (e.g. `.background(_:)`, `.foregroundStyle(_:)`).
+public struct LinearGradient: ShapeStyle, Sendable {
+    private let colors: [Color]
     private let startPoint: UnitPoint
     private let endPoint: UnitPoint
 
-    public init(colors: [CSSShapeStyle], startPoint: UnitPoint, endPoint: UnitPoint) {
+    public init(colors: [Color], startPoint: UnitPoint, endPoint: UnitPoint) {
         self.colors = colors
         self.startPoint = startPoint
         self.endPoint = endPoint

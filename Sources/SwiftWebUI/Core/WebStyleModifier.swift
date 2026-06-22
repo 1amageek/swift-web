@@ -1,13 +1,13 @@
 import SwiftHTML
 
-public struct WebStyleModifier<ShapeStyle: WebShapeStyle>: ComponentModifier {
+public struct WebStyleModifier<S: ShapeStyle>: ComponentModifier {
     private let property: WebStyleProperty
-    private let style: ShapeStyle
+    private let style: S
     private let ignoredSafeAreaEdges: Edge.Set?
 
     init(
         property: WebStyleProperty,
-        style: ShapeStyle,
+        style: S,
         ignoredSafeAreaEdges: Edge.Set? = nil
     ) {
         self.property = property

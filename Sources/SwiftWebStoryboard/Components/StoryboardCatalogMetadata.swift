@@ -94,7 +94,7 @@ private func catalogProperties(for id: String) -> [CatalogProperty] {
         ]
     case "color":
         return [
-            CatalogProperty("tint", values: ".accent / .danger / .hex(Int)", summary: "Sets the component accent without changing the global theme."),
+            CatalogProperty("tint", values: ".accent / .danger / Color(hex:)", summary: "Sets the component accent without changing the global theme."),
             CatalogProperty("foregroundStyle", values: "semantic or CSS color", summary: "Overrides foreground color for a scoped component."),
             CatalogProperty("background", values: "semantic token or CSS color", summary: "Applies a local fill when a component needs a custom surface."),
         ]

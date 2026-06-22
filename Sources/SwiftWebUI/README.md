@@ -102,7 +102,7 @@ Every chrome surface — group box, toolbar, badge, field, toggle track, and the
 let glass = StyleSystem(id: "glass") {
     .surface {
         .containerRadius(22)
-        .containerShadow(.drop(y: 18, blur: 48, color: .rgba(15, 23, 42, 0.18)))
+        .containerShadow(.drop(y: 18, blur: 48, color: Color(hex: 0x0F172A).opacity(0.18)))
     }
     .button {
         .radius(999)
@@ -113,7 +113,7 @@ let glass = StyleSystem(id: "glass") {
         .blur(24)
         .saturate(1.6)
         .refraction(.svgFilter(id: "swui-glass-refraction"))
-        .solidFill(.mix(.surface, 88, .border))
+        .solidFill(Color.surface.mix(with: .border, by: 0.12))
     }
 }
 
@@ -182,7 +182,7 @@ NavigationStack {
 | API | Responsibility |
 |---|---|
 | `GridSystem` / `Pane` | Applies responsive inline inset, grid columns, gutters, page vertical rhythm, and pane spans. Use `.frame(maxWidth:)` for outer width constraints. |
-| `foregroundStyle`, `backgroundStyle`, `tint`, `border` | Resolves `WebShapeStyle` values through theme/environment and lowers to CSS. |
+| `foregroundStyle`, `backgroundStyle`, `tint`, `border` | Resolves `ShapeStyle` values (`Color`, `Material`, `LinearGradient`) through theme/environment and lowers to CSS. |
 | `font`, `fontWeight`, `fontDesign`, `bold`, `italic`, `monospaced` | Provides SwiftUI-like typography without requiring raw CSS. |
 | `disabled`, `controlSize`, `buttonStyle`, `pickerStyle` | Propagates control state and semantic style selection through environment while controls render native attributes. |
 | `TextField`, `Toggle`, `Slider`, `Stepper`, `Picker` | Use `Binding` as the primary state interface. |

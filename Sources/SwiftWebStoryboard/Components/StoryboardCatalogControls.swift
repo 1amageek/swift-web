@@ -89,13 +89,13 @@ struct CatalogSegmentControl: Component {
                     .padding(.horizontal, 11)
                     .frame(height: 28)
                     .background(
-                        selection.wrappedValue == option.value ? CSSShapeStyle.white : CSSShapeStyle.clear,
+                        Color.surfaceRaised.opacity(selection.wrappedValue == option.value ? 1 : 0),
                         in: .rect(cornerRadius: 6)
                     )
                 }
             }
             .padding(3)
-            .background(.surfaceRaised, in: .rect(cornerRadius: 8))
+            .background(Color.secondary.opacity(0.1), in: .rect(cornerRadius: 8))
             .border(.border, width: 1)
             .cornerRadius(8)
         }
