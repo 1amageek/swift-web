@@ -248,7 +248,7 @@ private struct PageModel {
                 continue
             }
             let name = functionDecl.name.text
-            guard name == "title" || name == "description" || name == "language" else {
+            guard name == "title" || name == "description" || name == "language" || name == "bodyClass" else {
                 continue
             }
             guard functionDecl.signature.parameterClause.parameters.count == 1 else {
