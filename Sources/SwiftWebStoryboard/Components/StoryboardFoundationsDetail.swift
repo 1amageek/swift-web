@@ -69,30 +69,21 @@ struct FoundationsDetail: Component {
                 Text(".swui-list .swui-text { ... }", as: .code)
             }
         case "responsive":
-            VStack(alignment: .leading, spacing: .small) {
-                HStack(spacing: .xsmall) {
-                    ForEach(0..<12, id: \.self) { _ in
-                        VStack {}
-                            .frame(maxWidth: .infinity, height: 40)
-                            .background(Color.accent.opacity(0.08), in: .rect(cornerRadius: 3))
-                    }
-                }
-                .frame(maxWidth: .infinity)
-                HStack(spacing: .xsmall) {
-                    ForEach(0..<3, id: \.self) { _ in
-                        Text("span 4", as: .small)
-                            .font(Font(size: .px(12), design: .monospaced))
-                            .foregroundStyle(.accent)
-                            .frame(maxWidth: .infinity, height: 34, alignment: .center)
-                            .background(Color.accent.opacity(0.16), in: .rect(cornerRadius: 4))
-                    }
+            // Show the "large" breakpoint as a real 12-column grid (three span-4
+            // panes) so the lattice fills the canvas, rather than relying on a
+            // multi-level flex-fill chain that collapses to intrinsic width.
+            VStack(spacing: .small) {
+                GridSystem(columns: 12, gutter: .medium) {
+                    Pane(span: 4) { gridPane("span 4") }
+                    Pane(span: 4) { gridPane("span 4") }
+                    Pane(span: 4) { gridPane("span 4") }
                 }
                 .frame(maxWidth: .infinity)
                 Text("large · > 1024px · 12 columns", as: .small)
                     .font(Font(size: .px(12), design: .monospaced))
                     .foregroundStyle(.secondary)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity)
         case "safearea":
             VStack(spacing: .small) {
                 phoneMock()

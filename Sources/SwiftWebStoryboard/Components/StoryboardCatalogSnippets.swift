@@ -445,19 +445,16 @@ func catalogSnippet(for id: String) -> String {
       """
   case "stacks":
     return """
-      Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 16) {
-          GridRow {
-              VStack(alignment: .leading, spacing: .small) {
-                  Badge("Top")
-                  Badge("Middle")
-                  Badge("Bottom")
-              }
-              HStack(spacing: .small) {
-                  Badge("A")
-                  Badge("B")
-                  Badge("C")
-              }
+      HStack(spacing: .small) {
+          Image(systemName: "checkmark.seal.fill")
+          VStack(alignment: .leading, spacing: .xsmall) {
+              Text("Ada Lovelace")
+              Text("Mathematician")
+                  .foregroundStyle(.secondary)
           }
+          Spacer()
+          Button("Follow")
+              .buttonStyle(.borderedProminent)
       }
       """
   case "spacer":
