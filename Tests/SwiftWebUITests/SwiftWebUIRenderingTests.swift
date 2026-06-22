@@ -1729,6 +1729,65 @@ struct SwiftWebUIRenderingTests {
     #expect(rendered.contains("transform var(--swui-animation, 0s)"))
     #expect(rendered.contains("opacity var(--swui-animation, 0s)"))
   }
+
+  @Test
+  func opacityTransitionPublishesMarkersAndCustomProperties() {
+    let rendered = main { Text("x").transition(.opacity) }.render()
+    #expect(rendered.contains("class=\"swui-transition\""))
+    #expect(rendered.contains("--swui-enter-opacity: 0"))
+    #expect(rendered.contains("--swui-exit-opacity: 0"))
+    #expect(rendered.contains("--swui-transition: 0.3s"))
+    #expect(rendered.contains("data-swui-transition=\"1\""))
+    #expect(rendered.contains("data-swui-exit-ms=\"300\""))
+  }
+
+  @Test
+  func scaleAndMoveTransitionsUseTransform() {
+    let scale = main { Text("x").transition(.scale) }.render()
+    #expect(scale.contains("--swui-enter-transform: scale(0)"))
+    #expect(scale.contains("--swui-exit-transform: scale(0)"))
+
+    let move = main { Text("x").transition(.move(edge: .leading)) }.render()
+    #expect(move.contains("--swui-enter-transform: translateX(-100%)"))
+  }
+
+  @Test
+  func asymmetricTransitionDiffersBetweenInsertionAndRemoval() {
+    let rendered = main {
+      Text("x").transition(.asymmetric(insertion: .opacity, removal: .scale))
+    }.render()
+    #expect(rendered.contains("--swui-enter-opacity: 0"))
+    #expect(rendered.contains("--swui-exit-transform: scale(0)"))
+    // The insertion is opacity-only and the removal is scale-only, so the cross
+    // terms must be absent.
+    #expect(!rendered.contains("--swui-enter-transform"))
+    #expect(!rendered.contains("--swui-exit-opacity"))
+  }
+
+  @Test
+  func transitionAnimationOverridesTiming() {
+    let rendered = main {
+      Text("x").transition(.opacity.animation(.easeIn(duration: 0.5)))
+    }.render()
+    #expect(rendered.contains("--swui-transition: 0.5s"))
+    #expect(rendered.contains("data-swui-exit-ms=\"500\""))
+  }
+
+  @Test
+  func identityTransitionAddsNoWrapperOrMarkers() {
+    let rendered = main { Text("x").transition(.identity) }.render()
+    #expect(!rendered.contains("swui-transition"))
+    #expect(!rendered.contains("data-swui-transition"))
+  }
+
+  @Test
+  func transitionStylesheetEmitsStartingStyleAndExitRule() {
+    let rendered = main { Text("x") }.environment(\.theme, .light).render()
+    #expect(rendered.contains("@starting-style"))
+    #expect(rendered.contains(".swui-transition.swui-exiting"))
+    #expect(rendered.contains("var(--swui-exit-opacity, 1)"))
+    #expect(rendered.contains("var(--swui-enter-opacity, 1)"))
+  }
 }
 
 private enum FocusField: Hashable, Codable, Sendable {

@@ -175,6 +175,20 @@ enum ThemeStylesheet {
             + "box-shadow var(--swui-animation, 0s)"
         )
       }
+      // `.transition(_:)` insertion/removal. The "from" state is published as
+      // --swui-enter-*/--swui-exit-* custom properties on the element; insertion
+      // animates from the @starting-style values (below) and removal animates to
+      // the exit values once the runtime adds `.swui-exiting`.
+      rule(".swui-transition") {
+        .transition(
+          "opacity var(--swui-transition, 0.3s ease), "
+            + "transform var(--swui-transition, 0.3s ease)"
+        )
+      }
+      rule(".swui-transition.swui-exiting") {
+        .opacity("var(--swui-exit-opacity, 1)")
+          .transform("var(--swui-exit-transform, none)")
+      }
       rule(".swui-layered") {
         .display("grid")
           .boxSizing("border-box")
@@ -1593,6 +1607,14 @@ enum ThemeStylesheet {
       media("(prefers-reduced-motion: no-preference)") {
         rule(".swui-presentation[open] .swui-presentation-surface") {
           .animation("swui-present var(--swui-motion-standard) both")
+        }
+      }
+      // Insertion "from" state for `.transition(_:)`: the freshly-inserted element
+      // starts at its enter opacity/transform, then animates to the normal state.
+      startingStyle {
+        rule(".swui-transition") {
+          .opacity("var(--swui-enter-opacity, 1)")
+            .transform("var(--swui-enter-transform, none)")
         }
       }
       // Honor reduced-motion globally: collapse all transitions/animations to a

@@ -358,7 +358,29 @@ public enum JavaScriptKitBrowserRuntime {
             reportUnresolvedTarget(nodeID, operation: "removeNode")
             return
         }
-        _ = context.parent.removeChild(node)
+        detachNode(node, from: context.parent)
+    }
+
+    /// Detaches a node, animating its exit first when it carries a
+    /// `.transition(_:)` marker. The element gets `.swui-exiting` (which animates
+    /// to its exit state) and is removed only after the transition's duration, so
+    /// the removal animation is visible; otherwise it is removed immediately.
+    private static func detachNode(_ node: JSValue, from parent: JSValue) {
+        // Only element nodes (nodeType 1) carry transition markers; text and
+        // comment nodes have no getAttribute and detach immediately.
+        if node.nodeType.number == 1,
+           node.getAttribute("data-swui-transition").string == "1",
+           let milliseconds = node.getAttribute("data-swui-exit-ms").string.flatMap(Double.init),
+           milliseconds > 0 {
+            _ = node.classList.add("swui-exiting")
+            let removal = JSOneshotClosure { _ in
+                _ = parent.removeChild(node)
+                return .undefined
+            }
+            _ = JSObject.global.setTimeout(removal, milliseconds)
+        } else {
+            _ = parent.removeChild(node)
+        }
     }
 
     private static func moveNode(

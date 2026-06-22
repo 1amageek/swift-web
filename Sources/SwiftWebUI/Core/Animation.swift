@@ -58,6 +58,12 @@ public struct Animation: Sendable, Equatable {
         "\(Self.seconds(duration)) \(timingFunction.cssValue) \(Self.seconds(delaySeconds))"
     }
 
+    /// Total wall-clock length (delay + duration) in milliseconds. Used by the
+    /// runtime to time a removal transition before it detaches the node.
+    var totalDurationMilliseconds: Int {
+        Int(((duration + delaySeconds) * 1000).rounded())
+    }
+
     private static func seconds(_ value: Double) -> String {
         let milliseconds = (value * 1000).rounded()
         if milliseconds == 0 {
