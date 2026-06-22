@@ -33,6 +33,7 @@ public struct StoryboardCatalog: ClientComponent, Sendable {
     @State private var showsSheet = false
     @State private var showsPopover = false
     @State private var advancedOptionsExpanded = true
+    @State private var animateOn = false
 
     public init(initialSelection: String = catalogDefaultSelection) {
         self.selection = catalogSelectionID(for: initialSelection)
@@ -80,7 +81,8 @@ public struct StoryboardCatalog: ClientComponent, Sendable {
                         showsConfirmation: $showsConfirmation,
                         showsSheet: $showsSheet,
                         showsPopover: $showsPopover,
-                        advancedOptionsExpanded: $advancedOptionsExpanded
+                        advancedOptionsExpanded: $advancedOptionsExpanded,
+                        animateOn: $animateOn
                     )
                     CatalogInspector(selection: selection)
                 }

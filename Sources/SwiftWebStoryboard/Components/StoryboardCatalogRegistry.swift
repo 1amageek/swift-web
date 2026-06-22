@@ -96,6 +96,11 @@ public let catalogCategories: [CatalogCategory] = [
         CatalogItem(id: "gauge", name: "Gauge", code: "Gauge(value:in:label:)", summary: "A compact readout of a value within a range."),
         CatalogItem(id: "badge", name: "Badge", code: "Badge(_:)", summary: "A compact status pill that hugs its label."),
     ]),
+    CatalogCategory(id: "animation", title: "Animation", items: [
+        CatalogItem(id: "animation", name: "Animation", code: ".animation(_:value:)", summary: "Interpolates a subtree's changes when a value changes. The browser performs the animation; there is no Swift-side engine."),
+        CatalogItem(id: "transition", name: "Transition", code: ".transition(_:)", summary: "Animates a view's insertion and removal while it is conditionally present, using opacity, scale, move, slide, asymmetric, and combined transitions."),
+        CatalogItem(id: "withanimation", name: "withAnimation", code: "withAnimation(_:) { }", summary: "Animates the state changes a closure makes. Lowers an Animation to a CSS transition timing applied to the resulting update."),
+    ]),
 ]
 
 public let catalogBasePath = "/storyboard"

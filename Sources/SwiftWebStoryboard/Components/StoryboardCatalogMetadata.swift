@@ -261,6 +261,26 @@ private func catalogProperties(for id: String) -> [CatalogProperty] {
             CatalogProperty("label", values: "String", summary: "Readout name."),
             CatalogProperty("range", values: "ClosedRange<Double>", summary: "Optional measurement bounds."),
         ]
+    case "animation":
+        return [
+            CatalogProperty(".animation(_:value:)", values: "Animation? · Equatable", summary: "Animates subtree changes when value changes."),
+            CatalogProperty("Animation", values: ".easeInOut / .spring(duration:bounce:) / .linear …", summary: "A timing curve lowered to a CSS transition."),
+            CatalogProperty("delay / speed", values: "modifier", summary: "Shift the start or scale the duration of an animation."),
+            CatalogProperty("engine", values: "browser", summary: "Interpolation runs in the browser; there is no Swift-side animation engine."),
+        ]
+    case "transition":
+        return [
+            CatalogProperty(".transition(_:)", values: "AnyTransition", summary: "Insertion and removal animation while conditionally present."),
+            CatalogProperty("presets", values: ".opacity / .scale / .move(edge:) / .slide", summary: "Built-in insertion and removal effects."),
+            CatalogProperty("composition", values: ".asymmetric(insertion:removal:) / .combined(with:)", summary: "Differ per direction or layer two transitions."),
+            CatalogProperty("mechanism", values: "@starting-style + delayed remove", summary: "Insertion is pure CSS; removal animates before the runtime detaches the node."),
+        ]
+    case "withanimation":
+        return [
+            CatalogProperty("withAnimation(_:_:)", values: "Animation? · () -> Result", summary: "Animates the state changes the closure makes."),
+            CatalogProperty("granularity", values: "per event", summary: "Applies to the whole resulting update; the last call in an event wins."),
+            CatalogProperty("nil", values: "Animation?", summary: "Runs the body without animating."),
+        ]
     case "navigationstack":
         return [
             CatalogProperty("content", values: "NavigationLink / custom content", summary: "Root stack content."),

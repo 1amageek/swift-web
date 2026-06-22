@@ -24,6 +24,7 @@ struct CatalogDetail: Component {
     let showsSheet: Binding<Bool>
     let showsPopover: Binding<Bool>
     let advancedOptionsExpanded: Binding<Bool>
+    let animateOn: Binding<Bool>
 
     var body: some HTML {
         main(.class("storyboard-detail")) {
@@ -99,6 +100,10 @@ struct CatalogDetail: Component {
         case "toggle":
             div(.class("storyboard-controls")) {
                 CatalogToggleControl(label: "State", value: enabled)
+            }
+        case "animation", "transition":
+            div(.class("storyboard-controls")) {
+                CatalogToggleControl(label: "Animate", value: animateOn)
             }
         case "picker":
             div(.class("storyboard-controls")) {
@@ -201,6 +206,8 @@ struct CatalogDetail: Component {
             LayoutDetail(selection: selection)
         case "button", "button-styles", "control-sizes", "button-states", "links":
             ButtonsDetail(selection: selection)
+        case "animation", "transition", "withanimation":
+            AnimationDetail(selection: selection, on: animateOn)
         case "menu", "picker":
             PickersDetail(selection: selection, pick: pick, segment: segment, scope: scope, menuPick: menuPick)
         case "securefield", "texteditor", "toggle", "slider", "stepper", "datepicker", "colorpicker", "form", "textfield":

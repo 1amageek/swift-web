@@ -349,6 +349,37 @@ func catalogSnippet(for id: String) -> String {
           Gauge(value: 0.9) { "Memory" }
       }
       """
+  case "animation":
+    return """
+      GroupBox {
+          Text("Featured")
+      }
+      .opacity(highlighted ? 1 : 0.3)
+      .scaleEffect(highlighted ? 1.08 : 1)
+      .animation(.easeInOut(duration: 0.3), value: highlighted)
+      """
+  case "transition":
+    return """
+      if isShown {
+          GroupBox {
+              Text("Now you see me")
+          }
+          .transition(.scale.combined(with: .opacity))
+      }
+      """
+  case "withanimation":
+    return """
+      Button {
+          withAnimation(.spring(duration: 0.4, bounce: 0.3)) {
+              shifted.toggle()
+          }
+      } label: {
+          Text("Animate")
+      }
+
+      GroupBox { Text("Springy") }
+          .offset(x: shifted ? 64 : 0)
+      """
   case "navigationstack":
     return """
       NavigationStack {
