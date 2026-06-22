@@ -127,7 +127,11 @@ enum ThemeStylesheet {
       ) {
         .flexDirection("row")
           .alignItems("center")
-          .flexWrap("wrap")
+          // SwiftUI's HStack lays its children on a single row and never wraps
+          // (wrapping is Grid/ViewThatFits territory). Match that so a row of
+          // controls stays one line and overflows rather than dropping onto a
+          // second row.
+          .flexWrap("nowrap")
       }
       rule(
         """
