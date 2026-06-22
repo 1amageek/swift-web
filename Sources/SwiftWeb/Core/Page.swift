@@ -3,6 +3,10 @@ public protocol Page {
     var description: String? { get async throws }
     var language: String { get async throws }
     var cache: CachePolicy { get async throws }
+    /// A class applied to the document `<body>`. Default is none; a page opts into
+    /// a body-level surface (e.g. a full-viewport app shell) by returning a class
+    /// the theme styles.
+    var bodyClass: String? { get async throws }
 }
 
 public extension Page {
@@ -30,11 +34,18 @@ public extension Page {
         }
     }
 
+    var bodyClass: String? {
+        get async throws {
+            nil
+        }
+    }
+
     func metadata() async throws -> PageMetadata {
         PageMetadata(
             title: try await title,
             description: try await description,
-            language: try await language
+            language: try await language,
+            bodyClass: try await bodyClass
         )
     }
 }

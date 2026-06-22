@@ -197,12 +197,18 @@ private struct PageModel {
             dataName: dataName,
             fallback: "try await (page as any SwiftWeb.Page).language"
         )
+        let bodyClassExpression = metadataCall(
+            name: "bodyClass",
+            dataName: dataName,
+            fallback: "try await (page as any SwiftWeb.Page).bodyClass"
+        )
 
         return """
         SwiftWeb.PageMetadata(
                             title: \(titleExpression),
                             description: \(descriptionExpression),
-                            language: \(languageExpression)
+                            language: \(languageExpression),
+                            bodyClass: \(bodyClassExpression)
                         )
         """
     }

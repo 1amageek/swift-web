@@ -14,6 +14,7 @@ public struct PageDocument<Content: HTML>: Component {
 
     @HTMLBuilder
     public var body: some HTML {
+        let bodyAttributes: [HTMLAttribute] = metadata.bodyClass.map { [.class($0)] } ?? []
         document {
             html(.lang(metadata.language)) {
                 head {
@@ -26,7 +27,7 @@ public struct PageDocument<Content: HTML>: Component {
                         meta(.name("description"), .content(description))
                     }
                 }
-                SwiftHTML.body {
+                Element("body", attributes: bodyAttributes) {
                     content
                 }
             }
