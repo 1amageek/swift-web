@@ -341,14 +341,14 @@ func catalogSnippet(for id: String) -> String {
           ProgressView("Loading")
       }
       """
-  case "gauge":
-    return """
-      VStack(alignment: .leading, spacing: .small) {
-          Gauge(value: 0.25) { "Disk" }
-          Gauge(value: 0.62) { "CPU" }
-          Gauge(value: 0.9) { "Memory" }
-      }
-      """
+      case "gauge":
+        return """
+          VStack(alignment: .leading, spacing: .small) {
+              Gauge(value: 0.25) { Text("Disk") }
+              Gauge(value: 0.62) { Text("CPU") }
+              Gauge(value: 0.9) { Text("Memory") }
+          }
+          """
   case "animation":
     return """
       GroupBox {
