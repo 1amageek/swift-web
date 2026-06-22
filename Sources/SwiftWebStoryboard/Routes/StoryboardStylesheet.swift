@@ -63,8 +63,12 @@ struct StoryboardStylesheet: Component {
           .height("54px")
           .borderBottom("1px solid var(--ui-border)")
           .padding("0 18px")
-          .gap("14px")
+          .gap("14px !important")
           .background("var(--bg)")
+          // Own the row layout explicitly: HStack's base `.swui-hstack` is
+          // `flex-wrap: wrap`, which would drop the search field onto a second row.
+          .display("flex !important")
+          .flexDirection("row !important")
           .alignItems("center !important")
           .flexWrap("nowrap !important")
       }
@@ -105,12 +109,12 @@ struct StoryboardStylesheet: Component {
           .whiteSpace("nowrap")
       }
       rule(".storyboard-search") {
-        .flex("1 1 280px")
-          .maxWidth("280px")
+        .flex("1 1 auto")
+          .maxWidth("none")
           .display("flex")
           .alignItems("center")
           .gap("8px")
-          .minWidth("180px")
+          .minWidth("0")
           .background("var(--bg-sub)")
           .borderRadius("9px")
           .padding("7px 12px")
@@ -674,24 +678,15 @@ struct StoryboardStylesheet: Component {
         .width("min(100%, 320px)")
       }
       media("(max-width: 980px)") {
+        // Keep the header a single row at every width (matching the design); only
+        // tighten padding and let the brand shrink. Side panels collapse instead.
         rule(".storyboard-topbar") {
-          .height("auto")
-            .minHeight("54px")
-            .padding("10px 14px")
-            .flexWrap("wrap !important")
+          .padding("10px 14px")
         }
         rule(".storyboard-page .storyboard-topbar-title") {
-          .width("auto")
+          .flex("0 1 auto !important")
+            .width("auto")
             .maxWidth("none")
-            .flex("1 1 220px !important")
-        }
-        rule(".storyboard-search") {
-          .order("3")
-            .flexBasis("100%")
-            .maxWidth("none")
-        }
-        rule(".storyboard-topbar-actions") {
-          .marginLeft("0")
         }
         rule(".storyboard-main") {
           .overflow("auto")
