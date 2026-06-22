@@ -36,7 +36,7 @@ public struct Animation: Sendable, Equatable {
 
     /// A spring, approximated as a sampled `linear()` easing (see `TimingFunction.spring`).
     public static func spring(duration: Double = 0.5, bounce: Double = 0.0) -> Animation {
-        Animation(timingFunction: .spring(duration: duration, bounce: bounce), duration: duration)
+        Animation(timingFunction: .spring(bounce: bounce), duration: duration)
     }
 
     public func delay(_ seconds: Double) -> Animation {

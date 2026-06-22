@@ -1713,6 +1713,22 @@ struct SwiftWebUIRenderingTests {
     #expect(rendered.contains("@media (prefers-reduced-motion: reduce)"))
     #expect(rendered.contains("display: contents"))
   }
+
+  @Test
+  func animationAppliesSubtreeWide() {
+    // The subtree-wide rule reads --swui-animation, so .animation reaches any
+    // descendant's animatable change — not only the few controls that declare
+    // their own transition.
+    let rendered = main {
+      VStack { Text("x") }.animation(.easeInOut(duration: 0.3), value: 1)
+    }
+    .environment(\.theme, .light)
+    .render()
+    #expect(rendered.contains("--swui-animation: 0.3s cubic-bezier(0.42, 0, 0.58, 1) 0s"))
+    #expect(rendered.contains(".swui-animation-scope * {"))
+    #expect(rendered.contains("transform var(--swui-animation, 0s)"))
+    #expect(rendered.contains("opacity var(--swui-animation, 0s)"))
+  }
 }
 
 private enum FocusField: Hashable, Codable, Sendable {

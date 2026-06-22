@@ -159,6 +159,22 @@ enum ThemeStylesheet {
       rule(".swui-animation-scope") {
         .display("contents")
       }
+      // Every element inside an animation scope transitions the common animatable
+      // properties at the scope's `--swui-animation` timing (instant when no
+      // `.animation(_:)` is in scope, via the `0s` fallback). This is what makes
+      // `.animation` apply subtree-wide — the way SwiftUI does — rather than only
+      // on the few controls that declare their own transition. Declared before the
+      // control rules so a control's own transition still wins on its element.
+      rule(".swui-animation-scope *") {
+        .transition(
+          "transform var(--swui-animation, 0s), "
+            + "opacity var(--swui-animation, 0s), "
+            + "color var(--swui-animation, 0s), "
+            + "background-color var(--swui-animation, 0s), "
+            + "border-color var(--swui-animation, 0s), "
+            + "box-shadow var(--swui-animation, 0s)"
+        )
+      }
       rule(".swui-layered") {
         .display("grid")
           .boxSizing("border-box")
@@ -1583,9 +1599,9 @@ enum ThemeStylesheet {
       // near-instant duration (the new `--swui-animation` path included).
       media("(prefers-reduced-motion: reduce)") {
         rule("*, *::before, *::after") {
-          .custom("animation-duration", "0.01ms !important")
-            .custom("animation-iteration-count", "1 !important")
-            .custom("transition-duration", "0.01ms !important")
+          .animationDuration("0.01ms !important")
+            .animationIterationCount("1 !important")
+            .transitionDuration("0.01ms !important")
         }
       }
     }

@@ -35,7 +35,7 @@ public extension HTML {
     /// kept for SwiftUI API parity.
     func animation(
         _ animation: Animation?,
-        value: some Equatable & Sendable
+        value: some Equatable
     ) -> ModifiedContent<Self, AnimationModifier> {
         modifier(AnimationModifier(animation))
     }
