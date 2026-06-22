@@ -96,24 +96,35 @@ struct FoundationsDetail: Component {
                     .foregroundStyle(.secondary)
             }
         case "colorvalue":
+            let name = state.control("colorvalue", "name")
+            let opacity = state.controlNumber("colorvalue", "opacity")
             VStack(spacing: .small) {
                 VStack {}
-                    .frame(width: 120, height: 72)
-                    .background(Color(hex: 0x007AFF), in: .rect(cornerRadius: 12))
-                Text("Color.blue → #007AFF", as: .small)
+                    .frame(width: 150, height: 88)
+                    .background(Color(cssValue: paletteHex(name)).opacity(opacity), in: .rect(cornerRadius: 12))
+                Text("Color.\(name) · opacity \(String(format: "%.2f", opacity))", as: .small)
                     .font(Font(size: .px(12), design: .monospaced))
                     .foregroundStyle(.secondary)
             }
         case "color":
+            let custom = Color(cssValue: state.control("color", "custom"))
             HStack(spacing: .small) {
                 Button("Accent").buttonStyle(.borderedProminent)
                     .tint(.accent)
                 Button("Danger").buttonStyle(.borderedProminent)
                     .tint(.danger)
                 Button("Custom").buttonStyle(.borderedProminent)
-                    .tint(Color(hex: 0x22A06B))
+                    .tint(custom)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .center)
+        case "typography":
+            let text = state.control("typography", "text")
+            Text(text.isEmpty ? "Hello, SwiftWebUI" : text)
+                .font(typographyFont(state.control("typography", "font")))
+                .fontWeight(typographyWeight(state.control("typography", "weight")))
+                .multilineTextAlignment(typographyTextAlignment(state.control("typography", "align")))
+                .foregroundStyle(typographyForeground(state.control("typography", "fg")))
+                .frame(maxWidth: .infinity, alignment: typographyAlignment(state.control("typography", "align")))
         default:
             Text("Hello, SwiftWebUI")
                 .font(.largeTitle)
@@ -153,6 +164,61 @@ struct FoundationsDetail: Component {
         default: // sidebar
             let main = Int((Double(cols) * 2 / 3).rounded())
             return [main, cols - main]
+        }
+    }
+
+    private func paletteHex(_ name: String) -> String {
+        switch name {
+        case "green": return "#34c759"
+        case "orange": return "#ff9500"
+        case "pink": return "#ff2d55"
+        case "purple": return "#af52de"
+        default: return "#007aff" // blue
+        }
+    }
+
+    private func typographyFont(_ value: String) -> Font {
+        switch value {
+        case "title": return .title
+        case "headline": return .headline
+        case "body": return .body
+        case "footnote": return .footnote
+        case "caption": return .caption
+        default: return .largeTitle
+        }
+    }
+
+    private func typographyWeight(_ value: String) -> Font.Weight {
+        switch value {
+        case "regular": return .regular
+        case "medium": return .medium
+        case "semibold": return .semibold
+        default: return .bold
+        }
+    }
+
+    private func typographyTextAlignment(_ value: String) -> TextAlignment {
+        switch value {
+        case "leading": return .leading
+        case "trailing": return .trailing
+        default: return .center
+        }
+    }
+
+    private func typographyAlignment(_ value: String) -> Alignment {
+        switch value {
+        case "leading": return .leading
+        case "trailing": return .trailing
+        default: return .center
+        }
+    }
+
+    private func typographyForeground(_ value: String) -> Color {
+        switch value {
+        case "secondary": return .secondary
+        case "accent": return .accent
+        case "danger": return .danger
+        default: return .primary
         }
     }
 

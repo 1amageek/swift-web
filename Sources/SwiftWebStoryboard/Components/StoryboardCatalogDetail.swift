@@ -203,7 +203,7 @@ struct CatalogDetail: Component {
         case "stacks", "spacer", "divider", "hug-fill":
             LayoutDetail(selection: selection)
         case "button", "button-styles", "control-sizes", "button-states", "links":
-            ButtonsDetail(selection: selection)
+            ButtonsDetail(selection: selection, state: ui.wrappedValue)
         case "animation", "transition", "withanimation":
             AnimationDetail(selection: selection, on: animateOn)
         case "menu", "picker":
@@ -224,7 +224,7 @@ struct CatalogDetail: Component {
         case "color":
             FoundationsDetail(selection: selection, state: ui.wrappedValue)
         case "progressview", "gauge":
-            StatusDetail(selection: selection)
+            StatusDetail(selection: selection, state: ui.wrappedValue)
         case "alert", "sheet":
             PresentationDetail(
                 selection: selection,

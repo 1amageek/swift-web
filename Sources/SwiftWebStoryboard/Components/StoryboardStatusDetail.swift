@@ -6,17 +6,27 @@ import SwiftWebUI
 
 struct StatusDetail: Component {
     let selection: String
+    /// Shared control-panel state, keyed "componentID.knob".
+    var state: [String: String] = [:]
 
     var body: some HTML {
         switch selection {
         case "gauge":
-            Gauge(value: 0.25) { Text("Disk") }
-            Gauge(value: 0.62) { Text("CPU") }
-            Gauge(value: 0.9) { Text("Memory") }
+            Gauge(value: state.controlNumber("gauge", "value")) { Text("Value") }
+                .frame(width: 220)
         default:
-            ProgressView("Uploading", value: 0.35)
-            ProgressView("Rendering", value: 0.7)
+            progressDemo()
+        }
+    }
+
+    @HTMLBuilder
+    private func progressDemo() -> some HTML {
+        if state.controlFlag("progressview", "indeterminate") {
             ProgressView("Loading")
+                .frame(width: 220)
+        } else {
+            ProgressView("Progress", value: state.controlNumber("progressview", "value"))
+                .frame(width: 220)
         }
     }
 }
