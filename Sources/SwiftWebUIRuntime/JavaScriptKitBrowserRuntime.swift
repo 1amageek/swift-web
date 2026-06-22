@@ -12,6 +12,14 @@ public struct JavaScriptKitBrowserDOMHost: BrowserDOMHost {
     ) {
         JavaScriptKitBrowserRuntime.apply(batch, hydrationIndex: currentIndex)
     }
+
+    public func apply(
+        _ batch: BrowserDOMCommandBatch,
+        currentIndex: BrowserHydrationIndex,
+        animation: TransactionAnimation?
+    ) {
+        JavaScriptKitBrowserRuntime.apply(batch, hydrationIndex: currentIndex, animation: animation)
+    }
 }
 
 public enum JavaScriptKitBrowserRuntime {
@@ -25,6 +33,37 @@ public enum JavaScriptKitBrowserRuntime {
         for command in batch.commands {
             apply(command, hydrationIndex: hydrationIndex)
         }
+    }
+
+    /// Applies a batch whose changes an explicit `withAnimation` transaction asked
+    /// to be interpolated. The whole document is made an animation scope for the
+    /// transaction's timing so the existing
+    /// `.swui-animation-scope * { transition: … var(--swui-animation, 0s) }` rule
+    /// animates every change this batch makes; the scope is removed once the
+    /// animation finishes so later, non-animated updates are not interpolated.
+    public static func apply(
+        _ batch: BrowserDOMCommandBatch,
+        hydrationIndex: BrowserHydrationIndex,
+        animation: TransactionAnimation?
+    ) {
+        guard let animation else {
+            apply(batch, hydrationIndex: hydrationIndex)
+            return
+        }
+        let body: JSValue = document.body
+        _ = body.classList.add("swui-animation-scope")
+        _ = body.style.setProperty("--swui-animation", animation.css)
+        // Commit the scope's transition (with the pre-patch values) before mutating,
+        // so the upcoming property changes start from a state where the transition is
+        // already active and therefore animate.
+        _ = body.offsetHeight.number
+        apply(batch, hydrationIndex: hydrationIndex)
+        let cleanup = JSOneshotClosure { _ in
+            _ = body.classList.remove("swui-animation-scope")
+            _ = body.style.removeProperty("--swui-animation")
+            return .undefined
+        }
+        _ = JSObject.global.setTimeout!(cleanup, Double(animation.durationMilliseconds))
     }
 
     private static func apply(
@@ -377,7 +416,7 @@ public enum JavaScriptKitBrowserRuntime {
                 _ = parent.removeChild(node)
                 return .undefined
             }
-            _ = JSObject.global.setTimeout(removal, milliseconds)
+            _ = JSObject.global.setTimeout!(removal, milliseconds)
         } else {
             _ = parent.removeChild(node)
         }

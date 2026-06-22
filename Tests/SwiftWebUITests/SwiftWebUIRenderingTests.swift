@@ -1788,6 +1788,48 @@ struct SwiftWebUIRenderingTests {
     #expect(rendered.contains("var(--swui-exit-opacity, 1)"))
     #expect(rendered.contains("var(--swui-enter-opacity, 1)"))
   }
+
+  @Test
+  func withAnimationPublishesLoweredAnimationOnTransaction() {
+    let transaction = Transaction()
+    Transaction.$current.withValue(transaction) {
+      withAnimation(.easeInOut(duration: 0.3)) {
+        #expect(transaction.animation?.css == "0.3s cubic-bezier(0.42, 0, 0.58, 1) 0s")
+        #expect(transaction.animation?.durationMilliseconds == 300)
+      }
+    }
+    // The per-event model leaves the animation set so the runtime can read it
+    // after the handler returns.
+    #expect(transaction.animation != nil)
+  }
+
+  @Test
+  func withAnimationNilRunsBodyWithoutAnimating() {
+    let transaction = Transaction()
+    Transaction.$current.withValue(transaction) {
+      withAnimation(nil) {
+        #expect(transaction.animation == nil)
+      }
+    }
+    #expect(transaction.animation == nil)
+  }
+
+  @Test
+  func withAnimationDefaultsToFrameworkAnimation() {
+    let transaction = Transaction()
+    Transaction.$current.withValue(transaction) {
+      withAnimation {
+        #expect(transaction.animation?.durationMilliseconds == 350)
+      }
+    }
+  }
+
+  @Test
+  func withAnimationReturnsBodyResultWithoutATransaction() {
+    // Outside a bound transaction, withAnimation must still run body and return.
+    let result = withAnimation(.linear(duration: 0.2)) { 42 }
+    #expect(result == 42)
+  }
 }
 
 private enum FocusField: Hashable, Codable, Sendable {

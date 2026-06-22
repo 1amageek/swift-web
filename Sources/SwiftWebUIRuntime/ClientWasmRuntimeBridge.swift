@@ -246,10 +246,17 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
             throw ClientWasmRuntimeBridgeError.notBootstrapped
         }
 
-        let update = try session.invoke(
-            handlerID: translatedHandlerID(request.handlerID, in: session),
-            event: request.event
-        )
+        // Bind a fresh transaction for this event so `withAnimation` (run inside the
+        // handler) can record an animation, and read it back when applying the
+        // resulting DOM changes. A new instance per event prevents leaking an
+        // animation into a later, unrelated update.
+        let transaction = Transaction()
+        let update = try Transaction.$current.withValue(transaction) {
+            try session.invoke(
+                handlerID: translatedHandlerID(request.handlerID, in: session),
+                event: request.event
+            )
+        }
         self.session = session
         let commandBatch: BrowserDOMCommandBatch
         let hydrationIndex: BrowserHydrationIndex?
@@ -304,7 +311,8 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
         if let domHost {
             try domHost.apply(
                 commandBatch,
-                currentIndex: currentIndexForDOM
+                currentIndex: currentIndexForDOM,
+                animation: transaction.animation
             )
         }
         return ClientWasmRuntimeResponse(
