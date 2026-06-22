@@ -730,8 +730,12 @@ enum ThemeStylesheet {
       rule(".swui-button-action-form") {
         .display("inline-flex")
       }
+      // SwiftUI links are not underlined and take the ambient foreground, so
+      // .foregroundStyle/.tint can recolor them. Inherit the color (the enclosing
+      // tint or foregroundStyle sets it) and drop the user-agent underline.
       rule(".swui-link") {
-        .color("var(--swui-accent)")
+        .color("inherit")
+          .textDecoration("none")
       }
       rule(".swui-navigation-stack") {
         .display("grid")
