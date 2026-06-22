@@ -82,16 +82,33 @@ struct CatalogDetail: Component {
     private func previewSection() -> some HTML {
         VStack(alignment: .leading, spacing: .small) {
             sectionTitle("Preview", anchor: "preview")
-            VStack(alignment: .leading, spacing: .medium) {
-                detailDemo()
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            // PreviewFrame is a full-width block, so the canvas always spans the
+            // content column regardless of the demo's intrinsic size.
+            PreviewFrame {
+                // The dot-grid canvas centers the live demo, matching the design.
+                PreviewCanvas {
+                    detailDemo()
+                }
+                // Interactive controls sit below the canvas, separated by a rule.
+                previewControlArea()
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var hasPreviewControls: Bool {
+        ["slider", "stepper", "toggle", "animation", "transition", "picker", "textfield", "texteditor"].contains(selection)
+    }
+
+    @HTMLBuilder
+    private func previewControlArea() -> some HTML {
+        if hasPreviewControls {
+            Divider()
+            VStack(alignment: .leading, spacing: .small) {
                 previewControls()
             }
-            .padding(.large)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.surfaceRaised, in: .rect(cornerRadius: 12))
-            .border(.border, width: 1)
-            .cornerRadius(12)
+            .padding(.medium)
         }
     }
 
