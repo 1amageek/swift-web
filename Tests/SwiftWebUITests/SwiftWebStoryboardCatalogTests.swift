@@ -22,26 +22,13 @@ struct SwiftWebStoryboardCatalogTests {
             .replacingOccurrences(of: "\"", with: "&quot;")
     }
 
-    private func cssRule(_ selector: String, in css: String) -> String {
-        guard let start = css.range(of: "\(selector) {")?.lowerBound else {
-            return ""
-        }
-
-        let suffix = css[start...]
-        guard let end = suffix.firstIndex(of: "}") else {
-            return String(suffix)
-        }
-
-        return String(suffix[...end])
-    }
-
     private func occurrences(of needle: String, in haystack: String) -> Int {
         haystack.components(separatedBy: needle).count - 1
     }
 
     /// Every `href="#anchor"` in the rendered page (the inspector table of
-    /// contents); the in-page sidebar/breadcrumb links use real paths, not
-    /// fragments, so these are the table-of-contents targets.
+    /// contents); the in-page sidebar links use real paths, not fragments, so
+    /// these are the table-of-contents targets.
     private func tableOfContentsAnchors(in html: String) -> [String] {
         var anchors: [String] = []
         var remainder = Substring(html)
@@ -84,21 +71,19 @@ struct SwiftWebStoryboardCatalogTests {
         #expect(rendered.contains("Related"))
         #expect(rendered.contains("Text(_:as:)"))
         #expect(rendered.contains("Text(\"Hello, SwiftWebUI\")"))
-        #expect(rendered.contains("storyboard-preview-frame"))
-        #expect(rendered.contains("storyboard-preview-canvas"))
     }
 
     @Test
-    func topBarMatchesReferenceShellControls() {
+    func topBarShowsBrandAndShellControls() {
         let rendered = StoryboardCatalog().render()
 
-        #expect(rendered.contains("storyboard-mark"))
-        #expect(rendered.contains("storyboard-search"))
+        #expect(rendered.contains("SwiftWebUI"))
+        #expect(rendered.contains("Search components"))
         #expect(rendered.contains("Docs"))
         #expect(rendered.contains("GitHub ↗"))
         #expect(rendered.contains("href=\"https://github.com/1amageek/swift-web\""))
-        #expect(rendered.contains("storyboard-theme-switcher"))
-        #expect(rendered.contains("storyboard-theme-button is-selected"))
+        #expect(rendered.contains("Light"))
+        #expect(rendered.contains("Dark"))
         #expect(!rendered.contains("Style System"))
         #expect(!rendered.contains("Liquid Glass"))
     }
@@ -107,11 +92,13 @@ struct SwiftWebStoryboardCatalogTests {
     func catalogEmitsSemanticLandmarks() {
         let rendered = StoryboardCatalog(initialSelection: "list").render()
 
-        #expect(rendered.contains("<header class=\"storyboard-landmark\""))
+        #expect(rendered.contains("role=\"banner\""))
+        #expect(rendered.contains("role=\"navigation\""))
         #expect(rendered.contains("aria-label=\"Components\""))
-        #expect(rendered.contains("<main class=\"storyboard-detail\""))
-        #expect(rendered.contains("<section class=\"storyboard-section\""))
-        #expect(rendered.contains("<h2 class=\"storyboard-section-title\""))
+        #expect(rendered.contains("role=\"complementary\""))
+        #expect(rendered.contains("role=\"main\""))
+        #expect(rendered.contains("<h1"))
+        #expect(rendered.contains("<h2"))
         #expect(rendered.contains("id=\"properties\""))
         #expect(rendered.contains("id=\"related\""))
     }
@@ -142,11 +129,13 @@ struct SwiftWebStoryboardCatalogTests {
     }
 
     @Test
-    func breadcrumbIsANavLandmarkWithCurrentPage() {
+    func breadcrumbShowsCategoryAndComponent() {
         let rendered = StoryboardCatalog(initialSelection: "list").render()
 
-        #expect(rendered.contains("aria-label=\"Breadcrumb\""))
-        #expect(rendered.contains("class=\"storyboard-breadcrumb-current\" aria-current=\"page\""))
+        if let category = catalogCategory(for: "list") {
+            #expect(self.rendered(rendered, contains: category.title))
+        }
+        #expect(rendered.contains("List"))
     }
 
     @Test
@@ -155,7 +144,6 @@ struct SwiftWebStoryboardCatalogTests {
 
         #expect(rendered.contains("href=\"/storyboard/list\""))
         #expect(rendered.contains("href=\"/storyboard/stacks\""))
-        #expect(rendered.contains("class=\"storyboard-sidebar-link is-selected\""))
         #expect(rendered.contains("aria-current=\"page\""))
     }
 
@@ -165,17 +153,19 @@ struct SwiftWebStoryboardCatalogTests {
 
         #expect(rendered.contains("href=\"/storyboard/typography\""))
         #expect(rendered.contains("Text"))
-        #expect(rendered.contains("class=\"storyboard-sidebar-link is-selected\""))
+        #expect(rendered.contains("aria-current=\"page\""))
     }
 
     @Test
-    func propertyPanelUsesDedicatedCodeChips() {
+    func propertyPanelRendersNameValueAndSummary() {
         let rendered = StoryboardCatalog(initialSelection: "section").render()
+        let spec = catalogDetailSpec(for: catalogItem(for: "section")!)
 
-        #expect(rendered.contains(#"<code class="storyboard-property-name">title</code>"#))
-        #expect(rendered.contains(#"<code class="storyboard-property-values">String</code>"#))
-        #expect(!rendered.contains("swui-inline-code storyboard-property-name"))
-        #expect(!rendered.contains("swui-inline-code storyboard-property-values"))
+        for property in spec.properties {
+            #expect(self.rendered(rendered, contains: property.name))
+            #expect(self.rendered(rendered, contains: property.acceptedValues))
+            #expect(self.rendered(rendered, contains: property.summary))
+        }
     }
 
     @Test
@@ -193,7 +183,7 @@ struct SwiftWebStoryboardCatalogTests {
 
         #expect(rendered.contains("href=\"/storyboard/stepper\""))
         #expect(rendered.contains("Stepper"))
-        #expect(rendered.contains("class=\"storyboard-sidebar-link is-selected\""))
+        #expect(rendered.contains("aria-current=\"page\""))
         #expect(rendered.contains("swui-stepper"))
     }
 
@@ -226,49 +216,11 @@ struct SwiftWebStoryboardCatalogTests {
     }
 
     @Test
-    func spacingPreviewRendersScaleBarsAndGridLabel() {
+    func spacingPreviewRendersScaleAndGridLabel() {
         let rendered = StoryboardCatalog(initialSelection: "spacing").render()
 
-        #expect(rendered.contains("storyboard-spacing-demo"))
-        #expect(rendered.contains("storyboard-spacing-bar is-active"))
-        #expect(rendered.contains("storyboard-spacing-tile"))
         #expect(rendered.contains("8px grid"))
-    }
-
-    @Test
-    func storyboardStylesheetMatchesDesignShellMetrics() {
-        let css = StoryboardStylesheet.cssText
-
-        #expect(css.contains("min-height: 54px;"))
-        #expect(css.contains("flex: 0 0 226px !important;"))
-        #expect(css.contains("flex: 0 0 184px !important;"))
-        #expect(css.contains("padding: 22px 30px;"))
-        #expect(css.contains("width: min(100%, 760px);"))
-        #expect(css.contains("min-height: 168px;"))
-        #expect(css.contains("background-size: 18px 18px;"))
-        #expect(css.contains("width: 226px;"))
-        #expect(css.contains("width: 184px;"))
-        #expect(css.contains(".storyboard-page .storyboard-property-name,"))
-        #expect(css.contains(".storyboard-page .storyboard-property-values {"))
-        #expect(css.contains("display: inline-block;"))
-        #expect(css.contains("height: 21px;"))
-        #expect(css.contains("padding-block: 0;"))
-        #expect(css.contains("padding-inline: 6px;"))
-        #expect(css.contains("line-height: 21px;"))
-        #expect(css.contains("font-kerning: normal;"))
-        #expect(css.contains(#"font-feature-settings: "kern" 1, "liga" 0, "calt" 0;"#))
-        #expect(css.contains("font-variant-ligatures: none;"))
-
-        let spacingBarRule = cssRule(".storyboard-spacing-bar", in: css)
-        #expect(spacingBarRule.contains("width: 100%;"))
-        #expect(spacingBarRule.contains("height: 16px;"))
-
-        let colorSwatchRule = cssRule(".storyboard-color-swatch", in: css)
-        #expect(colorSwatchRule.contains("width: 150px;"))
-        #expect(colorSwatchRule.contains("height: 104px;"))
-        #expect(colorSwatchRule.contains("background: #007aff;"))
-        #expect(!colorSwatchRule.contains("border-radius"))
-        #expect(!colorSwatchRule.contains("border:"))
+        #expect(rendered.contains("base unit"))
     }
 
     @Test

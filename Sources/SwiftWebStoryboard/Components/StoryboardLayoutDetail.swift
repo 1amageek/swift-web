@@ -24,7 +24,6 @@ struct LayoutDetail: Component {
                 Divider()
                 Text("Section two")
             }
-            .class("storyboard-divider-demo")
             .frame(maxWidth: .infinity, alignment: .leading)
         case "hug-fill":
             HStack(spacing: .small) {

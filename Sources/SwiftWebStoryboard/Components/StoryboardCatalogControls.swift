@@ -14,23 +14,32 @@ struct CatalogSegmentOption: Identifiable, Sendable {
     }
 }
 
+private func controlLabel(_ label: String) -> some HTML {
+    Text(label, as: .span)
+        .font(.footnote)
+        .fontWeight(.medium)
+        .foregroundStyle(.secondary)
+}
+
 struct CatalogRangeControl: Component {
     let label: String
     let value: Binding<Double>
 
     var body: some HTML {
-        div(.class("storyboard-control")) {
-            span(.class("storyboard-control-label"), .id(labelID)) {
-                label
-            }
+        HStack(spacing: .medium) {
             // Name the range input from the visible label; a bare range input
             // would otherwise be announced only as "slider".
+            Text(label, as: .span, .id(labelID))
+                .font(.footnote)
+                .fontWeight(.medium)
+                .foregroundStyle(.secondary)
             Slider(value: value, in: 0...1, step: 0.05, .aria("labelledby", labelID))
-                .class("storyboard-control-slider")
-            span(.class("storyboard-control-value")) {
-                String(format: "%.2f", value.wrappedValue)
-            }
+                .frame(maxWidth: .infinity)
+            Text(String(format: "%.2f", value.wrappedValue))
+                .font(Font(size: .px(13), design: .monospaced))
+                .foregroundStyle(.secondary)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var labelID: String {
@@ -43,12 +52,11 @@ struct CatalogStepperControl: Component {
     let value: Binding<Int>
 
     var body: some HTML {
-        div(.class("storyboard-control")) {
-            span(.class("storyboard-control-label")) {
-                label
-            }
+        HStack(spacing: .medium) {
+            controlLabel(label)
             Stepper(label, value: value, in: 0...8)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -57,15 +65,8 @@ struct CatalogToggleControl: Component {
     let value: Binding<Bool>
 
     var body: some HTML {
-        div(.class("storyboard-control")) {
-            span(.class("storyboard-control-label")) {
-                label
-            }
-            Button(value.wrappedValue ? "On" : "Off") {
-                value.wrappedValue.toggle()
-            }
-            .class("storyboard-control-toggle\(value.wrappedValue ? " is-selected" : "")")
-        }
+        Toggle(label, isOn: value)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -75,20 +76,30 @@ struct CatalogSegmentControl: Component {
     let options: [CatalogSegmentOption]
 
     var body: some HTML {
-        div(.class("storyboard-control")) {
-            span(.class("storyboard-control-label")) {
-                label
-            }
+        HStack(spacing: .medium) {
+            controlLabel(label)
             HStack(spacing: .xsmall) {
                 ForEach(options) { option in
-                    Button(option.label) {
-                        selection.wrappedValue = option.value
+                    Button(action: { selection.wrappedValue = option.value }) {
+                        Text(option.label)
                     }
-                    .class("storyboard-control-segment\(selection.wrappedValue == option.value ? " is-selected" : "")")
+                    .buttonStyle(.plain)
+                    .font(Font(size: .px(13), weight: .medium))
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, 11)
+                    .frame(height: 28)
+                    .background(
+                        selection.wrappedValue == option.value ? CSSShapeStyle.white : CSSShapeStyle.clear,
+                        in: .rect(cornerRadius: 6)
+                    )
                 }
             }
-            .class("storyboard-control-segments")
+            .padding(3)
+            .background(.surfaceRaised, in: .rect(cornerRadius: 8))
+            .border(.border, width: 1)
+            .cornerRadius(8)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -98,12 +109,11 @@ struct CatalogTextControl: Component {
     let placeholder: String
 
     var body: some HTML {
-        div(.class("storyboard-control")) {
-            span(.class("storyboard-control-label")) {
-                label
-            }
+        HStack(spacing: .medium) {
+            controlLabel(label)
             TextField(placeholder, text: value)
-                .class("storyboard-control-text")
+                .frame(maxWidth: .infinity)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

@@ -11,7 +11,7 @@ struct ContainersDetail: Component {
     var body: some HTML {
         switch selection {
         case "groupbox":
-            div(.class("swui-group-box storyboard-groupbox-demo")) {
+            GroupBox {
                 VStack(alignment: .leading, spacing: .small) {
                     Heading("Storage", level: .subsection)
                     Text("iCloud Drive")
@@ -128,7 +128,7 @@ struct ContainersDetail: Component {
             .cornerRadius(12)
             .border(.border)
         default:
-            div(.class("swui-group-box storyboard-groupbox-demo")) {
+            GroupBox {
                 VStack(alignment: .leading, spacing: .small) {
                     Heading("Storage", level: .subsection)
                     Text("iCloud Drive")

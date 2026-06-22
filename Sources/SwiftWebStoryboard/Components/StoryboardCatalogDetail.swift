@@ -28,7 +28,7 @@ struct CatalogDetail: Component {
 
     var body: some HTML {
         ScrollView(.vertical) {
-            div(.class("storyboard-detail-content")) {
+            VStack(alignment: .leading, spacing: .large) {
                 if let item = catalogItem(for: selection) {
                     let spec = catalogDetailSpec(for: item)
                     detailHeader(item: item, spec: spec)
@@ -41,8 +41,10 @@ struct CatalogDetail: Component {
                     relatedSection(item: item)
                 }
             }
+            .frame(maxWidth: 760, alignment: .leading)
             .padding(.horizontal, 30)
             .padding(.vertical, 22)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .accessibilityRole("main")
@@ -52,41 +54,44 @@ struct CatalogDetail: Component {
         catalogShowsRenderedHTML(for: selection)
     }
 
+    private func sectionTitle(_ title: String, anchor: String) -> some HTML {
+        Text(title, as: .h2, .id(anchor))
+            .font(.headline)
+            .fontWeight(.semibold)
+    }
+
     @HTMLBuilder
     private func detailHeader(item: CatalogItem, spec: CatalogDetailSpec) -> some HTML {
         if let category = catalogCategory(for: item.id) {
-            nav(.class("storyboard-breadcrumb"), .aria("label", "Breadcrumb")) {
-                span {
-                    category.title
-                }
-                span(.class("storyboard-breadcrumb-separator"), .aria("hidden", "true")) {
-                    "/"
-                }
-                span(.class("storyboard-breadcrumb-current"), .aria("current", "page")) {
-                    item.name
-                }
+            HStack(spacing: .xsmall) {
+                Text(category.title)
+                Text("/")
+                Text(item.name)
             }
+            .font(.footnote)
+            .foregroundStyle(.secondary)
         }
-        h1(.class("storyboard-title")) {
-            item.name
-        }
-        p(.class("storyboard-description")) {
-            spec.overview
-        }
+        Text(item.name, as: .h1)
+            .font(.title)
+            .fontWeight(.bold)
+        Text(spec.overview)
+            .foregroundStyle(.secondary)
     }
 
     @HTMLBuilder
     private func previewSection() -> some HTML {
-        h2(.class("storyboard-section-title"), .id("preview")) {
-            "Preview"
-        }
-        div(.class("storyboard-preview-frame")) {
-            div(.class("storyboard-preview-canvas")) {
-                div(.class("swui-root storyboard-preview-root")) {
-                    detailDemo()
-                }
+        VStack(alignment: .leading, spacing: .small) {
+            sectionTitle("Preview", anchor: "preview")
+            VStack(alignment: .leading, spacing: .medium) {
+                detailDemo()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                previewControls()
             }
-            previewControls()
+            .padding(.large)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.surfaceRaised, in: .rect(cornerRadius: 12))
+            .border(.border, width: 1)
+            .cornerRadius(12)
         }
     }
 
@@ -94,41 +99,27 @@ struct CatalogDetail: Component {
     private func previewControls() -> some HTML {
         switch selection {
         case "slider":
-            div(.class("storyboard-controls")) {
-                CatalogRangeControl(label: "Value", value: volume)
-            }
+            CatalogRangeControl(label: "Value", value: volume)
         case "stepper":
-            div(.class("storyboard-controls")) {
-                CatalogStepperControl(label: "Value", value: density)
-            }
+            CatalogStepperControl(label: "Value", value: density)
         case "toggle":
-            div(.class("storyboard-controls")) {
-                CatalogToggleControl(label: "State", value: enabled)
-            }
+            CatalogToggleControl(label: "State", value: enabled)
         case "animation", "transition":
-            div(.class("storyboard-controls")) {
-                CatalogToggleControl(label: "Animate", value: animateOn)
-            }
+            CatalogToggleControl(label: "Animate", value: animateOn)
         case "picker":
-            div(.class("storyboard-controls")) {
-                CatalogSegmentControl(
-                    label: "Selection",
-                    selection: segment,
-                    options: [
-                        CatalogSegmentOption(label: "List", value: "list"),
-                        CatalogSegmentOption(label: "Grid", value: "grid"),
-                        CatalogSegmentOption(label: "Columns", value: "columns"),
-                    ]
-                )
-            }
+            CatalogSegmentControl(
+                label: "Selection",
+                selection: segment,
+                options: [
+                    CatalogSegmentOption(label: "List", value: "list"),
+                    CatalogSegmentOption(label: "Grid", value: "grid"),
+                    CatalogSegmentOption(label: "Columns", value: "columns"),
+                ]
+            )
         case "textfield":
-            div(.class("storyboard-controls")) {
-                CatalogTextControl(label: "Email", value: email, placeholder: "ada@example.com")
-            }
+            CatalogTextControl(label: "Email", value: email, placeholder: "ada@example.com")
         case "texteditor":
-            div(.class("storyboard-controls")) {
-                CatalogTextControl(label: "Notes", value: notes, placeholder: "Notes")
-            }
+            CatalogTextControl(label: "Notes", value: notes, placeholder: "Notes")
         default:
             EmptyHTML()
         }
@@ -136,56 +127,40 @@ struct CatalogDetail: Component {
 
     @HTMLBuilder
     private func codeSection(anchor: String, title: String, text: String, language: String, showsLineNumbers: Bool) -> some HTML {
-        section(.class("storyboard-section"), .id(anchor)) {
-            h2(.class("storyboard-section-title")) {
-                title
-            }
-            CodeBlock(
-                text,
-                language: language,
-                showsLineNumbers: showsLineNumbers,
-                .class("storyboard-code-block")
-            )
+        VStack(alignment: .leading, spacing: .small) {
+            sectionTitle(title, anchor: anchor)
+            CodeBlock(text, language: language, showsLineNumbers: showsLineNumbers)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
     @HTMLBuilder
     private func renderedHTMLSection() -> some HTML {
-        section(.class("storyboard-section"), .id("rendered-html")) {
-            h2(.class("storyboard-section-title tight")) {
-                "Rendered HTML"
-            }
-            p(.class("storyboard-section-caption")) {
-                "The DOM SwiftWebUI emits for the preview above."
-            }
-            CodeBlock(
-                catalogRenderedHTML(for: selection),
-                language: "html",
-                showsLineNumbers: false,
-                .class("storyboard-code-block rendered")
-            )
+        VStack(alignment: .leading, spacing: .small) {
+            sectionTitle("Rendered HTML", anchor: "rendered-html")
+            Text("The DOM SwiftWebUI emits for the preview above.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            CodeBlock(catalogRenderedHTML(for: selection), language: "html", showsLineNumbers: false)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
     @HTMLBuilder
     private func propertiesSection(_ properties: [CatalogProperty]) -> some HTML {
-        section(.class("storyboard-section"), .id("properties")) {
-            h2(.class("storyboard-section-title tight")) {
-                "Properties"
-            }
-            p(.class("storyboard-section-caption")) {
-                "The parameters and modifiers that configure this component."
-            }
+        VStack(alignment: .leading, spacing: .small) {
+            sectionTitle("Properties", anchor: "properties")
+            Text("The parameters and modifiers that configure this component.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
             CatalogPropertyPanel(properties: properties)
         }
     }
 
     @HTMLBuilder
     private func relatedSection(item: CatalogItem) -> some HTML {
-        section(.class("storyboard-section bottom"), .id("related")) {
-            h2(.class("storyboard-section-title related")) {
-                "Related"
-            }
+        VStack(alignment: .leading, spacing: .small) {
+            sectionTitle("Related", anchor: "related")
             CatalogRelatedPanel(selection: item.id)
         }
     }

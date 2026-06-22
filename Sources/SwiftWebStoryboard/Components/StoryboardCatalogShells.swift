@@ -4,18 +4,21 @@ import SwiftWebUI
 
 // MARK: - Shells
 
-/// A compact prop-reference table for the selected component.
+/// A compact prop-reference panel for the selected component.
 struct CatalogPropertyPanel: Component {
     let properties: [CatalogProperty]
 
     var body: some HTML {
-        VStack(alignment: .leading, spacing: Space.none) {
+        VStack(alignment: .leading, spacing: .medium) {
             ForEach(properties) { property in
                 CatalogPropertyRow(property: property)
             }
         }
-        .class("storyboard-property-panel")
+        .padding(.large)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.surfaceRaised, in: .rect(cornerRadius: 12))
+        .border(.border, width: 1)
+        .cornerRadius(12)
     }
 }
 
@@ -25,18 +28,18 @@ struct CatalogPropertyRow: Component {
     var body: some HTML {
         VStack(alignment: .leading, spacing: .xsmall) {
             HStack(spacing: .small) {
-                code(.class("storyboard-property-name")) {
-                    property.name
-                }
-                code(.class("storyboard-property-values")) {
-                    property.acceptedValues
-                }
+                Text(property.name)
+                    .font(Font(size: .px(13), weight: .semibold, design: .monospaced))
+                Text(property.acceptedValues)
+                    .font(Font(size: .px(13), design: .monospaced))
+                    .foregroundStyle(.accent)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            Text(property.summary).foregroundStyle(.secondary)
+            Text(property.summary)
+                .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .class("storyboard-property-row")
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -44,15 +47,26 @@ struct CatalogRelatedPanel: Component {
     let selection: String
 
     var body: some HTML {
-        HStack(spacing: .medium) {
+        HStack(alignment: .top, spacing: .medium) {
             ForEach(relatedItems) { item in
-                a(.href(item.path), .class("storyboard-related-link")) {
-                    Text(item.name, as: .strong)
-                    Text(item.summary).foregroundStyle(.secondary)
+                Link(destination: URL(string: item.path)!) {
+                    VStack(alignment: .leading, spacing: .xsmall) {
+                        Text(item.name)
+                            .fontWeight(.semibold)
+                        Text(item.summary)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                .foregroundStyle(.primary)
+                .padding(.medium)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.surfaceRaised, in: .rect(cornerRadius: 10))
+                .border(.border, width: 1)
+                .cornerRadius(10)
             }
         }
-        .class("storyboard-related-grid")
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 

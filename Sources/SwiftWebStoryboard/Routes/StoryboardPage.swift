@@ -22,9 +22,7 @@ struct StoryboardPage {
         "swui-viewport"
     }
 
-    @HTMLBuilder
     func body() -> some HTML {
-        StoryboardStylesheet()
         StoryboardCatalog()
     }
 }
@@ -58,9 +56,7 @@ struct StoryboardSelectionPage {
         "swui-viewport"
     }
 
-    @HTMLBuilder
     func body() -> some HTML {
-        StoryboardStylesheet()
         StoryboardCatalog(initialSelection: selectionID)
     }
 }

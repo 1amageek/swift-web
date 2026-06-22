@@ -143,7 +143,7 @@ struct CatalogSidebarRow: Component {
     private var isSelected: Bool { selection == item.id }
 
     var body: some HTML {
-        Link(destination: URL(string: item.path)!) {
+        Link(destination: URL(string: item.path)!, .aria("current", isSelected ? "page" : "false")) {
             Text(item.name)
         }
         .font(Font(size: .px(13.5), weight: isSelected ? .semibold : .medium))
