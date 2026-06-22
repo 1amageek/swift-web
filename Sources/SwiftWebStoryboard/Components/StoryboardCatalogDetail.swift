@@ -65,7 +65,7 @@ struct CatalogDetail: Component {
         if let category = catalogCategory(for: item.id) {
             HStack(spacing: .xsmall) {
                 Text(category.title)
-                Text("/")
+                Text("/").accessibilityHidden(true)
                 Text(item.name)
             }
             .font(.footnote)

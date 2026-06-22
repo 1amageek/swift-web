@@ -109,7 +109,10 @@ struct CatalogSidebar: Component {
             VStack(alignment: .leading, spacing: .large) {
                 ForEach(catalogCategories) { category in
                     VStack(alignment: .leading, spacing: .xsmall) {
-                        Text(category.title, as: .h2)
+                        // A section label inside the labelled "navigation" landmark,
+                        // not a document heading — keeping it a heading would put an
+                        // <h2> before the page <h1> and break the heading outline.
+                        Text(category.title)
                             .font(Font(size: .px(11), weight: .bold))
                             .foregroundStyle(.secondary)
                             .textCase(.uppercase)
@@ -170,7 +173,8 @@ struct CatalogInspector: Component {
     var body: some HTML {
         ScrollView(.vertical) {
             VStack(alignment: .leading, spacing: .medium) {
-                Text("On This Page", as: .h2)
+                // Label for the "complementary" landmark, not a document heading.
+                Text("On This Page")
                     .font(Font(size: .px(11), weight: .bold))
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
