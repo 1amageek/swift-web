@@ -34,6 +34,8 @@ public struct StoryboardCatalog: ClientComponent, Sendable {
     @State private var showsPopover = false
     @State private var advancedOptionsExpanded = true
     @State private var animateOn = false
+    // Unified control-panel state, keyed "componentID.knob" (see INFORMATION_ARCHITECTURE.md).
+    @State private var ui: [String: String] = [:]
 
     public init(initialSelection: String = catalogDefaultSelection) {
         self.selection = catalogSelectionID(for: initialSelection)
@@ -83,7 +85,8 @@ public struct StoryboardCatalog: ClientComponent, Sendable {
                     showsSheet: $showsSheet,
                     showsPopover: $showsPopover,
                     advancedOptionsExpanded: $advancedOptionsExpanded,
-                    animateOn: $animateOn
+                    animateOn: $animateOn,
+                    ui: $ui
                 )
                 Divider()
                 CatalogInspector(selection: selection)

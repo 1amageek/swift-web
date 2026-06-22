@@ -25,6 +25,8 @@ struct CatalogDetail: Component {
     let showsPopover: Binding<Bool>
     let advancedOptionsExpanded: Binding<Bool>
     let animateOn: Binding<Bool>
+    // The unified control-panel state, keyed "componentID.knob".
+    let ui: Binding<[String: String]>
 
     var body: some HTML {
         ScrollView(.vertical) {
@@ -89,8 +91,8 @@ struct CatalogDetail: Component {
                 PreviewCanvas {
                     detailDemo()
                 }
-                // Interactive controls sit below the canvas, separated by a rule.
-                previewControlArea()
+                // The control panel sits below the canvas, separated by a rule.
+                StoryboardControlPanel(id: selection, ui: ui)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
