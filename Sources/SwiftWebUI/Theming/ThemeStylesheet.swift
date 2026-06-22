@@ -5,6 +5,7 @@ enum ThemeStylesheet {
     Stylesheet {
       componentStylesheet
       materialStylesheet
+      atRulesStylesheet
       rule("[data-theme=\"\(cssAttributeString(theme.name))\"]") {
         theme.cssVariableStyle
       }
@@ -14,19 +15,11 @@ enum ThemeStylesheet {
     }
   }
 
-  /// The full stylesheet text. Component rules live in the typed `Stylesheet`
-  /// model; only the material fallback at-rules and the spinner keyframes are
-  /// appended raw, because the flat `CSSRule` model (`selector { declarations }`)
-  /// cannot express `@supports`/`@media`/`@keyframes`. They are an explicit,
-  /// designed degradation, not a silent fallback.
+  /// The full stylesheet text. Every rule — including the `@supports`/`@media`/
+  /// `@keyframes` at-rules — is modeled in the typed `Stylesheet`, so there is no
+  /// raw CSS string.
   static func css(for theme: Theme, styleSystem: StyleSystem) -> String {
     stylesheet(for: theme, styleSystem: styleSystem).cssText
-      + "\n"
-      + materialFallbackCSS
-      + "\n"
-      + progressSpinnerKeyframes
-      + "\n"
-      + presentationMotionCSS
   }
 
   private static func cssAttributeString(_ value: String) -> String {
@@ -160,6 +153,11 @@ enum ThemeStylesheet {
       }
       rule(".swui-frame") {
         .display("flex")
+      }
+      // `.animation(_:value:)` wraps its subtree in this scope, which carries the
+      // inherited `--swui-animation` custom property without adding a box.
+      rule(".swui-animation-scope") {
+        .display("contents")
       }
       rule(".swui-layered") {
         .display("grid")
@@ -512,7 +510,7 @@ enum ThemeStylesheet {
           .lineHeight("1")
           .boxSizing("border-box")
           .transition(
-            "background var(--swui-motion-quick), border-color var(--swui-motion-quick), opacity var(--swui-motion-quick)"
+            "background var(--swui-animation, var(--swui-motion-quick)), border-color var(--swui-animation, var(--swui-motion-quick)), opacity var(--swui-animation, var(--swui-motion-quick))"
           )
       }
       rule(".swui-control-mini") {
@@ -802,7 +800,7 @@ enum ThemeStylesheet {
           .top(.toggleThumbOffset)
           .borderRadius("999px")
           .background("var(--swui-text-muted)")
-          .transition("transform var(--swui-motion-quick), background var(--swui-motion-quick)")
+          .transition("transform var(--swui-animation, var(--swui-motion-quick)), background var(--swui-animation, var(--swui-motion-quick))")
       }
       rule(".swui-toggle-input:checked + .swui-toggle-control") {
         .background("var(--swui-accent)")
@@ -1052,7 +1050,7 @@ enum ThemeStylesheet {
           .textAlign("center")
           .lineHeight("1")
           .whiteSpace("nowrap")
-          .transition("background var(--swui-motion-quick), color var(--swui-motion-quick)")
+          .transition("background var(--swui-animation, var(--swui-motion-quick)), color var(--swui-animation, var(--swui-motion-quick))")
       }
       rule(".swui-picker-segmented .swui-picker-segment-input:checked ~ .swui-picker-segment-label")
       {
@@ -1155,7 +1153,7 @@ enum ThemeStylesheet {
           .cursor("pointer")
           .userSelect("none")
           .color("var(--swui-text)")
-          .transition("background var(--swui-motion-quick), color var(--swui-motion-quick)")
+          .transition("background var(--swui-animation, var(--swui-motion-quick)), color var(--swui-animation, var(--swui-motion-quick))")
       }
       rule(".swui-tab-item:has(.swui-tab-input:checked)") {
         .background("var(--swui-accent)")
@@ -1537,58 +1535,61 @@ enum ThemeStylesheet {
     }
   }
 
-  /// Opaque fallback applied where translucency is unavailable or unwanted.
-  /// Appended raw because `@supports`/`@media` blocks are not expressible as a
-  /// flat `CSSRule`. Both the unsupported-`backdrop-filter` path and the
-  /// reduced-transparency path drop to the solid fill and hide the overlay —
-  /// an explicit, designed recipe rather than a silent fallback.
-  private static let materialFallbackCSS = """
-    @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-      .swui-material,
-      .swui-glass {
-        background: var(--swui-material-solid-fill);
+  /// At-rules (`@supports`/`@media`/`@keyframes`) modeled as typed stylesheet
+  /// items rather than raw CSS strings, so the whole stylesheet is the typed
+  /// single source of truth.
+  private static var atRulesStylesheet: Stylesheet {
+    Stylesheet {
+      // Opaque material fallback where translucency is unavailable or unwanted:
+      // both paths drop to the solid fill and hide the overlay.
+      supports("not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)))") {
+        rule(".swui-material,\n.swui-glass") {
+          .background("var(--swui-material-solid-fill)")
+        }
+        rule(".swui-material::before,\n.swui-glass::before") {
+          .display("none")
+        }
       }
-      .swui-material::before,
-      .swui-glass::before {
-        display: none;
+      media("(prefers-reduced-transparency: reduce)") {
+        rule(".swui-material,\n.swui-glass") {
+          .background("var(--swui-material-solid-fill)")
+        }
+        rule(".swui-material::before,\n.swui-glass::before") {
+          .display("none")
+        }
+      }
+      // Indeterminate ProgressView spinner.
+      keyframes("swui-spin") {
+        Keyframe("to") { .transform("rotate(360deg)") }
+      }
+      // Standard-paced entrance for presented surfaces; gated so motion-sensitive
+      // users get the instant present.
+      keyframes("swui-present") {
+        Keyframe("from") {
+          .opacity("0")
+            .transform("translateY(8px) scale(0.99)")
+        }
+        Keyframe("to") {
+          .opacity("1")
+            .transform("none")
+        }
+      }
+      media("(prefers-reduced-motion: no-preference)") {
+        rule(".swui-presentation[open] .swui-presentation-surface") {
+          .animation("swui-present var(--swui-motion-standard) both")
+        }
+      }
+      // Honor reduced-motion globally: collapse all transitions/animations to a
+      // near-instant duration (the new `--swui-animation` path included).
+      media("(prefers-reduced-motion: reduce)") {
+        rule("*, *::before, *::after") {
+          .custom("animation-duration", "0.01ms !important")
+            .custom("animation-iteration-count", "1 !important")
+            .custom("transition-duration", "0.01ms !important")
+        }
       }
     }
-    @media (prefers-reduced-transparency: reduce) {
-      .swui-material,
-      .swui-glass {
-        background: var(--swui-material-solid-fill);
-      }
-      .swui-material::before,
-      .swui-glass::before {
-        display: none;
-      }
-    }
-    """
-
-  /// Rotation keyframes for the indeterminate `ProgressView` spinner. Appended
-  /// raw because `@keyframes` is not expressible as a flat `CSSRule`.
-  private static let progressSpinnerKeyframes = """
-    @keyframes swui-spin {
-      to { transform: rotate(360deg); }
-    }
-    """
-
-  /// Standard-paced entrance for presented surfaces (sheets, popovers, dialogs),
-  /// consuming the `--swui-motion-standard` token. Gated behind
-  /// `prefers-reduced-motion: no-preference` so motion-sensitive users get the
-  /// instant present. Raw because `@keyframes`/`@media` are not expressible as
-  /// flat `CSSRule`s.
-  private static let presentationMotionCSS = """
-    @keyframes swui-present {
-      from { opacity: 0; transform: translateY(8px) scale(0.99); }
-      to { opacity: 1; transform: none; }
-    }
-    @media (prefers-reduced-motion: no-preference) {
-      .swui-presentation[open] .swui-presentation-surface {
-        animation: swui-present var(--swui-motion-standard) both;
-      }
-    }
-    """
+  }
 }
 
 private extension Length {

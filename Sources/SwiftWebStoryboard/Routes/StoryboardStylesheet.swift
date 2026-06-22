@@ -12,7 +12,7 @@ struct StoryboardStylesheet: Component {
     }
 
     static var cssText: String {
-        stylesheet.cssText + "\n" + responsiveCSS
+        stylesheet.cssText
     }
 
     private static var stylesheet: Stylesheet {
@@ -672,46 +672,37 @@ struct StoryboardStylesheet: Component {
       }
       rule(".storyboard-divider-demo") {
         .width("min(100%, 320px)")
-      }        }
-    }
-
-    private static let responsiveCSS = """
-    @media (max-width: 980px) {
-            .storyboard-topbar {
-                height: auto;
-                min-height: 54px;
-                padding: 10px 14px;
-                flex-wrap: wrap !important;
-            }
-    
-            .storyboard-page .storyboard-topbar-title {
-                width: auto;
-                max-width: none;
-                flex: 1 1 220px !important;
-            }
-    
-            .storyboard-search {
-                order: 3;
-                flex-basis: 100%;
-                max-width: none;
-            }
-    
-            .storyboard-topbar-actions {
-                margin-left: 0;
-            }
-    
-            .storyboard-main {
-                overflow: auto;
-            }
-    
-            .storyboard-sidebar,
-            .storyboard-inspector {
-                display: none;
-            }
-    
-            .storyboard-page .storyboard-detail {
-                padding: 22px 18px;
-            }
+      }
+      media("(max-width: 980px)") {
+        rule(".storyboard-topbar") {
+          .height("auto")
+            .minHeight("54px")
+            .padding("10px 14px")
+            .flexWrap("wrap !important")
         }
-    """
+        rule(".storyboard-page .storyboard-topbar-title") {
+          .width("auto")
+            .maxWidth("none")
+            .flex("1 1 220px !important")
+        }
+        rule(".storyboard-search") {
+          .order("3")
+            .flexBasis("100%")
+            .maxWidth("none")
+        }
+        rule(".storyboard-topbar-actions") {
+          .marginLeft("0")
+        }
+        rule(".storyboard-main") {
+          .overflow("auto")
+        }
+        rule(".storyboard-sidebar,\n.storyboard-inspector") {
+          .display("none")
+        }
+        rule(".storyboard-page .storyboard-detail") {
+          .padding("22px 18px")
+        }
+      }
+    }
+    }
 }

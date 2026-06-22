@@ -1676,6 +1676,43 @@ struct SwiftWebUIRenderingTests {
     #expect(rendered.contains("class=\"swui-label-icon\" aria-hidden=\"true\""))
     #expect(rendered.contains(">Verified</span>"))
   }
+
+  // MARK: Animation
+
+  @Test
+  func animationModifierPublishesCustomProperty() {
+    let rendered = Text("Hi").animation(.easeInOut(duration: 0.3), value: 1).render()
+    #expect(rendered.contains("class=\"swui-animation-scope\""))
+    #expect(rendered.contains("--swui-animation: 0.3s cubic-bezier(0.42, 0, 0.58, 1) 0s"))
+  }
+
+  @Test
+  func nilAnimationDisablesWithZeroDuration() {
+    let rendered = Text("Hi").animation(nil, value: 1).render()
+    #expect(rendered.contains("--swui-animation: 0s"))
+  }
+
+  @Test
+  func springAnimationLowersToLinearEasing() {
+    let rendered = Text("Hi").animation(.spring(duration: 0.5, bounce: 0.3), value: 1).render()
+    #expect(rendered.contains("--swui-animation: 0.5s linear("))
+  }
+
+  @Test
+  func transitionsReadTheAnimationTokenWithMotionFallback() {
+    let rendered = main { Button("x") {} }.environment(\.theme, .light).render()
+    #expect(rendered.contains("var(--swui-animation, var(--swui-motion-quick))"))
+    #expect(rendered.contains(".swui-animation-scope {"))
+  }
+
+  @Test
+  func stylesheetEmitsTypedAtRules() {
+    let rendered = main { Text("x") }.environment(\.theme, .light).render()
+    #expect(rendered.contains("@keyframes swui-spin"))
+    #expect(rendered.contains("@supports not"))
+    #expect(rendered.contains("@media (prefers-reduced-motion: reduce)"))
+    #expect(rendered.contains("display: contents"))
+  }
 }
 
 private enum FocusField: Hashable, Codable, Sendable {
