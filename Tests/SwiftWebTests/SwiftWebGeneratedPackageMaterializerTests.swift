@@ -241,14 +241,13 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       serverPackageSwift.contains(
         ".executable(name: \"app-server\", targets: [\"AppServerLauncher\"])"))
     #expect(serverPackageSwift.contains(#".package(path: "../../..")"#))
-    #expect(
-      serverPackageSwift.contains(
-        #".package(url: "https://github.com/1amageek/swift-web.git", branch: "main")"#))
+    #expect(serverPackageSwift.contains(#".package(path: "../../../../swift-web"),"#))
     #expect(
       !serverPackageSwift.contains(
         ".executable(name: \"SampleApp-dev\", targets: [\"SwiftWebDevLauncher\"])"))
     #expect(!serverPackageSwift.contains(".package(path: \"\(swiftWebPackage.path)\""))
     #expect(!serverPackageSwift.contains(swiftWebPackage.path))
+    #expect(!serverPackageSwift.contains("https://github.com/1amageek/swift-web.git"))
     #expect(!serverPackageSwift.contains("SwiftWebDevLauncher"))
     #expect(!serverPackageSwift.contains("SwiftWebDevelopment"))
     #expect(!serverPackageSwift.contains("AppDevelopmentServerLauncher"))
@@ -264,9 +263,8 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         ".executable(name: \"app-server-dev\", targets: [\"AppDevelopmentServerLauncher\"])"))
     #expect(!devPackageSwift.contains(".package(path: \"\(swiftWebPackage.path)\""))
     #expect(!devPackageSwift.contains(swiftWebPackage.path))
-    #expect(
-      devPackageSwift.contains(
-        #".package(url: "https://github.com/1amageek/swift-web.git", branch: "main")"#))
+    #expect(!devPackageSwift.contains("https://github.com/1amageek/swift-web.git"))
+    #expect(devPackageSwift.contains(#".package(path: "../../../../swift-web")"#))
     #expect(devPackageSwift.contains(#".package(path: "../../..")"#))
     #expect(
       devPackageSwift.contains(".product(name: \"SwiftWebDevelopment\", package: \"swift-web\")"))

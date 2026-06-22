@@ -156,6 +156,7 @@ public struct SwiftWebStoryboardScaffold: Sendable {
     }
 
     private func packageSwift() throws -> String {
+        let swiftWebDependency = swiftWebDependencyDeclaration()
         let swiftHTMLDependency = try swiftHTMLDependencyDeclaration()
         return """
         // swift-tools-version: 6.3
@@ -171,7 +172,7 @@ public struct SwiftWebStoryboardScaffold: Sendable {
                 .library(name: "\(Self.moduleName)", targets: ["\(Self.moduleName)"]),
             ],
             dependencies: [
-                \(SwiftWebPackageReference.packageDependencyDeclaration),
+                \(swiftWebDependency),
                 \(swiftHTMLDependency),
             ],
             targets: [
@@ -190,6 +191,10 @@ public struct SwiftWebStoryboardScaffold: Sendable {
             swiftLanguageModes: [.v6]
         )
         """
+    }
+
+    private func swiftWebDependencyDeclaration() -> String {
+        #".package(path: "\#(Self.swiftStringLiteral(swiftWebPackageDirectory.path))")"#
     }
 
     private func swiftHTMLDependencyDeclaration() throws -> String {

@@ -318,14 +318,16 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
       appPackageName: packageName,
       appPackageDependencyName: Self.localPackageIdentity(for: appPackageDirectory),
       appProductName: appProductName,
-      importsSwiftWebCore: !wasmRuntimeTargets.isEmpty
+      importsSwiftWebCore: !wasmRuntimeTargets.isEmpty,
+      swiftWebPackageDirectory: swiftWebPackageDirectory
     )
     let devPackageSwiftContents = devPackageSwift(
       appPackageName: packageName,
       appPackageDependencyName: Self.localPackageIdentity(for: appPackageDirectory),
       appProductName: appProductName,
       developmentServerProductName: developmentServerProductName,
-      devProductName: devProductName
+      devProductName: devProductName,
+      swiftWebPackageDirectory: swiftWebPackageDirectory
     )
     let wasmPackageSwiftContents = wasmPackageSwift(
       appPackageName: packageName,
@@ -1319,11 +1321,16 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
     appPackageName: String,
     appPackageDependencyName: String,
     appProductName: String,
-    importsSwiftWebCore: Bool
+    importsSwiftWebCore: Bool,
+    swiftWebPackageDirectory: URL
   ) -> String {
     let appDependencyPath = Self.relativePath(
       from: serverPackageDirectory,
       to: appPackageDirectory
+    )
+    let swiftWebDependencyPath = Self.relativePath(
+      from: serverPackageDirectory,
+      to: swiftWebPackageDirectory
     )
     let targetDependencies =
       importsSwiftWebCore
@@ -1331,7 +1338,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
       : ""
     let packageDependencies =
       importsSwiftWebCore
-      ? "\(SwiftWebPackageReference.packageDependencyDeclaration),"
+      ? #".package(path: "\#(Self.swiftStringLiteral(swiftWebDependencyPath))"),"#
       : ""
     return """
       // swift-tools-version: 6.3
@@ -1377,11 +1384,16 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
     appPackageDependencyName: String,
     appProductName: String,
     developmentServerProductName: String,
-    devProductName: String
+    devProductName: String,
+    swiftWebPackageDirectory: URL
   ) -> String {
     let appDependencyPath = Self.relativePath(
       from: devPackageDirectory,
       to: appPackageDirectory
+    )
+    let swiftWebDependencyPath = Self.relativePath(
+      from: devPackageDirectory,
+      to: swiftWebPackageDirectory
     )
     return """
       // swift-tools-version: 6.3
@@ -1424,7 +1436,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
           ],
           dependencies: [
               .package(path: "\(Self.swiftStringLiteral(appDependencyPath))"),
-              \(SwiftWebPackageReference.packageDependencyDeclaration),
+              .package(path: "\(Self.swiftStringLiteral(swiftWebDependencyPath))"),
           ],
           targets: [
               swiftWebDevLauncherTarget,
