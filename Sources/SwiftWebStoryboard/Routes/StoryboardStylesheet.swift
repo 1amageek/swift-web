@@ -17,11 +17,18 @@ struct StoryboardStylesheet: Component {
 
     private static var stylesheet: Stylesheet {
         Stylesheet {
+      rule("html, body") {
+        .height("100%")
+      }
       rule("html") {
         .scrollBehavior("smooth")
       }
+      // The page is a fixed 100vh app shell: keep the document from scrolling or
+      // showing a bare (in dark mode, black) backdrop behind it.
       rule("body") {
         .margin("0")
+          .overflow("hidden")
+          .background("var(--swui-surface)")
       }
       rule(".storyboard-page") {
         .custom("--bg", "var(--swui-surface)")
@@ -38,6 +45,11 @@ struct StoryboardStylesheet: Component {
           .height("100vh")
           .minHeight("100vh")
           .overflow("hidden")
+          // A flex column so the inner content (and the `.frame` wrappers it sits
+          // in) is bounded by the viewport height; otherwise the layout sizes to
+          // content, overflows the clipped page, and the detail pane cannot scroll.
+          .display("flex")
+          .flexDirection("column")
           .background("var(--bg)")
           .color("var(--ui-text)")
           .fontFamily("-apple-system, BlinkMacSystemFont, \"SF Pro Text\", \"SF Pro Display\", system-ui, sans-serif")
@@ -46,12 +58,32 @@ struct StoryboardStylesheet: Component {
       rule(".storyboard-page, .storyboard-page *") {
         .boxSizing("border-box")
       }
+      // `.frame(maxWidth: .infinity)` wraps the shell and the main row in
+      // `swui-frame` boxes whose height-fill relies on a flex parent. Make each
+      // wrapper fill its column track so the bounded height propagates down to the
+      // scrollable detail pane.
+      rule(".storyboard-page > .swui-frame, .storyboard-shell > .swui-frame") {
+        .flex("1 1 0%")
+          .minHeight("0")
+      }
+      // The sidebar and inspector sit in `swui-hug-h` frames (sized to content),
+      // each behind a `display: contents` landmark, so they are flex items of the
+      // main row. Stretch them to the row height so each scrolls inside its own
+      // column instead of overflowing the clipped page.
+      rule(".storyboard-main > .storyboard-landmark > .swui-frame") {
+        .alignSelf("stretch !important")
+          .minHeight("0")
+          .height("auto")
+      }
       rule(".storyboard-page a") {
         .color("inherit")
       }
       rule(".storyboard-shell") {
         .height("100%")
           .minHeight("0")
+          // The VStack centers its rows by default; stretch them so the header bar
+          // and the main row run the full width of the shell.
+          .alignItems("stretch !important")
       }
       rule(".storyboard-landmark") {
         .display("contents")
@@ -61,6 +93,10 @@ struct StoryboardStylesheet: Component {
           .zIndex("40")
           .minHeight("54px")
           .height("54px")
+          // Span the full width: the enclosing VStack centers its children, but the
+          // header bar must run edge to edge like the design.
+          .width("100%")
+          .alignSelf("stretch")
           .borderBottom("1px solid var(--ui-border)")
           .padding("0 18px")
           .gap("14px !important")
