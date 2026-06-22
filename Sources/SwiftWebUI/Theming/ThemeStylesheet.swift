@@ -907,10 +907,22 @@ enum ThemeStylesheet {
           .height("auto")
           .display("inline-block")
       }
+      // An SVG symbol scales with the surrounding text (slightly larger, like an
+      // SF Symbol) and inherits its color via fill="currentColor".
       rule(".swui-symbol") {
-        .fontFamily("var(--swui-mono-font-family)")
+        .width("1.15em")
+          .height("1.15em")
+          .verticalAlign("-0.15em")
+          .flexShrink("0")
+      }
+      // The text fallback for an unknown identifier keeps the monospace label.
+      rule(".swui-symbol-text") {
+        .width("auto")
+          .height("auto")
+          .fontFamily("var(--swui-mono-font-family)")
           .fontSize("0.85em")
           .lineHeight("1")
+          .verticalAlign("baseline")
       }
 
       // MARK: ProgressView

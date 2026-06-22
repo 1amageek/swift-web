@@ -36,14 +36,35 @@ public struct Image: WebUIAttributeComponent {
                 isVoid: true
             )
         case .system(let name):
-            Element(
-                "span",
-                attributes: mergedAttributes(
-                    class: "swui-image swui-symbol",
-                    extra: [.role("img"), .aria("label", Self.symbolAccessibilityName(name)), .data("system-image", name)] + attributes
-                )
-            ) {
-                name
+            if let markup = SFSymbolPaths.markup[name] {
+                // Known symbol: draw an approximating SVG glyph that inherits the
+                // text color, matching SwiftUI's icon rendering.
+                Element(
+                    "svg",
+                    attributes: mergedAttributes(
+                        class: "swui-image swui-symbol",
+                        extra: [
+                            .role("img"),
+                            .aria("label", Self.symbolAccessibilityName(name)),
+                            .data("system-image", name),
+                            .attribute("viewBox", "0 0 24 24"),
+                            .attribute("fill", "currentColor")
+                        ] + attributes
+                    )
+                ) {
+                    rawHTML(markup)
+                }
+            } else {
+                // Unknown symbol: surface the identifier rather than render nothing.
+                Element(
+                    "span",
+                    attributes: mergedAttributes(
+                        class: "swui-image swui-symbol swui-symbol-text",
+                        extra: [.role("img"), .aria("label", Self.symbolAccessibilityName(name)), .data("system-image", name)] + attributes
+                    )
+                ) {
+                    name
+                }
             }
         }
     }

@@ -1671,6 +1671,23 @@ struct SwiftWebUIRenderingTests {
   }
 
   @Test
+  func systemImageDrawsSVGGlyphForKnownSymbol() {
+    let rendered = Image(systemName: "star.fill").render()
+    #expect(rendered.contains("<svg"))
+    #expect(rendered.contains("viewBox=\"0 0 24 24\""))
+    #expect(rendered.contains("fill=\"currentColor\""))
+    #expect(rendered.contains("<path"))
+  }
+
+  @Test
+  func systemImageFallsBackToTextForUnknownSymbol() {
+    let rendered = Image(systemName: "totally.unknown.symbol").render()
+    #expect(rendered.contains("swui-symbol-text"))
+    #expect(rendered.contains(">totally.unknown.symbol<"))
+    #expect(!rendered.contains("<svg"))
+  }
+
+  @Test
   func labelMarksDecorativeIconHidden() {
     let rendered = Label("Verified", systemImage: "checkmark.seal.fill").render()
     #expect(rendered.contains("class=\"swui-label-icon\" aria-hidden=\"true\""))
