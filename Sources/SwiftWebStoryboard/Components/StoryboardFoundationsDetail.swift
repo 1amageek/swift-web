@@ -141,21 +141,27 @@ struct FoundationsDetail: Component {
     }
 
     private func phoneMock() -> some HTML {
+        // Explicit sizes so the notch pins to the top, the screen fills the
+        // middle, and the home indicator pins to the bottom — without relying on
+        // fill-v inside a fixed-size frame (which does not propagate).
         VStack(spacing: .small) {
+            // Notch
             VStack {}
                 .frame(width: 56, height: 16)
                 .background(.primary, in: .rect(cornerRadius: 8))
+            // Safe-area screen region
             Text("safe area")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                .frame(width: 136, height: 236, alignment: .center)
                 .background(Color.accent.opacity(0.08), in: .rect(cornerRadius: 10))
+            // Home indicator
             VStack {}
                 .frame(width: 80, height: 5)
                 .background(.secondary, in: .rect(cornerRadius: 3))
         }
         .padding(.small)
-        .frame(width: 168, height: 320)
+        .frame(width: 168)
         .background(.surfaceRaised, in: .rect(cornerRadius: 28))
         .border(.border, width: 2)
         .cornerRadius(28)
