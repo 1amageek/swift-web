@@ -1830,6 +1830,26 @@ struct SwiftWebUIRenderingTests {
     let result = withAnimation(.linear(duration: 0.2)) { 42 }
     #expect(result == 42)
   }
+
+  @Test
+  func linearGradientLowersToCSS() {
+    let rendered = Text("x")
+      .background(
+        LinearGradient(colors: [.hex(0x65A8FF), .hex(0x1769E0)], startPoint: .top, endPoint: .bottom)
+      )
+      .render()
+    #expect(rendered.contains("linear-gradient(180deg, #65a8ff, #1769e0)"))
+  }
+
+  @Test
+  func linearGradientDiagonalAngle() {
+    let rendered = Text("x")
+      .background(
+        LinearGradient(colors: [.hex(0x000000), .hex(0xffffff)], startPoint: .topLeading, endPoint: .bottomTrailing)
+      )
+      .render()
+    #expect(rendered.contains("linear-gradient(135deg, #000000, #ffffff)"))
+  }
 }
 
 private enum FocusField: Hashable, Codable, Sendable {
