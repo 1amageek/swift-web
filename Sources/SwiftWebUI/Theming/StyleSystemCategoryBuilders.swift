@@ -147,11 +147,13 @@ public extension StyleSystemControlOverrideStep {
     static func smallHeight(_ value: Length) -> Self { Self { $0.smallHeight = value.cssValue } }
     static func regularHeight(_ value: Length) -> Self { Self { $0.regularHeight = value.cssValue } }
     static func largeHeight(_ value: Length) -> Self { Self { $0.largeHeight = value.cssValue } }
+    static func extraLargeHeight(_ value: Length) -> Self { Self { $0.extraLargeHeight = value.cssValue } }
     static func disabledOpacity(_ value: Double) -> Self { Self { $0.disabledOpacity = trimmedNumber(value) } }
     func miniHeight(_ value: Length) -> Self { appending(Self.miniHeight(value)) }
     func smallHeight(_ value: Length) -> Self { appending(Self.smallHeight(value)) }
     func regularHeight(_ value: Length) -> Self { appending(Self.regularHeight(value)) }
     func largeHeight(_ value: Length) -> Self { appending(Self.largeHeight(value)) }
+    func extraLargeHeight(_ value: Length) -> Self { appending(Self.extraLargeHeight(value)) }
     func disabledOpacity(_ value: Double) -> Self { appending(Self.disabledOpacity(value)) }
 }
 

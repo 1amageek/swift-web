@@ -1,5 +1,14 @@
 import Foundation
 
+/// Whether a catalog selection shows the "Rendered HTML" section. Pure
+/// layout/foundation demos emit no meaningful DOM panel. This is the single
+/// source of truth shared by the detail page (which renders the section and its
+/// `#rendered-html` id) and the inspector table of contents (which lists the
+/// matching anchor), so the two cannot drift into a dangling anchor.
+func catalogShowsRenderedHTML(for id: String) -> Bool {
+    !["gridsystem", "spacing", "alignment", "responsive", "safearea"].contains(id)
+}
+
 func catalogRenderedHTML(for id: String) -> String {
     switch id {
     case "typography":

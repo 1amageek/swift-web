@@ -61,7 +61,7 @@ public struct Stepper: WebUIAttributeComponent {
             "div",
             attributes: mergedAttributes(
                 class: containerClassName,
-                styles: .custom("--swui-control-tint", tint),
+                styles: controlTintStyle(tint),
                 extra: [.role("group"), .aria("label", title)] + attributes
             )
         ) {

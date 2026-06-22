@@ -93,7 +93,7 @@ public let catalogCategories: [CatalogCategory] = [
     ]),
     CatalogCategory(id: "status", title: "Status", items: [
         CatalogItem(id: "progressview", name: "ProgressView", code: "ProgressView(value:) { }", summary: "A determinate bar with a value, or an indeterminate spinner without one."),
-        CatalogItem(id: "gauge", name: "Gauge", code: "Gauge(value:label:)", summary: "A compact readout of a value within a range."),
+        CatalogItem(id: "gauge", name: "Gauge", code: "Gauge(value:in:label:)", summary: "A compact readout of a value within a range."),
         CatalogItem(id: "badge", name: "Badge", code: "Badge(_:)", summary: "A compact status pill that hugs its label."),
     ]),
 ]

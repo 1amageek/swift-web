@@ -3,6 +3,7 @@ public enum ControlSize: String, Sendable, Codable, Equatable {
     case small
     case regular
     case large
+    case extraLarge
 
     var className: String {
         "swui-control-\(rawValue)"

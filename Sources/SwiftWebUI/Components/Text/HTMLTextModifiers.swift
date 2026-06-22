@@ -12,22 +12,22 @@ public extension HTML {
         return self.font(font)
     }
 
-    func fontWeight(_ weight: FontWeight) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func fontWeight(_ weight: Font.Weight) -> ModifiedContent<Self, HTMLAttributeModifier> {
         modifier(HTMLAttributeModifier([styleAttribute(.fontWeight(weight.cssValue))], role: .textStyle))
     }
 
-    func fontWeight(_ weight: FontWeight?) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func fontWeight(_ weight: Font.Weight?) -> ModifiedContent<Self, HTMLAttributeModifier> {
         guard let weight else {
             return modifier(HTMLAttributeModifier([], role: .textStyle))
         }
         return fontWeight(weight)
     }
 
-    func fontDesign(_ design: FontDesign) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func fontDesign(_ design: Font.Design) -> ModifiedContent<Self, HTMLAttributeModifier> {
         modifier(HTMLAttributeModifier([styleAttribute(.fontFamily(design.cssValue))], role: .textStyle))
     }
 
-    func fontDesign(_ design: FontDesign?) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func fontDesign(_ design: Font.Design?) -> ModifiedContent<Self, HTMLAttributeModifier> {
         guard let design else {
             return modifier(HTMLAttributeModifier([], role: .textStyle))
         }

@@ -100,9 +100,9 @@ public extension HTML {
         ]))
     }
 
-    func colorInvert(_ amount: Double = 1) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func colorInvert() -> ModifiedContent<Self, HTMLAttributeModifier> {
         modifier(HTMLAttributeModifier([
-            styleAttribute(.filter("invert(\(trimmedNumber(amount)))"))
+            styleAttribute(.filter("invert(1)"))
         ]))
     }
 

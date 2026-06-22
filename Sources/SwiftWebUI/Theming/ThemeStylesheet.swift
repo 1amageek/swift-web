@@ -25,6 +25,8 @@ enum ThemeStylesheet {
       + materialFallbackCSS
       + "\n"
       + progressSpinnerKeyframes
+      + "\n"
+      + presentationMotionCSS
   }
 
   private static func cssAttributeString(_ value: String) -> String {
@@ -224,8 +226,19 @@ enum ThemeStylesheet {
       rule(".swui-label-style-titleOnly .swui-label-icon") {
         .display("none")
       }
+      // Icon-only labels hide the title visually but keep it in the
+      // accessibility tree (the icon itself is aria-hidden), so the control
+      // still has an accessible name.
       rule(".swui-label-style-iconOnly .swui-label-title") {
-        .display("none")
+        .position("absolute")
+          .width("1px")
+          .height("1px")
+          .padding(.zero)
+          .margin("-1px")
+          .overflow("hidden")
+          .clipPath("inset(50%)")
+          .whiteSpace("nowrap")
+          .border("0")
       }
       rule(
         """
@@ -420,9 +433,6 @@ enum ThemeStylesheet {
         .margin("0")
           .color("var(--swui-text)")
       }
-      rule(".swui-text-muted") {
-        .color("var(--swui-text-muted)")
-      }
       rule(".swui-inline-code") {
         .display("inline-block")
           .padding(.zero, .em(0.35))
@@ -522,6 +532,11 @@ enum ThemeStylesheet {
         .minHeight("var(--swui-control-large-height)")
           .paddingInline(.space(.xlarge))
           .fontSize("17px")
+      }
+      rule(".swui-control-extraLarge") {
+        .minHeight("var(--swui-control-extra-large-height)")
+          .paddingInline(.space(.xlarge))
+          .fontSize("19px")
       }
       rule(".swui-button-primary") {
         .color("var(--swui-button-primary-foreground)")
@@ -706,7 +721,10 @@ enum ThemeStylesheet {
       rule(".swui-list-row > .swui-text:first-child") {
         .fontWeight("500")
       }
-      rule(".swui-list-row .swui-text-muted") {
+      // Secondary text in a row (anything after the leading title) reads smaller.
+      // Keyed to structural position rather than colour, so muting (handled by
+      // `.foregroundStyle(.secondary)`) and sizing stay independent concerns.
+      rule(".swui-list-row > .swui-text:not(:first-child)") {
         .fontSize("13px")
       }
       rule(".swui-field") {
@@ -748,7 +766,7 @@ enum ThemeStylesheet {
           .font("inherit")
       }
       rule(".swui-slider") {
-        .accentColor("var(--swui-tint, var(--swui-accent))")
+        .accentColor("var(--swui-control-tint, var(--swui-accent))")
           .minWidth("160px")
       }
       rule(".swui-toggle") {
@@ -835,11 +853,11 @@ enum ThemeStylesheet {
           .borderRadius("var(--swui-radius-pill)")
       }
       rule(".swui-progress-bar::-webkit-progress-value") {
-        .background("var(--swui-tint, var(--swui-accent))")
+        .background("var(--swui-control-tint, var(--swui-accent))")
           .borderRadius("var(--swui-radius-pill)")
       }
       rule(".swui-progress-bar::-moz-progress-bar") {
-        .background("var(--swui-tint, var(--swui-accent))")
+        .background("var(--swui-control-tint, var(--swui-accent))")
           .borderRadius("var(--swui-radius-pill)")
       }
       // Indeterminate spinner; `@keyframes swui-spin` is appended raw in
@@ -849,7 +867,7 @@ enum ThemeStylesheet {
           .height("20px")
           .borderRadius("999px")
           .border("2px solid color-mix(in srgb, var(--swui-text-muted) 30%, transparent)")
-          .borderTopColor("var(--swui-tint, var(--swui-accent))")
+          .borderTopColor("var(--swui-control-tint, var(--swui-accent))")
           .animation("swui-spin 0.7s linear infinite")
           .boxSizing("border-box")
       }
@@ -884,19 +902,19 @@ enum ThemeStylesheet {
           .borderRadius("var(--swui-radius-pill)")
       }
       rule(".swui-gauge-meter::-webkit-meter-optimum-value") {
-        .background("var(--swui-tint, var(--swui-accent))")
+        .background("var(--swui-control-tint, var(--swui-accent))")
           .borderRadius("var(--swui-radius-pill)")
       }
       rule(".swui-gauge-meter::-webkit-meter-suboptimum-value") {
-        .background("var(--swui-tint, var(--swui-accent))")
+        .background("var(--swui-control-tint, var(--swui-accent))")
           .borderRadius("var(--swui-radius-pill)")
       }
       rule(".swui-gauge-meter::-webkit-meter-even-less-good-value") {
-        .background("var(--swui-tint, var(--swui-accent))")
+        .background("var(--swui-control-tint, var(--swui-accent))")
           .borderRadius("var(--swui-radius-pill)")
       }
       rule(".swui-gauge-meter::-moz-meter-bar") {
-        .background("var(--swui-tint, var(--swui-accent))")
+        .background("var(--swui-control-tint, var(--swui-accent))")
           .borderRadius("var(--swui-radius-pill)")
       }
 
@@ -1211,7 +1229,7 @@ enum ThemeStylesheet {
           .color("var(--swui-text)")
           .padding(.px(2), .space(.small))
           .font("inherit")
-          .lineHeight("var(--swui-line-height-tight)")
+          .lineHeight("1")
           .cursor("pointer")
       }
       rule(".swui-search-scopes") {
@@ -1552,6 +1570,23 @@ enum ThemeStylesheet {
   private static let progressSpinnerKeyframes = """
     @keyframes swui-spin {
       to { transform: rotate(360deg); }
+    }
+    """
+
+  /// Standard-paced entrance for presented surfaces (sheets, popovers, dialogs),
+  /// consuming the `--swui-motion-standard` token. Gated behind
+  /// `prefers-reduced-motion: no-preference` so motion-sensitive users get the
+  /// instant present. Raw because `@keyframes`/`@media` are not expressible as
+  /// flat `CSSRule`s.
+  private static let presentationMotionCSS = """
+    @keyframes swui-present {
+      from { opacity: 0; transform: translateY(8px) scale(0.99); }
+      to { opacity: 1; transform: none; }
+    }
+    @media (prefers-reduced-motion: no-preference) {
+      .swui-presentation[open] .swui-presentation-surface {
+        animation: swui-present var(--swui-motion-standard) both;
+      }
     }
     """
 }

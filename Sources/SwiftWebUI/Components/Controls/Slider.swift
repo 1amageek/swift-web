@@ -8,6 +8,7 @@ public struct Slider: WebUIAttributeComponent {
     private let attributes: [HTMLAttribute]
     @Environment(\.controlSize) private var controlSize
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.tint) private var tint
 
     public init(
         value: Binding<Double>,
@@ -29,6 +30,7 @@ public struct Slider: WebUIAttributeComponent {
             "input",
             attributes: mergedAttributes(
                 class: "swui-slider \(controlSize.className) \(LayoutClass.fillHorizontal)",
+                styles: controlTintStyle(tint),
                 extra: inputAttributes
             ),
             isVoid: true

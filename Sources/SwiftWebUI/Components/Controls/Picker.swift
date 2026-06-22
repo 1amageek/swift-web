@@ -64,7 +64,7 @@ public struct Picker<Label: HTML, Content: HTML>: WebUIAttributeComponent {
             "div",
             attributes: [.class("swui-picker-field \(LayoutClass.fillHorizontal)")]
         ) {
-            span(.class("swui-field-label")) {
+            span(.class("swui-field-label"), .id(fieldLabelID)) {
                 label
             }
             Element(
@@ -149,20 +149,25 @@ public struct Picker<Label: HTML, Content: HTML>: WebUIAttributeComponent {
         let selection = self.selection
         var result: [HTMLAttribute] = [
             HTMLAttribute("role", "radiogroup"),
+            // Name the group from the visible field label, so it has an
+            // accessible name regardless of whether it was built with the
+            // string-title or the trailing-closure initializer.
+            .aria("labelledby", fieldLabelID),
             .onChange { event in
                 if let value = event.value {
                     selection.wrappedValue = value
                 }
             },
         ]
-        if let labelText {
-            result.append(.aria("label", labelText))
-        }
         if !isEnabled {
             result.append(.aria("disabled", "true"))
         }
         result.append(contentsOf: attributes)
         return result
+    }
+
+    private var fieldLabelID: String {
+        "\(groupName)-label"
     }
 
     // A stable radio-group `name` derived from the textual label so the options

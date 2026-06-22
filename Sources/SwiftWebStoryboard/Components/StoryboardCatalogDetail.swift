@@ -44,7 +44,7 @@ struct CatalogDetail: Component {
     }
 
     private var showsRenderedHTML: Bool {
-        !["gridsystem", "spacing", "alignment", "responsive", "safearea"].contains(selection)
+        catalogShowsRenderedHTML(for: selection)
     }
 
     @HTMLBuilder

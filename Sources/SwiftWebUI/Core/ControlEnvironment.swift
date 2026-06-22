@@ -13,7 +13,11 @@ struct ControlStateEnvironmentKey: ClientEnvironmentKey {
 }
 
 struct TintEnvironmentKey: ClientEnvironmentKey {
-    static let defaultValue = "var(--swui-accent)"
+    // Absent until a `.tint(...)` is applied. Keeping the default `nil` lets each
+    // control's CSS fall back to its style-system token
+    // (`var(--swui-control-tint, var(--swui-button-primary-background))`, etc.)
+    // instead of an environment default silently overriding those tokens.
+    static let defaultValue: String? = nil
 }
 
 struct ButtonStyleEnvironmentKey: ClientEnvironmentKey {
@@ -80,7 +84,7 @@ extension EnvironmentValues {
         set { self[ControlStateEnvironmentKey.self] = newValue }
     }
 
-    public var tint: String {
+    public var tint: String? {
         get { self[TintEnvironmentKey.self] }
         set { self[TintEnvironmentKey.self] = newValue }
     }

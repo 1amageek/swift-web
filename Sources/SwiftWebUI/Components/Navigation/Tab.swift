@@ -86,6 +86,12 @@ public struct Tab<Content: HTML>: WebUIAttributeComponent {
                 attributes: [
                     .class("swui-tab-item \(MaterialClass.glass) \(MaterialClass.interactive) \(MaterialClass.regular)"),
                     .role("tab"),
+                    .id(tabControlID),
+                    // `role="tab"` requires a selected state; it reflects the
+                    // rendered selection (kept current by the runtime, or by the
+                    // initial render in the CSS-only degradation).
+                    .aria("selected", tabSelection == value ? "true" : "false"),
+                    .aria("controls", tabPanelID),
                 ]
             ) {
                 Element("input", attributes: tabInputAttributes, isVoid: true)
@@ -103,6 +109,8 @@ public struct Tab<Content: HTML>: WebUIAttributeComponent {
                 attributes: [
                     .class("swui-tab-panel"),
                     .role("tabpanel"),
+                    .id(tabPanelID),
+                    .aria("labelledby", tabControlID),
                 ]
             ) {
                 content
@@ -132,6 +140,25 @@ public struct Tab<Content: HTML>: WebUIAttributeComponent {
         self.value = value
         self.attributes = attributes
         self.content = content
+    }
+
+    // Stable ids that wire each tab to its panel (`aria-controls`) and back
+    // (`aria-labelledby`). Scoped by the group name so multiple tab views on a
+    // page do not collide.
+    private var tabControlID: String {
+        "\(tabIdentifierPrefix)-tab-\(sanitizedValue)"
+    }
+
+    private var tabPanelID: String {
+        "\(tabIdentifierPrefix)-panel-\(sanitizedValue)"
+    }
+
+    private var tabIdentifierPrefix: String {
+        tabGroupName ?? "swui-tab"
+    }
+
+    private var sanitizedValue: String {
+        String(value.lowercased().map { $0.isLetter || $0.isNumber ? $0 : "-" })
     }
 
     // The radio carries no change handler of its own: the change event bubbles

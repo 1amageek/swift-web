@@ -1,17 +1,29 @@
 import SwiftHTML
 
 public struct VStack<Content: HTML>: WebUIAttributeComponent {
-    private let spacing: Space?
+    private let gap: String
     private let alignment: HorizontalAlignment
     private let attributes: [HTMLAttribute]
     private let content: Content
 
     public init(
         alignment: HorizontalAlignment = .center,
-        spacing: Space? = nil,
+        spacing: Double? = nil,
         @HTMLBuilder content: () -> Content
     ) {
-        self.spacing = spacing
+        self.gap = stackSpacingValue(spacing)
+        self.alignment = alignment
+        self.attributes = []
+        self.content = content()
+    }
+
+    /// Token-named spacing convenience over the design-system spacing scale.
+    public init(
+        alignment: HorizontalAlignment = .center,
+        spacing: Space,
+        @HTMLBuilder content: () -> Content
+    ) {
+        self.gap = stackSpacingValue(spacing)
         self.alignment = alignment
         self.attributes = []
         self.content = content()
@@ -24,7 +36,7 @@ public struct VStack<Content: HTML>: WebUIAttributeComponent {
             attributes: mergedAttributes(
                 class: "swui-vstack",
                 styles: Style {
-                    .gap(stackSpacingValue(spacing))
+                    .gap(gap)
                     .alignItems(alignment.rawValue)
                 },
                 extra: attributes
@@ -35,11 +47,11 @@ public struct VStack<Content: HTML>: WebUIAttributeComponent {
     }
 
     public func addingAttributes(_ attributes: [HTMLAttribute]) -> Self {
-        Self(spacing: spacing, alignment: alignment, attributes: self.attributes + attributes, content: content)
+        Self(gap: gap, alignment: alignment, attributes: self.attributes + attributes, content: content)
     }
 
-    private init(spacing: Space?, alignment: HorizontalAlignment, attributes: [HTMLAttribute], content: Content) {
-        self.spacing = spacing
+    private init(gap: String, alignment: HorizontalAlignment, attributes: [HTMLAttribute], content: Content) {
+        self.gap = gap
         self.alignment = alignment
         self.attributes = attributes
         self.content = content

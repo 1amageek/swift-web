@@ -35,6 +35,28 @@ struct SwiftWebStoryboardCatalogTests {
         return String(suffix[...end])
     }
 
+    private func occurrences(of needle: String, in haystack: String) -> Int {
+        haystack.components(separatedBy: needle).count - 1
+    }
+
+    /// Every `href="#anchor"` in the rendered page (the inspector table of
+    /// contents); the in-page sidebar/breadcrumb links use real paths, not
+    /// fragments, so these are the table-of-contents targets.
+    private func tableOfContentsAnchors(in html: String) -> [String] {
+        var anchors: [String] = []
+        var remainder = Substring(html)
+        while let range = remainder.range(of: "href=\"#") {
+            let after = remainder[range.upperBound...]
+            guard let end = after.firstIndex(of: "\"") else { break }
+            let anchor = String(after[..<end])
+            if !anchor.isEmpty {
+                anchors.append(anchor)
+            }
+            remainder = after[end...]
+        }
+        return anchors
+    }
+
     @Test
     func everyCatalogItemHasDocumentationMetadata() {
         for item in allItems {
@@ -73,11 +95,58 @@ struct SwiftWebStoryboardCatalogTests {
         #expect(rendered.contains("storyboard-mark"))
         #expect(rendered.contains("storyboard-search"))
         #expect(rendered.contains("Docs"))
-        #expect(rendered.contains("GitHub ↗") || rendered.contains("GitHub ↗"))
+        #expect(rendered.contains("GitHub ↗"))
+        #expect(rendered.contains("href=\"https://github.com/1amageek/swift-web\""))
         #expect(rendered.contains("storyboard-theme-switcher"))
         #expect(rendered.contains("storyboard-theme-button is-selected"))
         #expect(!rendered.contains("Style System"))
         #expect(!rendered.contains("Liquid Glass"))
+    }
+
+    @Test
+    func catalogEmitsSemanticLandmarks() {
+        let rendered = StoryboardCatalog(initialSelection: "list").render()
+
+        #expect(rendered.contains("<header class=\"storyboard-landmark\""))
+        #expect(rendered.contains("aria-label=\"Components\""))
+        #expect(rendered.contains("<main class=\"storyboard-detail\""))
+        #expect(rendered.contains("<section class=\"storyboard-section\""))
+        #expect(rendered.contains("<h2 class=\"storyboard-section-title\""))
+        #expect(rendered.contains("id=\"properties\""))
+        #expect(rendered.contains("id=\"related\""))
+    }
+
+    @Test
+    func catalogHasExactlyOneH1() {
+        for selection in ["typography", "list", "spacing", "button"] {
+            let rendered = StoryboardCatalog(initialSelection: selection).render()
+            #expect(occurrences(of: "<h1", in: rendered) == 1, "expected one <h1> for \(selection)")
+        }
+    }
+
+    @Test
+    func tableOfContentsAnchorsResolveToSectionIDs() {
+        // "list" shows the Rendered HTML section; "spacing" does not — both must
+        // keep every table-of-contents anchor pointing at a real section id.
+        for selection in ["list", "spacing"] {
+            let rendered = StoryboardCatalog(initialSelection: selection).render()
+            let anchors = tableOfContentsAnchors(in: rendered)
+            #expect(!anchors.isEmpty, "expected TOC anchors for \(selection)")
+            for anchor in anchors {
+                #expect(
+                    rendered.contains("id=\"\(anchor)\""),
+                    "TOC anchor #\(anchor) has no matching section id for \(selection)"
+                )
+            }
+        }
+    }
+
+    @Test
+    func breadcrumbIsANavLandmarkWithCurrentPage() {
+        let rendered = StoryboardCatalog(initialSelection: "list").render()
+
+        #expect(rendered.contains("aria-label=\"Breadcrumb\""))
+        #expect(rendered.contains("class=\"storyboard-breadcrumb-current\" aria-current=\"page\""))
     }
 
     @Test

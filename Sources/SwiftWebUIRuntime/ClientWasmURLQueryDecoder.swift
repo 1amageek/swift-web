@@ -259,6 +259,10 @@ private struct ClientWasmURLQueryUnkeyedContainer: UnkeyedDecodingContainer {
     var count: Int? { values.count }
     var isAtEnd: Bool { currentIndex >= values.count }
 
+    // A repeated query parameter (`?tags=a&tags=b`) decodes as an array of
+    // present string values; it never carries a nil hole between elements, so an
+    // element is never absent. (A wholly missing optional value is handled by the
+    // single-value container's `decodeNil`, which reports emptiness.)
     mutating func decodeNil() throws -> Bool {
         false
     }

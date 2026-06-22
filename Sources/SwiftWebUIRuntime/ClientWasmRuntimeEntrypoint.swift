@@ -1,6 +1,13 @@
 import Foundation
 import SwiftHTML
 
+/// Single-threaded host contract: this type holds unguarded mutable state and is
+/// driven exclusively from the JavaScript host through `@_cdecl` exports, which
+/// the browser/WASI runtime invokes strictly serially on one thread. It is not
+/// `Sendable` and must never be entered re-entrantly (e.g. a microtask that calls
+/// back into `dispatchEvent` mid-mutation); doing so would corrupt the response
+/// buffer with no compiler guard. The single-threaded WASM environment is what
+/// makes the absence of locking sound.
 public final class ClientWasmRuntimeEntrypoint<Root: HTML> {
     private let responseStorage = ClientWasmResponseStorage()
     private let bridge: ClientWasmRuntimeBridge<Root>

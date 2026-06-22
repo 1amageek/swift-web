@@ -4,7 +4,6 @@ public enum WebStyleProperty: Sendable, Equatable {
     case foreground
     case background
     case overlay
-    case tint
     case border(width: Length)
 
     func style(for resolvedStyle: ResolvedStyle) -> Style {
@@ -27,11 +26,6 @@ public enum WebStyleProperty: Sendable, Equatable {
             return .background(resolvedStyle.cssValue)
         case .overlay:
             return .boxShadow("inset 0 0 0 9999px \(resolvedStyle.cssValue)")
-        case .tint:
-            return Style {
-                .custom("--swui-tint", resolvedStyle.cssValue)
-                .accentColor(resolvedStyle.cssValue)
-            }
         case .border(let width):
             return .border("\(width.cssValue) solid \(resolvedStyle.cssValue)")
         }
@@ -39,7 +33,7 @@ public enum WebStyleProperty: Sendable, Equatable {
 
     var modifierRole: HTMLModifierRole {
         switch self {
-        case .foreground, .tint:
+        case .foreground:
             .textStyle
         case .background, .overlay, .border:
             .box
@@ -54,8 +48,6 @@ public enum WebStyleProperty: Sendable, Equatable {
             "swui-style-background"
         case .overlay:
             "swui-style-overlay"
-        case .tint:
-            "swui-style-tint"
         case .border:
             "swui-style-border"
         }

@@ -344,9 +344,9 @@ func catalogSnippet(for id: String) -> String {
   case "gauge":
     return """
       VStack(alignment: .leading, spacing: .small) {
-          Gauge(value: 0.25, label: "Disk")
-          Gauge(value: 0.62, label: "CPU")
-          Gauge(value: 0.9, label: "Memory")
+          Gauge(value: 0.25) { "Disk" }
+          Gauge(value: 0.62) { "CPU" }
+          Gauge(value: 0.9) { "Memory" }
       }
       """
   case "navigationstack":

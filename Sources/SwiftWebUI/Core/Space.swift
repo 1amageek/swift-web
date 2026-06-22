@@ -11,6 +11,12 @@ func stackSpacingValue(_ spacing: Space?) -> String {
     spacing?.rawValue ?? "var(--swui-stack-spacing)"
 }
 
+/// SwiftUI-canonical numeric spacing (points → px). A `nil` spacing falls back
+/// to the design-system default stack gap, matching SwiftUI's "system spacing".
+func stackSpacingValue(_ spacing: Double?) -> String {
+    spacing.map(pixelValue) ?? "var(--swui-stack-spacing)"
+}
+
 public enum HorizontalAlignment: String, Sendable {
     case leading = "flex-start"
     case center = "center"

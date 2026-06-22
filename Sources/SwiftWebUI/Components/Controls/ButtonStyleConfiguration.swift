@@ -2,13 +2,13 @@ struct ButtonStyleConfiguration: Sendable, Equatable {
     let prominence: ButtonProminence
     let controlSize: ControlSize
     let isEnabled: Bool
-    let tint: String
+    let tint: String?
 
     init(
         prominence: ButtonProminence,
         controlSize: ControlSize,
         isEnabled: Bool,
-        tint: String
+        tint: String?
     ) {
         self.prominence = prominence
         self.controlSize = controlSize

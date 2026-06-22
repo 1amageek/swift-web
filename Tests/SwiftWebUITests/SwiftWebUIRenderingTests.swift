@@ -41,7 +41,7 @@ struct SwiftWebUIRenderingTests {
     #expect(rendered.contains("--swui-grid-vertical-spacing: 5px;"))
     #expect(rendered.contains("white-space: nowrap;"))
     #expect(rendered.contains(".swui-list-row .swui-text"))
-    #expect(rendered.contains(".swui-list-row .swui-text-muted"))
+    #expect(rendered.contains(".swui-list-row > .swui-text:not(:first-child)"))
     #expect(rendered.contains("class=\"swui-root\""))
     #expect(rendered.contains("data-theme=\"system\""))
     #expect(rendered.contains("data-style-system=\"swift-web\""))
@@ -662,7 +662,9 @@ struct SwiftWebUIRenderingTests {
 
     #expect(rendered.contains("swui-picker-segmented"))
     #expect(rendered.contains("role=\"radiogroup\""))
-    #expect(rendered.contains("aria-label=\"Appearance\""))
+    // The radiogroup is named by the visible field label via aria-labelledby.
+    #expect(rendered.contains("aria-labelledby=\"swui-picker-appearance-label\""))
+    #expect(rendered.contains("id=\"swui-picker-appearance-label\""))
     #expect(rendered.contains("data-theme-option=\"system\""))
     #expect(rendered.contains("data-theme-option=\"dark\""))
     #expect(rendered.contains("type=\"radio\""))
@@ -718,7 +720,7 @@ struct SwiftWebUIRenderingTests {
     let rendered = VStack {
       ProgressView("Uploading", value: 0.5)
       ProgressView("Loading")
-      Gauge(value: 0.7, label: "CPU")
+      Gauge(value: 0.7) { "CPU" }
     }
     .render()
 
@@ -906,7 +908,7 @@ struct SwiftWebUIRenderingTests {
         Text("Edit")
       }
       ProgressView("Loading", value: 0.4)
-      Gauge(value: 0.7, label: "CPU")
+      Gauge(value: 0.7) { "CPU" }
       TabView(selection: $tab) {
         Tab("Home", value: "home") {
           Text("Home")
@@ -1230,7 +1232,8 @@ struct SwiftWebUIRenderingTests {
       rendered.contains(
         "class=\"swui-picker-segmented swui-control-regular swui-material swui-material-bar\""))
     #expect(rendered.contains("role=\"radiogroup\""))
-    #expect(rendered.contains("aria-label=\"Status\""))
+    #expect(rendered.contains("aria-labelledby=\"swui-picker-status-label\""))
+    #expect(rendered.contains("id=\"swui-picker-status-label\""))
     #expect(rendered.contains("class=\"swui-picker-segment\""))
     #expect(rendered.contains("class=\"swui-picker-segment-input\""))
     #expect(rendered.contains("type=\"radio\""))
@@ -1278,7 +1281,8 @@ struct SwiftWebUIRenderingTests {
       rendered.contains(
         "class=\"swui-menu-label swui-glass swui-glass-interactive swui-material-regular\""))
     #expect(rendered.contains("class=\"swui-menu-content swui-material swui-material-regular\""))
-    #expect(rendered.contains("role=\"menu\""))
+    // No role="menu": the content is arbitrary, not a list of menuitems.
+    #expect(!rendered.contains("role=\"menu\""))
   }
 
   @Test
@@ -1550,6 +1554,127 @@ struct SwiftWebUIRenderingTests {
       return nil
     }
     return String(rendered[start.lowerBound..<end.upperBound])
+  }
+
+  // MARK: Control tint ownership (H2)
+
+  @Test
+  func untintedButtonOmitsInlineControlTint() {
+    let rendered = main {
+      Button("Primary") {}
+        .buttonStyle(.borderedProminent)
+    }
+    .environment(\.theme, .light)
+    .render()
+    // No `.tint()` in scope: no control emits an inline --swui-control-tint, so
+    // the rule's fallback resolves to the style-system token.
+    #expect(!rendered.contains("--swui-control-tint:"))
+    #expect(rendered.contains("var(--swui-control-tint, var(--swui-button-primary-background))"))
+  }
+
+  @Test
+  func tintReachesSliderThroughControlTint() {
+    @State var volume = 0.5
+    let rendered = VStack {
+      Slider(value: $volume, in: 0...1)
+    }
+    .tint(.danger)
+    .render()
+    #expect(rendered.contains("--swui-control-tint: var(--swui-danger)"))
+  }
+
+  // MARK: SwiftUI API conformance additions
+
+  @Test
+  func extraLargeControlSizeRendersClassTokenAndRule() {
+    let rendered = main {
+      Button("Go") {}
+        .buttonStyle(.borderedProminent)
+        .controlSize(.extraLarge)
+    }
+    .environment(\.theme, .light)
+    .render()
+    #expect(rendered.contains("swui-control-extraLarge"))
+    #expect(rendered.contains("--swui-control-extra-large-height: 52px;"))
+    #expect(rendered.contains(".swui-control-extraLarge {"))
+  }
+
+  @Test
+  func stacksAndPaddingAcceptNumericValues() {
+    #expect(HStack(spacing: 12) { Text("a") }.render().contains("gap: 12px"))
+    #expect(VStack(spacing: 8) { Text("a") }.render().contains("gap: 8px"))
+    #expect(Text("x").padding(16).render().contains("padding: 16px"))
+  }
+
+  @Test
+  func headingLevelsMapToHeadingTags() {
+    #expect(Heading("P", level: .page).render().contains("<h1"))
+    #expect(Heading("S", level: .section).render().contains("<h2"))
+    #expect(Heading("Sub", level: .subsection).render().contains("<h3"))
+  }
+
+  @Test
+  func colorInvertTakesNoArgument() {
+    #expect(Text("x").colorInvert().render().contains("filter: invert(1)"))
+  }
+
+  @Test
+  func gaugeUsesViewBuilderLabel() {
+    let rendered = Gauge(value: 0.5) { "CPU" }.render()
+    #expect(rendered.contains("swui-gauge"))
+    #expect(rendered.contains("CPU"))
+  }
+
+  @Test
+  func foregroundStyleSemanticTokensLowerToCSSVars() {
+    #expect(Text("x").foregroundStyle(.primary).render().contains("color: var(--swui-text)"))
+    #expect(Text("x").foregroundStyle(.secondary).render().contains("color: var(--swui-text-muted)"))
+    #expect(Text("x").foregroundStyle(.accent).render().contains("color: var(--swui-accent)"))
+    #expect(Text("x").foregroundStyle(.danger).render().contains("color: var(--swui-danger)"))
+  }
+
+  // MARK: Previously untested components
+
+  @Test
+  func rendersSliderRangeInput() {
+    @State var volume = 0.25
+    let rendered = Slider(value: $volume, in: 0...10, step: 0.5).render()
+    #expect(rendered.contains("type=\"range\""))
+    #expect(rendered.contains("min=\"0"))
+    #expect(rendered.contains("max=\"10"))
+    #expect(rendered.contains("step=\"0.5"))
+    #expect(rendered.contains("swui-slider"))
+  }
+
+  @Test
+  func lazyVGridLowersGridItemTracks() {
+    let rendered = LazyVGrid(
+      columns: [GridItem(.fixed(80)), GridItem(.flexible()), GridItem(.adaptive(minimum: 50))]
+    ) {
+      Text("a")
+    }
+    .render()
+    #expect(rendered.contains("grid-template-columns:"))
+    #expect(rendered.contains("80px"))
+    #expect(rendered.contains("minmax("))
+    #expect(rendered.contains("repeat(auto-fit,"))
+  }
+
+  // MARK: Accessibility
+
+  @Test
+  func systemImageHumanizesAccessibilityName() {
+    let rendered = Image(systemName: "star.fill").render()
+    #expect(rendered.contains("aria-label=\"star fill\""))
+    #expect(rendered.contains("data-system-image=\"star.fill\""))
+    #expect(!rendered.contains("aria-label=\"star.fill\""))
+  }
+
+  @Test
+  func labelMarksDecorativeIconHidden() {
+    let rendered = Label("Verified", systemImage: "checkmark.seal.fill").render()
+    #expect(rendered.contains("class=\"swui-label-icon\" aria-hidden=\"true\""))
+    #expect(rendered.contains(">Verified</span>"))
   }
 }
 

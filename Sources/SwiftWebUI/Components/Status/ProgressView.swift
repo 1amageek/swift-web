@@ -15,6 +15,7 @@ public struct ProgressView<Label: HTML>: WebUIAttributeComponent {
     private let total: Double
     private let attributes: [HTMLAttribute]
     @Environment(\.progressViewStyle) private var progressViewStyle
+    @Environment(\.tint) private var tint
 
     public init(
         value: Double?,
@@ -46,6 +47,7 @@ public struct ProgressView<Label: HTML>: WebUIAttributeComponent {
             "div",
             attributes: mergedAttributes(
                 class: controlClassName("swui-progress", progressViewStyle.className),
+                styles: controlTintStyle(tint),
                 extra: attributes
             )
         ) {

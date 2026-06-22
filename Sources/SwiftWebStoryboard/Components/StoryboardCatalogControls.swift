@@ -20,15 +20,21 @@ struct CatalogRangeControl: Component {
 
     var body: some HTML {
         div(.class("storyboard-control")) {
-            span(.class("storyboard-control-label")) {
+            span(.class("storyboard-control-label"), .id(labelID)) {
                 label
             }
-            Slider(value: value, in: 0...1, step: 0.05)
+            // Name the range input from the visible label; a bare range input
+            // would otherwise be announced only as "slider".
+            Slider(value: value, in: 0...1, step: 0.05, .aria("labelledby", labelID))
                 .class("storyboard-control-slider")
             span(.class("storyboard-control-value")) {
                 String(format: "%.2f", value.wrappedValue)
             }
         }
+    }
+
+    private var labelID: String {
+        "storyboard-range-" + String(label.lowercased().map { $0.isLetter || $0.isNumber ? $0 : "-" }) + "-label"
     }
 }
 

@@ -55,6 +55,10 @@ public struct ForegroundStylesModifier: ComponentModifier {
         if let primary = resolved.first {
             style.append(WebStyleProperty.foreground.style(for: primary))
         }
+        // The primary level paints `color`; every level is also published as a
+        // `--swui-foreground-{primary,secondary,tertiary,…}` custom property so
+        // descendant content can opt into the hierarchy (mirroring how SwiftUI's
+        // hierarchical foreground styles propagate through the environment).
         for (index, resolvedStyle) in resolved.enumerated() where !resolvedStyle.cssValue.isEmpty {
             style.append(.custom("--swui-foreground-\(foregroundStyleName(at: index))", resolvedStyle.cssValue))
         }
@@ -68,7 +72,6 @@ public struct ForegroundStylesModifier: ComponentModifier {
                 "swui-style",
                 HTMLModifierRole.textStyle.className,
                 WebStyleProperty.foreground.modifierClassName,
-                "swui-style-foreground-hierarchical",
             ] + resolvedStyles.flatMap(\.classNames)
         )
         .joined(separator: " ")

@@ -278,6 +278,7 @@ extension StyleSystem {
         var smallHeight: String
         var regularHeight: String
         var largeHeight: String
+        var extraLargeHeight: String
         var disabledOpacity: String
 
         init(
@@ -285,12 +286,14 @@ extension StyleSystem {
             smallHeight: String,
             regularHeight: String,
             largeHeight: String,
+            extraLargeHeight: String,
             disabledOpacity: String
         ) {
             self.miniHeight = miniHeight
             self.smallHeight = smallHeight
             self.regularHeight = regularHeight
             self.largeHeight = largeHeight
+            self.extraLargeHeight = extraLargeHeight
             self.disabledOpacity = disabledOpacity
         }
 
@@ -300,6 +303,7 @@ extension StyleSystem {
                 smallHeight: override.smallHeight ?? smallHeight,
                 regularHeight: override.regularHeight ?? regularHeight,
                 largeHeight: override.largeHeight ?? largeHeight,
+                extraLargeHeight: override.extraLargeHeight ?? extraLargeHeight,
                 disabledOpacity: override.disabledOpacity ?? disabledOpacity
             )
         }
@@ -309,6 +313,7 @@ extension StyleSystem {
             var smallHeight: String?
             var regularHeight: String?
             var largeHeight: String?
+            var extraLargeHeight: String?
             var disabledOpacity: String?
 
             init(
@@ -316,12 +321,14 @@ extension StyleSystem {
                 smallHeight: String? = nil,
                 regularHeight: String? = nil,
                 largeHeight: String? = nil,
+                extraLargeHeight: String? = nil,
                 disabledOpacity: String? = nil
             ) {
                 self.miniHeight = miniHeight
                 self.smallHeight = smallHeight
                 self.regularHeight = regularHeight
                 self.largeHeight = largeHeight
+                self.extraLargeHeight = extraLargeHeight
                 self.disabledOpacity = disabledOpacity
             }
         }
@@ -732,6 +739,7 @@ public extension StyleSystem {
             smallHeight: "32px",
             regularHeight: "36px",
             largeHeight: "44px",
+            extraLargeHeight: "52px",
             disabledOpacity: "0.55"
         ),
         button: Button(
@@ -896,6 +904,7 @@ public extension StyleSystem {
             .custom("--swui-control-small-height", control.smallHeight)
             .custom("--swui-control-regular-height", control.regularHeight)
             .custom("--swui-control-large-height", control.largeHeight)
+            .custom("--swui-control-extra-large-height", control.extraLargeHeight)
             .custom("--swui-control-disabled-opacity", control.disabledOpacity)
             .custom("--swui-button-radius", button.radius)
             .custom("--swui-button-primary-background", button.primaryBackground)

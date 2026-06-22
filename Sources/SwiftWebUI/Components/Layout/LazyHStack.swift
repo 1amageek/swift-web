@@ -1,7 +1,7 @@
 import SwiftHTML
 
 public struct LazyHStack<Content: HTML>: WebUIAttributeComponent {
-    private let spacing: Space?
+    private let gap: String
     private let alignment: VerticalAlignment
     private let pinnedViews: PinnedScrollableViews
     private let attributes: [HTMLAttribute]
@@ -9,11 +9,25 @@ public struct LazyHStack<Content: HTML>: WebUIAttributeComponent {
 
     public init(
         alignment: VerticalAlignment = .center,
-        spacing: Space? = nil,
+        spacing: Double? = nil,
         pinnedViews: PinnedScrollableViews = [],
         @HTMLBuilder content: () -> Content
     ) {
-        self.spacing = spacing
+        self.gap = stackSpacingValue(spacing)
+        self.alignment = alignment
+        self.pinnedViews = pinnedViews
+        self.attributes = []
+        self.content = content()
+    }
+
+    /// Token-named spacing convenience over the design-system spacing scale.
+    public init(
+        alignment: VerticalAlignment = .center,
+        spacing: Space,
+        pinnedViews: PinnedScrollableViews = [],
+        @HTMLBuilder content: () -> Content
+    ) {
+        self.gap = stackSpacingValue(spacing)
         self.alignment = alignment
         self.pinnedViews = pinnedViews
         self.attributes = []
@@ -27,7 +41,7 @@ public struct LazyHStack<Content: HTML>: WebUIAttributeComponent {
             attributes: mergedAttributes(
                 class: "swui-lazy-hstack",
                 styles: Style {
-                    .gap(stackSpacingValue(spacing))
+                    .gap(gap)
                     .alignItems(alignment.rawValue)
                 },
                 extra: lazyAttributes(axis: "horizontal", pinnedViews: pinnedViews) + attributes
@@ -39,7 +53,7 @@ public struct LazyHStack<Content: HTML>: WebUIAttributeComponent {
 
     public func addingAttributes(_ attributes: [HTMLAttribute]) -> Self {
         Self(
-            spacing: spacing,
+            gap: gap,
             alignment: alignment,
             pinnedViews: pinnedViews,
             attributes: self.attributes + attributes,
@@ -48,13 +62,13 @@ public struct LazyHStack<Content: HTML>: WebUIAttributeComponent {
     }
 
     private init(
-        spacing: Space?,
+        gap: String,
         alignment: VerticalAlignment,
         pinnedViews: PinnedScrollableViews,
         attributes: [HTMLAttribute],
         content: Content
     ) {
-        self.spacing = spacing
+        self.gap = gap
         self.alignment = alignment
         self.pinnedViews = pinnedViews
         self.attributes = attributes

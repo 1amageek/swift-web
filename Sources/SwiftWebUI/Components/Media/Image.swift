@@ -40,12 +40,22 @@ public struct Image: WebUIAttributeComponent {
                 "span",
                 attributes: mergedAttributes(
                     class: "swui-image swui-symbol",
-                    extra: [.role("img"), .aria("label", name), .data("system-image", name)] + attributes
+                    extra: [.role("img"), .aria("label", Self.symbolAccessibilityName(name)), .data("system-image", name)] + attributes
                 )
             ) {
                 name
             }
         }
+    }
+
+    /// A readable accessible name for an SF Symbol identifier. The web has no
+    /// access to the symbol's localized description, so the dotted identifier
+    /// ("star.fill") is humanised ("star fill") rather than read verbatim
+    /// ("star dot fill"). Callers can override with `.accessibilityLabel(_:)`.
+    private static func symbolAccessibilityName(_ identifier: String) -> String {
+        identifier
+            .replacingOccurrences(of: ".", with: " ")
+            .replacingOccurrences(of: "-", with: " ")
     }
 
     public func addingAttributes(_ attributes: [HTMLAttribute]) -> Self {

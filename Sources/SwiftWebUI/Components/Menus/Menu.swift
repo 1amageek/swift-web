@@ -35,11 +35,13 @@ public struct Menu<Label: HTML, Content: HTML>: WebUIAttributeComponent {
             ) {
                 label
             }
+            // No `role="menu"`: that role requires `menuitem` children, but the
+            // content is arbitrary (buttons, links, toggles). A native
+            // `<details>` disclosure of free content is the honest semantic.
             Element(
                 "div",
                 attributes: [
                     .class("swui-menu-content \(MaterialClass.material) \(MaterialClass.regular)"),
-                    HTMLAttribute("role", "menu"),
                 ]
             ) {
                 content

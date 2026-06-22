@@ -28,7 +28,7 @@ public enum ButtonStyleKind: String, Codable, Sendable, Equatable {
                     configuration.controlSize.className,
                     configuration.isEnabled ? "swui-control-enabled" : "swui-control-disabled",
                 ],
-                style: .custom("--swui-control-tint", configuration.tint)
+                style: controlTintStyle(configuration.tint)
             )
         case .borderedProminent:
             ButtonStyleResult(
@@ -38,7 +38,7 @@ public enum ButtonStyleKind: String, Codable, Sendable, Equatable {
                     configuration.controlSize.className,
                     configuration.isEnabled ? "swui-control-enabled" : "swui-control-disabled",
                 ],
-                style: .custom("--swui-control-tint", configuration.tint)
+                style: controlTintStyle(configuration.tint)
             )
         case .glass:
             ButtonStyleResult(
@@ -51,7 +51,7 @@ public enum ButtonStyleKind: String, Codable, Sendable, Equatable {
                     configuration.controlSize.className,
                     configuration.isEnabled ? "swui-control-enabled" : "swui-control-disabled",
                 ],
-                style: .custom("--swui-control-tint", configuration.tint)
+                style: controlTintStyle(configuration.tint)
             )
         case .glassProminent:
             ButtonStyleResult(
@@ -64,7 +64,7 @@ public enum ButtonStyleKind: String, Codable, Sendable, Equatable {
                     configuration.controlSize.className,
                     configuration.isEnabled ? "swui-control-enabled" : "swui-control-disabled",
                 ],
-                style: .custom("--swui-control-tint", configuration.tint)
+                style: controlTintStyle(configuration.tint)
             )
         case .plain:
             ButtonStyleResult(
@@ -74,7 +74,7 @@ public enum ButtonStyleKind: String, Codable, Sendable, Equatable {
                     configuration.controlSize.className,
                     configuration.isEnabled ? "swui-control-enabled" : "swui-control-disabled",
                 ],
-                style: .custom("--swui-control-tint", configuration.tint)
+                style: controlTintStyle(configuration.tint)
             )
         }
     }

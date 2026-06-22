@@ -10,9 +10,9 @@ struct StatusDetail: Component {
     var body: some HTML {
         switch selection {
         case "gauge":
-            Gauge(value: 0.25, label: "Disk")
-            Gauge(value: 0.62, label: "CPU")
-            Gauge(value: 0.9, label: "Memory")
+            Gauge(value: 0.25) { "Disk" }
+            Gauge(value: 0.62) { "CPU" }
+            Gauge(value: 0.9) { "Memory" }
         default:
             ProgressView("Uploading", value: 0.35)
             ProgressView("Rendering", value: 0.7)

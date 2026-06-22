@@ -8,12 +8,12 @@ public struct GridItem: Sendable, Equatable {
     }
 
     public var size: Size
-    public var spacing: Space?
+    public var spacing: Double?
     public var alignment: Alignment?
 
     public init(
         _ size: Size = .flexible(),
-        spacing: Space? = nil,
+        spacing: Double? = nil,
         alignment: Alignment? = nil
     ) {
         self.size = size

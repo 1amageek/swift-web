@@ -10,6 +10,7 @@ public struct Gauge<Label: HTML>: WebUIAttributeComponent {
     private let label: Label
     private let attributes: [HTMLAttribute]
     @Environment(\.gaugeStyle) private var gaugeStyle
+    @Environment(\.tint) private var tint
 
     public init(
         value: Double,
@@ -37,6 +38,7 @@ public struct Gauge<Label: HTML>: WebUIAttributeComponent {
             "div",
             attributes: mergedAttributes(
                 class: controlClassName("swui-gauge", gaugeStyle.className),
+                styles: controlTintStyle(tint),
                 extra: attributes
             )
         ) {
@@ -62,14 +64,5 @@ public struct Gauge<Label: HTML>: WebUIAttributeComponent {
 
     public func addingAttributes(_ attributes: [HTMLAttribute]) -> Self {
         Self(value: value, bounds: bounds, label: label, attributes: self.attributes + attributes)
-    }
-}
-
-public extension Gauge where Label == text {
-    /// Creates a gauge whose label is plain inline text.
-    init(value: Double, in bounds: ClosedRange<Double> = 0...1, label: String) {
-        self.init(value: value, in: bounds) {
-            text(label)
-        }
     }
 }

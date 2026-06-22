@@ -224,6 +224,7 @@ public enum JavaScriptKitBrowserRuntime {
         hydrationIndex: BrowserHydrationIndex
     ) {
         guard let node = resolveDOMNode(nodeID, hydrationIndex: hydrationIndex) else {
+            reportUnresolvedTarget(nodeID, operation: "updateText")
             return
         }
         node.textContent = JSValue.string(value)
@@ -237,6 +238,7 @@ public enum JavaScriptKitBrowserRuntime {
         guard let node = resolveDOMNode(nodeID, hydrationIndex: hydrationIndex),
               let object = node.object
         else {
+            reportUnresolvedTarget(nodeID, operation: "updateAttributes")
             return
         }
         let nodeValue = JSValue.object(object)
@@ -281,6 +283,7 @@ public enum JavaScriptKitBrowserRuntime {
         guard let node = resolveDOMNode(nodeID, hydrationIndex: hydrationIndex),
               let object = node.object
         else {
+            reportUnresolvedTarget(nodeID, operation: "setProperty")
             return
         }
         let nodeValue = JSValue.object(object)
@@ -314,6 +317,7 @@ public enum JavaScriptKitBrowserRuntime {
         guard let context = mutationContext(parent: parentID, index: index, hydrationIndex: hydrationIndex),
               let node = resolveDOMNode(nodeID, hydrationIndex: hydrationIndex)
         else {
+            reportUnresolvedTarget(nodeID, operation: "insertNode")
             return
         }
         _ = context.parent.insertBefore(node, context.reference ?? .null)
@@ -326,6 +330,7 @@ public enum JavaScriptKitBrowserRuntime {
         hydrationIndex: BrowserHydrationIndex
     ) {
         guard let context = mutationContext(parent: parentID, index: index, hydrationIndex: hydrationIndex) else {
+            reportUnresolvedTarget(parentID, operation: "insertHTML")
             return
         }
         let range = document.createRange()
@@ -344,11 +349,13 @@ public enum JavaScriptKitBrowserRuntime {
             return
         }
         guard let context = mutationContext(parent: parentID, index: index, hydrationIndex: hydrationIndex) else {
+            reportUnresolvedTarget(parentID, operation: "removeNode")
             return
         }
         let node = resolveDOMNode(nodeID, hydrationIndex: hydrationIndex)
             ?? childNode(parent: context.parent, index: index)
         guard let node else {
+            reportUnresolvedTarget(nodeID, operation: "removeNode")
             return
         }
         _ = context.parent.removeChild(node)
@@ -374,6 +381,7 @@ public enum JavaScriptKitBrowserRuntime {
         guard let context = mutationContext(parent: parentID, index: sourceIndex, hydrationIndex: hydrationIndex),
               let node = childNode(parent: context.parent, index: sourceIndex)
         else {
+            reportUnresolvedTarget(parentID, operation: "moveNode")
             return
         }
         let destination = mutationContext(parent: parentID, index: destinationIndex, hydrationIndex: hydrationIndex)
@@ -405,10 +413,12 @@ public enum JavaScriptKitBrowserRuntime {
             return
         }
         guard let context = mutationContext(parent: parentID, index: destinationIndex, hydrationIndex: hydrationIndex) else {
+            reportUnresolvedTarget(parentID, operation: "moveKeyedNode")
             return
         }
         let node = document.querySelector("[\(HTMLRuntimeMarkers.keyAttribute)=\"\(cssEscape(identity))\"]")
         if node.isNull || node.isUndefined {
+            reportUnresolvedTarget(parentID, operation: "moveKeyedNode(key)")
             return
         }
         _ = context.parent.insertBefore(node, context.reference ?? .null)
@@ -579,6 +589,12 @@ public enum JavaScriptKitBrowserRuntime {
             let payload = try JSONDecoder().decode(DOMKeyIdentityPayload.self, from: data)
             return payload.identity ?? payload.rawValue
         } catch {
+            // The key should always round-trip; a failure means a keyed move may
+            // target the wrong element. Surface it instead of silently falling
+            // back, then use the rawValue as the best available identity.
+            _ = JSObject.global.console.error(
+                "[SwiftWebUI] domKeyIdentity: could not decode key identity (\(error)); using rawValue \"\(key.rawValue)\"."
+            )
             return key.rawValue
         }
     }

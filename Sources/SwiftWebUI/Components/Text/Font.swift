@@ -6,8 +6,8 @@ public struct Font: Sendable {
     public init(
         size: Length,
         lineHeight: String? = nil,
-        weight: FontWeight? = nil,
-        design: FontDesign = .default
+        weight: Font.Weight? = nil,
+        design: Font.Design = .default
     ) {
         var style = Style {
             .fontSize(size.cssValue)
@@ -36,4 +36,5 @@ public struct Font: Sendable {
     public static let subheadline = Font(size: .rem(0.875), lineHeight: "1.4")
     public static let footnote = Font(size: .rem(0.8125), lineHeight: "1.35")
     public static let caption = Font(size: .rem(0.75), lineHeight: "1.3")
+    public static let caption2 = Font(size: .rem(0.6875), lineHeight: "1.3")
 }

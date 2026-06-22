@@ -24,7 +24,10 @@ public struct Label<Title: HTML, Icon: HTML>: WebUIAttributeComponent {
                 extra: attributes
             )
         ) {
-            span(.class("swui-label-icon")) {
+            // The icon is decorative: the title is the label's accessible name.
+            // For the icon-only style the title is visually hidden (not removed)
+            // so it still names the control — see `.swui-label-style-iconOnly`.
+            span(.class("swui-label-icon"), .aria("hidden", "true")) {
                 icon
             }
             span(.class("swui-label-title")) {

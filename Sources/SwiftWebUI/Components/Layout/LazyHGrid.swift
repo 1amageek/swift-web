@@ -3,7 +3,7 @@ import SwiftHTML
 public struct LazyHGrid<Content: HTML>: WebUIAttributeComponent {
     private let rows: [GridItem]
     private let alignment: VerticalAlignment
-    private let spacing: Space?
+    private let gap: String
     private let pinnedViews: PinnedScrollableViews
     private let attributes: [HTMLAttribute]
     private let content: Content
@@ -11,13 +11,29 @@ public struct LazyHGrid<Content: HTML>: WebUIAttributeComponent {
     public init(
         rows: [GridItem],
         alignment: VerticalAlignment = .center,
-        spacing: Space? = nil,
+        spacing: Double? = nil,
         pinnedViews: PinnedScrollableViews = [],
         @HTMLBuilder content: () -> Content
     ) {
         self.rows = rows
         self.alignment = alignment
-        self.spacing = spacing
+        self.gap = stackSpacingValue(spacing)
+        self.pinnedViews = pinnedViews
+        self.attributes = []
+        self.content = content()
+    }
+
+    /// Token-named spacing convenience over the design-system spacing scale.
+    public init(
+        rows: [GridItem],
+        alignment: VerticalAlignment = .center,
+        spacing: Space,
+        pinnedViews: PinnedScrollableViews = [],
+        @HTMLBuilder content: () -> Content
+    ) {
+        self.rows = rows
+        self.alignment = alignment
+        self.gap = stackSpacingValue(spacing)
         self.pinnedViews = pinnedViews
         self.attributes = []
         self.content = content()
@@ -32,7 +48,7 @@ public struct LazyHGrid<Content: HTML>: WebUIAttributeComponent {
                 styles: Style {
                     .gridTemplateRows(gridTemplateTracks(rows))
                     .gridAutoFlow("column")
-                    .gap(stackSpacingValue(spacing))
+                    .gap(gap)
                     .alignItems(alignment.rawValue)
                 },
                 extra: lazyAttributes(axis: "horizontal-grid", pinnedViews: pinnedViews) + attributes
@@ -46,7 +62,7 @@ public struct LazyHGrid<Content: HTML>: WebUIAttributeComponent {
         Self(
             rows: rows,
             alignment: alignment,
-            spacing: spacing,
+            gap: gap,
             pinnedViews: pinnedViews,
             attributes: self.attributes + attributes,
             content: content
@@ -56,14 +72,14 @@ public struct LazyHGrid<Content: HTML>: WebUIAttributeComponent {
     private init(
         rows: [GridItem],
         alignment: VerticalAlignment,
-        spacing: Space?,
+        gap: String,
         pinnedViews: PinnedScrollableViews,
         attributes: [HTMLAttribute],
         content: Content
     ) {
         self.rows = rows
         self.alignment = alignment
-        self.spacing = spacing
+        self.gap = gap
         self.pinnedViews = pinnedViews
         self.attributes = attributes
         self.content = content

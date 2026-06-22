@@ -21,7 +21,7 @@ struct InputsDetail: Component {
     case "securefield":
       SecureField("Secret", text: secret)
     case "texteditor":
-      TextEditor(text: notes)
+      TextEditor(text: notes, .aria("label", "Notes"))
     case "toggle":
       Toggle("Enabled", isOn: enabled)
     case "slider":

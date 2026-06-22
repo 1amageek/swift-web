@@ -21,8 +21,10 @@ struct CatalogTopBar: Component {
             }
             .class("storyboard-topbar-title")
 
-            div(.class("storyboard-search"), .role("search")) {
-                span(.class("storyboard-search-icon"), .aria("hidden", "true")) {
+            // A non-functional visual affordance (no search is wired). Hidden
+            // from assistive tech so it is not announced as an operable search.
+            div(.class("storyboard-search"), .aria("hidden", "true")) {
+                span(.class("storyboard-search-icon")) {
                     "⌕"
                 }
                 span {
@@ -34,10 +36,10 @@ struct CatalogTopBar: Component {
             }
 
             HStack(spacing: .large) {
-                a(.href("#"), .class("storyboard-topbar-link is-muted")) {
+                a(.href("https://github.com/1amageek/swift-web#readme"), .class("storyboard-topbar-link is-muted")) {
                     "Docs"
                 }
-                a(.href("#"), .class("storyboard-topbar-link")) {
+                a(.href("https://github.com/1amageek/swift-web"), .class("storyboard-topbar-link")) {
                     "GitHub ↗"
                 }
                 HStack(spacing: .xsmall) {
@@ -138,7 +140,7 @@ struct CatalogInspector: Component {
     }
 
     private var showsRenderedHTML: Bool {
-        !["gridsystem", "spacing", "alignment", "responsive", "safearea"].contains(selection)
+        catalogShowsRenderedHTML(for: selection)
     }
 
     private func inspectorLink(_ title: String, anchor: String, selected: Bool = false) -> some HTML {
