@@ -1479,6 +1479,10 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
       ]
       let wasmLinkerSettings: [LinkerSetting] = [
           .unsafeFlags([
+              // The hydration/render walk recurses through the component tree; the
+              // default wasm stack (1 MB) overflows on deep trees and traps with
+              // "memory access out of bounds". Give it generous headroom.
+              "-Xlinker", "-z", "-Xlinker", "stack-size=16777216",
               "-Xlinker", "--export=swiftweb_alloc",
               "-Xlinker", "--export=swiftweb_dealloc",
               "-Xlinker", "--export=swiftweb_bootstrap",
