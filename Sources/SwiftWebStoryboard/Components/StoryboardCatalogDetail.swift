@@ -188,9 +188,9 @@ struct CatalogDetail: Component {
     private func detailDemo() -> some HTML {
         switch selection {
         case "gridsystem", "spacing", "alignment", "style", "responsive", "safearea":
-            FoundationsDetail(selection: selection)
+            FoundationsDetail(selection: selection, state: ui.wrappedValue)
         case "typography", "colorvalue":
-            FoundationsDetail(selection: selection)
+            FoundationsDetail(selection: selection, state: ui.wrappedValue)
         case "image", "label":
             MediaDetail(selection: selection)
         case "code":
@@ -222,7 +222,7 @@ struct CatalogDetail: Component {
                 accent: accent
             )
         case "color":
-            FoundationsDetail(selection: selection)
+            FoundationsDetail(selection: selection, state: ui.wrappedValue)
         case "progressview", "gauge":
             StatusDetail(selection: selection)
         case "alert", "sheet":
@@ -234,7 +234,7 @@ struct CatalogDetail: Component {
                 showsPopover: showsPopover
             )
         default:
-            FoundationsDetail(selection: selection)
+            FoundationsDetail(selection: selection, state: ui.wrappedValue)
         }
     }
 }

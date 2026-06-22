@@ -6,15 +6,19 @@ import SwiftWebUI
 
 struct FoundationsDetail: Component {
     let selection: String
+    /// Shared control-panel state, keyed "componentID.knob".
+    var state: [String: String] = [:]
 
     var body: some HTML {
         switch selection {
         case "gridsystem":
-            // Use the real GridSystem/Pane so the 8:4 spans resolve on an actual
-            // 12-column grid, matching the Usage snippet below.
-            GridSystem(columns: 12, gutter: .medium) {
-                Pane(span: 8) { gridPane("span 8") }
-                Pane(span: 4) { gridPane("span 4") }
+            // Reactive: columns, gutter, and arrangement are driven by the panel.
+            let cols = Int(state.control("gridsystem", "cols")) ?? 12
+            let spans = gridPanes(state.control("gridsystem", "preset"), cols)
+            GridSystem(columns: cols, gutter: gridGutter(state.control("gridsystem", "gutter"))) {
+                ForEach(spans.indices, id: \.self) { index in
+                    Pane(span: spans[index]) { gridPane("span \(spans[index])") }
+                }
             }
             .frame(maxWidth: .infinity)
         case "spacing":
@@ -124,6 +128,32 @@ struct FoundationsDetail: Component {
             .foregroundStyle(.accent)
             .frame(maxWidth: .infinity, height: 56, alignment: .center)
             .background(Color.accent.opacity(0.12), in: .rect(cornerRadius: 8))
+    }
+
+    private func gridGutter(_ value: String) -> Space {
+        switch value {
+        case "small": return .small
+        case "large": return .large
+        default: return .medium
+        }
+    }
+
+    /// Pane spans for an arrangement, scaled to the current column count and
+    /// always summing to it so the row fills the grid.
+    private func gridPanes(_ preset: String, _ cols: Int) -> [Int] {
+        switch preset {
+        case "halves":
+            let half = cols / 2
+            return [half, cols - half]
+        case "thirds":
+            let third = cols / 3
+            return [third, third, cols - 2 * third]
+        case "full":
+            return [cols]
+        default: // sidebar
+            let main = Int((Double(cols) * 2 / 3).rounded())
+            return [main, cols - main]
+        }
     }
 
     private func tileGrid() -> some HTML {
