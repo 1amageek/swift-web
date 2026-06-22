@@ -237,7 +237,7 @@ struct SwiftWebStoryboardCatalogTests {
 
     @Test
     func storyboardStylesheetMatchesDesignShellMetrics() {
-        let css = StoryboardStylesheet.css
+        let css = StoryboardStylesheet.cssText
 
         #expect(css.contains("min-height: 54px;"))
         #expect(css.contains("flex: 0 0 226px !important;"))
