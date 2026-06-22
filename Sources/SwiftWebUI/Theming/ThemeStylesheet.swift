@@ -474,6 +474,20 @@ enum ThemeStylesheet {
         .flex("0 0 auto")
           .alignSelf("auto")
       }
+      // A fixed-width column that also fills height (e.g. a scrollable sidebar):
+      // hug-h pins the width via flex above, but fill-v must still stretch it to
+      // the row height so an inner ScrollView is bounded and can scroll. More
+      // specific than the hug-h rule, so the cross-axis stretch wins.
+      rule(
+        """
+        .swui-hstack > .swui-hug-h.swui-fill-v,
+        .swui-lazy-hstack > .swui-hug-h.swui-fill-v,
+        .swui-toolbar > .swui-hug-h.swui-fill-v
+        """
+      ) {
+        .alignSelf("stretch")
+          .minHeight("0")
+      }
       // Vertical hug, parent-axis aware.
       rule(
         """
