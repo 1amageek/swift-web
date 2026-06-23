@@ -53,7 +53,9 @@ struct CatalogDetail: Component {
     }
 
     private var showsRenderedHTML: Bool {
-        catalogShowsRenderedHTML(for: selection)
+        // The DOM is generated from the demo, so it is accurate for every
+        // component and always shown.
+        true
     }
 
     private func sectionTitle(_ title: String, anchor: String) -> some HTML {
@@ -160,9 +162,19 @@ struct CatalogDetail: Component {
             Text("The DOM SwiftWebUI emits for the preview above.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-            CodeBlock(catalogRenderedHTML(for: selection), language: "html", showsLineNumbers: false)
+            CodeBlock(renderedDemoHTML(), language: "html", showsLineNumbers: false)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    /// The DOM the live demo emits, generated from the demo itself so it can
+    /// never drift out of date (no hand-written copy). Runtime-only hydration
+    /// attributes are stripped for readability.
+    private func renderedDemoHTML() -> String {
+        var html = detailDemo().render()
+        html = html.replacingOccurrences(of: #"\s*data-node="[^"]*""#, with: "", options: .regularExpression)
+        html = html.replacingOccurrences(of: #"\s*data-event-[a-z]+="[^"]*""#, with: "", options: .regularExpression)
+        return html
     }
 
     @HTMLBuilder

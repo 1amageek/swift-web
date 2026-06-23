@@ -34,9 +34,9 @@ Every component page has the identical structure. Only the *data* differs.
 |---|---|---|---|
 | ① | Header | breadcrumb (Category / Name), H1, one-line summary | static data |
 | ② | Preview | dot-grid canvas with the **live, centered demo** + the **control panel** | `demo(state)` + `controls` |
-| ③ | Usage | code snippet that **reflects the current control state** | `snippet(state)` |
+| ③ | Usage | a **canonical usage example** for the component (stable documentation) | static data |
 | ④ | Properties | table: name · type · description | static data |
-| ⑤ | Rendered HTML | the actual DOM the demo emits — **generated, not hand-written** | `render(demo(state))` |
+| ⑤ | Rendered HTML | the actual DOM the demo emits — **generated from the demo** (never hand-written) | `render(demo(state))` |
 | ⑥ | Related | up to 3 sibling components in the same category | static data |
 
 ## 2. Unified component model
@@ -53,13 +53,15 @@ StoryboardComponent {
     properties: [Property]             // ④ name, type, description
     related:    [String]               // ⑥ sibling ids
     demo:       (State) -> some HTML    // ② live preview, reads State
-    snippet:    (State) -> String       // ③ usage code, reads State
+    snippet:    String                  // ③ canonical usage example (documentation)
 }
 ```
 
-`State` is the component's own values (the things its controls mutate).
-`demo`, `snippet`, and the Rendered HTML all read the **same** `State`, so they
-can never drift apart. The shared template renders ①–⑥ identically for all.
+`State` is the component's own values (the things its controls mutate). The
+**demo is the single source of truth**: the Rendered HTML (⑤) is *generated from
+the demo*, so it can never drift. The snippet (③) is stable documentation, not a
+regenerated mirror of the demo — that keeps it from becoming a second thing to
+sync. The shared template renders ①–⑥ identically for all.
 
 ## 3. Control vocabulary
 
@@ -170,11 +172,11 @@ knobs. (Derived from the design.) `seg` = segmented, `txt` = text,
 - **One template, many records.** Sections ①–⑥ are rendered once by a shared
   template; a component contributes only data + the `demo`/`snippet` closures.
   No component writes its own page layout.
-- **Single source of truth.** `demo`, `snippet`, and Rendered HTML all read the
-  same per-component `State`, so they always agree.
+- **Generate, don't duplicate.** Anything that mirrors derived output is stale by
+  construction. The Rendered HTML is **generated from the demo** (the hand-written
+  stub is removed), and the snippet is **documentation** — not a generator that
+  re-mirrors the demo. Nothing derived has to be kept in sync by hand.
 - **Fixed widget set.** Every control is one of the six widgets, so all panels
   look and behave the same regardless of component.
-- **Rendered HTML is generated**, not hand-authored, so it can never go stale
-  against the real output (today's hard-coded stubs are removed).
 - **The panel is always present** when a component declares controls — which,
   per the map above, is essentially every component.

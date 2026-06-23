@@ -167,7 +167,8 @@ struct CatalogInspector: Component {
     let selection: String
 
     private var showsRenderedHTML: Bool {
-        catalogShowsRenderedHTML(for: selection)
+        // The Rendered HTML is generated from the demo and shown for every page.
+        true
     }
 
     var body: some HTML {
