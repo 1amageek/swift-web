@@ -172,8 +172,9 @@ struct StoryboardControlPanel: Component {
             }
         }
         .padding(3)
+        // A filled track only — no hard outline, matching a native segmented
+        // control (the selected segment is the raised chip).
         .background(Color.secondary.opacity(0.1), in: .rect(cornerRadius: 8))
-        .border(.border, width: 1)
         .cornerRadius(8)
     }
 
