@@ -1572,7 +1572,7 @@ enum ThemeStylesheet {
         .position("relative")
           .isolation("isolate")
           .custom("--swui-material-level-opacity", "var(--swui-material-opacity)")
-          .custom("--swui-glass-blur", "calc(var(--swui-material-blur) * 0.22)")
+          .custom("--swui-glass-blur", "calc(var(--swui-material-blur) * 0.06)")
           .background(
             "color-mix(in srgb, var(--swui-material-tint) calc(var(--swui-material-level-opacity) * 100%), transparent)"
           )
@@ -1593,9 +1593,14 @@ enum ThemeStylesheet {
       // refraction (the ::before) shows through and *reveals* the backdrop bent
       // at the rim (SwiftUI `Glass` / `glassEffect`). For floating controls.
       rule(".swui-glass") {
-        .backdropFilter(
-          "blur(var(--swui-glass-blur)) saturate(var(--swui-material-saturate)) brightness(calc(var(--swui-material-brightness) * var(--swui-material-interactive, 1)))"
+        // A lighter tint than Material so the refracted backdrop reads clearly —
+        // glass reveals, it does not frost.
+        .background(
+          "color-mix(in srgb, var(--swui-material-tint) calc(var(--swui-material-level-opacity) * 42%), transparent)"
         )
+          .backdropFilter(
+            "blur(var(--swui-glass-blur)) saturate(var(--swui-material-saturate)) brightness(calc(var(--swui-material-brightness) * var(--swui-material-interactive, 1)))"
+          )
           .custom(
             "-webkit-backdrop-filter",
             "blur(var(--swui-glass-blur)) saturate(var(--swui-material-saturate)) brightness(calc(var(--swui-material-brightness) * var(--swui-material-interactive, 1)))"
@@ -1615,7 +1620,7 @@ enum ThemeStylesheet {
           .custom("-webkit-backdrop-filter", "var(--swui-material-refraction)")
           .custom(
             "background",
-            "linear-gradient(170deg, color-mix(in srgb, white 32%, transparent), transparent 24%, transparent 76%, color-mix(in srgb, white 9%, transparent))"
+            "linear-gradient(160deg, color-mix(in srgb, white 42%, transparent) 0%, transparent 24%, transparent 100%)"
           )
           .boxShadow("var(--swui-material-rim)")
           .pointerEvents("none")

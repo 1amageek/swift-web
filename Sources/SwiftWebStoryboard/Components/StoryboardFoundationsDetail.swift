@@ -126,22 +126,48 @@ struct FoundationsDetail: Component {
                 .foregroundStyle(typographyForeground(state.control("typography", "fg")))
                 .frame(maxWidth: .infinity, alignment: typographyAlignment(state.control("typography", "align")))
         case "materials":
-            // A high-contrast backdrop so the two effects are evaluable side by
-            // side: Material frosts it away, Liquid Glass refracts and reveals it.
+            // A soft gradient with faint typography behind, so the two effects are
+            // evaluable side by side: Material frosts the backdrop away, while
+            // Liquid Glass refracts and reveals the lettering bent at its edges.
             div(.style {
                 .position("relative")
                 .width("100%")
                 .boxSizing("border-box")
+                .minHeight("300px")
                 .borderRadius("20px")
                 .overflow("hidden")
-                .padding("26px")
-                .backgroundImage("repeating-linear-gradient(58deg, #2563eb 0 20px, #f59e0b 20px 40px)")
+                .display("flex")
+                .alignItems("center")
+                .padding("28px")
+                .backgroundImage("linear-gradient(135deg, #4338ca 0%, #7c3aed 48%, #db2777 100%)")
             }) {
-                HStack(spacing: .large) {
-                    materialSample()
-                    glassSample()
+                div(.style {
+                    .position("absolute")
+                    .custom("inset", "0")
+                    .display("flex")
+                    .alignItems("center")
+                    .justifyContent("center")
+                    .custom("z-index", "0")
+                    .custom("color", "rgba(255,255,255,0.22)")
+                    .fontSize("96px")
+                    .fontWeight("800")
+                    .custom("letter-spacing", "-3px")
+                    .custom("pointer-events", "none")
+                    .custom("white-space", "nowrap")
+                }) {
+                    "SwiftWebUI"
                 }
-                .frame(maxWidth: .infinity)
+                div(.style {
+                    .position("relative")
+                    .custom("z-index", "1")
+                    .width("100%")
+                }) {
+                    HStack(spacing: .large) {
+                        materialSample()
+                        glassSample()
+                    }
+                    .frame(maxWidth: .infinity)
+                }
             }
         default:
             Text("Hello, SwiftWebUI")
@@ -153,24 +179,22 @@ struct FoundationsDetail: Component {
 
     private func materialSample() -> some HTML {
         VStack(spacing: .xsmall) {
-            Text("Material").font(.headline).fontWeight(.semibold).foregroundStyle(.primary)
-            Text(".regularMaterial").font(Font(size: .px(12), design: .monospaced)).foregroundStyle(.secondary)
-            Text("frosts — obscures the backdrop").font(.footnote).foregroundStyle(.secondary)
+            Text("Material").font(.subheadline).fontWeight(.semibold).foregroundStyle(.primary)
+            Text(".regularMaterial · blur").font(Font(size: .px(11), design: .monospaced)).foregroundStyle(.secondary)
         }
-        .frame(maxWidth: .infinity, minHeight: 168, alignment: .center)
+        .frame(maxWidth: .infinity, minHeight: 150, alignment: .center)
         .padding(.medium)
-        .background(.regularMaterial, in: .rect(cornerRadius: 18))
+        .background(.regularMaterial, in: .rect(cornerRadius: 20))
     }
 
     private func glassSample() -> some HTML {
         VStack(spacing: .xsmall) {
-            Text("Liquid Glass").font(.headline).fontWeight(.semibold).foregroundStyle(.primary)
-            Text(".glassEffect()").font(Font(size: .px(12), design: .monospaced)).foregroundStyle(.secondary)
-            Text("refracts — reveals the backdrop").font(.footnote).foregroundStyle(.secondary)
+            Text("Liquid Glass").font(.subheadline).fontWeight(.semibold).foregroundStyle(.primary)
+            Text(".glassEffect() · refracts").font(Font(size: .px(11), design: .monospaced)).foregroundStyle(.secondary)
         }
-        .frame(maxWidth: .infinity, minHeight: 168, alignment: .center)
+        .frame(maxWidth: .infinity, minHeight: 150, alignment: .center)
         .padding(.medium)
-        .glassEffect(.regular, in: .rect(cornerRadius: 18))
+        .glassEffect(.regular, in: .rect(cornerRadius: 20))
     }
 
     private func gridPane(_ label: String) -> some HTML {

@@ -42,12 +42,12 @@ private enum ThemeScopeAssets {
     <svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' preserveAspectRatio='none'>\
     <defs>\
     <linearGradient id='gx' x1='0' y1='0' x2='1' y2='0'>\
-    <stop offset='0' stop-color='rgb(0,0,0)'/><stop offset='0.28' stop-color='rgb(128,0,0)'/>\
-    <stop offset='0.72' stop-color='rgb(128,0,0)'/><stop offset='1' stop-color='rgb(255,0,0)'/>\
+    <stop offset='0' stop-color='rgb(40,0,0)'/><stop offset='0.18' stop-color='rgb(128,0,0)'/>\
+    <stop offset='0.82' stop-color='rgb(128,0,0)'/><stop offset='1' stop-color='rgb(216,0,0)'/>\
     </linearGradient>\
     <linearGradient id='gy' x1='0' y1='0' x2='0' y2='1'>\
-    <stop offset='0' stop-color='rgb(0,0,0)'/><stop offset='0.28' stop-color='rgb(0,128,0)'/>\
-    <stop offset='0.72' stop-color='rgb(0,128,0)'/><stop offset='1' stop-color='rgb(0,255,0)'/>\
+    <stop offset='0' stop-color='rgb(0,40,0)'/><stop offset='0.18' stop-color='rgb(0,128,0)'/>\
+    <stop offset='0.82' stop-color='rgb(0,128,0)'/><stop offset='1' stop-color='rgb(0,216,0)'/>\
     </linearGradient>\
     </defs>\
     <rect width='100' height='100' fill='rgb(0,0,0)'/>\
@@ -71,8 +71,9 @@ private enum ThemeScopeAssets {
         <filter id="swui-glass-refraction" x="0%" y="0%" width="100%" height="100%" \
         color-interpolation-filters="sRGB">\
         <feImage href="\(displacementDataURI)" x="0" y="0" width="100%" height="100%" \
-        preserveAspectRatio="none" result="swui-glass-map"/>\
-        <feDisplacementMap in="SourceGraphic" in2="swui-glass-map" scale="30" \
+        preserveAspectRatio="none" result="swui-glass-raw"/>\
+        <feGaussianBlur in="swui-glass-raw" stdDeviation="4" result="swui-glass-map"/>\
+        <feDisplacementMap in="SourceGraphic" in2="swui-glass-map" scale="58" \
         xChannelSelector="R" yChannelSelector="G"/>\
         </filter></svg>
         """
