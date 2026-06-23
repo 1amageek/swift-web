@@ -1589,14 +1589,15 @@ enum ThemeStylesheet {
             "blur(var(--swui-material-blur)) saturate(var(--swui-material-saturate)) brightness(calc(var(--swui-material-brightness) * var(--swui-material-interactive, 1)))"
           )
       }
-      // Liquid Glass is refractive: a light tint and a faint blur, while the
+      // Liquid Glass is refractive: a *light* tint (so the refracted backdrop
+      // reads, not a frosted panel) and a faint backdrop blur, while the
       // per-element client script sets the `backdrop-filter` that lenses the
       // backdrop at the rim and adds the specular highlight (SwiftUI `Glass` /
-      // `glassEffect`). No border, drop shadow, or CSS rim — the refraction and
-      // the highlight, both inside the filter, are the whole effect.
+      // `glassEffect`). The only chrome is a soft drop shadow that floats the
+      // control off the backdrop (liquid-dom's default optical model).
       rule(".swui-glass") {
         .background(
-          "color-mix(in srgb, var(--swui-material-tint) calc(var(--swui-material-level-opacity) * 42%), transparent)"
+          "color-mix(in srgb, var(--swui-material-tint) calc(var(--swui-material-level-opacity) * 16%), transparent)"
         )
           .backdropFilter(
             "blur(var(--swui-glass-blur)) saturate(var(--swui-material-saturate)) brightness(calc(var(--swui-material-brightness) * var(--swui-material-interactive, 1)))"
@@ -1605,6 +1606,7 @@ enum ThemeStylesheet {
             "-webkit-backdrop-filter",
             "blur(var(--swui-glass-blur)) saturate(var(--swui-material-saturate)) brightness(calc(var(--swui-material-brightness) * var(--swui-material-interactive, 1)))"
           )
+          .boxShadow("0 10px 24px -6px rgba(15, 23, 42, 0.18)")
       }
       // Level modifiers scale the regular-level opacity by ±N steps. Solid
       // styles use a zero step, collapsing every level onto one fill.

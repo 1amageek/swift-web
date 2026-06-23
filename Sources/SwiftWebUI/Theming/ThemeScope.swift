@@ -47,9 +47,9 @@ private enum ThemeScopeAssets {
     <script>
     (function(){
     if(window.__swuiGlass)return;window.__swuiGlass=true;
-    var ETA=0.66,NS=128;
-    // Fixed light for the specular highlight: -60 deg in plane, raised 42 deg.
-    var LA=-60*Math.PI/180,LE=42*Math.PI/180,LX=Math.cos(LA)*Math.cos(LE),LY=Math.sin(LA)*Math.cos(LE),LZ=Math.sin(LE);
+    var ETA=1/1.5,NS=128;
+    // Fixed light for the specular highlight: -45 deg in plane, raised 42 deg.
+    var LA=-45*Math.PI/180,LE=42*Math.PI/180,LX=Math.cos(LA)*Math.cos(LE),LY=Math.sin(LA)*Math.cos(LE),LZ=Math.sin(LE);
     // Signed distance of a point to a rounded rectangle (negative inside).
     function sdf(px,py,hw,hh,r){
     var qx=Math.abs(px)-hw+r,qy=Math.abs(py)-hh+r;
@@ -116,11 +116,11 @@ private enum ThemeScopeAssets {
     if(w<2||h<2)return;
     if(el.__lw===w&&el.__lh===h)return;el.__lw=w;el.__lh=h;
     var cs=getComputedStyle(el),r=Math.min(parseFloat(cs.borderTopLeftRadius)||0,Math.min(w,h)/2);
-    var bezel=Math.max(8,Math.min(30,Math.round(Math.min(w,h)*0.22)));
-    var scale=Math.round(bezel*1.4);
-    var sf=Math.min(1,360/Math.max(w,h)),mw=Math.max(2,Math.round(w*sf)),mh=Math.max(2,Math.round(h*sf));
-    var m=genMaps(mw,mh,r*sf,Math.max(2,bezel*sf),0.55,5);
-    var f="url(\\""+flt(w,h,m.d,m.s,scale)+"\\")";
+    var bezel=Math.max(10,Math.min(20,Math.round(Math.min(w,h)*0.13)));
+    var scale=Math.max(40,Math.min(90,Math.round(bezel*3.8)));
+    var sf=Math.min(1,420/Math.max(w,h)),mw=Math.max(2,Math.round(w*sf)),mh=Math.max(2,Math.round(h*sf));
+    var m=genMaps(mw,mh,r*sf,Math.max(2,bezel*sf),0.45,2);
+    var f="blur(2.5px) url(\\""+flt(w,h,m.d,m.s,scale)+"\\")";
     el.style.backdropFilter=f;el.style.webkitBackdropFilter=f;
     }
     var seen=new WeakSet();
