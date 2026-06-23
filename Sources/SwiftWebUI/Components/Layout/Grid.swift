@@ -30,7 +30,7 @@ public struct Grid<Content: HTML>: WebUIAttributeComponent {
                     .custom("--swui-grid-horizontal-spacing", gridSpacingValue(horizontalSpacing))
                     .custom("--swui-grid-vertical-spacing", gridSpacingValue(verticalSpacing))
                     .custom("--swui-grid-cell-horizontal-alignment", alignment.horizontal.textAlign)
-                    .custom("--swui-grid-cell-vertical-alignment", alignment.vertical.tableCellAlignment)
+                    .custom("--swui-grid-cell-vertical-alignment", alignment.vertical.gridAlignItems)
                 },
                 extra: attributes
             )
@@ -104,12 +104,11 @@ public struct GridRow<Content: HTML>: WebUIAttributeComponent {
     }
 
     private var rowStyles: Style {
-        var styles = Style.display("table-row")
+        // The row's CSS grid layout lives in the `.swui-grid-row` rule; this only
+        // overrides the vertical alignment for this row's cells when requested.
+        var styles = Style { }
         if let alignment {
-            // Override the grid's default vertical alignment for this row's
-            // cells; the cells read the value through the inherited custom
-            // property in the `.swui-grid-row > *` rule.
-            styles = styles.custom("--swui-grid-cell-vertical-alignment", alignment.tableCellAlignment)
+            styles = styles.custom("--swui-grid-cell-vertical-alignment", alignment.gridAlignItems)
         }
         return styles
     }
@@ -120,14 +119,16 @@ private func gridSpacingValue(_ spacing: Double?) -> String {
 }
 
 private extension VerticalAlignment {
-    var tableCellAlignment: String {
+    /// Maps a SwiftUI vertical alignment to the CSS Grid `align-items` value used
+    /// to position a row's cells within the row's track.
+    var gridAlignItems: String {
         switch self {
         case .top:
-            "top"
+            "start"
         case .center, .stretch:
-            "middle"
+            "center"
         case .bottom:
-            "bottom"
+            "end"
         }
     }
 }

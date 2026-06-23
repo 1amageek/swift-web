@@ -226,10 +226,20 @@ enum ThemeStylesheet {
         .flex("1 1 auto")
       }
       rule(".swui-grid") {
-        .display("table")
-          .borderCollapse("separate")
-          .borderSpacing("var(--swui-grid-horizontal-spacing) var(--swui-grid-vertical-spacing)")
+        .display("grid")
+          .width("fit-content")
+          .rowGap("var(--swui-grid-vertical-spacing)")
           .boxSizing("border-box")
+      }
+      // SwiftUI Grid lays each GridRow's cells into auto-sized columns; mirror
+      // that with a per-row column grid (a real `display: grid`, not a table).
+      // Equal-width cells line up across rows.
+      rule(".swui-grid-row") {
+        .display("grid")
+          .custom("grid-auto-flow", "column")
+          .custom("grid-auto-columns", "minmax(0, max-content)")
+          .custom("column-gap", "var(--swui-grid-horizontal-spacing)")
+          .alignItems("var(--swui-grid-cell-vertical-alignment)")
       }
       rule(".swui-grid-system") {
         .display("grid")
@@ -1437,9 +1447,7 @@ enum ThemeStylesheet {
         .maxWidth("min(92vw, 20rem)")
       }
       rule(".swui-grid-row > *") {
-        .display("table-cell")
-          .verticalAlign("var(--swui-grid-cell-vertical-alignment)")
-          .textAlign("var(--swui-grid-cell-horizontal-alignment)")
+        .textAlign("var(--swui-grid-cell-horizontal-alignment)")
       }
       // Native form controls inherit the page font.
       rule(
