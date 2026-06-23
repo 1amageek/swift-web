@@ -6,25 +6,19 @@ import SwiftWebUI
 
 struct MediaDetail: Component {
     let selection: String
+    /// Shared control-panel state, keyed "componentID.knob".
+    var state: [String: String] = [:]
 
     var body: some HTML {
         switch selection {
         case "label":
-            HStack(spacing: .large) {
-                Label("Verified", systemImage: "checkmark.seal.fill")
-                Label("Favorite", systemImage: "heart.fill")
-                Label("Pinned", systemImage: "pin.fill")
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        default:
-            HStack(spacing: .medium) {
-                Image(systemName: "star.fill")
-                Image(systemName: "bell.badge")
-                Image(systemName: "gearshape")
-                Image(systemName: "person.crop.circle")
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            let title = state.control("label", "title")
+            Label(title.isEmpty ? "Verified" : title, systemImage: state.control("label", "name"))
+                .font(.title2)
+        default: // image
+            Image(systemName: state.control("image", "name"))
+                .font(.largeTitle)
+                .foregroundStyle(.accent)
         }
     }
 }
-

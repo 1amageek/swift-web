@@ -6,13 +6,15 @@ import SwiftWebUI
 
 struct NavigationDetail: Component {
     let selection: String
-    let tab: Binding<String>
-    let query: Binding<String>
+    /// Shared control-panel state, keyed "componentID.knob".
+    let ui: Binding<[String: String]>
+
+    private var state: [String: String] { ui.wrappedValue }
 
     var body: some HTML {
         switch selection {
         case "tabview":
-            TabView(selection: tab) {
+            TabView(selection: ui.string("tabview.tab")) {
                 Tab("Summary", systemImage: "doc.text", value: "summary") {
                     Text("Summary panel content.").foregroundStyle(.secondary)
                 }
@@ -24,20 +26,14 @@ struct NavigationDetail: Component {
                 }
             }
         case "navigationlink":
-            VStack(alignment: .leading, spacing: .small) {
-                NavigationLink("Overview", destination: URL(string: "#overview")!)
-                NavigationLink(destination: URL(string: "#settings")!) {
-                    Label("Settings", systemImage: "gear")
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            NavigationLink(linkLabel, destination: URL(string: "#overview")!)
         case "searchable":
             List {
                 ListRow { Text("Inbox") }
                 ListRow { Text("Drafts") }
                 ListRow { Text("Sent") }
             }
-            .searchable(text: query)
+            .searchable(text: ui.string("searchable.query"))
         default:
             NavigationStack {
                 VStack(alignment: .leading, spacing: .small) {
@@ -48,5 +44,10 @@ struct NavigationDetail: Component {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
+    }
+
+    private var linkLabel: String {
+        let value = state.control("navigationlink", "label")
+        return value.isEmpty ? "Overview" : value
     }
 }

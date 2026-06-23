@@ -6,52 +6,37 @@ import SwiftWebUI
 
 struct PresentationDetail: Component {
     let selection: String
-    let showsAlert: Binding<Bool>
-    let showsConfirmation: Binding<Bool>
-    let showsSheet: Binding<Bool>
-    let showsPopover: Binding<Bool>
+    /// Shared control-panel state, keyed "componentID.knob".
+    let ui: Binding<[String: String]>
+
+    private var state: [String: String] { ui.wrappedValue }
 
     var body: some HTML {
         switch selection {
         case "sheet":
-            HStack(spacing: .small) {
-                Button("Show sheet") { showsSheet.wrappedValue = true }
-                Button("Show popover") { showsPopover.wrappedValue = true }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .sheet(isPresented: showsSheet) {
-                VStack(alignment: .leading, spacing: .medium) {
-                    Heading("Sheet", level: .section)
-                    Text("A sheet composes the thick material and lifts to the top layer.").foregroundStyle(.secondary)
-                    Button("Done") { showsSheet.wrappedValue = false }
+            Button("Show sheet") { ui.bool("sheet.open").wrappedValue = true }
+                .buttonStyle(.borderedProminent)
+                .sheet(isPresented: ui.bool("sheet.open")) {
+                    VStack(alignment: .leading, spacing: .medium) {
+                        Heading("Sheet", level: .section)
+                        Text("A sheet composes the thick material and lifts to the top layer.")
+                            .foregroundStyle(.secondary)
+                        Button("Done") { ui.bool("sheet.open").wrappedValue = false }
+                    }
                 }
-            }
-            .popover(isPresented: showsPopover) {
-                VStack(alignment: .leading, spacing: .small) {
-                    Text("Popover content anchored to its source.").foregroundStyle(.secondary)
-                    Button("Close") { showsPopover.wrappedValue = false }
+        default: // alert
+            Button("Show alert") { ui.bool("alert.open").wrappedValue = true }
+                .buttonStyle(.borderedProminent)
+                .alert("Delete this draft?", isPresented: ui.bool("alert.open")) {
+                    Button("Delete", action: Action.post("/storyboard/delete"))
+                } message: {
+                    Text(alertMessage)
                 }
-            }
-        default:
-            HStack(spacing: .small) {
-                Button("Show alert") { showsAlert.wrappedValue = true }
-                Button("Show confirmation") { showsConfirmation.wrappedValue = true }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .alert("Delete this draft?", isPresented: showsAlert) {
-                Button("Delete", action: Action.post("/storyboard/delete"))
-            } message: {
-                Text("This action cannot be undone.")
-            }
-            .confirmationDialog(
-                "Discard changes?",
-                isPresented: showsConfirmation,
-                titleVisibility: .visible
-            ) {
-                Button("Discard", action: Action.post("/storyboard/discard"))
-                Button("Keep editing") { showsConfirmation.wrappedValue = false }
-            }
         }
     }
-}
 
+    private var alertMessage: String {
+        let value = state.control("alert", "message")
+        return value.isEmpty ? "This action cannot be undone." : value
+    }
+}

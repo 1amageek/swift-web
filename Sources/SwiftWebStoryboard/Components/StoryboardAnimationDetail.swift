@@ -6,7 +6,10 @@ import SwiftWebUI
 
 struct AnimationDetail: Component {
     let selection: String
-    let on: Binding<Bool>
+    /// Shared control-panel state, keyed "componentID.knob".
+    let ui: Binding<[String: String]>
+
+    private var on: Binding<Bool> { ui.bool("\(selection).on") }
 
     var body: some HTML {
         switch selection {
@@ -19,8 +22,8 @@ struct AnimationDetail: Component {
                 .transition(.scale.combined(with: .opacity))
             }
         case "withanimation":
-            // The button drives the change inside withAnimation, so the whole update
-            // is interpolated.
+            // The button drives the change inside withAnimation, so the whole
+            // update is interpolated.
             VStack(spacing: .medium) {
                 Button(action: {
                     withAnimation(.spring(duration: 0.4, bounce: 0.3)) {
@@ -35,7 +38,7 @@ struct AnimationDetail: Component {
                 }
                 .offset(x: on.wrappedValue ? 64 : 0)
             }
-        default:
+        default: // animation
             // `.animation(_:value:)` interpolates the descendant changes a state
             // change drives.
             GroupBox {

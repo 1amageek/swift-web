@@ -1,4 +1,5 @@
 import Foundation
+import SwiftHTML
 
 // MARK: - Control model
 
@@ -65,6 +66,38 @@ extension Dictionary where Key == String, Value == String {
     }
     func controlNumber(_ id: String, _ key: String) -> Double {
         Double(control(id, key)) ?? 0
+    }
+}
+
+// MARK: - Typed bindings into the shared state
+
+/// Derive typed bindings into the shared `ui` dictionary so an interactive demo
+/// (a real TextField/Toggle/Slider) and its control panel stay linked through
+/// the same `"id.knob"` key.
+extension Binding where Value == [String: String] {
+    func string(_ fullKey: String) -> Binding<String> {
+        Binding<String>(
+            get: { self.wrappedValue[fullKey] ?? storyboardControlDefaults[fullKey] ?? "" },
+            set: { self.wrappedValue[fullKey] = $0 }
+        )
+    }
+    func bool(_ fullKey: String) -> Binding<Bool> {
+        Binding<Bool>(
+            get: { (self.wrappedValue[fullKey] ?? storyboardControlDefaults[fullKey] ?? "false") == "true" },
+            set: { self.wrappedValue[fullKey] = $0 ? "true" : "false" }
+        )
+    }
+    func double(_ fullKey: String) -> Binding<Double> {
+        Binding<Double>(
+            get: { Double(self.wrappedValue[fullKey] ?? storyboardControlDefaults[fullKey] ?? "") ?? 0 },
+            set: { self.wrappedValue[fullKey] = String(format: "%.2f", $0) }
+        )
+    }
+    func int(_ fullKey: String) -> Binding<Int> {
+        Binding<Int>(
+            get: { Int(Double(self.wrappedValue[fullKey] ?? storyboardControlDefaults[fullKey] ?? "") ?? 0) },
+            set: { self.wrappedValue[fullKey] = String($0) }
+        )
     }
 }
 
@@ -295,6 +328,10 @@ func storyboardControls(for id: String) -> [StoryboardControl] {
             .swatch(label: "Tint", key: "tint", options: storyboardTintSwatches),
         ]
 
+    // Animation
+    case "animation", "transition", "withanimation":
+        return [.toggle(label: "animate", key: "on")]
+
     default:
         return []
     }
@@ -354,4 +391,5 @@ let storyboardControlDefaults: [String: String] = [
     "progressview.value": "0.35", "progressview.indeterminate": "false",
     "gauge.value": "0.62",
     "badge.label": "Ready", "badge.tint": "accent",
+    "animation.on": "false", "transition.on": "false", "withanimation.on": "false",
 ]

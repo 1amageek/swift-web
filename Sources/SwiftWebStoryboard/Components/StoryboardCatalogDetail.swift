@@ -184,6 +184,17 @@ struct CatalogDetail: Component {
         }
     }
 
+    private func codeSample(_ language: String) -> String {
+        switch language {
+        case "json":
+            return "{\n  \"columns\": 12,\n  \"gutter\": \"medium\"\n}"
+        case "bash":
+            return "swift run sweb storyboard --port 3001"
+        default:
+            return "GridSystem(columns: 12, gutter: .medium) {\n    Pane(span: 8) { Article() }\n    Pane(span: 4) { Sidebar() }\n}"
+        }
+    }
+
     @HTMLBuilder
     private func detailDemo() -> some HTML {
         switch selection {
@@ -192,47 +203,35 @@ struct CatalogDetail: Component {
         case "typography", "colorvalue":
             FoundationsDetail(selection: selection, state: ui.wrappedValue)
         case "image", "label":
-            MediaDetail(selection: selection)
+            MediaDetail(selection: selection, state: ui.wrappedValue)
         case "code":
-            CodeBlock(catalogSnippet(for: "code"), language: "swift")
-                .frame(maxWidth: .infinity, alignment: .leading)
+            let language = ui.wrappedValue.control("code", "lang")
+            CodeBlock(
+                codeSample(language),
+                language: language,
+                showsLineNumbers: ui.wrappedValue.controlFlag("code", "lineNumbers")
+            )
+            .frame(maxWidth: .infinity, alignment: .leading)
         case "groupbox", "list", "section", "disclosuregroup", "grid", "lazy", "scrollview", "toolbar", "badge":
-            ContainersDetail(selection: selection, advancedOptionsExpanded: advancedOptionsExpanded)
+            ContainersDetail(selection: selection, ui: ui)
         case "tabview", "navigationstack", "navigationlink", "searchable":
-            NavigationDetail(selection: selection, tab: tab, query: query)
+            NavigationDetail(selection: selection, ui: ui)
         case "stacks", "spacer", "divider", "hug-fill":
-            LayoutDetail(selection: selection)
+            LayoutDetail(selection: selection, state: ui.wrappedValue)
         case "button", "button-styles", "control-sizes", "button-states", "links":
             ButtonsDetail(selection: selection, state: ui.wrappedValue)
         case "animation", "transition", "withanimation":
-            AnimationDetail(selection: selection, on: animateOn)
+            AnimationDetail(selection: selection, ui: ui)
         case "menu", "picker":
-            PickersDetail(selection: selection, pick: pick, segment: segment, scope: scope, menuPick: menuPick)
+            PickersDetail(selection: selection, ui: ui)
         case "securefield", "texteditor", "toggle", "slider", "stepper", "datepicker", "colorpicker", "form", "textfield":
-            InputsDetail(
-                selection: selection,
-                name: name,
-                email: email,
-                secret: secret,
-                notes: notes,
-                enabled: enabled,
-                volume: volume,
-                density: density,
-                due: due,
-                accent: accent
-            )
+            InputsDetail(selection: selection, ui: ui, due: due)
         case "color":
             FoundationsDetail(selection: selection, state: ui.wrappedValue)
         case "progressview", "gauge":
             StatusDetail(selection: selection, state: ui.wrappedValue)
         case "alert", "sheet":
-            PresentationDetail(
-                selection: selection,
-                showsAlert: showsAlert,
-                showsConfirmation: showsConfirmation,
-                showsSheet: showsSheet,
-                showsPopover: showsPopover
-            )
+            PresentationDetail(selection: selection, ui: ui)
         default:
             FoundationsDetail(selection: selection, state: ui.wrappedValue)
         }
