@@ -32,24 +32,28 @@ struct ThemeScope<Content: HTML>: Component {
 
 private enum ThemeScopeAssets {
     // Liquid Glass is generated per element on the client, following the method
-    // in https://kube.io/blog/liquid-glass-css-svg/. The maps have to match each
-    // surface's exact pixel size and corner radius — one stretched global filter
-    // folds the corners into a bright caustic. A canvas builds two maps from the
-    // rounded-rect signed-distance field: a displacement map (in a fixed-width rim
-    // band, the displacement points along the outward normal scaled by a
-    // Snell's-law refraction profile normalized to a peak of 1, so the magnitude
-    // is uniform around the whole perimeter and never concentrates into a focal
-    // point) and a specular map (the surface normal dotted with a fixed light).
-    // The filter refracts the backdrop and screens the highlight on top, applied
-    // as `backdrop-filter: url(...)` on each `.swui-glass` and recomputed on
-    // resize. Chromium applies it; Safari keeps the CSS blur fallback.
+    // in https://kube.io/blog/liquid-glass-css-svg/ with the optical model from
+    // AndrewPrifer/liquid-dom. The maps have to match each surface's exact pixel
+    // size and corner radius — one stretched global filter folds the corners into
+    // a bright caustic. A canvas builds two maps from the rounded-rect
+    // signed-distance field: a displacement map (in a fixed-width rim band, the
+    // displacement points along the outward normal scaled by a Snell's-law
+    // refraction profile normalized to a peak of 1, so the magnitude is uniform
+    // around the whole perimeter and never concentrates into a focal point) and a
+    // specular map (a rim highlight on the light-facing edge and a dimmer one on
+    // the opposite edge). The filter refracts the backdrop in three passes at a
+    // small per-channel scale spread (dispersion, the coloured edge), screens the
+    // highlight on top, and is applied as `backdrop-filter: url(...)` on each
+    // `.swui-glass`, recomputed on resize. Chromium applies it; Safari keeps the
+    // CSS blur fallback.
     static let refractionScript = """
     <script>
     (function(){
     if(window.__swuiGlass)return;window.__swuiGlass=true;
-    var ETA=1/1.5,NS=128;
-    // Fixed light for the specular highlight: -45 deg in plane, raised 42 deg.
-    var LA=-45*Math.PI/180,LE=42*Math.PI/180,LX=Math.cos(LA)*Math.cos(LE),LY=Math.sin(LA)*Math.cos(LE),LZ=Math.sin(LE);
+    var ETA=1/1.5,NS=128,OPP=0.45,DISP=0.07;
+    // Fixed -45 deg key light for the specular highlight, in-plane. The rim
+    // facing the light gets the full highlight; the opposite rim gets it at OPP.
+    var LA=-45*Math.PI/180,LX2=Math.cos(LA),LY2=Math.sin(LA);
     // Signed distance of a point to a rounded rectangle (negative inside).
     function sdf(px,py,hw,hh,r){
     var qx=Math.abs(px)-hw+r,qy=Math.abs(py)-hh+r;
@@ -59,17 +63,17 @@ private enum ThemeScopeAssets {
     // convex squircle surface, normalized to a peak of 1, plus the surface tilt
     // (sin/cos) used to light the specular highlight. Same for every element.
     function buildProfile(){
-    var dp=new Float32Array(NS),st=new Float32Array(NS),ct=new Float32Array(NS),mx=0,i;
+    var dp=new Float32Array(NS),st=new Float32Array(NS),mx=0,i;
     for(i=0;i<NS;i++){
     var x=i/(NS-1),ox=1-x,u=1-Math.pow(ox,4);
     var slope=u<=1e-5?80:Math.pow(ox,3)/Math.pow(u,0.75);if(slope>80)slope=80;
-    var nl=Math.hypot(slope,1);st[i]=slope/nl;ct[i]=1/nl;
+    var nl=Math.hypot(slope,1);st[i]=slope/nl;
     var Nx=-slope/nl,Ny=1/nl,cosi=Ny,k=1-ETA*ETA*(1-cosi*cosi),dx=0;
     if(k>=0){var c=ETA*cosi-Math.sqrt(k),Tx=c*Nx,Ty=-ETA+c*Ny;if(Ty<0)dx=Tx/(-Ty);}
     dp[i]=dx;var a=Math.abs(dx);if(a>mx)mx=a;
     }
     for(i=0;i<NS;i++)dp[i]=mx>0?dp[i]/mx:0;
-    return {dp:dp,st:st,ct:ct};
+    return {dp:dp,st:st};
     }
     var P=buildProfile();
     // One pass over the rim band builds both maps. The displacement points along
@@ -90,22 +94,27 @@ private enum ThemeScopeAssets {
     var gy=sdf(px,py+1,hw,hh,r)-sdf(px,py-1,hw,hh,r);
     var gl=Math.hypot(gx,gy)||1,nx=gx/gl,ny=gy/gl;
     R=NS+nx*mag*127;G=NS+ny*mag*127;
-    var sinT=P.st[idx],cosT=P.ct[idx],dot=nx*sinT*LX+ny*sinT*LY+cosT*LZ;
-    if(dot>0)sp=Math.pow(dot,sharp);
+    var ip=nx*LX2+ny*LY2,main=Math.pow(Math.max(0,ip),sharp),opp=OPP*Math.pow(Math.max(0,-ip),sharp);
+    sp=(main+opp)*P.st[idx];
     }
     var o=(y*w+x)*4;
     dd[o]=R;dd[o+1]=G;dd[o+2]=NS;dd[o+3]=255;
-    var v=Math.round(255*sp*specOp);sd[o]=v;sd[o+1]=v;sd[o+2]=v;sd[o+3]=255;
+    var v=Math.round(255*Math.min(1,sp)*specOp);sd[o]=v;sd[o+1]=v;sd[o+2]=v;sd[o+3]=255;
     }
     xd.putImageData(di,0,0);xs.putImageData(si,0,0);
     return {d:cd.toDataURL(),s:cs.toDataURL()};
     }
-    // Refract the backdrop, then screen the specular highlight on top.
+    // Refract the backdrop with a small per-channel scale spread (dispersion,
+    // the coloured glass edge), then screen the specular highlight on top.
     function flt(w,h,dm,sm,scale){
+    var sR=Math.round(scale*(1+DISP)),sB=Math.round(scale*(1-DISP));
     var s="<svg height='"+h+"' width='"+w+"' viewBox='0 0 "+w+" "+h+"' xmlns='http://www.w3.org/2000/svg'><defs>"
     +"<filter id='d' color-interpolation-filters='sRGB'>"
     +"<feImage x='0' y='0' width='"+w+"' height='"+h+"' href='"+dm+"' result='dm'/>"
-    +"<feDisplacementMap in='SourceGraphic' in2='dm' scale='"+scale+"' xChannelSelector='R' yChannelSelector='G' result='ref'/>"
+    +"<feDisplacementMap in='SourceGraphic' in2='dm' scale='"+sR+"' xChannelSelector='R' yChannelSelector='G'/><feColorMatrix type='matrix' values='1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0' result='cr'/>"
+    +"<feDisplacementMap in='SourceGraphic' in2='dm' scale='"+scale+"' xChannelSelector='R' yChannelSelector='G'/><feColorMatrix type='matrix' values='0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 1 0' result='cg'/>"
+    +"<feDisplacementMap in='SourceGraphic' in2='dm' scale='"+sB+"' xChannelSelector='R' yChannelSelector='G'/><feColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 1 0' result='cb'/>"
+    +"<feBlend in='cr' in2='cg' mode='screen' result='rg'/><feBlend in='rg' in2='cb' mode='screen' result='ref'/>"
     +"<feImage x='0' y='0' width='"+w+"' height='"+h+"' href='"+sm+"' result='sp'/>"
     +"<feBlend in='ref' in2='sp' mode='screen'/>"
     +"</filter></defs></svg>";
