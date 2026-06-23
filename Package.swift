@@ -47,7 +47,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/1amageek/swift-html.git", from: "0.6.6"),
-        .package(url: "https://github.com/swiftwasm/JavaScriptKit.git", from: "0.55.0"),
+        .package(url: "https://github.com/1amageek/JavaScriptKit.git", branch: "main"),
         .package(url: "https://github.com/1amageek/swift-actor-runtime.git", exact: "0.5.0"),
     ] + (swiftWebCoreOnly ? [] : [
         .package(url: "https://github.com/vapor/vapor.git", revision: "fff4892930e69b49ea2612699bed9583721723dc"),
