@@ -95,7 +95,6 @@ public struct StoryboardCatalog: ClientComponent, Sendable {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .environment(\.theme, theme)
-        .environment(\.styleSystem, .swiftWeb)
     }
 }
 

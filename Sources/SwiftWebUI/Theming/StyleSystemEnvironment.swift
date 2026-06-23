@@ -1,7 +1,10 @@
 import SwiftHTML
 
 struct StyleSystemEnvironmentKey: ClientEnvironmentKey {
-    static let defaultValue = StyleSystem.default
+    // Liquid Glass is SwiftWebUI's default surface treatment: materials render as
+    // translucent glass with edge-lensing refraction unless a view opts into a
+    // solid style (`.swiftWeb`).
+    static let defaultValue = StyleSystem.liquidGlass
 }
 
 extension EnvironmentValues {

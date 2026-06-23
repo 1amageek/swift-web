@@ -29,6 +29,7 @@ struct SwiftWebUIRenderingTests {
       }
     }
     .environment(\.theme, .system)
+    .environment(\.styleSystem, .swiftWeb)
     .render()
 
     #expect(rendered.contains("[data-theme=\"system\"]"))
