@@ -1589,12 +1589,12 @@ enum ThemeStylesheet {
             "blur(var(--swui-material-blur)) saturate(var(--swui-material-saturate)) brightness(calc(var(--swui-material-brightness) * var(--swui-material-interactive, 1)))"
           )
       }
-      // Liquid Glass is refractive: only a light blur, so the edge-lensing
-      // refraction (the ::before) shows through and *reveals* the backdrop bent
-      // at the rim (SwiftUI `Glass` / `glassEffect`). For floating controls.
+      // Liquid Glass is refractive: a light tint and a faint blur, while the
+      // per-element client script sets the `backdrop-filter` that lenses the
+      // backdrop at the rim and adds the specular highlight (SwiftUI `Glass` /
+      // `glassEffect`). No border, drop shadow, or CSS rim — the refraction and
+      // the highlight, both inside the filter, are the whole effect.
       rule(".swui-glass") {
-        // A lighter tint than Material so the refracted backdrop reads clearly —
-        // glass reveals, it does not frost.
         .background(
           "color-mix(in srgb, var(--swui-material-tint) calc(var(--swui-material-level-opacity) * 42%), transparent)"
         )
@@ -1605,41 +1605,6 @@ enum ThemeStylesheet {
             "-webkit-backdrop-filter",
             "blur(var(--swui-glass-blur)) saturate(var(--swui-material-saturate)) brightness(calc(var(--swui-material-brightness) * var(--swui-material-interactive, 1)))"
           )
-          // Glass is a *floating* control (SwiftUI applies `glassEffect` to
-          // buttons/toolbars, not backgrounds), so it carries a bright glassy
-          // edge and a drop shadow that lifts it off the backdrop. These are
-          // the "Highlight" and "Shadow" of Apple's three Liquid Glass layers;
-          // the refraction (the third) is applied to this element's
-          // backdrop-filter by the per-element client script, and the `::before`
-          // adds the specular sheen on top.
-          .boxSizing("border-box")
-          .custom("border", "1px solid color-mix(in srgb, white 42%, transparent)")
-          .boxShadow(
-            "0 12px 34px -10px rgba(15, 23, 42, 0.45), 0 3px 10px -4px rgba(15, 23, 42, 0.28)"
-          )
-      }
-      // Glass-only overlay: the SVG displacement refraction (a second
-      // backdrop-filter pass), a top specular sheen, and the rim. Material has
-      // none of these. On Safari the `url()` backdrop-filter is ignored and only
-      // the base blur remains — a documented degradation, not a silent one.
-      rule(".swui-glass::before") {
-        .content("\"\"")
-          .position("absolute")
-          .inset("0")
-          .zIndex("-1")
-          .borderRadius("inherit")
-          .custom(
-            "background",
-            "linear-gradient(150deg, color-mix(in srgb, white 50%, transparent) 0%, transparent 26%, transparent 72%, color-mix(in srgb, white 14%, transparent) 100%)"
-          )
-          // The glassy rim: a bright crisp top edge plus a soft inner sheen, and
-          // a brighter bottom edge where the curved glass catches light from
-          // below. This inner light is what reads as a dimensional glass bead
-          // rather than a flat tinted panel.
-          .boxShadow(
-            "inset 0 1px 0.5px rgba(255,255,255,0.92), inset 0 7px 16px -10px rgba(255,255,255,0.55), inset 0 -1.5px 1px rgba(255,255,255,0.6), inset 0 -9px 18px -12px rgba(255,255,255,0.35)"
-          )
-          .pointerEvents("none")
       }
       // Level modifiers scale the regular-level opacity by ±N steps. Solid
       // styles use a zero step, collapsing every level onto one fill.

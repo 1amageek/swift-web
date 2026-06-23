@@ -867,21 +867,17 @@ public extension StyleSystem {
             .standard(.init(milliseconds: 240, curve: .cubicBezier(0.16, 1, 0.3, 1)))
         }
         .material {
-            // Real Liquid Glass: translucent surface tint scaled per level, a
-            // wide backdrop blur with boosted saturation, a specular rim, and the
-            // SVG displacement refraction. `solidFill` is the opaque fallback for
-            // browsers without `backdrop-filter` and for reduced-transparency.
+            // Real Liquid Glass: a translucent surface tint scaled per level and
+            // a faint backdrop blur with boosted saturation. The refraction and
+            // specular highlight are generated per element by the client script,
+            // not configured here. `solidFill` is the opaque fallback for browsers
+            // without `backdrop-filter` and for reduced-transparency.
             .tint(.surface)
             .opacity(0.62)
             .opacityStep(0.07)
             .blur(24)
             .saturate(1.6)
             .brightness(1.05)
-            .rim(.layers([
-                .inset(y: 1, blur: 0, spread: 0, color: Color.white.opacity(0.7)),
-                .inset(y: .px(-1), blur: 1, spread: 0, color: Color.black.opacity(0.12)),
-            ]))
-            .refraction(.svgFilter(id: "swui-glass-refraction"))
             .solidFill(Color.surface.mix(with: .border, by: 0.12))
         }
     }

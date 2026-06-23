@@ -101,12 +101,12 @@ struct SwiftWebUIRenderingTests {
 
     #expect(rendered.contains("data-style-system=\"liquid-glass\""))
     // The liquid-glass knobs feed the single shared material recipe: a
-    // translucent surface tint scaled per level, a wide saturated backdrop
-    // blur, and the SVG displacement refraction.
+    // translucent surface tint scaled per level and a saturated backdrop blur.
+    // The refraction and specular highlight are generated per element by the
+    // client script, so they are not emitted as style-system CSS variables.
     #expect(rendered.contains("--swui-material-opacity: 0.62;"))
     #expect(rendered.contains("--swui-material-blur: 24px;"))
     #expect(rendered.contains("--swui-material-saturate: 1.6;"))
-    #expect(rendered.contains("--swui-material-refraction: url("))
     #expect(rendered.contains("--swui-button-radius: 999px;"))
     // Chrome composes a material level instead of hand-rolling translucency.
     #expect(rendered.contains("class=\"swui-group-box swui-material swui-material-regular\""))
