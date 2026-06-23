@@ -1,12 +1,11 @@
 /// A background material that adapts to the active theme and design style.
 ///
-/// `Material` is SwiftWebUI's canonical translucency primitive, mirroring
-/// SwiftUI's `Material` (`.ultraThinMaterial` … `.bar`). A material resolves to
-/// the shared `swui-material` recipe plus a per-level modifier class; the level
-/// only varies the fill translucency. In solid design styles (`swiftWeb`,
-/// `material`) every level renders as an opaque surface, so component code is
-/// style-independent: it always composes a material and the design style decides
-/// whether that reads as glass or as a plain surface.
+/// `Material` is SwiftWebUI's frosted-vibrancy primitive, mirroring SwiftUI's
+/// `Material` (`.ultraThinMaterial` … `.bar`): a wide backdrop blur that
+/// *obscures* the content behind it, with the level varying the fill
+/// translucency. It is distinct from `Glass`, which refracts and reveals the
+/// backdrop. In a solid design style (`swiftWeb`) every level renders as an
+/// opaque surface; in the glass default it reads as frosted glass.
 public struct Material: ShapeStyle, Sendable, Equatable {
     public enum Level: String, Sendable, Equatable, CaseIterable {
         case ultraThin

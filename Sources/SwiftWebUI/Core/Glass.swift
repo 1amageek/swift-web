@@ -4,9 +4,10 @@ import SwiftHTML
 ///
 /// Mirrors SwiftUI's `Glass`: `.regular` and `.clear` pick how much of the
 /// backdrop shows through, `.identity` is a no-op, and `.tint(_:)` /
-/// `.interactive(_:)` refine the surface. The effect shares the single
-/// `swui-glass` recipe (backdrop blur, specular rim, SVG refraction) with
-/// `Material`; the variant only selects the fill translucency level.
+/// `.interactive(_:)` refine the surface. Liquid Glass has its own `swui-glass`
+/// recipe — a light blur plus edge-lensing SVG refraction, a specular sheen, and
+/// a rim — that *reveals* the backdrop, distinct from `Material`'s frosted blur
+/// that obscures it. The variant only selects the fill translucency level.
 public struct Glass: Sendable, Equatable {
     enum Variant: Sendable, Equatable {
         case regular

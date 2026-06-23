@@ -1561,6 +1561,8 @@ enum ThemeStylesheet {
       // context so the `::before` overlay paints above the fill but below
       // the element content (z-index: -1). The interactive multiplier folds
       // into the backdrop brightness and defaults to 1.
+      // Shared base: a translucent fill and its own stacking context. The glass
+      // blur is a fraction of the material blur so refraction can show through.
       rule(
         """
         .swui-material,
@@ -1570,28 +1572,40 @@ enum ThemeStylesheet {
         .position("relative")
           .isolation("isolate")
           .custom("--swui-material-level-opacity", "var(--swui-material-opacity)")
+          .custom("--swui-glass-blur", "calc(var(--swui-material-blur) * 0.22)")
           .background(
             "color-mix(in srgb, var(--swui-material-tint) calc(var(--swui-material-level-opacity) * 100%), transparent)"
           )
-          .backdropFilter(
-            "blur(var(--swui-material-blur)) saturate(var(--swui-material-saturate)) brightness(calc(var(--swui-material-brightness) * var(--swui-material-interactive, 1)))"
-          )
+      }
+      // Material is frosted vibrancy: a wide Gaussian blur that *scatters* and
+      // obscures the backdrop (SwiftUI `.regularMaterial` etc.). No refraction,
+      // no specular — a flat translucent layer for backgrounds.
+      rule(".swui-material") {
+        .backdropFilter(
+          "blur(var(--swui-material-blur)) saturate(var(--swui-material-saturate)) brightness(calc(var(--swui-material-brightness) * var(--swui-material-interactive, 1)))"
+        )
           .custom(
             "-webkit-backdrop-filter",
             "blur(var(--swui-material-blur)) saturate(var(--swui-material-saturate)) brightness(calc(var(--swui-material-brightness) * var(--swui-material-interactive, 1)))"
           )
       }
-      // One overlay carries both the SVG displacement refraction (a second
-      // backdrop-filter pass) and the specular rim (inset shadow), leaving
-      // `::after` free for component pseudo-elements (e.g. the toggle
-      // thumb). On Safari the `url()` backdrop-filter is ignored and only
+      // Liquid Glass is refractive: only a light blur, so the edge-lensing
+      // refraction (the ::before) shows through and *reveals* the backdrop bent
+      // at the rim (SwiftUI `Glass` / `glassEffect`). For floating controls.
+      rule(".swui-glass") {
+        .backdropFilter(
+          "blur(var(--swui-glass-blur)) saturate(var(--swui-material-saturate)) brightness(calc(var(--swui-material-brightness) * var(--swui-material-interactive, 1)))"
+        )
+          .custom(
+            "-webkit-backdrop-filter",
+            "blur(var(--swui-glass-blur)) saturate(var(--swui-material-saturate)) brightness(calc(var(--swui-material-brightness) * var(--swui-material-interactive, 1)))"
+          )
+      }
+      // Glass-only overlay: the SVG displacement refraction (a second
+      // backdrop-filter pass), a top specular sheen, and the rim. Material has
+      // none of these. On Safari the `url()` backdrop-filter is ignored and only
       // the base blur remains — a documented degradation, not a silent one.
-      rule(
-        """
-        .swui-material::before,
-        .swui-glass::before
-        """
-      ) {
+      rule(".swui-glass::before") {
         .content("\"\"")
           .position("absolute")
           .inset("0")
@@ -1599,6 +1613,10 @@ enum ThemeStylesheet {
           .borderRadius("inherit")
           .backdropFilter("var(--swui-material-refraction)")
           .custom("-webkit-backdrop-filter", "var(--swui-material-refraction)")
+          .custom(
+            "background",
+            "linear-gradient(170deg, color-mix(in srgb, white 32%, transparent), transparent 24%, transparent 76%, color-mix(in srgb, white 9%, transparent))"
+          )
           .boxShadow("var(--swui-material-rim)")
           .pointerEvents("none")
       }
