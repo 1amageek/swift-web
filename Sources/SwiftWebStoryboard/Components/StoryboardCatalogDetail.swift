@@ -210,7 +210,7 @@ struct CatalogDetail: Component {
     @HTMLBuilder
     private func detailDemo() -> some HTML {
         switch selection {
-        case "gridsystem", "spacing", "alignment", "style", "responsive", "safearea":
+        case "gridsystem", "spacing", "alignment", "style", "responsive", "safearea", "materials":
             FoundationsDetail(selection: selection, state: ui.wrappedValue)
         case "typography", "colorvalue":
             FoundationsDetail(selection: selection, state: ui.wrappedValue)

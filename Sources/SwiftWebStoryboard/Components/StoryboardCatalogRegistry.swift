@@ -39,6 +39,7 @@ public let catalogCategories: [CatalogCategory] = [
         CatalogItem(id: "style", name: "Style", code: ".swui-text · .swui-list · .swui-toolbar", summary: "Components emit stable semantic classes and the cascade defines contextual styling."),
         CatalogItem(id: "responsive", name: "Responsive", code: "compact · regular · large", summary: "The same lattice changes column count and gutter by width; content reflows rather than scaling."),
         CatalogItem(id: "safearea", name: "Safe area", code: "ignoresSafeArea()", summary: "SwiftWebUI keeps content away from browser and device chrome by default."),
+        CatalogItem(id: "materials", name: "Materials & Glass", code: ".regularMaterial · glassEffect()", summary: "Material frosts the backdrop (vibrancy); Liquid Glass refracts it. Glass is the default surface."),
     ]),
     CatalogCategory(id: "content", title: "Content", items: [
         CatalogItem(id: "typography", name: "Text", code: "Text(_:as:)", summary: "Displays read-only text with semantic font, weight, alignment, and foreground style."),

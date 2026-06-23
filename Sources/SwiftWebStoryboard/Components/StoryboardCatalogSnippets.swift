@@ -57,6 +57,16 @@ func catalogSnippet(for id: String) -> String {
       Hero()
           .ignoresSafeArea()
       """
+  case "materials":
+    return """
+      // Material — frosted vibrancy, for backgrounds
+      Panel()
+          .background(.regularMaterial, in: .rect(cornerRadius: 18))
+
+      // Liquid Glass — refraction, for floating controls (the default)
+      Panel()
+          .glassEffect(.regular, in: .rect(cornerRadius: 18))
+      """
   case "typography":
     return """
       Text("Hello, SwiftWebUI")
