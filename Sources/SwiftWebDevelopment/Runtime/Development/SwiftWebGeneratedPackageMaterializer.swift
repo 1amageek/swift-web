@@ -9,6 +9,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
   public var serverProductName: String
   public var devProductName: String?
   public var wasmSplitBuildStrategy: SwiftWebWasmSplitBuildStrategy
+  public var wasmRuntimeProfile: SwiftWebWasmRuntimeProfile
 
   public init(
     appPackageDirectory: URL,
@@ -16,7 +17,8 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
     appProductName: String? = nil,
     serverProductName: String = "app-server",
     devProductName: String? = nil,
-    wasmSplitBuildStrategy: SwiftWebWasmSplitBuildStrategy = .defaultValue()
+    wasmSplitBuildStrategy: SwiftWebWasmSplitBuildStrategy = .defaultValue(),
+    wasmRuntimeProfile: SwiftWebWasmRuntimeProfile = .defaultValue()
   ) {
     let standardizedAppPackageDirectory = appPackageDirectory.standardizedFileURL
     self.appPackageDirectory = standardizedAppPackageDirectory
@@ -30,6 +32,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
     self.serverProductName = serverProductName
     self.devProductName = devProductName
     self.wasmSplitBuildStrategy = wasmSplitBuildStrategy
+    self.wasmRuntimeProfile = wasmRuntimeProfile
   }
 
   private var serverPackageDirectory: URL {
@@ -289,28 +292,29 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
       appProductName: appProductName,
       wasmRuntimeTargets: wasmRuntimeTargets
     )
-    try copyClientSources(appProductName: appProductName, to: wasmPackageDirectory)
-    try copySwiftHTMLRuntimeSources(
-      swiftHTMLPackageDirectory: swiftHTMLPackageDirectory,
-      swiftWebPackageDirectory: swiftWebPackageDirectory,
-      to: wasmPackageDirectory
-    )
-    try copyClientRuntimeSources(from: swiftWebPackageDirectory, to: wasmPackageDirectory)
+    switch wasmRuntimeProfile {
+    case .standard:
+      try copyClientSources(appProductName: appProductName, to: wasmPackageDirectory)
+      try copySwiftHTMLRuntimeSources(
+        swiftHTMLPackageDirectory: swiftHTMLPackageDirectory,
+        swiftWebPackageDirectory: swiftWebPackageDirectory,
+        to: wasmPackageDirectory
+      )
+      try copyClientRuntimeSources(from: swiftWebPackageDirectory, to: wasmPackageDirectory)
+    case .embedded:
+      try copySwiftHTMLEmbeddedRuntimeSources(
+        swiftHTMLPackageDirectory: swiftHTMLPackageDirectory,
+        swiftWebPackageDirectory: swiftWebPackageDirectory,
+        to: wasmPackageDirectory
+      )
+    }
     try copyJavaScriptKitRuntimeSources(
       swiftWebPackageDirectory: swiftWebPackageDirectory,
       to: wasmPackageDirectory
     )
     try removeStaleWasmSourceTargets(
       keeping: Set(
-        [
-          appProductName,
-          "_CJavaScriptKit",
-          "JavaScriptKit",
-          "SwiftHTML",
-          "SwiftWebActors",
-          "SwiftWebUI",
-          "SwiftWebUIRuntime",
-        ]
+        wasmRuntimeProfile.wasmSourceTargets(appProductName: appProductName)
           + wasmRuntimeTargetNames
       )
     )
@@ -335,7 +339,8 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
       wasmRuntimeTargetNames: wasmRuntimeTargetNames,
       actorRuntimeDependencyDeclaration: try actorRuntimeDependencyDeclaration(
         fallbackPackageDirectory: swiftWebPackageDirectory
-      )
+      ),
+      runtimeProfile: wasmRuntimeProfile
     )
     try removeGeneratedBuildDirectoryIfPackageChanged(
       in: serverPackageDirectory,
@@ -835,6 +840,31 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
     )
   }
 
+  private func copySwiftHTMLEmbeddedRuntimeSources(
+    swiftHTMLPackageDirectory: URL?,
+    swiftWebPackageDirectory: URL,
+    to packageDirectory: URL
+  ) throws {
+    let sourceDirectory = try swiftHTMLEmbeddedSourceDirectory(
+      swiftHTMLPackageDirectory: swiftHTMLPackageDirectory,
+      swiftWebPackageDirectory: swiftWebPackageDirectory
+    )
+    let destinationDirectory =
+      packageDirectory
+      .appendingPathComponent("Sources", isDirectory: true)
+      .appendingPathComponent("SwiftHTMLEmbedded", isDirectory: true)
+    try FileManager.default.createDirectory(
+      at: destinationDirectory,
+      withIntermediateDirectories: true
+    )
+    try mirrorDirectoryContents(
+      from: sourceDirectory,
+      to: destinationDirectory,
+      relativePath: "",
+      shouldSkip: { _ in false }
+    )
+  }
+
   private func swiftHTMLSourceDirectory(
     swiftHTMLPackageDirectory: URL?,
     swiftWebPackageDirectory: URL
@@ -848,6 +878,23 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
       return candidate
     }
     throw SwiftWebGeneratedPackageMaterializerError.swiftHTMLRuntimeSourcesNotFound(candidates)
+  }
+
+  private func swiftHTMLEmbeddedSourceDirectory(
+    swiftHTMLPackageDirectory: URL?,
+    swiftWebPackageDirectory: URL
+  ) throws -> URL {
+    let candidates = Self.swiftHTMLEmbeddedSourceDirectoryCandidates(
+      swiftHTMLPackageDirectory: swiftHTMLPackageDirectory,
+      appPackageDirectory: appPackageDirectory,
+      swiftWebPackageDirectory: swiftWebPackageDirectory
+    )
+    for candidate in candidates where Self.isSwiftHTMLEmbeddedSourceDirectory(candidate) {
+      return candidate
+    }
+    throw SwiftWebGeneratedPackageMaterializerError.swiftHTMLEmbeddedRuntimeSourcesNotFound(
+      candidates
+    )
   }
 
   private static func swiftHTMLSourceDirectoryCandidates(
@@ -887,11 +934,55 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
     }
   }
 
+  private static func swiftHTMLEmbeddedSourceDirectoryCandidates(
+    swiftHTMLPackageDirectory: URL?,
+    appPackageDirectory: URL,
+    swiftWebPackageDirectory: URL
+  ) -> [URL] {
+    let compiledPackageDirectory = packageDirectoryContainingThisFile()
+    let explicitCandidates =
+      swiftHTMLPackageDirectory.map {
+        [$0.appendingPathComponent("Sources/SwiftHTMLEmbedded", isDirectory: true)]
+      } ?? []
+    let checkoutParents = [
+      appPackageDirectory.appendingPathComponent(".build/checkouts", isDirectory: true),
+      swiftWebPackageDirectory.appendingPathComponent(".build/checkouts", isDirectory: true),
+      swiftWebPackageDirectory.deletingLastPathComponent(),
+      compiledPackageDirectory.appendingPathComponent(".build/checkouts", isDirectory: true),
+      compiledPackageDirectory.deletingLastPathComponent(),
+    ]
+
+    var candidates = explicitCandidates
+    for parent in checkoutParents {
+      candidates.append(
+        parent.appendingPathComponent("swift-html/Sources/SwiftHTMLEmbedded", isDirectory: true))
+      candidates.append(
+        parent.appendingPathComponent("SwiftHTML/Sources/SwiftHTMLEmbedded", isDirectory: true))
+    }
+
+    var seen = Set<String>()
+    return candidates.filter { candidate in
+      let path = candidate.standardizedFileURL.path
+      guard !seen.contains(path) else {
+        return false
+      }
+      seen.insert(path)
+      return true
+    }
+  }
+
   private static func isSwiftHTMLSourceDirectory(_ sourceDirectory: URL) -> Bool {
     let htmlSource = sourceDirectory.appendingPathComponent("Core/HTML.swift")
     let rendererSource = sourceDirectory.appendingPathComponent("Rendering/HTMLRenderer.swift")
     return FileManager.default.fileExists(atPath: htmlSource.path)
       && FileManager.default.fileExists(atPath: rendererSource.path)
+  }
+
+  private static func isSwiftHTMLEmbeddedSourceDirectory(_ sourceDirectory: URL) -> Bool {
+    let documentSource = sourceDirectory.appendingPathComponent("EmbeddedHTMLDocument.swift")
+    let hostSource = sourceDirectory.appendingPathComponent("EmbeddedDOMHost.swift")
+    return FileManager.default.fileExists(atPath: documentSource.path)
+      && FileManager.default.fileExists(atPath: hostSource.path)
   }
 
   private static func shouldSkipSwiftHTMLRuntimeSource(relativePath: String) -> Bool {
@@ -1451,21 +1542,155 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
     appPackageName: String,
     appProductName: String,
     wasmRuntimeTargetNames: [String],
+    actorRuntimeDependencyDeclaration: String,
+    runtimeProfile: SwiftWebWasmRuntimeProfile
+  ) -> String {
+    switch runtimeProfile {
+    case .standard:
+      return standardWasmPackageSwift(
+        appPackageName: appPackageName,
+        appProductName: appProductName,
+        wasmRuntimeTargetNames: wasmRuntimeTargetNames,
+        actorRuntimeDependencyDeclaration: actorRuntimeDependencyDeclaration
+      )
+    case .embedded:
+      return embeddedWasmPackageSwift(
+        appPackageName: appPackageName,
+        wasmRuntimeTargetNames: wasmRuntimeTargetNames
+      )
+    }
+  }
+
+  private func standardWasmPackageSwift(
+    appPackageName: String,
+    appProductName: String,
+    wasmRuntimeTargetNames: [String],
     actorRuntimeDependencyDeclaration: String
   ) -> String {
-    let wasmTargetDeclarations = wasmRuntimeTargetNames.map { targetName in
-      wasmRuntimeTargetDeclaration(targetName: targetName, appProductName: appProductName)
-    }
-    .joined(separator: "\n\n")
+    wasmPackageSwiftContents(
+      appPackageName: appPackageName,
+      wasmRuntimeTargetNames: wasmRuntimeTargetNames,
+      targetDeclarations: wasmRuntimeTargetNames.map { targetName in
+        standardWasmRuntimeTargetDeclaration(targetName: targetName, appProductName: appProductName)
+      },
+      supportTargetDeclarations: [
+        """
+        let appClientTarget = Target.target(
+            name: "\(appProductName)",
+            dependencies: [
+                "SwiftHTML",
+                "SwiftWebActors",
+                "SwiftWebUI",
+                "SwiftWebUIRuntime",
+            ],
+            path: "Sources/\(appProductName)",
+            swiftSettings: swiftSettings
+        )
+        """,
+        """
+        let swiftHTMLTarget = Target.target(
+            name: "SwiftHTML",
+            path: "Sources/SwiftHTML",
+            swiftSettings: swiftSettings
+        )
+        """,
+        """
+        let swiftWebActorsTarget = Target.target(
+            name: "SwiftWebActors",
+            dependencies: [
+                .product(name: "ActorRuntime", package: "swift-actor-runtime"),
+            ],
+            path: "Sources/SwiftWebActors",
+            swiftSettings: swiftSettings
+        )
+        """,
+        """
+        let swiftWebUITarget = Target.target(
+            name: "SwiftWebUI",
+            dependencies: [
+                "SwiftHTML",
+            ],
+            path: "Sources/SwiftWebUI",
+            swiftSettings: swiftSettings
+        )
+        """,
+        javaScriptKitTargetDeclarations(),
+        """
+        let swiftWebUIRuntimeTarget = Target.target(
+            name: "SwiftWebUIRuntime",
+            dependencies: [
+                "SwiftHTML",
+                "JavaScriptKit",
+                "SwiftWebActors",
+            ],
+            path: "Sources/SwiftWebUIRuntime",
+            swiftSettings: swiftSettings
+        )
+        """,
+      ],
+      supportTargets: [
+        "cJavaScriptKitTarget",
+        "javaScriptKitTarget",
+        "swiftHTMLTarget",
+        "swiftWebActorsTarget",
+        "swiftWebUITarget",
+        "swiftWebUIRuntimeTarget",
+        "appClientTarget",
+      ],
+      dependencies: [actorRuntimeDependencyDeclaration]
+    )
+  }
+
+  private func embeddedWasmPackageSwift(
+    appPackageName: String,
+    wasmRuntimeTargetNames: [String]
+  ) -> String {
+    wasmPackageSwiftContents(
+      appPackageName: appPackageName,
+      wasmRuntimeTargetNames: wasmRuntimeTargetNames,
+      targetDeclarations: wasmRuntimeTargetNames.map(embeddedWasmRuntimeTargetDeclaration),
+      supportTargetDeclarations: [
+        javaScriptKitTargetDeclarations(),
+        """
+        let swiftHTMLEmbeddedTarget = Target.target(
+            name: "SwiftHTMLEmbedded",
+            path: "Sources/SwiftHTMLEmbedded",
+            swiftSettings: swiftSettings
+        )
+        """,
+      ],
+      supportTargets: [
+        "cJavaScriptKitTarget",
+        "javaScriptKitTarget",
+        "swiftHTMLEmbeddedTarget",
+      ],
+      dependencies: []
+    )
+  }
+
+  private func wasmPackageSwiftContents(
+    appPackageName: String,
+    wasmRuntimeTargetNames: [String],
+    targetDeclarations: [String],
+    supportTargetDeclarations: [String],
+    supportTargets: [String],
+    dependencies: [String]
+  ) -> String {
+    let wasmTargetDeclarations = targetDeclarations.joined(separator: "\n\n")
     let wasmProductDeclarations =
       wasmRuntimeTargetNames
       .map { targetName in
         ".executable(name: \"\(Self.productName(forWasmRuntimeTarget: targetName))\", targets: [\"\(targetName)\"])"
       }
       .joined(separator: ",\n        ")
-    let wasmTargets = (["appClientTarget"] + wasmRuntimeTargetNames.map(Self.variableName(for:)))
+    let wasmTargets = (supportTargets + wasmRuntimeTargetNames.map(Self.variableName(for:)))
       .map { "        \($0)" }
       .joined(separator: ",\n")
+    let dependencyDeclarations =
+      dependencies.isEmpty
+      ? ""
+      : "\n          \(dependencies.joined(separator: ",\n          ")),\n      "
+    let supportDeclarations = supportTargetDeclarations.joined(separator: "\n\n")
     return """
       // swift-tools-version: 6.3
 
@@ -1475,6 +1700,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
           .enableUpcomingFeature("ApproachableConcurrency"),
       ]
       let wasmSwiftSettings: [SwiftSetting] = swiftSettings + [
+          .enableExperimentalFeature("Extern"),
           .unsafeFlags(["-Xclang-linker", "-mexec-model=reactor"]),
       ]
       let wasmLinkerSettings: [LinkerSetting] = [
@@ -1495,68 +1721,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
           ]),
       ]
 
-      let appClientTarget = Target.target(
-          name: "\(appProductName)",
-          dependencies: [
-              "SwiftHTML",
-              "SwiftWebActors",
-              "SwiftWebUI",
-              "SwiftWebUIRuntime",
-          ],
-          path: "Sources/\(appProductName)",
-          swiftSettings: swiftSettings
-      )
-
-      let swiftHTMLTarget = Target.target(
-          name: "SwiftHTML",
-          path: "Sources/SwiftHTML",
-          swiftSettings: swiftSettings
-      )
-
-      let swiftWebActorsTarget = Target.target(
-          name: "SwiftWebActors",
-          dependencies: [
-              .product(name: "ActorRuntime", package: "swift-actor-runtime"),
-          ],
-          path: "Sources/SwiftWebActors",
-          swiftSettings: swiftSettings
-      )
-
-      let swiftWebUITarget = Target.target(
-          name: "SwiftWebUI",
-          dependencies: [
-              "SwiftHTML",
-          ],
-          path: "Sources/SwiftWebUI",
-          swiftSettings: swiftSettings
-      )
-
-      let cJavaScriptKitTarget = Target.target(
-          name: "_CJavaScriptKit",
-          path: "Sources/_CJavaScriptKit"
-      )
-
-      let javaScriptKitTarget = Target.target(
-          name: "JavaScriptKit",
-          dependencies: [
-              "_CJavaScriptKit",
-          ],
-          path: "Sources/JavaScriptKit",
-          swiftSettings: [
-              .enableExperimentalFeature("Extern"),
-          ]
-      )
-
-      let swiftWebUIRuntimeTarget = Target.target(
-          name: "SwiftWebUIRuntime",
-          dependencies: [
-              "SwiftHTML",
-              "JavaScriptKit",
-              "SwiftWebActors",
-          ],
-          path: "Sources/SwiftWebUIRuntime",
-          swiftSettings: swiftSettings
-      )
+      \(supportDeclarations)
 
       \(wasmTargetDeclarations)
 
@@ -1568,16 +1733,8 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
           products: [
               \(wasmProductDeclarations)
           ],
-          dependencies: [
-              \(actorRuntimeDependencyDeclaration),
-          ],
+          dependencies: [\(dependencyDeclarations)],
           targets: [
-              cJavaScriptKitTarget,
-              javaScriptKitTarget,
-              swiftHTMLTarget,
-              swiftWebActorsTarget,
-              swiftWebUITarget,
-              swiftWebUIRuntimeTarget,
       \(wasmTargets)
           ],
           swiftLanguageModes: [.v6]
@@ -1585,7 +1742,10 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
       """
   }
 
-  private func wasmRuntimeTargetDeclaration(targetName: String, appProductName: String) -> String {
+  private func standardWasmRuntimeTargetDeclaration(
+    targetName: String,
+    appProductName: String
+  ) -> String {
     """
     let \(Self.variableName(for: targetName)) = Target.executableTarget(
         name: "\(targetName)",
@@ -1599,6 +1759,41 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
         path: "Sources/\(targetName)",
         swiftSettings: wasmSwiftSettings,
         linkerSettings: wasmLinkerSettings
+    )
+    """
+  }
+
+  private func embeddedWasmRuntimeTargetDeclaration(targetName: String) -> String {
+    """
+    let \(Self.variableName(for: targetName)) = Target.executableTarget(
+        name: "\(targetName)",
+        dependencies: [
+            "SwiftHTMLEmbedded",
+            "JavaScriptKit",
+        ],
+        path: "Sources/\(targetName)",
+        swiftSettings: wasmSwiftSettings,
+        linkerSettings: wasmLinkerSettings
+    )
+    """
+  }
+
+  private func javaScriptKitTargetDeclarations() -> String {
+    """
+    let cJavaScriptKitTarget = Target.target(
+        name: "_CJavaScriptKit",
+        path: "Sources/_CJavaScriptKit"
+    )
+
+    let javaScriptKitTarget = Target.target(
+        name: "JavaScriptKit",
+        dependencies: [
+            "_CJavaScriptKit",
+        ],
+        path: "Sources/JavaScriptKit",
+        swiftSettings: [
+            .enableExperimentalFeature("Extern"),
+        ]
     )
     """
   }
@@ -1750,6 +1945,18 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
     appProductName: String,
     target: WasmRuntimeTargetDeclaration
   ) -> String {
+    switch wasmRuntimeProfile {
+    case .standard:
+      return standardWasmEntrypointSwift(appProductName: appProductName, target: target)
+    case .embedded:
+      return embeddedWasmEntrypointSwift(target: target)
+    }
+  }
+
+  private func standardWasmEntrypointSwift(
+    appProductName: String,
+    target: WasmRuntimeTargetDeclaration
+  ) -> String {
     let runtimeVariableName = "\(Self.lowerCamelCase(target.targetName))Runtime"
     let registrations = target.componentTypeNames.map { typeName in
       """
@@ -1757,14 +1964,11 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
               \(typeName).self,
               environmentRegistry: .swiftWebUI
           ) { request in
-              if let bootstrapType = \(typeName).self as? any ClientWasmBootstrapInitializable.Type {
-                  let root = try bootstrapType.init(bootstrap: request)
-                  guard let typedRoot = root as? \(typeName) else {
-                      throw ClientWasmRuntimeBridgeError.componentMountNotFound("\(typeName)")
-                  }
-                  return typedRoot
-              }
-              return \(typeName)()
+              try makeSwiftWebWasmRoot(
+                  \(typeName).self,
+                  bootstrap: request,
+                  fallback: \(typeName)()
+              )
           }
       """
     }
@@ -1774,6 +1978,21 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
       import SwiftHTML
       import SwiftWebUI
       import SwiftWebUIRuntime
+
+      private func makeSwiftWebWasmRoot<Root: HTML>(
+          _ type: Root.Type,
+          bootstrap request: ClientWasmBootstrapRequest,
+          fallback: @autoclosure () -> Root
+      ) throws -> Root {
+          guard let bootstrapType = type as? any ClientWasmBootstrapInitializable.Type else {
+              return fallback()
+          }
+          let root = try bootstrapType.init(bootstrap: request)
+          guard let typedRoot = root as? Root else {
+              throw ClientWasmRuntimeBridgeError.componentMountNotFound(String(reflecting: type))
+          }
+          return typedRoot
+      }
 
       nonisolated(unsafe) private let \(runtimeVariableName) = ClientWasmBundleRuntimeEntrypoint(
           registrations: [
@@ -1833,11 +2052,178 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
       """
   }
 
+  private func embeddedWasmEntrypointSwift(target: WasmRuntimeTargetDeclaration) -> String {
+    let runtimeVariableName = "\(Self.lowerCamelCase(target.targetName))Runtime"
+    return """
+      import JavaScriptKit
+      import SwiftHTMLEmbedded
+
+      nonisolated(unsafe) private let \(runtimeVariableName) = SwiftWebEmbeddedRuntime()
+
+      @_cdecl("swiftweb_alloc")
+      public func swiftweb_alloc(_ byteCount: UInt32) -> UInt32 {
+          \(runtimeVariableName).allocate(byteCount: byteCount)
+      }
+
+      @_cdecl("swiftweb_dealloc")
+      public func swiftweb_dealloc(_ pointer: UInt32, _ byteCount: UInt32) {
+          \(runtimeVariableName).deallocate(pointer: pointer, byteCount: byteCount)
+      }
+
+      @_cdecl("swiftweb_bootstrap")
+      public func swiftweb_bootstrap(_ pointer: UInt32, _ length: UInt32) -> UInt32 {
+          \(runtimeVariableName).bootstrap(pointer: pointer, length: length)
+      }
+
+      @_cdecl("swiftweb_dispatch_event")
+      public func swiftweb_dispatch_event(_ pointer: UInt32, _ length: UInt32) -> UInt32 {
+          \(runtimeVariableName).dispatchEvent(pointer: pointer, length: length)
+      }
+
+      @_cdecl("swiftweb_snapshot_state")
+      public func swiftweb_snapshot_state() -> UInt32 {
+          \(runtimeVariableName).snapshotState()
+      }
+
+      @_cdecl("swiftweb_restore_state")
+      public func swiftweb_restore_state(_ pointer: UInt32, _ length: UInt32) -> UInt32 {
+          \(runtimeVariableName).restoreState(pointer: pointer, length: length)
+      }
+
+      @_cdecl("swiftweb_response_ptr")
+      public func swiftweb_response_ptr() -> UInt32 {
+          \(runtimeVariableName).responsePointer()
+      }
+
+      @_cdecl("swiftweb_response_len")
+      public func swiftweb_response_len() -> UInt32 {
+          \(runtimeVariableName).responseLength()
+      }
+
+      @_cdecl("swiftweb_response_free")
+      public func swiftweb_response_free() {
+          \(runtimeVariableName).freeResponse()
+      }
+
+      @main
+      struct \(target.targetName)Main {
+          static func main() {}
+      }
+
+      final class SwiftWebEmbeddedRuntime {
+          private var bootstrapped = false
+
+          func allocate(byteCount: UInt32) -> UInt32 {
+              let pointer = UnsafeMutableRawPointer.allocate(
+                  byteCount: Int(byteCount),
+                  alignment: MemoryLayout<UInt8>.alignment
+              )
+              return UInt32(UInt(bitPattern: pointer))
+          }
+
+          func deallocate(pointer: UInt32, byteCount: UInt32) {
+              guard let rawPointer = UnsafeMutableRawPointer(bitPattern: Int(pointer)) else {
+                  return
+              }
+              rawPointer.deallocate()
+          }
+
+          func bootstrap(pointer: UInt32, length: UInt32) -> UInt32 {
+              if !bootstrapped {
+                  installRuntimeMarker()
+                  bootstrapped = true
+              }
+              return 0
+          }
+
+          func dispatchEvent(pointer: UInt32, length: UInt32) -> UInt32 {
+              0
+          }
+
+          func snapshotState() -> UInt32 {
+              0
+          }
+
+          func restoreState(pointer: UInt32, length: UInt32) -> UInt32 {
+              0
+          }
+
+          func responsePointer() -> UInt32 {
+              0
+          }
+
+          func responseLength() -> UInt32 {
+              0
+          }
+
+          func freeResponse() {
+          }
+
+          private func installRuntimeMarker() {
+              #if os(WASI)
+              let document = JSObject.global.document.object!
+              let root = document.documentElement.object!
+              _ = root.setAttribute!("data-swiftweb-runtime", "embedded")
+
+              let tree = EmbeddedHTMLDocument {}
+              tree.mount(
+                  into: SwiftWebEmbeddedDOMHost(document: document),
+                  parent: root
+              )
+              #endif
+          }
+      }
+
+      struct SwiftWebEmbeddedDOMHost: EmbeddedDOMHost {
+          let document: JSObject
+
+          func createElement(_ tagName: String) -> JSObject {
+              document.createElement!(tagName).object!
+          }
+
+          func createText(_ text: String) -> JSObject {
+              document.createTextNode!(text).object!
+          }
+
+          func setAttribute(_ attribute: EmbeddedHTMLAttribute, on node: JSObject) {
+              _ = node.setAttribute!(attribute.name, attribute.value)
+          }
+
+          func appendChild(_ child: JSObject, to parent: JSObject) {
+              _ = parent.appendChild!(child)
+          }
+      }
+      """
+  }
+
   private static func lowerCamelCase(_ value: String) -> String {
     guard let first = value.first else {
       return value
     }
     return first.lowercased() + String(value.dropFirst())
+  }
+}
+
+private extension SwiftWebWasmRuntimeProfile {
+  func wasmSourceTargets(appProductName: String) -> [String] {
+    switch self {
+    case .standard:
+      [
+        appProductName,
+        "_CJavaScriptKit",
+        "JavaScriptKit",
+        "SwiftHTML",
+        "SwiftWebActors",
+        "SwiftWebUI",
+        "SwiftWebUIRuntime",
+      ]
+    case .embedded:
+      [
+        "_CJavaScriptKit",
+        "JavaScriptKit",
+        "SwiftHTMLEmbedded",
+      ]
+    }
   }
 }
 

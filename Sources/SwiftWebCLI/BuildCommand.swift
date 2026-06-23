@@ -9,6 +9,7 @@ struct BuildCommand {
   let buildsWasmRuntime: Bool
   let swiftSDK: String?
   let configuration: String?
+  let wasmRuntimeProfile: SwiftWebWasmRuntimeProfile
 
   static func parse(_ parser: ArgumentParser) throws -> BuildCommand {
     var parser = parser
@@ -18,6 +19,7 @@ struct BuildCommand {
     var buildsWasmRuntime = false
     var swiftSDK: String?
     var configuration: String?
+    var wasmRuntimeProfile = SwiftWebWasmRuntimeProfile.defaultValue()
 
     while let option = parser.next() {
       switch option {
@@ -29,6 +31,15 @@ struct BuildCommand {
         product = try parser.requireValue(after: option)
       case "--wasm":
         buildsWasmRuntime = true
+      case "--runtime", "--wasm-runtime":
+        let rawValue = try parser.requireValue(after: option)
+        guard let profile = SwiftWebWasmRuntimeProfile(rawValue: rawValue) else {
+          throw CLIError(
+            message: "unknown WASM runtime profile: \(rawValue). Expected standard or embedded",
+            exitCode: 64
+          )
+        }
+        wasmRuntimeProfile = profile
       case "--swift-sdk":
         swiftSDK = try parser.requireValue(after: option)
       case "-c", "--configuration":
@@ -44,14 +55,16 @@ struct BuildCommand {
       product: product,
       buildsWasmRuntime: buildsWasmRuntime,
       swiftSDK: swiftSDK,
-      configuration: configuration
+      configuration: configuration,
+      wasmRuntimeProfile: wasmRuntimeProfile
     )
   }
 
   func run() throws {
     let generatedPackage = try SwiftWebGeneratedPackageMaterializer(
       appPackageDirectory: packageDirectory,
-      serverProductName: product ?? "app-server"
+      serverProductName: product ?? "app-server",
+      wasmRuntimeProfile: buildsWasmRuntime ? wasmRuntimeProfile : .standard
     )
     .materialize()
     let productName = try resolvedProductName(from: generatedPackage)
@@ -100,6 +113,11 @@ struct BuildCommand {
     if buildsWasmRuntime {
       environment["SWIFTWEB_WASM_BUILD"] = "1"
       environment["SWIFTWEB_CORE_ONLY"] = "1"
+      environment["SWIFTWEB_WASM_RUNTIME_PROFILE"] = wasmRuntimeProfile.rawValue
+      if wasmRuntimeProfile == .embedded {
+        environment["SWIFTHTML_EXPERIMENTAL_EMBEDDED_WASM"] = "1"
+        environment["JAVASCRIPTKIT_EXPERIMENTAL_EMBEDDED_WASM"] = "1"
+      }
       if let wasmToolchain {
         environment = wasmToolchain.applying(to: environment)
       }
@@ -155,9 +173,14 @@ struct BuildCommand {
 
   private var resolvedSwiftSDKName: String? {
     if buildsWasmRuntime {
-      return swiftSDK
+      let baseSDK =
+        swiftSDK
         ?? ProcessInfo.processInfo.environment["SWIFT_WEB_WASM_SDK"]
         ?? SwiftWebWasmToolchain.defaultSwiftSDKName
+      if wasmRuntimeProfile == .embedded, !baseSDK.hasSuffix("-embedded") {
+        return "\(baseSDK)-embedded"
+      }
+      return baseSDK
     }
     return swiftSDK
   }

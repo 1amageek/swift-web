@@ -6,6 +6,7 @@ public enum SwiftWebGeneratedPackageMaterializerError: Error, Sendable, CustomSt
     case localDependencyNotFound(package: String, in: URL)
     case clientSourceDirectoryNotFound(URL)
     case swiftHTMLRuntimeSourcesNotFound([URL])
+    case swiftHTMLEmbeddedRuntimeSourcesNotFound([URL])
     case javaScriptKitRuntimeSourcesNotFound([URL])
     case invalidPackageResolved(URL)
     case packageResolveFailed(package: URL, status: Int32, output: String)
@@ -25,6 +26,9 @@ public enum SwiftWebGeneratedPackageMaterializerError: Error, Sendable, CustomSt
         case .swiftHTMLRuntimeSourcesNotFound(let candidates):
             let paths = candidates.map(\.path).joined(separator: ", ")
             return "SwiftHTML runtime sources were not found. Checked: \(paths)"
+        case .swiftHTMLEmbeddedRuntimeSourcesNotFound(let candidates):
+            let paths = candidates.map(\.path).joined(separator: ", ")
+            return "SwiftHTMLEmbedded runtime sources were not found. Checked: \(paths)"
         case .javaScriptKitRuntimeSourcesNotFound(let candidates):
             let paths = candidates.map(\.path).joined(separator: ", ")
             return "JavaScriptKit runtime sources were not found. Checked: \(paths)"

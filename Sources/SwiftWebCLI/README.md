@@ -176,7 +176,14 @@ flowchart LR
 | Mode | Product | Notes |
 |---|---|---|
 | Server | `app-server` by default | Uses the app library product from the user package. |
-| WASM | Main generated `*WasmRuntime` plus coalesced policy runtimes when non-eager islands exist | Defaults to release, sets `SWIFTWEB_WASM_BUILD=1`, uses the shell-selected `swift`, and builds the generated client-only package without reading the user app's server dependencies. `SWIFTWEB_WASM_SPLIT_BUILD_STRATEGY=resolved-bundles` forces one physical WASM product per resolved split for diagnostics. |
+| WASM `standard` | Main generated `*WasmRuntime` plus coalesced policy runtimes when non-eager islands exist | Defaults to release, sets `SWIFTWEB_WASM_BUILD=1`, uses the shell-selected `swift`, and builds the generated client-only package without reading the user app's server dependencies. `SWIFTWEB_WASM_SPLIT_BUILD_STRATEGY=resolved-bundles` forces one physical WASM product per resolved split for diagnostics. |
+| WASM `embedded` | Main generated `*WasmRuntime` backed by `SwiftHTMLEmbedded` | Uses `--runtime embedded`, sets `SWIFTWEB_WASM_RUNTIME_PROFILE=embedded`, enables experimental embedded flags for SwiftHTML and JavaScriptKit, and selects the matching `-embedded` Swift SDK suffix when needed. |
+
+The `standard` runtime profile is the default because it preserves full `ClientComponent`
+hydration semantics. The `embedded` profile is a size-first production profile. It omits
+the app client target, `SwiftHTML`, `SwiftWebActors`, `SwiftWebUI`, and `SwiftWebUIRuntime`
+from the generated browser package, then generates a small export-compatible runtime shell
+over `SwiftHTMLEmbedded` and JavaScriptKit.
 
 After a WASM build, the CLI runs the production artifact processor:
 
@@ -202,11 +209,12 @@ flowchart LR
 | `.swiftweb/generated/dev/Package.swift` | Development package for Xcode/CLI launchers. |
 | `.swiftweb/generated/dev/Sources/SwiftWebDevLauncher/DevLauncher.swift` | Dev entrypoint that delegates to `SwiftWebDevRuntime`. |
 | `.swiftweb/generated/dev/Sources/AppDevelopmentServerLauncher/ServerLauncher.swift` | Dev child server entrypoint that installs `SwiftWebDevelopmentHooks` before running the app. |
-| `.swiftweb/generated/wasm/Sources/<AppName>` | Client-only source copy used by WASM runtime targets. |
-| `.swiftweb/generated/wasm/Sources/SwiftHTML` | Runtime-only SwiftHTML source copy. Preview macros and `swift-syntax` are not included in the WASM package graph. |
-| `.swiftweb/generated/wasm/Sources/SwiftWebActors` | Generated copy of the shared distributed actor runtime used by WASM runtime targets. |
-| `.swiftweb/generated/wasm/Sources/SwiftWebUI` | Client UI component source copy used by WASM runtime targets. |
-| `.swiftweb/generated/wasm/Sources/SwiftWebUIRuntime` | JavaScriptKit-backed client runtime source copy used by WASM runtime targets. |
+| `.swiftweb/generated/wasm/Sources/<AppName>` | Client-only source copy used by standard WASM runtime targets. |
+| `.swiftweb/generated/wasm/Sources/SwiftHTML` | Standard runtime-only SwiftHTML source copy. Preview macros and `swift-syntax` are not included in the WASM package graph. |
+| `.swiftweb/generated/wasm/Sources/SwiftHTMLEmbedded` | Embedded runtime source copy used by `--runtime embedded`. |
+| `.swiftweb/generated/wasm/Sources/SwiftWebActors` | Standard generated copy of the shared distributed actor runtime used by WASM runtime targets. |
+| `.swiftweb/generated/wasm/Sources/SwiftWebUI` | Standard client UI component source copy used by WASM runtime targets. |
+| `.swiftweb/generated/wasm/Sources/SwiftWebUIRuntime` | Standard JavaScriptKit-backed client runtime source copy used by WASM runtime targets. |
 | `.swiftweb/generated/wasm/Sources/JavaScriptKit` | Runtime-only JavaScriptKit source copy. BridgeJS macro definitions and `swift-syntax` are not included in the WASM package graph. |
 | `.swiftweb/generated/wasm/Sources/_CJavaScriptKit` | C shim target required by the runtime-only JavaScriptKit target. |
 | `.swiftweb/generated/wasm/Sources/*WasmRuntime` | App-specific WASM export entrypoint. |

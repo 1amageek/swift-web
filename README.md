@@ -323,6 +323,22 @@ sweb build \
   -c release
 ```
 
+Build the experimental Embedded Swift runtime profile:
+
+```bash
+sweb build \
+  --wasm \
+  --runtime embedded \
+  -c release
+```
+
+Use the embedded profile for production pages whose browser behavior is server-driven:
+
+| Runtime profile | Production use | Browser artifact shape |
+|---|---|---|
+| `standard` | Full `ClientComponent` hydration, client state, browser events, and SwiftWebUI runtime behavior. | App client source, `SwiftHTML`, `SwiftWebUI`, `SwiftWebUIRuntime`, `SwiftWebActors`, JavaScriptKit. |
+| `embedded` | Server-rendered / server-action pages that only need the small browser host ABI and can avoid full client island hydration. | `SwiftHTMLEmbedded`, JavaScriptKit, `_CJavaScriptKit`, generated runtime entrypoint. |
+
 Production WASM builds strip debug/producers sections, optionally run `wasm-opt -Oz`,
 write `<artifact>.wasm.size.json`, and create cached `.gz` / `.br` sidecars.
 
@@ -444,6 +460,29 @@ SwiftWeb browser runtime packages copy runtime-only sources into generated WASM 
 | SwiftWebUIRuntime | JavaScriptKit-backed browser adapter. |
 | JavaScriptKit | Runtime-only copy; BridgeJS macros are not included by default. |
 | SwiftSyntax | Not included in generated browser runtime packages. |
+
+`sweb build --wasm` defaults to the `standard` runtime profile. `--runtime embedded`
+switches the generated package to the experimental Embedded Swift profile, uses
+`SwiftHTMLEmbedded`, omits the app client target and full SwiftWebUI runtime graph, and
+selects the matching `-embedded` Swift SDK suffix when the base SDK name does not already
+include it. This profile is for size-sensitive production paths that can run without full
+client island hydration parity.
+
+The intended production split is:
+
+```mermaid
+flowchart LR
+  A["Production page"] --> B{"Browser behavior"}
+  B -->|"server-rendered / server actions"| C["--runtime embedded"]
+  B -->|"client state / client events"| D["standard runtime"]
+  C --> E["small .wasm + .gz + .br sidecars"]
+  D --> F["full client runtime .wasm + sidecars"]
+```
+
+The measured Distributed chat app created with `sweb new` produced a post-processed
+embedded runtime of 77,836 bytes, 28,459 bytes gzip, and 23,617 bytes Brotli. See
+[Embedded WASM Runtime Report](docs/EmbeddedWasmRuntimeReport.md) for the full command
+log and standard-vs-embedded comparison.
 
 ### Client Bundles
 
