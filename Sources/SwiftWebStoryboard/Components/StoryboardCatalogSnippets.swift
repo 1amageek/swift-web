@@ -76,7 +76,7 @@ func catalogSnippet(for id: String) -> String {
       """
   case "code":
     return """
-      CodeBlock(
+      Code(
           source,
           language: "swift",
           showsLineNumbers: true

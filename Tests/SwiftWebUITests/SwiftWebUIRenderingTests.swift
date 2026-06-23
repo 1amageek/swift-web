@@ -202,8 +202,8 @@ struct SwiftWebUIRenderingTests {
   }
 
   @Test
-  func rendersCodeBlockWithLineNumbers() {
-    let rendered = CodeBlock(
+  func rendersCodeWithLineNumbers() {
+    let rendered = Code(
       """
       let title = "<main>"
 

@@ -234,7 +234,7 @@ struct SwiftWebStoryboardCatalogTests {
         let requiredNames = [
             "GridSystem",
             "GroupBox",
-            "CodeBlock",
+            "Code",
             "Text",
             "Heading",
             "Button",

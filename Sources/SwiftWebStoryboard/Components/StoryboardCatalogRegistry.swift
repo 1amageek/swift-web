@@ -47,7 +47,7 @@ public let catalogCategories: [CatalogCategory] = [
         CatalogItem(id: "colorvalue", name: "Color", code: "Color.blue.opacity(_:)", summary: "A color paints the region it is given and resolves per appearance."),
     ]),
     CatalogCategory(id: "layout", title: "Layout & organization", items: [
-        CatalogItem(id: "code", name: "Code", code: "CodeBlock(_:language:)", summary: "Code renders source as a preformatted block with optional line numbers."),
+        CatalogItem(id: "code", name: "Code", code: "Code(_:language:)", summary: "Code renders source as a preformatted block with optional line numbers."),
         CatalogItem(id: "label", name: "Label", code: "Label(_:systemImage:)", summary: "Pairs an icon with a title."),
         CatalogItem(id: "groupbox", name: "GroupBox", code: "GroupBox { }", summary: "A titled container that groups related views on one bordered surface."),
         CatalogItem(id: "list", name: "List", code: "List { ListRow { } }", summary: "A container of rows with styles such as plain, inset, grouped, and sidebar."),

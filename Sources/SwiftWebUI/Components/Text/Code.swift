@@ -1,6 +1,6 @@
 import SwiftHTML
 
-public struct CodeBlock: WebUIAttributeComponent {
+public struct Code: WebUIAttributeComponent {
     private let source: String
     private let language: String?
     private let startLine: Int
@@ -84,7 +84,7 @@ public struct CodeBlock: WebUIAttributeComponent {
         showsLineNumbers ? "swui-code-line" : "swui-code-line swui-code-line-plain"
     }
 
-    private var lines: [CodeBlockLine] {
+    private var lines: [CodeLine] {
         let normalizedLines = source
             .split(separator: "\n", omittingEmptySubsequences: false)
             .map { line -> String in
@@ -96,12 +96,12 @@ public struct CodeBlock: WebUIAttributeComponent {
 
         let sourceLines = normalizedLines.isEmpty ? [""] : normalizedLines
         return sourceLines.enumerated().map { index, text in
-            CodeBlockLine(number: startLine + index, text: text)
+            CodeLine(number: startLine + index, text: text)
         }
     }
 }
 
-private struct CodeBlockLine: Sendable {
+private struct CodeLine: Sendable {
     let number: Int
     let text: String
 }

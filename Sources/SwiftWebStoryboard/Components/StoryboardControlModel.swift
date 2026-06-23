@@ -355,7 +355,7 @@ let storyboardControlDefaults: [String: String] = [
     "typography.text": "Hello, SwiftWebUI", "typography.font": "largeTitle", "typography.weight": "bold", "typography.align": "center", "typography.fg": "primary",
     "image.name": "star.fill",
     "colorvalue.name": "blue", "colorvalue.opacity": "1",
-    "code.lang": "swift", "code.lineNumbers": "false",
+    "code.lang": "swift", "code.lineNumbers": "true",
     "label.title": "Verified", "label.name": "checkmark.seal.fill",
     "groupbox.title": "Storage", "groupbox.pad": "regular",
     "list.style": "plain",

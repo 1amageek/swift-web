@@ -150,7 +150,7 @@ struct CatalogDetail: Component {
     private func codeSection(anchor: String, title: String, text: String, language: String, showsLineNumbers: Bool) -> some HTML {
         VStack(alignment: .leading, spacing: .small) {
             sectionTitle(title, anchor: anchor)
-            CodeBlock(text, language: language, showsLineNumbers: showsLineNumbers)
+            Code(text, language: language, showsLineNumbers: showsLineNumbers)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
@@ -162,7 +162,7 @@ struct CatalogDetail: Component {
             Text("The DOM SwiftWebUI emits for the preview above.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-            CodeBlock(renderedDemoHTML(), language: "html", showsLineNumbers: false)
+            Code(renderedDemoHTML(), language: "html", showsLineNumbers: false)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
@@ -218,7 +218,7 @@ struct CatalogDetail: Component {
             MediaDetail(selection: selection, state: ui.wrappedValue)
         case "code":
             let language = ui.wrappedValue.control("code", "lang")
-            CodeBlock(
+            Code(
                 codeSample(language),
                 language: language,
                 showsLineNumbers: ui.wrappedValue.controlFlag("code", "lineNumbers")
