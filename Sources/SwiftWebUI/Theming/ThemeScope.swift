@@ -31,33 +31,22 @@ struct ThemeScope<Content: HTML>: Component {
 }
 
 private enum ThemeScopeAssets {
-    // A displacement *normal map*: neutral (128,128) in the centre so the middle
-    // of the glass is undistorted, with the red channel ramping to the left/right
-    // edges and the green channel to the top/bottom edges. Fed to
-    // feDisplacementMap it lenses the live backdrop at the rim — the real
-    // "Liquid Glass" refraction — rather than the uniform frosted wobble a
-    // turbulence map produces. `preserveAspectRatio='none'` stretches the map to
-    // each element's box, so the lens follows the surface's shape and size.
-    private static let displacementMapSVG = """
+    // A rounded-rectangle *height field*: a white plateau on black, inset so a
+    // blur leaves the centre flat and slopes only at the (rounded) edge. The
+    // filter turns this into a normal map with Sobel gradients, so the
+    // refraction bends the backdrop radially at the rim and tapers smoothly
+    // around the rounded corners — unlike two crossed linear ramps, whose
+    // corners fold into a bright caustic. `preserveAspectRatio='none'` stretches
+    // it to each element, so the lens follows the surface's shape and size.
+    private static let shapeMaskSVG = """
     <svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' preserveAspectRatio='none'>\
-    <defs>\
-    <linearGradient id='gx' x1='0' y1='0' x2='1' y2='0'>\
-    <stop offset='0' stop-color='rgb(40,0,0)'/><stop offset='0.18' stop-color='rgb(128,0,0)'/>\
-    <stop offset='0.82' stop-color='rgb(128,0,0)'/><stop offset='1' stop-color='rgb(216,0,0)'/>\
-    </linearGradient>\
-    <linearGradient id='gy' x1='0' y1='0' x2='0' y2='1'>\
-    <stop offset='0' stop-color='rgb(0,40,0)'/><stop offset='0.18' stop-color='rgb(0,128,0)'/>\
-    <stop offset='0.82' stop-color='rgb(0,128,0)'/><stop offset='1' stop-color='rgb(0,216,0)'/>\
-    </linearGradient>\
-    </defs>\
-    <rect width='100' height='100' fill='rgb(0,0,0)'/>\
-    <rect width='100' height='100' fill='url(#gx)' style='mix-blend-mode:screen'/>\
-    <rect width='100' height='100' fill='url(#gy)' style='mix-blend-mode:screen'/>\
+    <rect width='100' height='100' fill='black'/>\
+    <rect x='3' y='3' width='94' height='94' rx='30' fill='white'/>\
     </svg>
     """
 
-    private static var displacementDataURI: String {
-        let encoded = displacementMapSVG
+    private static var shapeMaskDataURI: String {
+        let encoded = shapeMaskSVG
             .replacingOccurrences(of: "<", with: "%3C")
             .replacingOccurrences(of: ">", with: "%3E")
             .replacingOccurrences(of: "#", with: "%23")
@@ -70,10 +59,19 @@ private enum ThemeScopeAssets {
         style="position:absolute;width:0;height:0;overflow:hidden">\
         <filter id="swui-glass-refraction" x="0%" y="0%" width="100%" height="100%" \
         color-interpolation-filters="sRGB">\
-        <feImage href="\(displacementDataURI)" x="0" y="0" width="100%" height="100%" \
-        preserveAspectRatio="none" result="swui-glass-raw"/>\
-        <feGaussianBlur in="swui-glass-raw" stdDeviation="4" result="swui-glass-map"/>\
-        <feDisplacementMap in="SourceGraphic" in2="swui-glass-map" scale="58" \
+        <feImage href="\(shapeMaskDataURI)" x="0" y="0" width="100%" height="100%" \
+        preserveAspectRatio="none" result="swui-glass-shape"/>\
+        <feGaussianBlur in="swui-glass-shape" stdDeviation="14" result="swui-glass-height"/>\
+        <feConvolveMatrix in="swui-glass-height" order="3" preserveAlpha="true" divisor="2.2" \
+        bias="0.5" kernelMatrix="-1 0 1 -2 0 2 -1 0 1" result="swui-glass-gx"/>\
+        <feConvolveMatrix in="swui-glass-height" order="3" preserveAlpha="true" divisor="2.2" \
+        bias="0.5" kernelMatrix="-1 -2 -1 0 0 0 1 2 1" result="swui-glass-gy"/>\
+        <feColorMatrix in="swui-glass-gx" type="matrix" \
+        values="1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1" result="swui-glass-rmap"/>\
+        <feColorMatrix in="swui-glass-gy" type="matrix" \
+        values="0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 1" result="swui-glass-gmap"/>\
+        <feBlend in="swui-glass-rmap" in2="swui-glass-gmap" mode="screen" result="swui-glass-map"/>\
+        <feDisplacementMap in="SourceGraphic" in2="swui-glass-map" scale="42" \
         xChannelSelector="R" yChannelSelector="G"/>\
         </filter></svg>
         """
