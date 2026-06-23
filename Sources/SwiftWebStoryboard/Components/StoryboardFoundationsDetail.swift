@@ -163,7 +163,7 @@ struct FoundationsDetail: Component {
                     .width("100%")
                 }) {
                     HStack(spacing: .large) {
-                        materialSample()
+                        materialSample(state.control("materials", "level"))
                         glassSample()
                     }
                     .frame(maxWidth: .infinity)
@@ -177,14 +177,34 @@ struct FoundationsDetail: Component {
         }
     }
 
-    private func materialSample() -> some HTML {
+    private func materialSample(_ level: String) -> some HTML {
         VStack(spacing: .xsmall) {
             Text("Material").font(.subheadline).fontWeight(.semibold).foregroundStyle(.primary)
-            Text(".regularMaterial · blur").font(Font(size: .px(11), design: .monospaced)).foregroundStyle(.secondary)
+            Text("\(materialLabel(level)) · blur").font(Font(size: .px(11), design: .monospaced)).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, minHeight: 150, alignment: .center)
         .padding(.medium)
-        .background(.regularMaterial, in: .rect(cornerRadius: 20))
+        .background(material(for: level), in: .rect(cornerRadius: 20))
+    }
+
+    private func material(for level: String) -> Material {
+        switch level {
+        case "ultraThin": .ultraThinMaterial
+        case "thin": .thinMaterial
+        case "thick": .thickMaterial
+        case "ultraThick": .ultraThickMaterial
+        default: .regularMaterial
+        }
+    }
+
+    private func materialLabel(_ level: String) -> String {
+        switch level {
+        case "ultraThin": ".ultraThinMaterial"
+        case "thin": ".thinMaterial"
+        case "thick": ".thickMaterial"
+        case "ultraThick": ".ultraThickMaterial"
+        default: ".regularMaterial"
+        }
     }
 
     private func glassSample() -> some HTML {

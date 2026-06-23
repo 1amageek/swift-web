@@ -153,6 +153,8 @@ func storyboardControls(for id: String) -> [StoryboardControl] {
         return [.segmented(label: "size class", key: "bp", options: [.init("compact", "Compact"), .init("regular", "Regular"), .init("large", "Large")])]
     case "safearea":
         return [.segmented(label: "context", key: "device", options: [.init("notch", "Notch"), .init("browser", "Browser"), .init("none", "Desktop")])]
+    case "materials":
+        return [.segmented(label: "material", key: "level", options: [.init("ultraThin", "Ultra-thin"), .init("thin", "Thin"), .init("regular", "Regular"), .init("thick", "Thick"), .init("ultraThick", "Ultra-thick")])]
 
     // Content
     case "typography":
@@ -349,6 +351,7 @@ let storyboardControlDefaults: [String: String] = [
     "style.ctx": "standalone",
     "responsive.bp": "large",
     "safearea.device": "notch",
+    "materials.level": "regular",
     "typography.text": "Hello, SwiftWebUI", "typography.font": "largeTitle", "typography.weight": "bold", "typography.align": "center", "typography.fg": "primary",
     "image.name": "star.fill",
     "colorvalue.name": "blue", "colorvalue.opacity": "1",
