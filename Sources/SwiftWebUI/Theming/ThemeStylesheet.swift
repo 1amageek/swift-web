@@ -618,7 +618,7 @@ enum ThemeStylesheet {
           .lineHeight("1")
           .boxSizing("border-box")
           .transition(
-            "background var(--swui-animation, var(--swui-motion-quick)), border-color var(--swui-animation, var(--swui-motion-quick)), opacity var(--swui-animation, var(--swui-motion-quick))"
+            "background var(--swui-animation, var(--swui-motion-quick)), border-color var(--swui-animation, var(--swui-motion-quick)), opacity var(--swui-animation, var(--swui-motion-quick)), transform var(--swui-animation, var(--swui-motion-quick))"
           )
       }
       rule(".swui-control-mini") {
@@ -683,6 +683,12 @@ enum ThemeStylesheet {
       // background over the glass) so the frosted surface is preserved.
       rule(".swui-button-secondary:hover") {
         .custom("--swui-material-tint", "var(--swui-button-secondary-hover-background)")
+      }
+      // Press feedback is part of a button's own interaction (its responsibility,
+      // not the caller's): every enabled button dips slightly when pressed,
+      // eased by the transform transition above.
+      rule(".swui-button:not(:disabled):not(.swui-control-disabled):active") {
+        .transform("scale(0.97)")
       }
       rule(
         """
