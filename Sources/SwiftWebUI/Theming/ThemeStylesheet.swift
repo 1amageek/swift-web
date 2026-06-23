@@ -175,21 +175,15 @@ enum ThemeStylesheet {
       rule(".swui-animation-scope") {
         .display("contents")
       }
-      // Every element inside an animation scope transitions the common animatable
-      // properties at the scope's `--swui-animation` timing (instant when no
+      // Every element inside an animation scope transitions *every* animatable
+      // property at the scope's `--swui-animation` timing (instant when no
       // `.animation(_:)` is in scope, via the `0s` fallback). This is what makes
-      // `.animation` apply subtree-wide — the way SwiftUI does — rather than only
-      // on the few controls that declare their own transition. Declared before the
-      // control rules so a control's own transition still wins on its element.
+      // `.animation` apply subtree-wide — the way SwiftUI does, animating whatever
+      // a descendant changes (color, backdrop-filter, layout, …) — rather than
+      // only a hand-picked few. Declared before the control rules so a control's
+      // own transition still wins on its element.
       rule(".swui-animation-scope *") {
-        .transition(
-          "transform var(--swui-animation, 0s), "
-            + "opacity var(--swui-animation, 0s), "
-            + "color var(--swui-animation, 0s), "
-            + "background-color var(--swui-animation, 0s), "
-            + "border-color var(--swui-animation, 0s), "
-            + "box-shadow var(--swui-animation, 0s)"
-        )
+        .transition("all var(--swui-animation, 0s)")
       }
       // `.transition(_:)` insertion/removal. The "from" state is published as
       // --swui-enter-*/--swui-exit-* custom properties on the element; insertion

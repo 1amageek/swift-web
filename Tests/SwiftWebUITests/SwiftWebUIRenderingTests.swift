@@ -1744,8 +1744,9 @@ struct SwiftWebUIRenderingTests {
     .render()
     #expect(rendered.contains("--swui-animation: 0.3s cubic-bezier(0.42, 0, 0.58, 1) 0s"))
     #expect(rendered.contains(".swui-animation-scope * {"))
-    #expect(rendered.contains("transform var(--swui-animation, 0s)"))
-    #expect(rendered.contains("opacity var(--swui-animation, 0s)"))
+    // The scope transitions every animatable property, so any descendant change
+    // is interpolated — not only a hand-picked few.
+    #expect(rendered.contains("all var(--swui-animation, 0s)"))
   }
 
   @Test

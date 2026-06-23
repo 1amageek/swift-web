@@ -38,7 +38,11 @@ struct PreviewCanvas<Content: HTML>: Component {
             .backgroundImage("radial-gradient(\(dot) 1.1px, transparent 1.1px)")
             .backgroundSize("18px 18px")
         }) {
-            content
+            // Wrap the demo in an animation scope so that any attribute a control
+            // panel changes (color, frost, layout, …) is interpolated in place by
+            // the browser, rather than snapping. The `display: contents` scope adds
+            // no box, so the demo stays centered.
+            content.animation(.easeOut(duration: 0.2), value: 0)
         }
     }
 }
