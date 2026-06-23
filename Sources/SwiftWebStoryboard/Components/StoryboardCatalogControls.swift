@@ -95,8 +95,8 @@ struct CatalogSegmentControl: Component {
                 }
             }
             .padding(3)
+            // Filled track only — no hard outline (matches a native segmented control).
             .background(Color.secondary.opacity(0.1), in: .rect(cornerRadius: 8))
-            .border(.border, width: 1)
             .cornerRadius(8)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
