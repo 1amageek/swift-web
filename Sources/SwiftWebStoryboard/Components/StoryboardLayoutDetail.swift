@@ -26,15 +26,15 @@ struct LayoutDetail: Component {
     private func stacksDemo(_ axis: String) -> some HTML {
         if axis == "v" {
             VStack(spacing: .small) {
-                Badge("Top")
-                Badge("Middle")
-                Badge("Bottom")
+                Text("Top")
+                Text("Middle")
+                Text("Bottom")
             }
         } else {
             HStack(spacing: .small) {
-                Badge("Leading")
-                Badge("Center")
-                Badge("Trailing")
+                Text("Leading")
+                Text("Center")
+                Text("Trailing")
             }
         }
     }
@@ -44,15 +44,15 @@ struct LayoutDetail: Component {
         HStack(spacing: .small) {
             switch pos {
             case "leading":
-                Badge("leading")
+                Text("leading")
                 Spacer()
             case "trailing":
                 Spacer()
-                Badge("trailing")
+                Text("trailing")
             default:
-                Badge("leading")
+                Text("leading")
                 Spacer()
-                Badge("trailing")
+                Text("trailing")
             }
         }
         .frame(maxWidth: .infinity)
@@ -80,7 +80,7 @@ struct LayoutDetail: Component {
     @HTMLBuilder
     private func hugFillDemo(_ align: String) -> some HTML {
         HStack(spacing: .small) {
-            Badge("frame(maxWidth: .infinity)")
+            Text("frame(maxWidth: .infinity)")
             Text("aligns within the row").foregroundStyle(.secondary)
         }
         .padding(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))

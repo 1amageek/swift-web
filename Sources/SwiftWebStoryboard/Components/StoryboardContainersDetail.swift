@@ -51,8 +51,8 @@ struct ContainersDetail: Component {
             }
         case "grid":
             Grid(alignment: .center, horizontalSpacing: 8, verticalSpacing: 8) {
-                GridRow { Badge("Cell 1"); Badge("Cell 2") }
-                GridRow { Badge("Cell 3"); Badge("Cell 4") }
+                GridRow { Text("Cell 1"); Text("Cell 2") }
+                GridRow { Text("Cell 3"); Text("Cell 4") }
             }
         case "lazy":
             lazyDemo(state.control("lazy", "axis"))
@@ -76,7 +76,7 @@ struct ContainersDetail: Component {
             if axis == "hstack" {
                 LazyHStack(spacing: .small) {
                     ForEach(["Ada", "Grace", "Alan", "Katherine"], id: \.self) { name in
-                        Badge(name)
+                        Text(name)
                     }
                 }
                 .padding(.all, 8)
@@ -106,7 +106,7 @@ struct ContainersDetail: Component {
         ScrollView(state.control("scrollview", "axes") == "horizontal" ? .horizontal : .vertical) {
             VStack(alignment: .leading, spacing: .small) {
                 ForEach(1...8, id: \.self) { index in
-                    Badge("Item 0\(index)")
+                    Text("Item 0\(index)")
                 }
             }
             .padding(.all, 8)

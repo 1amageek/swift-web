@@ -298,12 +298,12 @@ func catalogSnippet(for id: String) -> String {
     return """
       Grid(alignment: .center, horizontalSpacing: 8, verticalSpacing: 8) {
           GridRow {
-              Badge("Cell 1")
-              Badge("Cell 2")
+              Text("Cell 1")
+              Text("Cell 2")
           }
           GridRow {
-              Badge("Cell 3")
-              Badge("Cell 4")
+              Text("Cell 3")
+              Text("Cell 4")
           }
       }
       """
@@ -312,22 +312,22 @@ func catalogSnippet(for id: String) -> String {
       Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 16) {
           GridRow {
               LazyVStack(alignment: .leading, spacing: .small) {
-                  Badge("Row 1")
-                  Badge("Row 2")
+                  Text("Row 1")
+                  Text("Row 2")
               }
               LazyHStack(spacing: .small) {
-                  Badge("A")
-                  Badge("B")
+                  Text("A")
+                  Text("B")
               }
           }
           GridRow {
               LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: .small) {
-                  Badge("1")
-                  Badge("2")
+                  Text("1")
+                  Text("2")
               }
               LazyHGrid(rows: [GridItem(.fixed(28)), GridItem(.fixed(28))], spacing: .small) {
-                  Badge("1")
-                  Badge("2")
+                  Text("1")
+                  Text("2")
               }
           }
       }
@@ -337,7 +337,7 @@ func catalogSnippet(for id: String) -> String {
       ScrollView(.vertical) {
           LazyVStack(alignment: .leading, spacing: .small) {
               ForEach(items) { item in
-                  Badge(item.title)
+                  Text(item.title)
               }
           }
       }
@@ -471,9 +471,9 @@ func catalogSnippet(for id: String) -> String {
     return """
       VStack(alignment: .leading, spacing: .small) {
           HStack(spacing: .small) {
-              Badge("leading")
+              Text("leading")
               Spacer()
-              Badge("trailing")
+              Text("trailing")
           }
           Divider()
       }
@@ -489,9 +489,9 @@ func catalogSnippet(for id: String) -> String {
   case "hug-fill":
     return """
       VStack(alignment: .leading, spacing: .small) {
-          Badge("fixedSize()")
+          Text("fixedSize()")
               .fixedSize()
-          Badge("frame(maxWidth: .infinity)")
+          Text("frame(maxWidth: .infinity)")
               .frame(maxWidth: .infinity, alignment: .leading)
       }
       """
