@@ -1,10 +1,25 @@
 import SwiftHTML
 
+/// A run of read-only text, mirroring SwiftUI's `Text`.
+///
+/// SwiftWebUI extends `Text` with an `as:` selector that chooses the HTML
+/// element it renders into — `<p>`, `<span>`, the headings, `<code>`, `<pre>`,
+/// and so on (see `TextElement`). This is an **intentional, web-specific part of
+/// the API, not a SwiftUI-parity gap**: SwiftUI has no notion of an HTML element,
+/// so there is no canonical name to mirror. `as:` lets callers emit semantic
+/// HTML without leaving the `Text` abstraction, in the same sanctioned-exception
+/// category as the HTML-attribute modifiers (`.id`, `.class`, `.data`).
+///
+/// It defaults to `.p`, so a bare `Text("…")` matches SwiftUI; reach for `as:`
+/// (or the `as(_:)` modifier) only when a specific element is required.
 public struct Text: WebUIAttributeComponent {
     private let value: String
     private let element: TextElement
     private let attributes: [HTMLAttribute]
 
+    /// Creates a text run that renders as `element` (a paragraph by default).
+    ///
+    /// `as:` is an intentional, web-specific spec — see the type documentation.
     public init(
         _ value: String,
         as element: TextElement = .p,
@@ -22,6 +37,8 @@ public struct Text: WebUIAttributeComponent {
         }
     }
 
+    /// Re-renders this text as a different HTML `element`. Intentional,
+    /// web-specific spec — see the type documentation.
     public func `as`(_ element: TextElement) -> Self {
         Self(value, element: element, attributes: attributes)
     }
