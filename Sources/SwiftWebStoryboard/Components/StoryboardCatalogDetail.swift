@@ -35,7 +35,7 @@ struct CatalogDetail: Component {
                     let spec = catalogDetailSpec(for: item)
                     detailHeader(item: item, spec: spec)
                     previewSection()
-                    codeSection(anchor: "usage", title: "Usage", text: spec.snippet, language: "swift", showsLineNumbers: true)
+                    codeSection(anchor: "usage", title: "Usage", text: catalogSnippet(for: item.id, state: ui.wrappedValue), language: "swift", showsLineNumbers: true)
                     if showsRenderedHTML {
                         renderedHTMLSection()
                     }
