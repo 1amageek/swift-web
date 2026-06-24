@@ -1,6 +1,6 @@
 import Testing
 import SwiftHTML
-@testable import SwiftWebUI
+import SwiftWebStyle
 
 @Suite struct StyleRegistryTests {
     @Test func classNameIsDeterministicAndUnitAware() {

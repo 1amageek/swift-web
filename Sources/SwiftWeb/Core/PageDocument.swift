@@ -26,6 +26,10 @@ public struct PageDocument<Content: HTML>: Component {
                     if let description = metadata.description {
                         meta(.name("description"), .content(description))
                     }
+                    // Placeholder for atomic CSS rules collected during the render.
+                    // HTMLResponse fills it after the body renders (collect-then-emit),
+                    // so the rules sit in <head>, before the content they style.
+                    style(.id("swui-atomic")) { "" }
                 }
                 Element("body", attributes: bodyAttributes) {
                     content

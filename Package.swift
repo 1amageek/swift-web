@@ -13,12 +13,14 @@ let swiftHTMLDependency: Target.Dependency = .product(name: "SwiftHTML", package
 
 let swiftWebUIDependencies: [Target.Dependency] = [
     swiftHTMLDependency,
+    "SwiftWebStyle",
 ]
 
 let swiftWebUIRuntimeDependencies: [Target.Dependency] = [
     swiftHTMLDependency,
     .product(name: "JavaScriptKit", package: "JavaScriptKit"),
     "SwiftWebActors",
+    "SwiftWebStyle",
 ]
 
 let swiftWebActorsDependencies: [Target.Dependency] = [
@@ -32,10 +34,12 @@ let package = Package(
     ],
     products: swiftWebCoreOnly ? [
         .library(name: "SwiftWebActors", targets: ["SwiftWebActors"]),
+        .library(name: "SwiftWebStyle", targets: ["SwiftWebStyle"]),
         .library(name: "SwiftWebUI", targets: ["SwiftWebUI"]),
         .library(name: "SwiftWebUIRuntime", targets: ["SwiftWebUIRuntime"]),
     ] : [
         .library(name: "SwiftWebActors", targets: ["SwiftWebActors"]),
+        .library(name: "SwiftWebStyle", targets: ["SwiftWebStyle"]),
         .library(name: "SwiftWebUI", targets: ["SwiftWebUI"]),
         .library(name: "SwiftWebUIRuntime", targets: ["SwiftWebUIRuntime"]),
         .library(name: "SwiftWebCore", targets: ["SwiftWebCore"]),
@@ -63,6 +67,11 @@ let package = Package(
         .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "602.0.0"),
     ]),
     targets: swiftWebCoreOnly ? [
+        .target(
+            name: "SwiftWebStyle",
+            dependencies: [swiftHTMLDependency],
+            swiftSettings: swiftWebSwiftSettings
+        ),
         .target(
             name: "SwiftWebActors",
             dependencies: swiftWebActorsDependencies,
@@ -94,6 +103,11 @@ let package = Package(
             swiftSettings: swiftWebSwiftSettings
         ),
         .target(
+            name: "SwiftWebStyle",
+            dependencies: [swiftHTMLDependency],
+            swiftSettings: swiftWebSwiftSettings
+        ),
+        .target(
             name: "SwiftWebActors",
             dependencies: swiftWebActorsDependencies,
             exclude: ["README.md"],
@@ -110,6 +124,7 @@ let package = Package(
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "Logging", package: "swift-log"),
                 "SwiftWebActors",
+                "SwiftWebStyle",
             ],
             path: "Sources/SwiftWeb",
             exclude: ["README.md"],
@@ -120,6 +135,7 @@ let package = Package(
             dependencies: [
                 "SwiftWebCore",
                 "SwiftWebMacros",
+                "SwiftWebStyle",
             ],
             path: "Sources/SwiftWebFacade",
             swiftSettings: swiftWebSwiftSettings
@@ -193,6 +209,7 @@ let package = Package(
                 swiftHTMLDependency,
                 "SwiftWebUI",
                 "SwiftWebStoryboard",
+                "SwiftWebStyle",
             ],
             swiftSettings: swiftWebSwiftSettings
         ),

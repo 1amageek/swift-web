@@ -1,4 +1,5 @@
 import SwiftHTML
+import SwiftWebStyle
 import Vapor
 
 extension HTML {
@@ -28,16 +29,26 @@ extension HTML {
         let options = baseOptions
             .withClientHandlerClosures(runtime.capturesClientHandlerClosures)
             .withBrowserHydrationMarkers(runtime.emitsBrowserHydrationMarkers)
-        let artifact = renderArtifact(
-            environment: .swiftWebCurrent,
-            stateStore: stateStore,
-            options: options
-        )
+        let styleRegistry = StyleRegistry()
+        let artifact = StyleRegistry.$current.withValue(styleRegistry) {
+            renderArtifact(
+                environment: .swiftWebCurrent,
+                stateStore: stateStore,
+                options: options
+            )
+        }
         SwiftWebDiagnostics.emit(artifact.diagnostics)
+        // Fill the head placeholder with the atomic CSS collected during the render,
+        // so the rules sit in <head>, before the content they style (no FOUC).
+        let atomicCSS = styleRegistry.rules().map { ".\($0.className) { \($0.body) }" }.joined()
+        let renderedHTML = artifact.html.replacingOccurrences(
+            of: "<style id=\"swui-atomic\"></style>",
+            with: "<style id=\"swui-atomic\">\(atomicCSS)</style>"
+        )
 
         switch runtime {
         case .disabled:
-            let html = developmentHooks.injectHTML(artifact.html, securityContext?.cspNonce)
+            let html = developmentHooks.injectHTML(renderedHTML, securityContext?.cspNonce)
             return Response(
                 headers: developmentHooks.htmlHeaders(),
                 body: .init(string: html)
@@ -55,7 +66,7 @@ extension HTML {
                 security: request.clientSecurityDescriptor
             )
             let annotatedHTML = developmentHooks.annotateClientRuntimeHTML(
-                artifact.html,
+                renderedHTML,
                 manifest,
                 descriptor.hydrationIndex
             )

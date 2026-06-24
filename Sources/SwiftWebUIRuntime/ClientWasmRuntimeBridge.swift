@@ -1,5 +1,6 @@
 import Foundation
 import SwiftHTML
+import SwiftWebStyle
 
 public struct ClientWasmBootstrapLocation: Sendable, Codable, Equatable {
     public let href: String
@@ -164,12 +165,19 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
             emitsBrowserHydrationMarkers: true,
             componentEnvironmentOverrides: componentEnvironmentOverrides
         )
-        session = try makeSession(
-            root: root,
-            environment: environment,
-            options: options,
-            restoring: request.stateSnapshot
-        )
+        // Collect atomic CSS used while rendering the initial tree.
+        let styleRegistry = StyleRegistry()
+        session = try StyleRegistry.$current.withValue(styleRegistry) {
+            try makeSession(
+                root: root,
+                environment: environment,
+                options: options,
+                restoring: request.stateSnapshot
+            )
+        }
+        #if os(WASI)
+        JavaScriptKitBrowserRuntime.flushAtomicRules(styleRegistry.rules())
+        #endif
         if let componentMount {
             let localIndex = session?.artifact.browserHydrationIndex() ?? .empty
             mountedHydrationIndex = request.hydrationIndex
@@ -251,12 +259,19 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
         // resulting DOM changes. A new instance per event prevents leaking an
         // animation into a later, unrelated update.
         let transaction = Transaction()
-        let update = try Transaction.$current.withValue(transaction) {
-            try session.invoke(
-                handlerID: translatedHandlerID(request.handlerID, in: session),
-                event: request.event
-            )
+        // Collect atomic CSS used while re-rendering for this event.
+        let styleRegistry = StyleRegistry()
+        let update = try StyleRegistry.$current.withValue(styleRegistry) {
+            try Transaction.$current.withValue(transaction) {
+                try session.invoke(
+                    handlerID: translatedHandlerID(request.handlerID, in: session),
+                    event: request.event
+                )
+            }
         }
+        #if os(WASI)
+        JavaScriptKitBrowserRuntime.flushAtomicRules(styleRegistry.rules())
+        #endif
         self.session = session
         let commandBatch: BrowserDOMCommandBatch
         let hydrationIndex: BrowserHydrationIndex?

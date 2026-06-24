@@ -993,7 +993,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
   private func copyClientRuntimeSources(
     from swiftWebPackageDirectory: URL, to packageDirectory: URL
   ) throws {
-    for targetName in ["SwiftWebActors", "SwiftWebUI", "SwiftWebUIRuntime"] {
+    for targetName in ["SwiftWebStyle", "SwiftWebActors", "SwiftWebUI", "SwiftWebUIRuntime"] {
       let sourceDirectory =
         swiftWebPackageDirectory
         .appendingPathComponent("Sources", isDirectory: true)
@@ -1605,10 +1605,21 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
         )
         """,
         """
+        let swiftWebStyleTarget = Target.target(
+            name: "SwiftWebStyle",
+            dependencies: [
+                "SwiftHTML",
+            ],
+            path: "Sources/SwiftWebStyle",
+            swiftSettings: swiftSettings
+        )
+        """,
+        """
         let swiftWebUITarget = Target.target(
             name: "SwiftWebUI",
             dependencies: [
                 "SwiftHTML",
+                "SwiftWebStyle",
             ],
             path: "Sources/SwiftWebUI",
             swiftSettings: swiftSettings
@@ -1622,6 +1633,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
                 "SwiftHTML",
                 "JavaScriptKit",
                 "SwiftWebActors",
+                "SwiftWebStyle",
             ],
             path: "Sources/SwiftWebUIRuntime",
             swiftSettings: swiftSettings
@@ -1633,6 +1645,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
         "javaScriptKitTarget",
         "swiftHTMLTarget",
         "swiftWebActorsTarget",
+        "swiftWebStyleTarget",
         "swiftWebUITarget",
         "swiftWebUIRuntimeTarget",
         "appClientTarget",
