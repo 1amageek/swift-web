@@ -16,15 +16,15 @@ struct ContainersDetail: Component {
         case "badge":
             // A row of badges: the first reflects the Label + Tint controls, the
             // others are fixed references (default surface, danger) so the tint is
-            // evaluable against neighbours. SwiftWebUI's `.tint` does not feed the
-            // badge surface, so the tint is applied by overriding the badge's
-            // background / foreground custom properties inline.
+            // evaluable against neighbours.
             let badgeLabel = value("badge", "label", "Ready")
-            let badgeTint = state.control("badge", "tint")
+            let selectedBadgeTint = state.control("badge", "tint")
             HStack(spacing: .small) {
-                Badge(badgeLabel, .style(badgeTintStyle(badgeTint)))
+                Badge(badgeLabel)
+                    .tint(badgeTintColor(selectedBadgeTint))
                 Badge("Default")
-                Badge("Beta", .style(badgeTintStyle("danger")))
+                Badge("Beta")
+                    .tint(.danger)
             }
         case "toolbar":
             // The Primary control drives the leading-trailing primary action; the
@@ -173,31 +173,16 @@ struct ContainersDetail: Component {
         }
     }
 
-    /// Override the badge surface custom properties so the storyboard tint is
-    /// visible. SwiftWebUI's `.tint` does not feed the badge background, so the
-    /// background / foreground vars are set inline instead.
-    private func badgeTintStyle(_ tint: String) -> Style {
+    private func badgeTintColor(_ tint: String) -> Color {
         switch tint {
         case "danger":
-            return Style {
-                .custom("--swui-badge-background", "var(--swui-danger)")
-                .custom("--swui-badge-foreground", "var(--swui-danger-text)")
-            }
+            return .danger
         case "primary":
-            return Style {
-                .custom("--swui-badge-background", "var(--swui-text)")
-                .custom("--swui-badge-foreground", "var(--swui-background)")
-            }
+            return .primary
         case "secondary":
-            return Style {
-                .custom("--swui-badge-background", "var(--swui-text-muted)")
-                .custom("--swui-badge-foreground", "var(--swui-background)")
-            }
+            return .secondary
         default: // accent
-            return Style {
-                .custom("--swui-badge-background", "var(--swui-accent)")
-                .custom("--swui-badge-foreground", "var(--swui-accent-text)")
-            }
+            return .accent
         }
     }
 

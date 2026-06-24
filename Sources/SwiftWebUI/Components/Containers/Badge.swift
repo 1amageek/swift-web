@@ -3,6 +3,7 @@ import SwiftHTML
 public struct Badge: WebUIAttributeComponent {
     private let text: String
     private let attributes: [HTMLAttribute]
+    @Environment(\.tint) private var tint
 
     public init(_ text: String, _ attributes: HTMLAttribute...) {
         self.text = text
@@ -13,13 +14,14 @@ public struct Badge: WebUIAttributeComponent {
     public var body: some HTML {
         // Compose the shared thin material so the badge picks up the active
         // design style's backdrop blur, rim, and refraction. The semantic raised
-        // surface stays a per-badge difference, fed in as the material tint; the
-        // recipe owns the translucency, so the tint stays an opaque hue.
+        // surface stays a per-badge difference, fed in through `.tint(...)` when
+        // present. The recipe owns translucency, so the tint stays an opaque hue.
         Element(
             "span",
             attributes: mergedAttributes(
                 class: "swui-badge \(MaterialClass.material) \(MaterialClass.thin)",
-                styles: .custom("--swui-material-tint", "var(--swui-badge-background)"),
+                styles: controlTintStyle(tint)
+                    .custom("--swui-material-tint", "var(--swui-control-tint, var(--swui-badge-background))"),
                 extra: attributes
             )
         ) {

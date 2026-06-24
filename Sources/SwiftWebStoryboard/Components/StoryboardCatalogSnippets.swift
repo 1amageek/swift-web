@@ -5,7 +5,27 @@ import SwiftWebUI
 // MARK: - Snippet helpers
 
 /// Wrap a value in double quotes for inclusion in a Swift source snippet.
-private func q(_ value: String) -> String { "\"\(value)\"" }
+private func q(_ value: String) -> String {
+    var result = "\""
+    for character in value {
+        switch character {
+        case "\\":
+            result += "\\\\"
+        case "\"":
+            result += "\\\""
+        case "\n":
+            result += "\\n"
+        case "\r":
+            result += "\\r"
+        case "\t":
+            result += "\\t"
+        default:
+            result.append(character)
+        }
+    }
+    result += "\""
+    return result
+}
 
 /// Map a tint knob value to its `.role` shape-style expression.
 private func tintStyle(_ value: String) -> String { ".\(value)" }

@@ -225,6 +225,42 @@ struct SwiftWebStoryboardCatalogTests {
     }
 
     @Test
+    func storyboardControlDefaultsCoverEveryRegisteredControl() {
+        let expectedKeys = Set(allItems.flatMap { item in
+            storyboardControls(for: item.id).map { "\(item.id).\($0.id)" }
+        })
+        let actualKeys = Set(storyboardControlDefaults.keys)
+        let missingKeys = expectedKeys.subtracting(actualKeys).sorted()
+
+        #expect(missingKeys.isEmpty, "Missing storyboard defaults: \(missingKeys.joined(separator: ", "))")
+    }
+
+    @Test
+    func generatedSnippetEscapesSwiftStringLiterals() {
+        let snippet = catalogSnippet(
+            for: "typography",
+            state: ["typography.text": "Ada \"Lovelace\" \\ Engine\nLine"]
+        )
+
+        #expect(snippet.contains(#"Text("Ada \"Lovelace\" \\ Engine\nLine")"#))
+    }
+
+    @Test
+    func badgeSnippetUsesTheSameTintContractAsThePreview() {
+        let snippet = catalogSnippet(
+            for: "badge",
+            state: [
+                "badge.label": "Ready",
+                "badge.tint": "danger",
+            ]
+        )
+        let rendered = StoryboardCatalog(initialSelection: "badge").render()
+
+        #expect(snippet == "Badge(\"Ready\")\n    .tint(.danger)")
+        #expect(rendered.contains("--swui-control-tint: var(--swui-accent)"))
+    }
+
+    @Test
     func catalogCoversPrimarySwiftWebUIComponents() {
         let coverageText = allItems.map { item in
             let spec = catalogDetailSpec(for: item)

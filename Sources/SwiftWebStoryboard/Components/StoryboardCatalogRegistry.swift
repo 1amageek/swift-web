@@ -54,7 +54,7 @@ public let catalogCategories: [CatalogCategory] = [
         CatalogItem(id: "section", name: "Section", code: "Section { } header: { } footer: { }", summary: "Groups rows inside a List or Form under an optional header and footer."),
         CatalogItem(id: "disclosuregroup", name: "DisclosureGroup", code: "DisclosureGroup(isExpanded:) { } label: { }", summary: "An expandable region that composes the regular material."),
         CatalogItem(id: "grid", name: "Grid", code: "Grid { GridRow { } }", summary: "A static grid whose rows are declared with GridRow."),
-        CatalogItem(id: "lazy", name: "Lazy stacks", code: "LazyVStack · LazyHStack", summary: "LazyVStack and LazyHStack build only the children that scroll into view."),
+        CatalogItem(id: "lazy", name: "Lazy stacks", code: "LazyVStack · LazyHStack · LazyVGrid · LazyHGrid", summary: "Lazy stacks and grids build only the children that scroll into view."),
         CatalogItem(id: "tabview", name: "TabView", code: "TabView(selection:) { Tab }", summary: "Switches panels; the tab bar composes interactive glass."),
         CatalogItem(id: "stacks", name: "Stacks", code: "VStack · HStack · ZStack", summary: "VStack and HStack arrange along an axis; ZStack overlays."),
         CatalogItem(id: "spacer", name: "Spacer", code: "Spacer()", summary: "A flexible space that expands along the enclosing stack axis."),

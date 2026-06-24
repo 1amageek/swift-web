@@ -138,6 +138,33 @@ struct SwiftWebUIRenderingTests {
   }
 
   @Test
+  func badgeTintFeedsTheMaterialTintToken() {
+    let rendered = Badge("Ready")
+      .tint(.danger)
+      .render()
+
+    #expect(rendered.contains("class=\"swui-badge swui-material swui-material-thin\""))
+    #expect(rendered.contains("--swui-control-tint: var(--swui-danger)"))
+    #expect(rendered.contains("--swui-material-tint: var(--swui-control-tint, var(--swui-badge-background))"))
+  }
+
+  @Test
+  func glassRuntimeReappliesMissingInlineFilterAndCleansObservers() {
+    let rendered = main {
+      Badge("Glass")
+    }
+    .environment(\.theme, .light)
+    .environment(\.styleSystem, .liquidGlass)
+    .render()
+
+    #expect(rendered.contains("function hasFilter(el)"))
+    #expect(rendered.contains("observed=new Map()"))
+    #expect(rendered.contains("ro.disconnect()"))
+    #expect(rendered.contains("attributes:true"))
+    #expect(rendered.contains("attributeFilter:['class','style']"))
+  }
+
+  @Test
   func mergesClassAndStyleAttributes() {
     let rendered = GroupBox {
       Text("Body")

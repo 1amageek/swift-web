@@ -120,11 +120,15 @@ private enum ThemeScopeAssets {
     +"</filter></defs></svg>";
     return "data:image/svg+xml,"+encodeURIComponent(s)+"#d";
     }
+    function hasFilter(el){
+    var f=el.style.backdropFilter||el.style.webkitBackdropFilter||"";
+    return f.indexOf("url(")!==-1;
+    }
     function apply(el){
     var b=el.getBoundingClientRect(),w=Math.round(b.width),h=Math.round(b.height);
     if(w<2||h<2)return;
-    if(el.__lw===w&&el.__lh===h)return;el.__lw=w;el.__lh=h;
     var cs=getComputedStyle(el),r=Math.min(parseFloat(cs.borderTopLeftRadius)||0,Math.min(w,h)/2);
+    if(el.__lw===w&&el.__lh===h&&el.__lr===r&&hasFilter(el))return;el.__lw=w;el.__lh=h;el.__lr=r;
     var bezel=Math.max(10,Math.min(20,Math.round(Math.min(w,h)*0.13)));
     var scale=Math.max(40,Math.min(90,Math.round(bezel*3.8)));
     var sf=Math.min(1,420/Math.max(w,h)),mw=Math.max(2,Math.round(w*sf)),mh=Math.max(2,Math.round(h*sf));
@@ -132,11 +136,21 @@ private enum ThemeScopeAssets {
     var f="blur(2.5px) url(\\""+flt(w,h,m.d,m.s,scale)+"\\")";
     el.style.backdropFilter=f;el.style.webkitBackdropFilter=f;
     }
-    var seen=new WeakSet();
-    function watch(el){if(seen.has(el))return;seen.add(el);apply(el);if(window.ResizeObserver){new ResizeObserver(function(){apply(el);}).observe(el);}}
+    var observed=new Map();
+    function cleanup(){
+    observed.forEach(function(ro,el){
+    if(!el.isConnected){if(ro)ro.disconnect();observed.delete(el);delete el.__lw;delete el.__lh;delete el.__lr;}
+    });
+    }
+    function watch(el){
+    if(observed.has(el)){apply(el);return;}
+    apply(el);
+    if(window.ResizeObserver){var ro=new ResizeObserver(function(){apply(el);});ro.observe(el);observed.set(el,ro);}
+    else{observed.set(el,null);}
+    }
     var pending=false;
-    function scan(){if(pending)return;pending=true;requestAnimationFrame(function(){pending=false;document.querySelectorAll('.swui-glass').forEach(watch);});}
-    function boot(){scan();if(window.MutationObserver){new MutationObserver(scan).observe(document.documentElement,{childList:true,subtree:true});}}
+    function scan(){if(pending)return;pending=true;requestAnimationFrame(function(){pending=false;cleanup();document.querySelectorAll('.swui-glass').forEach(watch);});}
+    function boot(){scan();if(window.MutationObserver){new MutationObserver(scan).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style']});}}
     if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
     })();
     </script>

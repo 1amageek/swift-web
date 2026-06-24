@@ -59,17 +59,53 @@ enum ControlUnit: Sendable {
 extension Dictionary where Key == String, Value == String {
     func control(_ id: String, _ key: String) -> String {
         let k = "\(id).\(key)"
-        return self[k] ?? storyboardControlDefaults[k] ?? ""
+        return self[k] ?? storyboardDefaultValue(for: k)
     }
+
     func controlFlag(_ id: String, _ key: String) -> Bool {
-        control(id, key) == "true"
+        let fullKey = "\(id).\(key)"
+        return storyboardBoolValue(control(id, key), key: fullKey)
     }
+
     func controlNumber(_ id: String, _ key: String) -> Double {
-        Double(control(id, key)) ?? 0
+        let fullKey = "\(id).\(key)"
+        return storyboardDoubleValue(control(id, key), key: fullKey)
     }
 }
 
 // MARK: - Typed bindings into the shared state
+
+func storyboardDefaultValue(for fullKey: String) -> String {
+    guard let value = storyboardControlDefaults[fullKey] else {
+        storyboardControlFailure("Missing storyboard control default for \(fullKey)")
+        return "__missing_\(fullKey)__"
+    }
+    return value
+}
+
+private func storyboardBoolValue(_ rawValue: String, key: String) -> Bool {
+    switch rawValue {
+    case "true":
+        return true
+    case "false":
+        return false
+    default:
+        storyboardControlFailure("Invalid storyboard bool value for \(key): \(rawValue)")
+        return false
+    }
+}
+
+private func storyboardDoubleValue(_ rawValue: String, key: String) -> Double {
+    guard let value = Double(rawValue) else {
+        storyboardControlFailure("Invalid storyboard numeric value for \(key): \(rawValue)")
+        return 0
+    }
+    return value
+}
+
+private func storyboardControlFailure(_ message: String) {
+    assertionFailure(message)
+}
 
 /// Derive typed bindings into the shared `ui` dictionary so an interactive demo
 /// (a real TextField/Toggle/Slider) and its control panel stay linked through
@@ -77,25 +113,33 @@ extension Dictionary where Key == String, Value == String {
 extension Binding where Value == [String: String] {
     func string(_ fullKey: String) -> Binding<String> {
         Binding<String>(
-            get: { self.wrappedValue[fullKey] ?? storyboardControlDefaults[fullKey] ?? "" },
+            get: { self.wrappedValue[fullKey] ?? storyboardDefaultValue(for: fullKey) },
             set: { self.wrappedValue[fullKey] = $0 }
         )
     }
+
     func bool(_ fullKey: String) -> Binding<Bool> {
         Binding<Bool>(
-            get: { (self.wrappedValue[fullKey] ?? storyboardControlDefaults[fullKey] ?? "false") == "true" },
+            get: { storyboardBoolValue(self.wrappedValue[fullKey] ?? storyboardDefaultValue(for: fullKey), key: fullKey) },
             set: { self.wrappedValue[fullKey] = $0 ? "true" : "false" }
         )
     }
+
     func double(_ fullKey: String) -> Binding<Double> {
         Binding<Double>(
-            get: { Double(self.wrappedValue[fullKey] ?? storyboardControlDefaults[fullKey] ?? "") ?? 0 },
+            get: { storyboardDoubleValue(self.wrappedValue[fullKey] ?? storyboardDefaultValue(for: fullKey), key: fullKey) },
             set: { self.wrappedValue[fullKey] = String(format: "%.2f", $0) }
         )
     }
+
     func int(_ fullKey: String) -> Binding<Int> {
         Binding<Int>(
-            get: { Int(Double(self.wrappedValue[fullKey] ?? storyboardControlDefaults[fullKey] ?? "") ?? 0) },
+            get: {
+                Int(storyboardDoubleValue(
+                    self.wrappedValue[fullKey] ?? storyboardDefaultValue(for: fullKey),
+                    key: fullKey
+                ))
+            },
             set: { self.wrappedValue[fullKey] = String($0) }
         )
     }
@@ -341,8 +385,7 @@ func storyboardControls(for id: String) -> [StoryboardControl] {
 
 // MARK: - Defaults
 
-/// Initial knob values, keyed `"componentID.knob"`. Anything not listed reads as
-/// empty / false / 0.
+/// Initial knob and live preview state values, keyed `"componentID.value"`.
 let storyboardControlDefaults: [String: String] = [
     "gridsystem.cols": "12", "gridsystem.gutter": "medium", "gridsystem.preset": "sidebar",
     "spacing.unit": "8",
@@ -380,7 +423,7 @@ let storyboardControlDefaults: [String: String] = [
     "searchable.query": "",
     "alert.open": "false", "alert.message": "This action cannot be undone.",
     "sheet.open": "false",
-    "textfield.placeholder": "Name", "textfield.type": "text", "textfield.fieldStyle": "roundedBorder",
+    "textfield.placeholder": "Name", "textfield.input": "", "textfield.type": "text", "textfield.fieldStyle": "roundedBorder",
     "securefield.value": "hunter2", "securefield.fieldStyle": "roundedBorder",
     "texteditor.value": "Notes support multiple lines.",
     "form.method": "post", "form.action": "/subscribe",
