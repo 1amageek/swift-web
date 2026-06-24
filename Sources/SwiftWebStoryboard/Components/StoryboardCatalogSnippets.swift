@@ -75,13 +75,15 @@ func catalogSnippet(for id: String) -> String {
           .foregroundStyle(.primary)
       """
   case "code":
-    return """
-      Code(
-          source,
-          language: "swift",
-          showsLineNumbers: true
-      )
-      """
+    return #"""
+      Code(language: "swift") {
+          """
+          struct Counter: View {
+              @State private var count = 0
+          }
+          """
+      }
+      """#
   case "colorvalue":
     return """
       Color.blue

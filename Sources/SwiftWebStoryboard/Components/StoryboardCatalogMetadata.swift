@@ -82,8 +82,9 @@ private func catalogProperties(for id: String) -> [CatalogProperty] {
         ]
     case "code":
         return [
-            CatalogProperty("content", values: "String", summary: "The source code to render."),
-            CatalogProperty("language", values: "String", summary: "Language hint emitted as data-language and aria label."),
+            CatalogProperty("content", values: "@StringBuilder closure", summary: "The source code, supplied as a trailing closure."),
+            CatalogProperty("language", values: "String", summary: "Language hint emitted as data-language and the aria label."),
+            CatalogProperty("startLine", values: "Int", summary: "The number assigned to the first line."),
             CatalogProperty("showsLineNumbers", values: "Bool", summary: "Toggles the leading line-number gutter."),
         ]
     case "colorvalue":

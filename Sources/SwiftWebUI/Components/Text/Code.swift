@@ -8,13 +8,13 @@ public struct Code: WebUIAttributeComponent {
     private let attributes: [HTMLAttribute]
 
     public init(
-        _ code: String,
         language: String? = nil,
         startLine: Int = 1,
         showsLineNumbers: Bool = true,
-        _ attributes: HTMLAttribute...
+        _ attributes: HTMLAttribute...,
+        @StringBuilder content: () -> String
     ) {
-        self.source = code
+        self.source = content()
         self.language = language
         self.startLine = startLine
         self.showsLineNumbers = showsLineNumbers
@@ -33,7 +33,8 @@ public struct Code: WebUIAttributeComponent {
                             }
                         }
                         span(.class("swui-code-line-content")) {
-                            line.text
+                            // Preserve the height of a blank line (matches the design).
+                            line.text.isEmpty ? " " : line.text
                         }
                     }
                 }

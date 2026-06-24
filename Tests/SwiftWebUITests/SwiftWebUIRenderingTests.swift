@@ -203,15 +203,13 @@ struct SwiftWebUIRenderingTests {
 
   @Test
   func rendersCodeWithLineNumbers() {
-    let rendered = Code(
+    let rendered = Code(language: "swift", startLine: 12) {
       """
       let title = "<main>"
 
       Text(title, as: .code)
-      """,
-      language: "swift",
-      startLine: 12
-    )
+      """
+    }
     .render()
 
     #expect(rendered.contains("<pre class=\"swui-code-block\" role=\"region\" aria-label=\"swift code block\">"))
@@ -220,7 +218,7 @@ struct SwiftWebUIRenderingTests {
     #expect(rendered.contains("<span class=\"swui-code-line-number\" aria-hidden=\"true\">12</span>"))
     #expect(rendered.contains("<span class=\"swui-code-line-content\">let title = \"&lt;main&gt;\"</span>"))
     #expect(rendered.contains("<span class=\"swui-code-line\" data-line=\"13\">"))
-    #expect(rendered.contains("<span class=\"swui-code-line-content\"></span>"))
+    #expect(rendered.contains("<span class=\"swui-code-line-content\"> </span>"))
     #expect(rendered.contains("<span class=\"swui-code-line-number\" aria-hidden=\"true\">14</span>"))
   }
 
