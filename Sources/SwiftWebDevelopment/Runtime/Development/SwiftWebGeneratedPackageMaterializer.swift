@@ -2227,6 +2227,7 @@ private extension SwiftWebWasmRuntimeProfile {
         "JavaScriptKit",
         "SwiftHTML",
         "SwiftWebActors",
+        "SwiftWebStyle",
         "SwiftWebUI",
         "SwiftWebUIRuntime",
       ]
