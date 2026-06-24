@@ -14,12 +14,25 @@ struct ContainersDetail: Component {
     var body: some HTML {
         switch selection {
         case "badge":
-            Badge(value("badge", "label", "Ready"))
+            // A row of badges: the first reflects the Label + Tint controls, the
+            // others are fixed references (default surface, danger) so the tint is
+            // evaluable against neighbours. SwiftWebUI's `.tint` does not feed the
+            // badge surface, so the tint is applied by overriding the badge's
+            // background / foreground custom properties inline.
+            let badgeLabel = value("badge", "label", "Ready")
+            let badgeTint = state.control("badge", "tint")
+            HStack(spacing: .small) {
+                Badge(badgeLabel, .style(badgeTintStyle(badgeTint)))
+                Badge("Default")
+                Badge("Beta", .style(badgeTintStyle("danger")))
+            }
         case "toolbar":
+            // The Primary control drives the leading-trailing primary action; the
+            // Back button is a fixed secondary reference, matching the design.
             Toolbar {
-                Button(value("toolbar", "label", "Back")).buttonStyle(.plain)
+                Button("Back").buttonStyle(.bordered).controlSize(.small)
                 Spacer()
-                Button("Save").buttonStyle(.borderedProminent)
+                Button(value("toolbar", "label", "Save")).buttonStyle(.borderedProminent).controlSize(.small)
             }
         case "list":
             List {
@@ -29,18 +42,33 @@ struct ContainersDetail: Component {
             }
             .listStyle(listStyleKind(state.control("list", "style")))
         case "section":
-            Section {
-                VStack(alignment: .leading, spacing: .small) {
-                    Text("Profile")
-                    Text("Security")
-                    Text("Notifications")
+            // The first section reflects the Header + Footer controls; a fixed
+            // "Devices" section follows so grouped sections are evaluable as a
+            // list, matching the design.
+            VStack(alignment: .leading, spacing: .medium) {
+                Section {
+                    VStack(alignment: .leading, spacing: .small) {
+                        Text("Profile")
+                        Text("Security")
+                        Text("Notifications")
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                } header: {
+                    Heading(value("section", "title", "Account"), level: .subsection)
+                } footer: {
+                    Text(footerText).foregroundStyle(.secondary)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            } header: {
-                Heading(value("section", "title", "Account"), level: .subsection)
-            } footer: {
-                Text(footerText).foregroundStyle(.secondary)
+                Section {
+                    VStack(alignment: .leading, spacing: .small) {
+                        Text("iPhone")
+                        Text("iPad")
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                } header: {
+                    Heading("Devices", level: .subsection)
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         case "disclosuregroup":
             DisclosureGroup("Advanced options", isExpanded: ui.bool("disclosuregroup.open")) {
                 VStack(alignment: .leading, spacing: .small) {
@@ -50,10 +78,7 @@ struct ContainersDetail: Component {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         case "grid":
-            Grid(alignment: .center, horizontalSpacing: 8, verticalSpacing: 8) {
-                GridRow { Text("Cell 1"); Text("Cell 2") }
-                GridRow { Text("Cell 3"); Text("Cell 4") }
-            }
+            gridDemo(state.controlNumber("grid", "min"))
         case "lazy":
             lazyDemo(state.control("lazy", "axis"))
         case "scrollview":
@@ -116,6 +141,64 @@ struct ContainersDetail: Component {
         .background(.surfaceRaised)
         .cornerRadius(12)
         .border(.border)
+    }
+
+    @HTMLBuilder
+    private func gridDemo(_ minimum: Double) -> some HTML {
+        // The minColumnWidth control drives the adaptive track size, so the photo
+        // grid reflows its column count as the minimum changes — matching the
+        // design's repeat(auto-fit, minmax(min, 1fr)).
+        let palette = ["#8fa9c4", "#c4a98f", "#8fc4a9", "#a98fc4", "#c48fa0", "#9fb98f", "#8fb6c4", "#c4b08f"]
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: minimum))], spacing: .small) {
+            ForEach(palette.indices, id: \.self) { index in
+                gridTile(palette[index])
+            }
+        }
+        .frame(width: 340)
+    }
+
+    private func gridTile(_ color: String) -> some HTML {
+        // A square photo placeholder. The 1:1 aspect ratio needs inline CSS, so
+        // the tile is emitted as raw markup with the icon centered inside.
+        div(.style {
+            .custom("aspect-ratio", "1")
+            .borderRadius("10px")
+            .background(color)
+            .display("flex")
+            .alignItems("center")
+            .justifyContent("center")
+            .custom("color", "rgba(255,255,255,0.92)")
+        }) {
+            Image(systemName: "photo")
+        }
+    }
+
+    /// Override the badge surface custom properties so the storyboard tint is
+    /// visible. SwiftWebUI's `.tint` does not feed the badge background, so the
+    /// background / foreground vars are set inline instead.
+    private func badgeTintStyle(_ tint: String) -> Style {
+        switch tint {
+        case "danger":
+            return Style {
+                .custom("--swui-badge-background", "var(--swui-danger)")
+                .custom("--swui-badge-foreground", "var(--swui-danger-text)")
+            }
+        case "primary":
+            return Style {
+                .custom("--swui-badge-background", "var(--swui-text)")
+                .custom("--swui-badge-foreground", "var(--swui-background)")
+            }
+        case "secondary":
+            return Style {
+                .custom("--swui-badge-background", "var(--swui-text-muted)")
+                .custom("--swui-badge-foreground", "var(--swui-background)")
+            }
+        default: // accent
+            return Style {
+                .custom("--swui-badge-background", "var(--swui-accent)")
+                .custom("--swui-badge-foreground", "var(--swui-accent-text)")
+            }
+        }
     }
 
     private func value(_ id: String, _ key: String, _ fallback: String) -> String {

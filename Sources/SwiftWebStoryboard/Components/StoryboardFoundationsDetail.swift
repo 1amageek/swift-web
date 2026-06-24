@@ -22,6 +22,10 @@ struct FoundationsDetail: Component {
             }
             .frame(maxWidth: .infinity)
         case "spacing":
+            // The ladder of fixed steps is constant (8 is always the base unit);
+            // the right-hand tile grid is sized by the selected grid unit so the
+            // 4/8/16 control visibly changes the lattice cell size.
+            let unit = spacingUnit(state.control("spacing", "unit"))
             HStack(alignment: .top, spacing: .large) {
                 VStack(alignment: .leading, spacing: .xsmall) {
                     spacingBar("4", width: 12, active: false)
@@ -33,45 +37,49 @@ struct FoundationsDetail: Component {
                     spacingBar("48", width: 144, active: false)
                 }
                 VStack(spacing: .xsmall) {
-                    tileGrid()
-                    Text("8px grid", as: .small)
+                    tileGrid(cell: unit)
+                    Text("\(Int(unit))px grid", as: .small)
                         .font(Font(size: .px(12), design: .monospaced))
                         .foregroundStyle(.secondary)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         case "alignment":
+            // The chip is positioned within a bounded, dashed frame by the
+            // selected alignment. The dashed frame is emitted as raw inline CSS:
+            // SwiftWebUI's `.border(_:width:)` only produces a *solid* border, so
+            // the dashed style cannot be expressed through it — faking it with a
+            // solid border was the extra border the design rejected.
+            let align = state.control("alignment", "align")
             VStack(spacing: .small) {
-                Text("View")
-                    .font(Font(size: .px(12), design: .monospaced))
-                    .foregroundStyle(.accent)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(Color.accent.opacity(0.16), in: .rect(cornerRadius: 6))
-                    .frame(maxWidth: 240, maxHeight: 120, alignment: .center)
-                    .background(.surfaceRaised, in: .rect(cornerRadius: 10))
-                    .border(.border, width: 1)
-                    .cornerRadius(10)
-                Text("default · .center", as: .small)
+                div(.style {
+                    .width("420px")
+                    .maxWidth("80vw")
+                    .height("120px")
+                    .boxSizing("border-box")
+                    .custom("border", "1.5px dashed var(--swui-border)")
+                    .borderRadius("10px")
+                    .display("flex")
+                    .alignItems("center")
+                    .justifyContent(alignmentJustify(align))
+                    .padding("0 14px")
+                }) {
+                    Text("View")
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.accentText)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 10)
+                        .background(.accent, in: .rect(cornerRadius: 8))
+                }
+                Text(alignmentTag(align), as: .small)
                     .font(Font(size: .px(12), design: .monospaced))
                     .foregroundStyle(.secondary)
             }
         case "style":
-            VStack(spacing: .medium) {
-                List {
-                    ListRow {
-                        Text("Wi-Fi")
-                        Spacer()
-                        Text("On").foregroundStyle(.secondary)
-                    }
-                    ListRow {
-                        Text("Bluetooth")
-                        Spacer()
-                        Text("Off").foregroundStyle(.secondary)
-                    }
-                }
-                Text(".swui-list .swui-text { ... }", as: .code)
-            }
+            // The same Text renders differently by context: bare, inside a List
+            // row, or inside a Toolbar. The selected context drives both the demo
+            // and the CSS note beneath it.
+            styleDemo(state.control("style", "ctx"))
         case "responsive":
             // Show the "large" breakpoint as a real 12-column grid (three span-4
             // panes) so the lattice fills the canvas, rather than relying on a
@@ -89,9 +97,12 @@ struct FoundationsDetail: Component {
             }
             .frame(maxWidth: .infinity)
         case "safearea":
+            // The device context changes how much chrome (notch + home indicator,
+            // a browser toolbar, or none) insets the safe area inside the frame.
+            let device = state.control("safearea", "device")
             VStack(spacing: .small) {
-                phoneMock()
-                Text("iPhone (notch + home indicator)", as: .small)
+                deviceMock(device)
+                Text(safeAreaLabel(device), as: .small)
                     .font(Font(size: .px(12), design: .monospaced))
                     .foregroundStyle(.secondary)
             }
@@ -306,13 +317,13 @@ struct FoundationsDetail: Component {
         }
     }
 
-    private func tileGrid() -> some HTML {
+    private func tileGrid(cell: Double) -> some HTML {
         VStack(spacing: .xsmall) {
             ForEach(0..<4, id: \.self) { _ in
                 HStack(spacing: .xsmall) {
                     ForEach(0..<4, id: \.self) { _ in
                         VStack {}
-                            .frame(width: 12, height: 12)
+                            .frame(width: cell, height: cell)
                             .background(Color.accent.opacity(0.2), in: .rect(cornerRadius: 2))
                     }
                 }
@@ -320,31 +331,162 @@ struct FoundationsDetail: Component {
         }
     }
 
-    private func phoneMock() -> some HTML {
-        // Explicit sizes so the notch pins to the top, the screen fills the
-        // middle, and the home indicator pins to the bottom — without relying on
-        // fill-v inside a fixed-size frame (which does not propagate).
-        VStack(spacing: .small) {
-            // Notch
-            VStack {}
-                .frame(width: 56, height: 16)
-                .background(.primary, in: .rect(cornerRadius: 8))
-            // Safe-area screen region
-            Text("safe area")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .frame(width: 136, height: 236, alignment: .center)
-                .background(Color.accent.opacity(0.08), in: .rect(cornerRadius: 10))
-            // Home indicator
-            VStack {}
-                .frame(width: 80, height: 5)
-                .background(.secondary, in: .rect(cornerRadius: 3))
+    /// The grid unit (cell size in px) the spacing demo lays its tile lattice on.
+    private func spacingUnit(_ value: String) -> Double {
+        switch value {
+        case "4": return 4
+        case "16": return 16
+        default: return 8
         }
-        .padding(.small)
-        .frame(width: 168)
-        .background(.surfaceRaised, in: .rect(cornerRadius: 28))
-        .border(.border, width: 2)
-        .cornerRadius(28)
+    }
+
+    /// CSS `justify-content` for the alignment chip inside its bounded frame.
+    private func alignmentJustify(_ value: String) -> String {
+        switch value {
+        case "leading": return "flex-start"
+        case "trailing": return "flex-end"
+        default: return "center"
+        }
+    }
+
+    /// The monospaced caption beneath the alignment frame.
+    private func alignmentTag(_ value: String) -> String {
+        value == "center"
+            ? "default · .center"
+            : "frame(maxWidth: .infinity, alignment: .\(value))"
+    }
+
+    @HTMLBuilder
+    private func styleDemo(_ context: String) -> some HTML {
+        switch context {
+        case "toolbar":
+            VStack(spacing: .medium) {
+                Toolbar {
+                    Text("Settings").fontWeight(.semibold)
+                    Spacer()
+                    Button("Done").buttonStyle(.borderedProminent).controlSize(.small)
+                }
+                Text(".swui-toolbar .swui-text { font-weight: 600; }", as: .code)
+            }
+        case "list":
+            VStack(spacing: .medium) {
+                List {
+                    ListRow {
+                        Text("Wi-Fi")
+                        Spacer()
+                        Text("On").foregroundStyle(.secondary)
+                    }
+                    ListRow {
+                        Text("Bluetooth")
+                        Spacer()
+                        Text("Off").foregroundStyle(.secondary)
+                    }
+                }
+                Text(".swui-list .swui-text { padding-block: 2px; }", as: .code)
+            }
+        default: // standalone
+            VStack(spacing: .medium) {
+                Text("Wi-Fi")
+                Text(".swui-text { color: var(--swui-text); }", as: .code)
+            }
+        }
+    }
+
+    /// A device frame whose chrome insets (top/bottom) shrink the inner safe
+    /// area. The hatched chrome bands and dashed accent safe-area box need inline
+    /// CSS, so the frame is emitted as raw markup matching the reference.
+    private func deviceMock(_ device: String) -> some HTML {
+        let top = safeAreaTop(device)
+        let bottom = safeAreaBottom(device)
+        return div(.style {
+            .position("relative")
+            .width("188px")
+            .height("300px")
+            .custom("border", "6px solid var(--swui-text)")
+            .borderRadius("30px")
+            .overflow("hidden")
+            .background("var(--swui-surface-raised)")
+        }) {
+            chromeBand(edge: "top", height: top, notch: device == "notch")
+            chromeBand(edge: "bottom", height: bottom, notch: false)
+            div(.style {
+                .position("absolute")
+                .custom("top", "\(Int(top))px")
+                .custom("bottom", "\(Int(bottom))px")
+                .custom("left", "8px")
+                .custom("right", "8px")
+                .custom("border", "1.5px dashed color-mix(in srgb, var(--swui-accent) 55%, transparent)")
+                .borderRadius("8px")
+                .background("color-mix(in srgb, var(--swui-accent) 9%, transparent)")
+                .display("flex")
+                .alignItems("center")
+                .justifyContent("center")
+            }) {
+                Text("safe area")
+                    .font(Font(size: .px(11)))
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.accent)
+            }
+        }
+    }
+
+    /// One hatched chrome band pinned to an edge of the device frame; bands at
+    /// or below the 8px baseline render nothing (no chrome on that edge).
+    @HTMLBuilder
+    private func chromeBand(edge: String, height: Double, notch: Bool) -> some HTML {
+        if height > 8 {
+            div(.style {
+                .position("absolute")
+                .custom(edge, "0")
+                .custom("left", "0")
+                .custom("right", "0")
+                .height("\(Int(height))px")
+                .background("repeating-linear-gradient(45deg, color-mix(in srgb, var(--swui-text-muted) 22%, transparent), color-mix(in srgb, var(--swui-text-muted) 22%, transparent) 4px, transparent 4px, transparent 8px)")
+            }) {
+                if notch {
+                    div(.style {
+                        .width("96px")
+                        .height("18px")
+                        .background("#000")
+                        .borderRadius("0 0 12px 12px")
+                        .margin("0 auto")
+                    }) {}
+                } else if edge == "bottom" {
+                    div(.style {
+                        .width("90px")
+                        .height("4px")
+                        .borderRadius("2px")
+                        .background("var(--swui-text-muted)")
+                        .margin("7px auto 0")
+                        .opacity("0.6")
+                    }) {}
+                }
+            }
+        }
+    }
+
+    private func safeAreaTop(_ device: String) -> Double {
+        switch device {
+        case "browser": return 26
+        case "none": return 8
+        default: return 30 // notch
+        }
+    }
+
+    private func safeAreaBottom(_ device: String) -> Double {
+        switch device {
+        case "browser": return 0
+        case "none": return 8
+        default: return 18 // notch
+        }
+    }
+
+    private func safeAreaLabel(_ device: String) -> String {
+        switch device {
+        case "browser": return "Mobile browser (toolbar)"
+        case "none": return "Desktop (no chrome)"
+        default: return "iPhone (notch + home indicator)"
+        }
     }
 
     private func spacingBar(_ label: String, width: Double, active: Bool) -> some HTML {
