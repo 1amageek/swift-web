@@ -11,6 +11,39 @@ small, reusable class. It is **self-contained** — a SwiftWebUI app needs no Ta
 toolchain, CDN, or build step — and it integrates with the existing `--swui-*` design
 tokens and the ~243 semantic classes already in `ThemeStylesheet`.
 
+## Goal state (definition of done)
+
+The migration is complete when **all** of the following hold — each is verifiable:
+
+**Output**
+- Server-rendered HTML **and** the client-reconciled live DOM contain **no `style="…"`
+  attribute**, the sole exception being an explicit `rawStyle(_:)` escape hatch.
+- Every declaration is expressed as a class — token utilities (`swui-p-m`, `swui-jc-center`,
+  `swui-fg-accent`) or generated atomic classes (`swui-w-237px`, `swui-o-60`, `swui-x-{hash}`)
+  — and the rules live in `<head>` (`<style id="swui-base">` / `<style id="swui-atomic">`).
+- The storyboard **"Rendered HTML" panel shows clean, class-based markup** (the original trigger).
+
+**Behaviour / parity**
+- The rendered result is **visually identical** to pre-migration — no design regression —
+  spot-checked across components in the browser, light + dark.
+- Changing any control still updates **Preview + Usage + Rendered HTML** together; a new
+  arbitrary value flushes a new atomic rule on the client and **no inline `style` reappears**.
+- The SwiftUI-faithful modifier API (signatures + semantics) is **unchanged**.
+
+**Safety / architecture**
+- Declaration values are validated; an injecting value (containing `}` etc.) is **rejected**.
+- Class names are a **pure function** of the canonical `(property, value, unit)`; server == client; deduped.
+- **SwiftHTML core is unchanged** (client flush goes through the DOM host, not core types).
+- **No FOUC**: the stylesheets precede the content they style.
+
+**Quality gates**
+- All existing tests pass; `xcodebuild` clean.
+- New tests: a representative tree emits **no `style=`** (except `rawStyle`); an injecting value is rejected.
+
+**Non-goals (explicitly out of scope)**
+- No Tailwind dependency (self-contained); no build-time/purge step (runtime generation).
+- No change to the visual design, nor to the SwiftUI-faithful public API surface.
+
 ## Why class-based is hard at runtime
 
 Tailwind scans source at **build time** and emits only the classes it sees (JIT/purge).
