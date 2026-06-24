@@ -29,7 +29,7 @@ public enum StreamingPageRoute {
             let headers: HTTPFields = [.contentType: "text/html; charset=utf-8"]
             let requestValues = RequestValues(request: req, params: NoParams(), searchParams: searchParams)
             var configuredEnvironment = EnvironmentValues()
-            configuredEnvironment.route = requestValues.routeEnvironment
+            configuredEnvironment.applyRequestValues(requestValues)
             let environment = configuredEnvironment
 
             guard SwiftWebRuntime.streamsResponses else {

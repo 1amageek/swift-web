@@ -640,7 +640,7 @@ enum ThemeStylesheet {
       }
       rule(".swui-button-primary") {
         .color("var(--swui-button-primary-foreground)")
-          // Resolve the control tint on the button element itself so the inline
+          // Resolve the control tint on the button element itself so the local
           // per-button --swui-control-tint override wins. Falling back to the
           // style-system default avoids depending on an ancestor-resolved token.
           .background("var(--swui-control-tint, var(--swui-button-primary-background))")

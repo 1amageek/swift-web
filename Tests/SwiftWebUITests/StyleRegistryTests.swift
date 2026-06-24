@@ -1,5 +1,6 @@
 import Testing
 import SwiftHTML
+import SwiftWebUI
 import SwiftWebStyle
 
 @Suite struct StyleRegistryTests {
@@ -24,6 +25,23 @@ import SwiftWebStyle
         #expect(!StyleRegistry.isSafe(property: "width", value: "100px/*x*/"))
     }
 
+    @Test func typedDeclarationsPreserveUnsafeSemicolonValue() {
+        let style = Style.custom("color", "red; background: blue")
+        #expect(style.declarations.count == 1)
+        let declaration = style.declarations[0]
+        #expect(declaration.property == "color")
+        #expect(declaration.value == "red; background: blue")
+        #expect(!StyleRegistry.isSafe(property: declaration.property, value: declaration.value))
+        #expect(!StyleRegistry.isSafe(style))
+    }
+
+    @Test func genericPropertyPrefixesDoNotCollide() {
+        #expect(
+            StyleRegistry.className(property: "--a-b", value: "1px")
+            != StyleRegistry.className(property: "--ab", value: "1px")
+        )
+    }
+
     @Test func registerDeduplicatesAndReturnsClasses() {
         let registry = StyleRegistry()
         let first = registry.register(Style.custom("opacity", "0.6"))
@@ -34,10 +52,20 @@ import SwiftWebStyle
 
     @Test func atomEmitsAClassAttributeWithinAScope() {
         let registry = StyleRegistry()
-        StyleRegistry.$current.withValue(registry) {
+        StyleRegistry.withCurrent(registry) {
             let attribute = atom(Style.custom("opacity", "0.6"))
             #expect(attribute.name == "class")
             #expect(registry.rules().count == 1)
         }
+    }
+
+    @Test func typedStyleAttributesAreAtomizedByMergedAttributesBackstop() {
+        let registry = StyleRegistry()
+        let rendered = StyleRegistry.withCurrent(registry) {
+            Spacer(minLength: 12).render()
+        }
+        #expect(!rendered.contains("style=\""))
+        #expect(rendered.contains("class=\"swui-spacer swui-minw-12px-"))
+        #expect(registry.rules().contains { $0.body == "min-width: 12px" })
     }
 }

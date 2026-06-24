@@ -17,7 +17,7 @@ public struct Spacer: WebUIAttributeComponent {
     private var resolvedAttributes: [HTMLAttribute] {
         var result: [HTMLAttribute] = [.class("swui-spacer")]
         if let minLength {
-            result.append(.style(.minWidth(pixelValue(minLength))))
+            result.append(styleAttribute(.minWidth(pixelValue(minLength))))
         }
         return mergedAttributes(extra: result + attributes)
     }

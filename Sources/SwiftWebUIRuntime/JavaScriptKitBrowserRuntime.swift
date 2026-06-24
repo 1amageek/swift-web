@@ -36,15 +36,30 @@ public enum JavaScriptKitBrowserRuntime {
     /// so a class produced by a client re-render (e.g. a new arbitrary value from a
     /// control change) has its rule present in the document.
     public static func flushAtomicRules(_ rules: [(className: String, body: String)]) {
-        let fresh = injectedAtomicClasses.withLock { injected in
-            rules.filter { injected.insert($0.className).inserted }
-        }
-        guard !fresh.isEmpty,
-              let element = document.getElementById("swui-atomic").object
-        else { return }
-        let css = fresh.map { ".\($0.className) { \($0.body) }" }.joined()
+        let element = atomicStyleElement()
         let existing = element.textContent.string ?? ""
+        let fresh = injectedAtomicClasses.withLock { injected in
+            rules.filter { rule in
+                guard !existing.contains(".\(rule.className) ") else {
+                    injected.insert(rule.className)
+                    return false
+                }
+                return injected.insert(rule.className).inserted
+            }
+        }
+        guard !fresh.isEmpty else { return }
+        let css = fresh.map { ".\($0.className) { \($0.body) }" }.joined()
         element.textContent = .string(existing + css)
+    }
+
+    private static func atomicStyleElement() -> JSObject {
+        if let element = document.getElementById("swui-atomic").object {
+            return element
+        }
+        let element = document.createElement("style").object!
+        _ = element.setAttribute("id", "swui-atomic")
+        _ = document.head.appendChild(element)
+        return element
     }
 
     public static func apply(
@@ -83,7 +98,7 @@ public enum JavaScriptKitBrowserRuntime {
             return value
         }
         _ = body.classList.add("swui-animation-scope")
-        _ = body.style.setProperty("--swui-animation", animation.css)
+        animationStyleElement().textContent = .string(".swui-animation-scope { --swui-animation: \(animation.css) }")
         // Commit the scope's transition (with the pre-patch values) before mutating,
         // so the upcoming property changes start from a state where the transition is
         // already active and therefore animate.
@@ -95,11 +110,21 @@ public enum JavaScriptKitBrowserRuntime {
             let isLatest = animationScopeGeneration.withLock { $0 == generation }
             if isLatest {
                 _ = body.classList.remove("swui-animation-scope")
-                _ = body.style.removeProperty("--swui-animation")
+                animationStyleElement().textContent = .string("")
             }
             return .undefined
         }
         _ = JSObject.global.setTimeout!(cleanup, motionAdjustedDelay(Double(animation.durationMilliseconds)))
+    }
+
+    private static func animationStyleElement() -> JSObject {
+        if let element = document.getElementById("swui-animation").object {
+            return element
+        }
+        let element = document.createElement("style").object!
+        _ = element.setAttribute("id", "swui-animation")
+        _ = document.head.appendChild(element)
+        return element
     }
 
     private static func apply(

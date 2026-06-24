@@ -15,7 +15,7 @@ public struct ContentSecurityPolicy: Sendable {
             ("object-src", ["'none'"]),
             ("frame-ancestors", ["'none'"]),
             ("img-src", ["'self'", "data:"]),
-            ("style-src", ["'self'", "'unsafe-inline'"]),
+            ("style-src", ["'self'"]),
             ("connect-src", ["'self'"]),
             ("script-src", ["'self'"]),
         ]
@@ -34,10 +34,12 @@ public struct ContentSecurityPolicy: Sendable {
     func headerValue(nonce: String?) -> String {
         directives.map { name, values in
             var currentValues = values
-            if name == "script-src" {
+            if name == "script-src" || name == "style-src" {
                 if let nonce {
                     currentValues.append("'nonce-\(nonce)'")
                 }
+            }
+            if name == "script-src" {
                 if allowsWasmUnsafeEval {
                     currentValues.append("'wasm-unsafe-eval'")
                 }

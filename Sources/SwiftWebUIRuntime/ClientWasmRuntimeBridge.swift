@@ -167,7 +167,7 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
         )
         // Collect atomic CSS used while rendering the initial tree.
         let styleRegistry = StyleRegistry()
-        session = try StyleRegistry.$current.withValue(styleRegistry) {
+        session = try StyleRegistry.withCurrent(styleRegistry) {
             try makeSession(
                 root: root,
                 environment: environment,
@@ -261,7 +261,7 @@ public final class ClientWasmRuntimeBridge<Root: HTML> {
         let transaction = Transaction()
         // Collect atomic CSS used while re-rendering for this event.
         let styleRegistry = StyleRegistry()
-        let update = try StyleRegistry.$current.withValue(styleRegistry) {
+        let update = try StyleRegistry.withCurrent(styleRegistry) {
             try Transaction.$current.withValue(transaction) {
                 try session.invoke(
                     handlerID: translatedHandlerID(request.handlerID, in: session),

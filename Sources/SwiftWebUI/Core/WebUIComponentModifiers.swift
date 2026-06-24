@@ -1,4 +1,5 @@
 import SwiftHTML
+import SwiftWebStyle
 
 public protocol WebUIAttributeMutableHTML: HTML {
     func addingAttributes(_ attributes: [HTMLAttribute]) -> Self
@@ -384,19 +385,22 @@ public struct Frame<Content: HTML>: WebUIAttributeComponent {
 }
 
 func styleAttribute(_ style: Style) -> HTMLAttribute {
-    .style(style)
+    // Route every declaration through the atomic registry so it renders as a class
+    // instead of an inline `style="…"`. Falls back to inline only outside a render
+    // scope (an isolated render). See docs/AtomicStyling.md.
+    atom(style)
 }
 
 func styleAttribute(@StyleBuilder _ content: () -> Style) -> HTMLAttribute {
     styleAttribute(content())
 }
 
-/// Translate `frame(...)` parameters into the marker classes and inline styles
+/// Translate `frame(...)` parameters into marker classes and atomic declarations
 /// that drive the priority-based layout system.
 ///
 /// The axis intent is resolved through the marker classes so that fill
 /// propagation (`:has()`) and parent-axis awareness work in CSS, while explicit
-/// lengths remain inline. A bounded `maxWidth` produces the centered, capped
+/// lengths remain atomic declarations. A bounded `maxWidth` produces the centered, capped
 /// "page" idiom (fill up to the cap, then center).
 func frameLayout(
     width: Double?,

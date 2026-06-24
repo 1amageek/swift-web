@@ -1,4 +1,5 @@
 import SwiftHTML
+import SwiftWebStyle
 
 struct ThemeScope<Content: HTML>: Component {
     @Environment(\.theme) private var theme: Theme
@@ -12,14 +13,17 @@ struct ThemeScope<Content: HTML>: Component {
 
     @HTMLBuilder
     var body: some HTML {
-        style {
-            rawHTML(ThemeStylesheet.css(for: theme, styleSystem: styleSystem))
+        if let registry = StyleRegistry.current {
+            let css = ThemeStylesheet.css(for: theme, styleSystem: styleSystem)
+            let _ = registry.registerStylesheet(css)
+            let _ = registry.registerScript(id: "swui-glass-refraction", body: ThemeScopeAssets.refractionScript)
+            EmptyHTML()
+        } else {
+            style {
+                rawHTML(ThemeStylesheet.css(for: theme, styleSystem: styleSystem))
+            }
+            rawHTML(ThemeScopeAssets.refractionScriptTag)
         }
-        // The client script that gives each `.swui-glass` its own per-element
-        // displacement refraction (sized to the surface, recomputed on resize).
-        // Chromium applies it for true refraction; Safari ignores `url()`
-        // backdrop-filters and keeps the CSS blur fallback.
-        rawHTML(ThemeScopeAssets.refractionScript)
         div(
             .data("theme", theme.name),
             .data("style-system", styleSystem.id),
@@ -31,6 +35,10 @@ struct ThemeScope<Content: HTML>: Component {
 }
 
 private enum ThemeScopeAssets {
+    static var refractionScriptTag: String {
+        "<script>\(refractionScript)</script>"
+    }
+
     // Liquid Glass is generated per element on the client, following the method
     // in https://kube.io/blog/liquid-glass-css-svg/ with the optical model from
     // AndrewPrifer/liquid-dom. The maps have to match each surface's exact pixel
@@ -47,7 +55,6 @@ private enum ThemeScopeAssets {
     // `.swui-glass`, recomputed on resize. Chromium applies it; Safari keeps the
     // CSS blur fallback.
     static let refractionScript = """
-    <script>
     (function(){
     if(window.__swuiGlass)return;window.__swuiGlass=true;
     var ETA=1/1.5,NS=128,OPP=0.45,DISP=0.07;
@@ -153,7 +160,6 @@ private enum ThemeScopeAssets {
     function boot(){scan();if(window.MutationObserver){new MutationObserver(scan).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style']});}}
     if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
     })();
-    </script>
     """
 }
 

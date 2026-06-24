@@ -47,6 +47,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
           name: "swift-web",
           products: [
               .library(name: "SwiftWebActors", targets: ["SwiftWebActors"]),
+              .library(name: "SwiftWebStyle", targets: ["SwiftWebStyle"]),
               .library(name: "SwiftWebUI", targets: ["SwiftWebUI"]),
               .library(name: "SwiftWebUIRuntime", targets: ["SwiftWebUIRuntime"]),
               .library(name: "SwiftWebCore", targets: ["SwiftWebCore"]),
@@ -57,6 +58,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
           ],
           targets: [
               .target(name: "SwiftWebActors"),
+              .target(name: "SwiftWebStyle"),
               .target(name: "SwiftWebUI"),
               .target(name: "SwiftWebUIRuntime"),
               .target(name: "SwiftWebCore"),
@@ -66,6 +68,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       """,
       to: swiftWebPackage.appendingPathComponent("Package.swift")
     )
+    try writeSwiftWebStyleRuntimeSources(in: swiftWebPackage)
     try write(
       "import SwiftHTML\npublic struct Text {}",
       to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Text.swift")
@@ -330,6 +333,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
                 "SwiftHTML",
                 "JavaScriptKit",
                 "SwiftWebActors",
+                "SwiftWebStyle",
             ],
         """))
     #expect(wasmPackageSwift.contains("--export=swiftweb_snapshot_state"))
@@ -547,6 +551,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
           name: "swift-web",
           products: [
               .library(name: "SwiftWebActors", targets: ["SwiftWebActors"]),
+              .library(name: "SwiftWebStyle", targets: ["SwiftWebStyle"]),
               .library(name: "SwiftWebUI", targets: ["SwiftWebUI"]),
               .library(name: "SwiftWebUIRuntime", targets: ["SwiftWebUIRuntime"]),
               .library(name: "SwiftWebCore", targets: ["SwiftWebCore"]),
@@ -557,6 +562,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
           ],
           targets: [
               .target(name: "SwiftWebActors"),
+              .target(name: "SwiftWebStyle"),
               .target(name: "SwiftWebUI"),
               .target(name: "SwiftWebUIRuntime"),
               .target(name: "SwiftWebCore"),
@@ -566,6 +572,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       """,
       to: swiftWebPackage.appendingPathComponent("Package.swift")
     )
+    try writeSwiftWebStyleRuntimeSources(in: swiftWebPackage)
     try write(
       "import SwiftHTML\npublic struct Text {}",
       to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Text.swift")
@@ -711,6 +718,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
           name: "swift-web",
           products: [
               .library(name: "SwiftWebActors", targets: ["SwiftWebActors"]),
+              .library(name: "SwiftWebStyle", targets: ["SwiftWebStyle"]),
               .library(name: "SwiftWebUI", targets: ["SwiftWebUI"]),
               .library(name: "SwiftWebUIRuntime", targets: ["SwiftWebUIRuntime"]),
               .library(name: "SwiftWebCore", targets: ["SwiftWebCore"]),
@@ -721,6 +729,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
           ],
           targets: [
               .target(name: "SwiftWebActors"),
+              .target(name: "SwiftWebStyle"),
               .target(name: "SwiftWebUI"),
               .target(name: "SwiftWebUIRuntime"),
               .target(name: "SwiftWebCore"),
@@ -730,6 +739,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       """,
       to: swiftWebPackage.appendingPathComponent("Package.swift")
     )
+    try writeSwiftWebStyleRuntimeSources(in: swiftWebPackage)
     try write(
       """
       {
@@ -883,6 +893,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
           name: "swift-web",
           products: [
               .library(name: "SwiftWebActors", targets: ["SwiftWebActors"]),
+              .library(name: "SwiftWebStyle", targets: ["SwiftWebStyle"]),
               .library(name: "SwiftWebUI", targets: ["SwiftWebUI"]),
               .library(name: "SwiftWebUIRuntime", targets: ["SwiftWebUIRuntime"]),
               .library(name: "SwiftWebCore", targets: ["SwiftWebCore"]),
@@ -893,6 +904,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
           ],
           targets: [
               .target(name: "SwiftWebActors"),
+              .target(name: "SwiftWebStyle"),
               .target(name: "SwiftWebUI"),
               .target(name: "SwiftWebUIRuntime"),
               .target(name: "SwiftWebCore"),
@@ -902,6 +914,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       """,
       to: swiftWebPackage.appendingPathComponent("Package.swift")
     )
+    try writeSwiftWebStyleRuntimeSources(in: swiftWebPackage)
     try write(
       "import SwiftHTML\npublic struct Text {}",
       to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Text.swift")
@@ -1052,6 +1065,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
           name: "swift-web",
           products: [
               .library(name: "SwiftWebActors", targets: ["SwiftWebActors"]),
+              .library(name: "SwiftWebStyle", targets: ["SwiftWebStyle"]),
               .library(name: "SwiftWebUI", targets: ["SwiftWebUI"]),
               .library(name: "SwiftWebUIRuntime", targets: ["SwiftWebUIRuntime"]),
               .library(name: "SwiftWebCore", targets: ["SwiftWebCore"]),
@@ -1062,6 +1076,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
           ],
           targets: [
               .target(name: "SwiftWebActors"),
+              .target(name: "SwiftWebStyle"),
               .target(name: "SwiftWebUI"),
               .target(name: "SwiftWebUIRuntime"),
               .target(name: "SwiftWebCore"),
@@ -1071,6 +1086,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       """,
       to: swiftWebPackage.appendingPathComponent("Package.swift")
     )
+    try writeSwiftWebStyleRuntimeSources(in: swiftWebPackage)
     try write(
       "import SwiftHTML\npublic struct Text {}",
       to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Text.swift")
@@ -1236,6 +1252,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
           name: "swift-web",
           products: [
               .library(name: "SwiftWebActors", targets: ["SwiftWebActors"]),
+              .library(name: "SwiftWebStyle", targets: ["SwiftWebStyle"]),
               .library(name: "SwiftWebUI", targets: ["SwiftWebUI"]),
               .library(name: "SwiftWebUIRuntime", targets: ["SwiftWebUIRuntime"]),
               .library(name: "SwiftWebCore", targets: ["SwiftWebCore"]),
@@ -1246,6 +1263,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
           ],
           targets: [
               .target(name: "SwiftWebActors"),
+              .target(name: "SwiftWebStyle"),
               .target(name: "SwiftWebUI"),
               .target(name: "SwiftWebUIRuntime"),
               .target(name: "SwiftWebCore"),
@@ -1255,6 +1273,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       """,
       to: swiftWebPackage.appendingPathComponent("Package.swift")
     )
+    try writeSwiftWebStyleRuntimeSources(in: swiftWebPackage)
     try write(
       "import SwiftHTML\npublic struct Text {}",
       to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Text.swift")
@@ -1500,6 +1519,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
           name: "swift-web",
           products: [
               .library(name: "SwiftWebActors", targets: ["SwiftWebActors"]),
+              .library(name: "SwiftWebStyle", targets: ["SwiftWebStyle"]),
               .library(name: "SwiftWebUI", targets: ["SwiftWebUI"]),
               .library(name: "SwiftWebUIRuntime", targets: ["SwiftWebUIRuntime"]),
               .library(name: "SwiftWebCore", targets: ["SwiftWebCore"]),
@@ -1510,6 +1530,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
           ],
           targets: [
               .target(name: "SwiftWebActors"),
+              .target(name: "SwiftWebStyle"),
               .target(name: "SwiftWebUI"),
               .target(name: "SwiftWebUIRuntime"),
               .target(name: "SwiftWebCore"),
@@ -1519,6 +1540,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       """,
       to: swiftWebPackage.appendingPathComponent("Package.swift")
     )
+    try writeSwiftWebStyleRuntimeSources(in: swiftWebPackage)
     try write(
       "import SwiftHTML\npublic struct Text {}",
       to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Text.swift")
@@ -1639,6 +1661,13 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     try write(
       "# Documentation",
       to: sourceRoot.appendingPathComponent("SwiftHTML.docc/SwiftHTML.md")
+    )
+  }
+
+  private func writeSwiftWebStyleRuntimeSources(in swiftWebPackage: URL) throws {
+    try write(
+      "import SwiftHTML\npublic struct StyleRegistry { public init() {} }",
+      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebStyle/StyleRegistry.swift")
     )
   }
 

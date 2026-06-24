@@ -109,4 +109,16 @@ extension EnvironmentValues {
         }
         return environment
     }
+
+    mutating func applyRequestValues(_ values: RequestValues) {
+        route = values.routeEnvironment
+        csrfToken = values.security?.csrfToken
+        cspNonce = values.security?.cspNonce
+        if let csrfToken = values.security?.csrfToken,
+           let csrfFieldName = values.security?.csrfFieldName {
+            actionHiddenFields = [
+                ActionField(csrfFieldName, csrfToken),
+            ]
+        }
+    }
 }

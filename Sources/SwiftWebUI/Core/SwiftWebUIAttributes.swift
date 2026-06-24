@@ -1,9 +1,10 @@
 import SwiftHTML
+import SwiftWebStyle
 
-/// The inline `--swui-control-tint` declaration for a tintable control, emitted
-/// only when a `.tint(...)` is in scope. When absent, the control's CSS resolves
-/// `var(--swui-control-tint, <style-system token>)` to its style-system default
-/// rather than an environment-supplied override.
+/// The `--swui-control-tint` declaration for a tintable control, emitted only
+/// when a `.tint(...)` is in scope. Page renders atomize it into a class; when
+/// absent, the control's CSS resolves `var(--swui-control-tint, <style-system token>)`
+/// to its style-system default rather than an environment-supplied override.
 func controlTintStyle(_ tint: String?) -> Style {
     guard let tint else { return Style() }
     return .custom("--swui-control-tint", tint)
@@ -21,7 +22,14 @@ func mergedAttributes(
 
     var styleValues: [String] = []
     if !styles.isEmpty {
-        styleValues.append(styles.cssText)
+        // Atomize the component's base styles into classes; inline only outside a
+        // render scope (an isolated render). See docs/AtomicStyling.md.
+        if let registry = StyleRegistry.current {
+            classTokens.append(registry.register(styles))
+        } else {
+            StyleRegistry.validate(styles)
+            styleValues.append(styles.cssText)
+        }
     }
     var remainingAttributes: [HTMLAttribute] = []
     remainingAttributes.reserveCapacity(attributes.count)
@@ -33,8 +41,18 @@ func mergedAttributes(
                 classTokens.append(value)
             }
         case "style":
-            if let value = attribute.value, !value.isEmpty {
-                styleValues.append(value)
+            if let style = attribute.style {
+                if let registry = StyleRegistry.current {
+                    let className = registry.register(style)
+                    if !className.isEmpty {
+                        classTokens.append(className)
+                    }
+                } else if let value = attribute.value, !value.isEmpty {
+                    StyleRegistry.validate(style)
+                    styleValues.append(value)
+                }
+            } else {
+                preconditionFailure("String style attributes are not supported by SwiftWebUI components")
             }
         default:
             remainingAttributes.append(attribute)

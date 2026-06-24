@@ -746,7 +746,7 @@ public extension StyleSystem {
             radius: "var(--swui-radius-medium)",
             // Design-style default background; the control tint override is applied
             // at the `.swui-button-primary` rule via var(--swui-control-tint, ...) so
-            // that the inline per-button tint resolves on the button element itself.
+            // that the per-button tint resolves on the button element itself.
             primaryBackground: "var(--swui-accent)",
             primaryForeground: "var(--swui-accent-text)",
             secondaryBackground: "var(--swui-surface-raised)",
@@ -789,7 +789,7 @@ public extension StyleSystem {
         // Solid base: every level renders as the opaque theme surface. A zero
         // opacity step collapses the levels onto one fill, no backdrop blur, and
         // no SVG refraction; depth comes from the components' own borders and
-        // shadows. Components may still override `--swui-material-tint` inline to
+        // shadows. Components may still override `--swui-material-tint` locally to
         // keep semantic surfaces (e.g. a raised field) distinct.
         material: Material(
             tint: "var(--swui-surface)",

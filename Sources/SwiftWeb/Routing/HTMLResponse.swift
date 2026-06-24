@@ -30,7 +30,7 @@ extension HTML {
             .withClientHandlerClosures(runtime.capturesClientHandlerClosures)
             .withBrowserHydrationMarkers(runtime.emitsBrowserHydrationMarkers)
         let styleRegistry = StyleRegistry()
-        let artifact = StyleRegistry.$current.withValue(styleRegistry) {
+        let artifact = StyleRegistry.withCurrent(styleRegistry) {
             renderArtifact(
                 environment: .swiftWebCurrent,
                 stateStore: stateStore,
@@ -38,17 +38,15 @@ extension HTML {
             )
         }
         SwiftWebDiagnostics.emit(artifact.diagnostics)
-        // Fill the head placeholder with the atomic CSS collected during the render,
-        // so the rules sit in <head>, before the content they style (no FOUC).
-        let atomicCSS = styleRegistry.rules().map { ".\($0.className) { \($0.body) }" }.joined()
-        let renderedHTML = artifact.html.replacingOccurrences(
-            of: "<style id=\"swui-atomic\"></style>",
-            with: "<style id=\"swui-atomic\">\(atomicCSS)</style>"
-        )
+        let nonce = securityContext?.cspNonce
+        let renderedHTML = artifact.html
+            .replacingOccurrences(of: "<!--swui-base-->", with: SwiftWebHeadAssets.baseStyle(from: styleRegistry, nonce: nonce))
+            .replacingOccurrences(of: "<!--swui-atomic-->", with: SwiftWebHeadAssets.atomicStyle(from: styleRegistry, nonce: nonce))
+            .replacingOccurrences(of: "<!--swui-head-scripts-->", with: SwiftWebHeadAssets.scripts(from: styleRegistry, nonce: nonce))
 
         switch runtime {
         case .disabled:
-            let html = developmentHooks.injectHTML(renderedHTML, securityContext?.cspNonce)
+            let html = developmentHooks.injectHTML(renderedHTML, nonce)
             return Response(
                 headers: developmentHooks.htmlHeaders(),
                 body: .init(string: html)
@@ -73,9 +71,9 @@ extension HTML {
             let runtimeHTML = try SwiftWebClientRuntimeHTMLInjector().inject(
                 into: annotatedHTML,
                 descriptor: descriptor,
-                nonce: securityContext?.cspNonce
+                nonce: nonce
             )
-            let html = developmentHooks.injectHTML(runtimeHTML, securityContext?.cspNonce)
+            let html = developmentHooks.injectHTML(runtimeHTML, nonce)
             return Response(
                 headers: developmentHooks.htmlHeaders(),
                 body: .init(string: html)

@@ -1,5 +1,6 @@
 import Foundation
 import HTTPTypes
+import SwiftWebStyle
 
 public enum ActionResult: Sendable, Codable {
     case html(String, status: HTTPStatus = .ok)
@@ -10,9 +11,13 @@ public enum ActionResult: Sendable, Codable {
     case empty(status: HTTPStatus = .noContent)
 
     public static func html(_ content: some HTML, status: HTTPStatus = .ok) -> ActionResult {
-        let artifact = content.renderArtifact(environment: .swiftWebCurrent, options: SwiftWebRenderOptions.current)
+        let environment = EnvironmentValues.swiftWebCurrent
+        let styleRegistry = StyleRegistry()
+        let artifact = StyleRegistry.withCurrent(styleRegistry) {
+            content.renderArtifact(environment: environment, options: SwiftWebRenderOptions.current)
+        }
         SwiftWebDiagnostics.emit(artifact.diagnostics)
-        return .html(artifact.html, status: status)
+        return .html(SwiftWebHeadAssets.assets(from: styleRegistry, nonce: environment.cspNonce) + artifact.html, status: status)
     }
 }
 

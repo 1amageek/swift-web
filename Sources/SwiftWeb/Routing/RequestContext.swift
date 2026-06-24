@@ -58,7 +58,17 @@ public enum RequestContext {
         _ value: RequestValues,
         operation: @Sendable () async throws -> Result
     ) async rethrows -> Result {
-        try await $current.withValue(value, operation: operation)
+        try await EnlargedStackContext.withValue(RequestContextPropagator(value: value)) {
+            try await $current.withValue(value, operation: operation)
+        }
+    }
+}
+
+private struct RequestContextPropagator: EnlargedStackContextPropagator {
+    let value: RequestValues
+
+    func apply<Result>(_ operation: () throws -> Result) rethrows -> Result {
+        try RequestContext.$current.withValue(value, operation: operation)
     }
 }
 

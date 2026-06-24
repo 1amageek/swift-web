@@ -28,7 +28,7 @@ public enum SSERouteBuilder {
             let searchParams = try req.query.decode(RouteType.SearchParams.self)
             let requestValues = RequestValues(request: req, params: NoParams(), searchParams: searchParams)
             var configuredEnvironment = EnvironmentValues()
-            configuredEnvironment.route = requestValues.routeEnvironment
+            configuredEnvironment.applyRequestValues(requestValues)
             let environment = configuredEnvironment
             let context = SSEContext(request: req, searchParams: searchParams)
             let headers: HTTPFields = [

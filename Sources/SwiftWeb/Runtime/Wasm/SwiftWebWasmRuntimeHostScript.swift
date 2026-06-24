@@ -954,6 +954,8 @@ enum SwiftWebWasmRuntimeHostScript {
 
       mergeServerDocument(html) {
         const nextDocument = new DOMParser().parseFromString(html, "text/html");
+        this.mergeHeadStyle(nextDocument, "swui-base");
+        this.mergeHeadStyle(nextDocument, "swui-atomic");
         const protectedNodeIDs = this.protectedClientNodeIDs();
         const currentNodes = Array.from(document.querySelectorAll(`[${swiftWebRuntimeMarkers.nodeAttribute}]`));
         const replacedNodeIDs = [];
@@ -983,6 +985,21 @@ enum SwiftWebWasmRuntimeHostScript {
         }
         this.updateDescriptorFromDocument(nextDocument);
         this.recordMetric("serverDocument.merge.complete", { replacementCount, replacedNodeIDs });
+      }
+
+      mergeHeadStyle(nextDocument, id) {
+        const next = nextDocument.getElementById(id);
+        if (!next || !next.textContent) {
+          return;
+        }
+        const current = document.getElementById(id);
+        if (!current) {
+          document.head.appendChild(document.importNode(next, true));
+          return;
+        }
+        if (!current.textContent.includes(next.textContent)) {
+          current.textContent += next.textContent;
+        }
       }
 
       csrfHeaders() {

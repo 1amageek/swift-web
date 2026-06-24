@@ -1,4 +1,5 @@
 import NIOCore
+import SwiftWebStyle
 
 public struct StreamWriter: Sendable {
     private let writer: (any AsyncBodyStreamWriter)?
@@ -35,9 +36,12 @@ public struct StreamWriter: Sendable {
     }
 
     public func write(_ html: some HTML) async throws {
-        let artifact = html.renderArtifact(environment: environment, options: SwiftWebRenderOptions.current)
+        let styleRegistry = StyleRegistry()
+        let artifact = StyleRegistry.withCurrent(styleRegistry) {
+            html.renderArtifact(environment: environment, options: SwiftWebRenderOptions.current)
+        }
         SwiftWebDiagnostics.emit(artifact.diagnostics)
-        try await write(artifact.html)
+        try await write(SwiftWebHeadAssets.assets(from: styleRegistry, nonce: environment.cspNonce) + artifact.html)
     }
 }
 

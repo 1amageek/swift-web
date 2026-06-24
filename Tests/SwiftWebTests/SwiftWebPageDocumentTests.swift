@@ -1,5 +1,6 @@
 import SwiftHTML
 import SwiftWeb
+import SwiftWebUI
 import Testing
 
 @Suite
@@ -31,7 +32,57 @@ struct SwiftWebPageDocumentTests {
         #expect(rendered.contains("<!doctype html><html lang=\"en\">"))
         #expect(rendered.contains("<title>Counter</title>"))
         #expect(rendered.contains("<meta name=\"description\" content=\"Client and server counters.\">"))
+        #expect(rendered.contains("<!--swui-atomic-->"))
         #expect(rendered.contains("<body><main><h1>Counter</h1></main></body>"))
+    }
+
+    @Test
+    func pageResponseEmitsAtomicCSSInHeadWithoutInlineStyle() async throws {
+        try await withApplication { application in
+            let request = Request(application: application)
+            let response = try await Spacer(minLength: 12).encodePageResponse(
+                for: request,
+                metadata: PageMetadata(title: "Atomic")
+            )
+            let rendered = try #require(response.body.string)
+
+            #expect(rendered.contains("<style id=\"swui-atomic\">.swui-minw-12px-"))
+            #expect(rendered.contains("<div class=\"swui-spacer swui-minw-12px-"))
+            #expect(!rendered.contains("style=\""))
+            #expect(!rendered.contains("<!--swui-atomic-->"))
+        }
+    }
+
+    @Test
+    func pageResponseAtomizesTypedSwiftHTMLStyleAttributes() async throws {
+        try await withApplication { application in
+            let request = Request(application: application)
+            let response = try await div(.class("raw-element"), .style(.minWidth("14px"))) {
+                "Raw"
+            }
+            .encodePageResponse(
+                for: request,
+                metadata: PageMetadata(title: "Raw Atomic")
+            )
+            let rendered = try #require(response.body.string)
+
+            #expect(rendered.contains("<style id=\"swui-atomic\">.swui-minw-14px-"))
+            #expect(rendered.contains("<div class=\"raw-element swui-minw-14px-"))
+            #expect(!rendered.contains("style=\""))
+        }
+    }
+
+    private func withApplication(
+        _ body: (Application) async throws -> Void
+    ) async throws {
+        let application = try await Application()
+        do {
+            try await body(application)
+            try await application.shutdown()
+        } catch {
+            try await application.shutdown()
+            throw error
+        }
     }
 }
 

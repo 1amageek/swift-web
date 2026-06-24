@@ -12,8 +12,8 @@ import SwiftHTML
 ///   resists being stretched. This is the default (no marker class emitted).
 /// - `.fill` — low hugging priority: the element greedily expands to fill the
 ///   available space on the given axis. Emits a `fill` marker class.
-/// - `.fixed` — a required size constraint. Emits a `hug` marker class plus an
-///   inline length so the element neither grows nor shrinks.
+    /// - `.fixed` — a required size constraint. Emits a `hug` marker class plus a
+    ///   length declaration so the element neither grows nor shrinks.
 enum AxisSizing: Sendable, Equatable {
     case hug
     case fill

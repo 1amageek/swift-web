@@ -17,7 +17,7 @@ The migration is complete when **all** of the following hold — each is verifia
 
 **Output**
 - Server-rendered HTML **and** the client-reconciled live DOM contain **no `style="…"`
-  attribute**, the sole exception being an explicit `rawStyle(_:)` escape hatch.
+  attribute**.
 - Every declaration is expressed as a class — token utilities (`swui-p-m`, `swui-jc-center`,
   `swui-fg-accent`) or generated atomic classes (`swui-w-237px`, `swui-o-60`, `swui-x-{hash}`)
   — and the rules live in `<head>` (`<style id="swui-base">` / `<style id="swui-atomic">`).
@@ -33,12 +33,14 @@ The migration is complete when **all** of the following hold — each is verifia
 **Safety / architecture**
 - Declaration values are validated; an injecting value (containing `}` etc.) is **rejected**.
 - Class names are a **pure function** of the canonical `(property, value, unit)`; server == client; deduped.
-- **SwiftHTML core is unchanged** (client flush goes through the DOM host, not core types).
+- **SwiftHTML exposes structure, not policy**: `Style` provides read-only typed declarations and
+  `HTMLAttribute.style(_:)` preserves its typed payload. SwiftHTML also exposes a generic
+  attribute-transform hook; SwiftWebStyle owns validation and atomic CSS policy.
 - **No FOUC**: the stylesheets precede the content they style.
 
 **Quality gates**
 - All existing tests pass; `xcodebuild` clean.
-- New tests: a representative tree emits **no `style=`** (except `rawStyle`); an injecting value is rejected.
+- New tests: a representative tree emits **no `style=`**; an injecting value is rejected.
 
 **Non-goals (explicitly out of scope)**
 - No Tailwind dependency (self-contained); no build-time/purge step (runtime generation).
@@ -118,10 +120,9 @@ final class StyleRegistry: Sendable {            // Mutex-backed storage
 Moving declarations from an inline `style` attribute into a `<style>` block changes the
 threat model: an inline value cannot escape its attribute, but a value containing `}` (or
 `<`, `;`-injection, `/* */`, control chars) inside a `<style>` rule could **close the rule
-and inject a new selector**. The current `Style.cssText` concatenates property/value
-verbatim (`Style.swift`), so the registry MUST:
-- accept a **typed `Style`** (not `(String, String)`), and validate every declaration;
-- **whitelist property names** (the known CSS properties the framework emits);
+and inject a new selector**. The registry MUST:
+- accept a **typed `Style`** through `Style.declarations`, never parse `Style.cssText`;
+- **validate property names** (CSS identifiers / custom properties only);
 - **validate each value** against a CSS-value grammar / reject `}` `{` `<` `;`-outside-value
   `/*` and control characters — reject (fail loudly), never sanitize-and-continue;
 - define **conflict handling**: the class name is derived from the canonicalized
@@ -137,15 +138,18 @@ Inline `style="…"` is produced by **three** paths today, not one. Targeting on
 |---|---|---|
 | `styleAttribute(_:)` | modifier layer (`.opacity`/`.padding`/`.frame`/`.shadow`/…) — `WebUIComponentModifiers.swift` | token utility class, or `atom(Style)` |
 | `mergedAttributes(class:styles:extra:)` | component-internal base styling — `SwiftWebUIAttributes.swift:22,48` (Frame, stacks, …) | the component's base `Style` routes through the registry |
-| public `.style(_:)` / `.style { }` | user-facing raw style — `WebUIComponentModifiers.swift:111` | atomize the `Style`'s declarations |
+| public `.style(_:)` / `.style { }` | WebUI modifier and low-level SwiftHTML typed style attributes | atomize the `Style`'s declarations through `atom` or the render-time attribute transformer |
 | component-local custom properties (`--swui-w`, `--swui-animation`) | set inline today | atom — a custom-property declaration is just another validated declaration |
 
 `atom(_ style: Style) -> HTMLAttribute` validates + registers the declarations and returns
-`.class("…")`. Token-form modifiers map to static utility class names and skip the registry.
+`.class("…")`. Additionally, `StyleRegistry.withCurrent` installs an
+`HTMLAttributeTransformContext` transformer so low-level SwiftHTML attributes such as
+`div(.style(.minWidth("12px")))` are also converted before serialization. Token-form modifiers
+map to static utility class names and skip the registry.
 
-`styleAttribute(_:)` is removed from the modifier **and component** layers. The single
-documented inline exception is an explicit `rawStyle(_:)` escape hatch for genuinely dynamic
-CSS — so Phase 4 asserts "no `style=` **except** an explicit `rawStyle`."
+`styleAttribute(_:)` remains as the internal adapter name, but it returns an atomic class.
+String/raw `style` attributes are rejected inside a SwiftWeb render scope. Dynamic CSS must
+flow through typed `Style` declarations so validation and atomic class registration still apply.
 
 ```swift
 func opacity(_ v: Double) -> ModifiedContent<…> {
@@ -191,49 +195,47 @@ on reconcile:
 A control changing `width: 237 → 300` produces class `swui-w-300`; its rule is injected
 once, then reused. Deterministic names make the injected-set a simple dedup `Set`.
 
-**Transport — the runtime types carry no styles today, and the core must stay clean.**
-`HydrationRuntimeUpdate` (SwiftHTML core) exposes only `commandBatch`/`hydrationIndex`/`html`
-(`HydrationRuntimeUpdate.swift`), and `ClientWasmRuntimeResponse` returns no style rules
-(`ClientWasmRuntimeBridge.swift:56`) — so the flush must NOT be threaded through them, and
-the core type must NOT be widened. Instead the **client `StyleRegistry` flushes directly
-through the DOM host** (`JavaScriptKitBrowserRuntime`): after the batch applies, the host
-injects new rules into `<style id="swui-atomic">` via JavaScriptKit. (If a serialized carrier
-is ever preferred, add a `styleRules` field to swift-web's `ClientWasmRuntimeResponse` — a
-UI-runtime-layer field, still not the core.)
+**Transport.** `HydrationRuntimeUpdate` still does not carry style rules. The client
+`StyleRegistry` flushes directly through the DOM host (`JavaScriptKitBrowserRuntime`):
+after the batch applies, the host injects new rules into `<style id="swui-atomic">` via
+JavaScriptKit. If the server sends a new document or fragment with atomic styles, the host
+also merges `swui-base` / `swui-atomic` from the parsed head.
 
 ## Integration with existing layers
 
 - Semantic component classes (`swui-button`, `swui-text`, `swui-list`…), layout markers
   (`swui-fill-h`/`swui-hug-h`), and material/glass classes are **unchanged** — already class-based.
-- The atomic layer only replaces the inline `styleAttribute` emission in the modifier layer.
+- The atomic layer replaces modifier, component-base, and typed SwiftHTML style declarations.
 - `--swui-*` tokens are unchanged; utilities and atomics reference them.
 
 ## Migration phases
 
-1. **Foundation** — `StyleRegistry` (+ `@TaskLocal current`) taking a **typed `Style`** with
-   value validation; the pure canonical `(property, value, unit)` class-name function;
-   `atom(Style)`; **hoist base + atomic `<style>` into `<head>`** (reconcile `ThemeScope`'s
-   in-tree emission); the client direct-host flush.
+1. **Foundation** — SwiftHTML typed declarations + typed style attribute payload;
+   `StyleRegistry.withCurrent` (`@TaskLocal` plus enlarged-stack propagation, plus
+   `HTMLAttributeTransformContext`) taking a
+   **typed `Style`** with value validation; the pure canonical `(property, value, unit)`
+   class-name function; `atom(Style)`; **hoist base + atomic `<style>` into `<head>`**
+   (reconcile `ThemeScope`'s in-tree emission); the client direct-host flush.
 2. **Token utilities** — generate the bounded utility classes into `ThemeStylesheet`;
    convert token modifiers (Space padding, alignment, semantic fg/bg) to emit them.
 3. **Atomic — convert ALL inline sources**: arbitrary modifiers (frame width/height, opacity,
    cornerRadius, custom colors, shadow), `mergedAttributes(styles:)` component base styling,
-   and public `.style(_:)` → `atom(...)`; add the explicit `rawStyle(_:)` escape hatch.
+   and public `.style(_:)` / typed SwiftHTML `.style(...)` → atomic classes.
 4. **Enforce** — remove inline `styleAttribute` from the modifier + component layers; add a
-   rendering test asserting a representative tree emits **no** `style="` attribute except an
-   explicit `rawStyle`.
+   rendering test asserting a representative tree emits **no** `style="` attribute.
 
 ## Risks / notes
 
-- `StyleRegistry.current` must be bound on **both** the server render and every client
-  reconcile, or atomic rules go unregistered. The `Transaction.current` precedent de-risks this.
+- `StyleRegistry.withCurrent` must be used on **server render, server action fragment,
+  streaming render, and every client reconcile**, or atomic rules go unregistered. The
+  binding is propagated into SwiftHTML's enlarged render stack.
 - **CSS injection**: values now land in a `<style>` block, where `}` escapes the rule — the
   registry validates typed declarations and rejects unsafe values (see *Validation & safety*).
 - **Head-hoist is a render-architecture change**, not just a styling tweak: the base CSS moves
-  from `ThemeScope`'s in-tree `<style>` into `<head>`. Sequence it in phase 1 and re-verify
-  every page still styles correctly before converting modifiers.
+  from `ThemeScope`'s in-tree `<style>` into `<head>` whenever a registry is bound. Direct
+  isolated SwiftHTML renders may still use the in-tree fallback for test/debug visibility.
 - Class-name collisions: namespaced + hashed; phase 4's test should include a collision check.
 - The "Rendered HTML" storyboard panel now shows clean class-based markup (the original ask);
   the declarations live in `<style id="swui-atomic">` / the base sheet.
 - Raw-`div` inline-CSS escape hatches that already exist (e.g. the materials demo, the dashed
-  alignment frame) are exempt or migrate to atomics in phase 3.
+  alignment frame) migrate to atomics or the base stylesheet.

@@ -29,6 +29,22 @@ struct SecurityTests {
     }
 
     @Test
+    func strictSelfHostedCSPUsesNonceForScriptsAndStyles() async throws {
+        try await withSecurityApplication(.strictSelfHosted) { application in
+            application.get("page") { _ async throws -> String in
+                "ok"
+            }
+
+            let response = try await application.testing().sendRequest(.get, "/page", hostname: "example.com")
+            let csp = try #require(response.headers[.contentSecurityPolicy])
+
+            #expect(csp.contains("style-src 'self' 'nonce-"))
+            #expect(csp.contains("script-src 'self' 'nonce-"))
+            #expect(!csp.contains("'unsafe-inline'"))
+        }
+    }
+
+    @Test
     func corsPreflightAllowsSameOriginOnlyByDefault() async throws {
         try await withSecurityApplication { application in
             RouteAction.post(SecurityFormAction.self, on: application, path: "/submit")
