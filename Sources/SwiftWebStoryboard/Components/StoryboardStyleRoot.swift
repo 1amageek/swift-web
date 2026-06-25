@@ -80,6 +80,30 @@ private enum StoryboardStylesheet {
                   .outline("none")
                   .boxSizing("border-box")
             }
+            rule(cls("swui-storyboard-range-widget")) {
+                .display("grid")
+                  .gridTemplateColumns("132px 4ch")
+                  .alignItems("center")
+                  .gap("8px")
+            }
+            rule(cls("swui-storyboard-range-widget").descendant(cls("swui-storyboard-range-slider"))) {
+                .width("132px")
+                  .minWidth("0")
+            }
+            rule(cls("swui-storyboard-range-readout")) {
+                .display("inline-block")
+                  .width("4ch")
+                  .minWidth("4ch")
+                  .textAlign("right")
+                  .fontVariantNumeric("tabular-nums")
+            }
+            rule(cls("swui-storyboard-swatch-button")) {
+                .width("28px")
+                  .height("28px")
+                  .display("inline-flex")
+                  .alignItems("center")
+                  .justifyContent("center")
+            }
             rule(cls("swui-storyboard-swatch")) {
                 .width("18px")
                   .height("18px")
@@ -102,6 +126,21 @@ private enum StoryboardStylesheet {
             }
             rule(cls("swui-storyboard-swatch-secondary")) {
                 .backgroundColor("var(--swui-text-muted)")
+            }
+            rule(cls("swui-storyboard-swatch-blue")) {
+                .backgroundColor("#007aff")
+            }
+            rule(cls("swui-storyboard-swatch-green")) {
+                .backgroundColor("#34c759")
+            }
+            rule(cls("swui-storyboard-swatch-orange")) {
+                .backgroundColor("#ff9500")
+            }
+            rule(cls("swui-storyboard-swatch-pink")) {
+                .backgroundColor("#ff2d55")
+            }
+            rule(cls("swui-storyboard-swatch-purple")) {
+                .backgroundColor("#af52de")
             }
             rule(cls("swui-storyboard-alignment-frame")) {
                 .width("420px")

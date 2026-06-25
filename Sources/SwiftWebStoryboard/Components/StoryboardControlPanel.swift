@@ -155,12 +155,13 @@ struct StoryboardControlPanel: Component {
     @HTMLBuilder
     private func rangeWidget(key: String, min: Double, max: Double, step: Double, unit: ControlUnit) -> some HTML {
         let binding = doubleBinding(ui, "\(id).\(key)", unit)
-        HStack(spacing: .small) {
+        div(.class("swui-storyboard-range-widget")) {
             Slider(value: binding, in: min...max, step: step)
-                .frame(width: 132)
-            Text(controlReadout(binding.wrappedValue, unit))
+                .class("swui-storyboard-range-slider")
+            Text(controlReadout(binding.wrappedValue, unit), as: .span)
                 .font(Font(size: .px(13), design: .monospaced))
                 .foregroundStyle(.secondary)
+                .class("swui-storyboard-range-readout")
         }
     }
 
@@ -174,6 +175,7 @@ struct StoryboardControlPanel: Component {
                     div(.class(swatchClass(swatch, selected: selected == swatch.value))) {}
                 }
                 .buttonStyle(.plain)
+                .class("swui-storyboard-swatch-button")
                 .accessibilityLabel(swatch.label)
             }
         }

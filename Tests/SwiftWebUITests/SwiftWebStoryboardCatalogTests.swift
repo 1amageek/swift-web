@@ -101,6 +101,25 @@ struct SwiftWebStoryboardCatalogTests {
     }
 
     @Test
+    func colorControlsExposeVisibleSwatchesAndStableRangeLayout() {
+        let rendered = StoryboardCatalog(initialSelection: "colorvalue").render()
+
+        for value in ["#007aff", "#34c759", "#ff9500", "#ff2d55", "#af52de"] {
+            #expect(rendered.contains(value), "Missing swatch fill \(value)")
+        }
+        for token in [
+            "swui-storyboard-swatch-button",
+            "swui-storyboard-range-widget",
+            "swui-storyboard-range-slider",
+            "swui-storyboard-range-readout",
+        ] {
+            #expect(rendered.contains(token), "Missing control layout class \(token)")
+        }
+        #expect(rendered.contains("grid-template-columns: 132px 4ch"))
+        #expect(rendered.contains("min-width: 0"))
+    }
+
+    @Test
     func topBarShowsBrandAndShellControls() {
         let rendered = StoryboardCatalog().render()
 
