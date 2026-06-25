@@ -105,6 +105,9 @@ enum SwiftWebWasmRuntimeHostScript {
         this.loading = new Map();
         this.loadedBundleIDs = new Set();
         this.eventQueue = Promise.resolve();
+        this.coalescedInputEvents = new Map();
+        this.coalescedInputFlushActive = false;
+        this.coalescedInputFlushScheduled = false;
         this.primaryInstance = null;
         this.primaryBundleID = null;
         this.swiftRuntimes = new Map();
@@ -739,11 +742,53 @@ enum SwiftWebWasmRuntimeHostScript {
               event: domEventPayload(event),
               swiftWebComponentID: this.componentForEventTarget(target)?.componentID || null
             };
-            this.eventQueue = this.eventQueue.then(() => this.dispatchEvent(payload)).catch((error) => {
-              console.error("SwiftWeb WASM event dispatch failed", error);
-            });
+            if (isRangeInputEvent(eventName, event.target)) {
+              this.enqueueCoalescedInputEvent(payload);
+            } else {
+              this.enqueueRuntimeEvent(payload);
+            }
           }, true);
         }
+      }
+
+      enqueueRuntimeEvent(payload) {
+        this.eventQueue = this.eventQueue.then(() => this.dispatchEvent(payload)).catch((error) => {
+          console.error("SwiftWeb WASM event dispatch failed", error);
+        });
+      }
+
+      enqueueCoalescedInputEvent(payload) {
+        const componentID = payload.swiftWebComponentID || "";
+        const key = `${payload.handlerID.rawValue}:${componentID}`;
+        this.coalescedInputEvents.set(key, payload);
+        if (this.coalescedInputFlushActive || this.coalescedInputFlushScheduled) {
+          return;
+        }
+        this.coalescedInputFlushScheduled = true;
+        scheduleAnimationFrame(() => this.flushCoalescedInputEvents());
+      }
+
+      flushCoalescedInputEvents() {
+        this.coalescedInputFlushScheduled = false;
+        if (this.coalescedInputFlushActive || this.coalescedInputEvents.size === 0) {
+          return;
+        }
+        const payloads = Array.from(this.coalescedInputEvents.values());
+        this.coalescedInputEvents.clear();
+        this.coalescedInputFlushActive = true;
+        this.eventQueue = this.eventQueue.then(async () => {
+          for (const payload of payloads) {
+            await this.dispatchEvent(payload);
+          }
+        }).catch((error) => {
+          console.error("SwiftWeb WASM coalesced input dispatch failed", error);
+        }).finally(() => {
+          this.coalescedInputFlushActive = false;
+          if (this.coalescedInputEvents.size > 0 && !this.coalescedInputFlushScheduled) {
+            this.coalescedInputFlushScheduled = true;
+            scheduleAnimationFrame(() => this.flushCoalescedInputEvents());
+          }
+        });
       }
 
       installServerActionListeners() {
@@ -1663,6 +1708,20 @@ enum SwiftWebWasmRuntimeHostScript {
         return null;
       }
       return start.closest(`[${swiftWebRuntimeMarkers.eventAttributePrefix}${eventName}]`);
+    }
+
+    function isRangeInputEvent(eventName, target) {
+      return eventName === "input"
+        && target instanceof HTMLInputElement
+        && target.type === "range";
+    }
+
+    function scheduleAnimationFrame(callback) {
+      if (typeof window.requestAnimationFrame === "function") {
+        window.requestAnimationFrame(callback);
+      } else {
+        window.setTimeout(callback, 16);
+      }
     }
 
     function addSwiftNodeSubtree(nodeID, output, runtime, hydrationIndex = runtime.hydrationIndex) {
