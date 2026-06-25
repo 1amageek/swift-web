@@ -1,6 +1,6 @@
 import SwiftHTML
 
-/// A SwiftUI-style animation. Lowers to the timing half of a CSS `transition`
+/// An animation. Lowers to the timing half of a CSS `transition`
 /// (`<duration> <timing-function> <delay>`), published to a subtree through the
 /// inherited `--swui-animation` custom property. The browser performs the
 /// interpolation — there is no Swift-side animation engine.

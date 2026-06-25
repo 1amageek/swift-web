@@ -4,7 +4,6 @@ public struct Button<Label: HTML>: WebUIAttributeComponent {
     private let attributes: [HTMLAttribute]
     private let action: (any ActionRepresentable)?
     private let label: Label
-    @Environment(\.theme) private var theme: Theme
     @Environment(\.styleSystem) private var styleSystem: StyleSystem
     @Environment(\.colorScheme) private var colorScheme: ColorScheme
     @Environment(\.layoutDirection) private var layoutDirection: LayoutDirection
@@ -105,7 +104,6 @@ public struct Button<Label: HTML>: WebUIAttributeComponent {
 
     private var styleContext: StyleResolutionContext {
         StyleResolutionContext(
-            theme: theme,
             styleSystem: styleSystem,
             colorScheme: colorScheme,
             layoutDirection: layoutDirection,

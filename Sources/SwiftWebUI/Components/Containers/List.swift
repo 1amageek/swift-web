@@ -1,4 +1,5 @@
 import SwiftHTML
+import SwiftWebStyle
 
 public struct List<Content: HTML>: WebUIAttributeComponent {
     private let attributes: [HTMLAttribute]
@@ -18,8 +19,12 @@ public struct List<Content: HTML>: WebUIAttributeComponent {
         Element(
             "div",
             attributes: mergedAttributes(
-                class: controlClassName("swui-list", listStyle.className, LayoutClass.fillHorizontal),
-                styles: .gap(Space.small.rawValue),
+                class: controlClassName(
+                    "swui-list",
+                    listStyle.className,
+                    LayoutClass.fillHorizontal,
+                    Space.small.gapClassName.rawValue
+                ),
                 extra: [.role("list")] + attributes
             )
         ) {

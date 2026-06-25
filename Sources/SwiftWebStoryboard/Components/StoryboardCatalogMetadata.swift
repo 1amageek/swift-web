@@ -59,8 +59,9 @@ private func catalogProperties(for id: String) -> [CatalogProperty] {
     case "style":
         return [
             CatalogProperty("class-only DOM", values: "no inline styles", summary: "Components emit stable semantic class hooks."),
-            CatalogProperty("semantic class", values: ".swui-text / .swui-list / .swui-toolbar", summary: "Every component exposes a cascade hook."),
-            CatalogProperty("contextual CSS", values: ".swui-list .swui-text", summary: "Container selectors restyle children."),
+            CatalogProperty("semantic class", values: "swui-text / swui-list / swui-toolbar", summary: "Every component exposes a cascade hook."),
+            CatalogProperty("token utility", values: "swui-bg-surface / swui-fg-secondary", summary: "StyleSystem tokens are emitted once in the base stylesheet."),
+            CatalogProperty("variant utility", values: "hover:swui-bg-accent / md:swui-fg-secondary", summary: "SwiftWebStyle compiles conditional classes into typed selectors and at-rules."),
         ]
     case "responsive":
         return [
@@ -95,7 +96,7 @@ private func catalogProperties(for id: String) -> [CatalogProperty] {
         ]
     case "color":
         return [
-            CatalogProperty("tint", values: ".accent / .danger / Color(hex:)", summary: "Sets the component accent without changing the global theme."),
+            CatalogProperty("tint", values: ".accent / .danger / Color(hex:)", summary: "Sets the component accent without changing the global color scheme."),
             CatalogProperty("foregroundStyle", values: "semantic or CSS color", summary: "Overrides foreground color for a scoped component."),
             CatalogProperty("background", values: "semantic token or CSS color", summary: "Applies a local fill when a component needs a custom surface."),
         ]

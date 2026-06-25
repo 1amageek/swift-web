@@ -2,7 +2,7 @@
 
 SwiftWebUI style is owned by `StyleSystem`. Components emit semantic HTML,
 stable class names, state classes, and environment-derived CSS variables.
-`StyleSystem` and `ThemeStylesheet` own the CSS rules that make those semantics
+`StyleSystem` and `RootStylesheet` own the CSS rules that make those semantics
 visible.
 
 ```mermaid
@@ -11,9 +11,9 @@ flowchart TD
     C["Modifiers"] --> D["EnvironmentValues"]
     D --> B
     B --> E["Semantic HTML + stable classes"]
-    F["Theme"] --> G["Color variables"]
+    F["ColorScheme"] --> G["Color variables"]
     H["StyleSystem"] --> I["Design variables + CSS rules"]
-    G --> J["ThemeStylesheet"]
+    G --> J["RootStylesheet"]
     I --> J
     E --> K["SwiftHTML graph"]
     J --> K
@@ -24,7 +24,7 @@ flowchart TD
 | Goal | Requirement |
 |---|---|
 | Swift-like API | Public styling follows SwiftUI naming where it maps cleanly to the web. |
-| CSS-owned design | Component appearance is declared in `StyleSystem`/`ThemeStylesheet`, not in component-local style implementations. |
+| CSS-owned design | Component appearance is declared in `StyleSystem`/`RootStylesheet`, not in component-local style implementations. |
 | Contextual styling | A component can look different inside another component through CSS selectors and scoped environment values. |
 | Complete fallback | `StyleSystem.default` defines every token required by built-in rules. |
 | Third-party styles | Custom systems override default tokens and may provide additional rules without replacing component semantics. |
@@ -35,9 +35,9 @@ flowchart TD
 
 | Layer | Owns | Must not own |
 |---|---|---|
-| `Theme` | Color scheme and semantic color role values. | Component shape, spacing, density, material recipe. |
+| `ColorScheme` | Light/dark semantic color role selection. | Component shape, spacing, density, material recipe. |
 | `StyleSystem` | Global design tokens, component CSS variables, component CSS rules, and contextual selectors. | Component behavior, bindings, services, routing, or event execution. |
-| `ThemeStylesheet` | Lowering `Theme` + `StyleSystem` into typed `Stylesheet` rules. | Per-instance state storage or component graph traversal. |
+| `RootStylesheet` | Lowering `ColorScheme` + `StyleSystem` into typed `Stylesheet` rules. | Per-instance state storage or component graph traversal. |
 | Modifier | Scoped environment values, semantic variants, state, layout, and accessibility wrappers. | Hard-coded visual recipes that bypass `StyleSystem`. |
 | Component | Semantic structure, stable classes, state classes, bindings, ARIA/native attributes, and action intent. | Design-system CSS rules for itself or descendants. |
 | SwiftHTML | HTML graph, attributes, event contracts, diffing, escaping, and hydration metadata. | SwiftUI-style component semantics. |
@@ -46,7 +46,7 @@ Spacing follows the same boundary:
 
 | Design concern | Public API | Token owner |
 |---|---|---|
-| Component-local gaps and padding | `Space` and spacing-taking modifiers/components | `Theme.spacing` |
+| Component-local gaps and padding | `Space` and spacing-taking modifiers/components | SwiftWebUI spacing scale |
 | Default stack rhythm | `VStack(spacing: nil)`, `HStack(spacing: nil)`, lazy stacks | `StyleSystem` `.root { .stackSpacing(...) }` |
 | Page inline margins and responsive grid inset | `GridSystem` | `StyleSystem` `.root { .pageInlinePadding(...) }` |
 | Page width constraint | `.frame(maxWidth:)` | Explicit numeric value supplied by the caller |
@@ -55,13 +55,13 @@ Spacing follows the same boundary:
 `Space` must stay an atomic spacing scale. It must not include page layout
 concepts such as responsive inline margins.
 
-`Theme` and `StyleSystem` are intentionally separate:
+`ColorScheme` and `StyleSystem` are intentionally separate:
 
 ```mermaid
 flowchart LR
-    A["Theme.light / dark / system"] --> C["Color roles"]
+    A["ColorScheme.light / dark"] --> C["Color roles"]
     B["StyleSystem.swiftWeb / material / liquidGlass"] --> D["Component rules"]
-    C --> E["ThemeStylesheet"]
+    C --> E["RootStylesheet"]
     D --> E
 ```
 
@@ -74,8 +74,8 @@ system contributes visual rules.
 |---|---|---|
 | 1 | Component configuration | Semantic state such as `isEnabled`, `controlSize`, selected value, bounds, and roles. |
 | 2 | Component body | Stable classes such as `swui-list-row`, `swui-text`, `swui-control-large`, `swui-control-disabled`. |
-| 3 | Environment modifiers | Scoped values such as `theme`, `styleSystem`, `tint`, `controlSize`, and semantic style kinds. |
-| 4 | `ThemeStylesheet` | CSS variables, base component rules, state rules, and contextual selectors. |
+| 3 | Environment modifiers | Scoped values such as `colorScheme`, `styleSystem`, `tint`, `controlSize`, and semantic style kinds. |
+| 4 | `RootStylesheet` | CSS variables, base component rules, state rules, and contextual selectors. |
 | 5 | SwiftHTML | HTML graph, stylesheet output, hydration metadata, and SSR output. |
 
 The component body may set CSS custom properties only for per-instance values
@@ -119,22 +119,24 @@ leaf components.
 | `.controlSize(_:)` | Sets a scoped control size class/environment value. |
 | `.buttonStyle(_:)` | Selects a semantic button treatment that CSS resolves. |
 | `.pickerStyle(_:)` | Selects a semantic picker treatment that CSS resolves. |
-| `.environment(ThemeEnvironmentKey.self, ...)` | Color-mode and color-role scope. |
-| `.environment(StyleSystemEnvironmentKey.self, ...)` | Component design-language and CSS-rule scope. |
+| `.preferredColorScheme(_:)` | Creates a styled root and sets or clears the explicit rendered color scheme. |
+| `.environment(\.colorScheme, ...)` | Swift-side color resolution scope. |
+| `.environment(\.styleSystem, ...)` | Component design-language and CSS-rule scope. |
 
-Raw SwiftHTML elements and `Style.custom` remain escape hatches below SwiftWebUI. String/raw
-`style` attributes are not a SwiftWebUI styling path; SwiftWeb render scopes require typed
-`Style` declarations so validation and atomic class generation can run.
+Direct CSS is not a SwiftWebUI styling path. Low-level SwiftHTML typed style
+payloads exist so SwiftWeb can atomize declarations during render, not so
+components can bypass `SwiftWebStyle`. The direct-CSS ban and goal state are
+defined in [`UtilityStylingGoalState.md`](UtilityStylingGoalState.md).
 
 ## Modifier Responsibility Map
 
 | Modifier family | Examples | Design layer | Contract |
 |---|---|---|---|
-| Attribute escape hatches | `id`, `class`, `data`, `aria`, `role`, typed `style`, `webStyle` | SwiftHTML escape layer | Allowed for exact HTML control; typed style is atomized in SwiftWeb render scopes. |
+| HTML attributes | `id`, `class`, `data`, `aria`, `role`, typed compatibility style payloads | SwiftHTML attribute layer | Allowed for exact HTML control except direct CSS; typed style payloads are atomized in SwiftWeb render scopes. |
 | Layout and sizing | `padding`, `frame`, `fixedSize`, `layoutPriority`, `aspectRatio`, `containerRelativeFrame`, `alignmentGuide`, `offset`, `position`, `zIndex` | Layout geometry | `frame` uses SwiftUI-style numeric values; CSS-unit modifiers use `Length`; component-local spacing uses `Space`; page/grid inset belongs to `GridSystem`. |
 | Page grid layout | `GridSystem`, `Pane` | Page/grid layout | Owns responsive inline inset, columns, gutters, pane spans, and page vertical rhythm; width caps stay in `.frame(maxWidth:)`. |
 | Safe area | `ignoresSafeArea`, `safeAreaPadding`, `safeAreaInset` | Browser viewport compensation | Combines CSS safe-area environment values with explicit user lengths; does not consume `Space` as page margin. |
-| Shape and style | `foregroundStyle`, `backgroundStyle`, `background(_:in:)`, `overlay`, `border`, `tint`, `background(_: Material)`, `glassEffect` | Theme and StyleSystem | Resolves semantic style values through environment and stylesheet tokens. |
+| Shape and style | `foregroundStyle`, `backgroundStyle`, `background(_:in:)`, `overlay`, `border`, `tint`, `background(_: Material)`, `glassEffect` | ColorScheme and StyleSystem | Resolves semantic style values through environment and stylesheet tokens. |
 | Visual effects | `opacity`, `shadow`, `cornerRadius`, `clipShape`, `clipped`, `blur`, `brightness`, `contrast`, `saturation`, `grayscale`, `hueRotation`, `colorInvert`, `colorMultiply`, `blendMode`, `rotationEffect`, `scaleEffect` | Per-instance visual effect | Emits typed style declarations that lower to atomic classes; must not encode component design recipes. |
 | Typography | `font`, `fontWeight`, `fontDesign`, `bold`, `italic`, `monospaced`, `lineLimit`, `multilineTextAlignment`, `lineSpacing`, `truncationMode`, `allowsTightening`, `minimumScaleFactor`, `textCase`, `fontWidth`, `kerning`, `tracking`, `baselineOffset`, `underline`, `strikethrough`, `textSelection` | Typography | Owns text presentation only; no layout container or page spacing responsibility. |
 | Control state and style | `disabled`, `controlSize`, `buttonStyle`, `pickerStyle`, `toggleStyle`, `textFieldStyle`, `labelStyle`, `listStyle`, `formStyle`, `menuStyle`, `progressViewStyle`, `gaugeStyle`, `tabViewStyle` | Environment-driven component variants | Propagates semantic state/style; controls lower the environment to classes and native attributes. |
@@ -171,7 +173,7 @@ Each styleable component follows this pattern:
 flowchart LR
     A["Component"] --> B["Semantic class/state class"]
     C["Modifiers"] --> D["Environment / CSS variable"]
-    E["StyleSystem"] --> F["ThemeStylesheet rules"]
+    E["StyleSystem"] --> F["RootStylesheet rules"]
     B --> G["Rendered UI"]
     D --> G
     F --> G
@@ -214,9 +216,9 @@ Every new or changed public component must pass these gates:
 | Gate | Check |
 |---|---|
 | Semantic gate | The rendered HTML uses native elements and ARIA only where needed. |
-| CSS ownership gate | Visual rules live in `ThemeStylesheet`/`StyleSystem`, not component-local style objects. |
+| CSS ownership gate | Visual rules live in `RootStylesheet`/`StyleSystem`, not component-local style objects. |
 | Context gate | Container-specific child styling is expressed through selectors or scoped environment values. |
-| Theme gate | The component works in light, dark, and system themes. |
+| Color-scheme gate | The component works in explicit light, explicit dark, and system-preference roots. |
 | StyleSystem gate | The component has defined fallback behavior under every built-in `StyleSystem`. |
 | Control gate | Disabled, focus-visible, hover, and active states are legible. |
 | Hydration gate | Client-visible environment values are registered in `ClientEnvironmentRegistry.swiftWebUI`. |

@@ -1,5 +1,6 @@
 import Foundation
 import SwiftHTML
+import SwiftWebStyle
 import SwiftWebUI
 import Synchronization
 import Testing
@@ -7,7 +8,7 @@ import Testing
 @Suite
 struct SwiftWebUIRenderingTests {
   @Test
-  func rendersThemeAndLayoutPrimitives() {
+  func rendersColorSchemeAndLayoutPrimitives() {
     let rendered = main {
       VStack(spacing: .large) {
         VStack(spacing: .small) {
@@ -28,11 +29,11 @@ struct SwiftWebUIRenderingTests {
         }
       }
     }
-    .environment(ThemeEnvironmentKey.self, .system)
-    .environment(StyleSystemEnvironmentKey.self, .swiftWeb)
+    .preferredColorScheme(.light)
+    .environment(\.styleSystem, .swiftWeb)
     .render()
 
-    #expect(rendered.contains("[data-theme=\"system\"]"))
+    #expect(rendered.contains("[data-color-scheme=\"dark\"]"))
     #expect(rendered.contains("[data-style-system=\"swift-web\"]"))
     #expect(rendered.contains("--swui-background: #f7f8fa;"))
     #expect(rendered.contains("--swui-button-radius: var(--swui-radius-medium);"))
@@ -44,13 +45,42 @@ struct SwiftWebUIRenderingTests {
     #expect(rendered.contains(".swui-list-row .swui-text"))
     #expect(rendered.contains(".swui-list-row > .swui-text:not(:first-child)"))
     #expect(rendered.contains("class=\"swui-root\""))
-    #expect(rendered.contains("data-theme=\"system\""))
+    #expect(rendered.contains("data-color-scheme=\"light\""))
     #expect(rendered.contains("data-style-system=\"swift-web\""))
     #expect(
       rendered.contains("class=\"swui-group-box swui-material swui-material-regular\""))
     #expect(cssRule(".swui-group-box", in: rendered)?.contains("padding: var(--swui-space-md);") == true)
     #expect(rendered.contains("data-accessibility-identifier=\"client-counter\""))
     #expect(rendered.contains("data-accessibility-identifier=\"counter-value\""))
+  }
+
+  @Test
+  func rootStylesheetEmitsTokenUtilitiesInExplicitLayerOrder() {
+    let rendered = main {
+      Text("Layer order")
+    }
+    .preferredColorScheme(.light)
+    .environment(\.styleSystem, .swiftWeb)
+    .render()
+    let css = styleBlock(in: rendered) ?? ""
+
+    #expect(!css.isEmpty)
+    #expect(css.contains(".swui-bg-accent"))
+    #expect(css.contains("background: var(--swui-accent);"))
+    #expect(css.contains(".swui-fg-secondary"))
+    #expect(css.contains("color: var(--swui-text-muted);"))
+    #expect(css.contains(".swui-radius-container"))
+    #expect(css.contains("border-radius: var(--swui-container-radius);"))
+    #expect(containsInOrder(
+      css,
+      [
+        "--swui-space-md: 12px;",
+        "min-height: 100%;",
+        ".swui-bg-accent",
+        ".swui-material",
+        "@supports"
+      ]
+    ))
   }
 
   @Test
@@ -73,11 +103,11 @@ struct SwiftWebUIRenderingTests {
     let rendered = GroupBox {
       Button("Save") {}
     }
-    .environment(ThemeEnvironmentKey.self, .dark)
-    .environment(StyleSystemEnvironmentKey.self, style)
+    .preferredColorScheme(.dark)
+    .environment(\.styleSystem, style)
     .render()
 
-    #expect(rendered.contains("data-theme=\"dark\""))
+    #expect(rendered.contains("data-color-scheme=\"dark\""))
     #expect(rendered.contains("data-style-system=\"brand\""))
     #expect(rendered.contains("[data-style-system=\"brand\"]"))
     #expect(rendered.contains("--swui-page-inline-padding: 40px;"))
@@ -95,8 +125,8 @@ struct SwiftWebUIRenderingTests {
       Badge("Preview")
       Text("7", as: .strong)
     }
-    .environment(ThemeEnvironmentKey.self, .system)
-    .environment(StyleSystemEnvironmentKey.self, .liquidGlass)
+    .preferredColorScheme(.light)
+    .environment(\.styleSystem, .liquidGlass)
     .render()
 
     #expect(rendered.contains("data-style-system=\"liquid-glass\""))
@@ -114,27 +144,44 @@ struct SwiftWebUIRenderingTests {
   }
 
   @Test
-  func resolvesButtonTintOnTheButtonElement() {
-    let rendered = GroupBox {
-      Button("Danger") {}
-        .buttonStyle(.borderedProminent)
-        .tint(.danger)
+  func preferredColorSchemeNilClearsExplicitRootScheme() {
+    let rendered = main {
+      Text("System")
     }
-    .environment(ThemeEnvironmentKey.self, .light)
-    .environment(StyleSystemEnvironmentKey.self, .swiftWeb)
+    .preferredColorScheme(nil)
     .render()
+
+    #expect(rendered.contains("<div data-style-system=\"liquid-glass\" class=\"swui-root\""))
+    #expect(!rendered.contains("<div data-color-scheme="))
+    #expect(rendered.contains("@media (prefers-color-scheme: dark)"))
+  }
+
+  @Test
+  func resolvesButtonTintOnTheButtonElement() {
+    let registry = StyleRegistry()
+    let rendered = StyleRegistry.withCurrent(registry) {
+      GroupBox {
+        Button("Danger") {}
+          .buttonStyle(.borderedProminent)
+          .tint(.danger)
+      }
+      .preferredColorScheme(.light)
+      .environment(\.styleSystem, .swiftWeb)
+      .render()
+    }
+    let rootCSS = registry.stylesheets().joined()
 
     // The style-system token is the plain default; the tint indirection lives
     // in the rule, not in the ancestor-declared token. This is what stops the
     // var(--swui-control-tint, ...) chain from collapsing on the swui-root.
-    #expect(rendered.contains("--swui-button-primary-background: var(--swui-accent);"))
-    // The primary rule reads the control tint first, so the inline per-button
-    // override below resolves on the button element itself.
+    #expect(rootCSS.contains("--swui-button-primary-background: var(--swui-accent);"))
+    // The primary rule reads the control tint first, so the per-button atomic
+    // override resolves on the button element itself without an inline style.
     #expect(
-      rendered.contains(
+      rootCSS.contains(
         "background: var(--swui-control-tint, var(--swui-button-primary-background));"))
-    // The tinted button carries its own --swui-control-tint inline.
-    #expect(rendered.contains("style=\"--swui-control-tint: var(--swui-danger)\""))
+    #expect(!rendered.contains("style=\""))
+    #expect(registry.rules().contains { $0.body == "--swui-control-tint: var(--swui-danger)" })
   }
 
   @Test
@@ -153,8 +200,8 @@ struct SwiftWebUIRenderingTests {
     let rendered = main {
       Badge("Glass")
     }
-    .environment(ThemeEnvironmentKey.self, .light)
-    .environment(StyleSystemEnvironmentKey.self, .liquidGlass)
+    .preferredColorScheme(.light)
+    .environment(\.styleSystem, .liquidGlass)
     .render()
 
     #expect(rendered.contains("function hasFilter(el)"))
@@ -179,12 +226,15 @@ struct SwiftWebUIRenderingTests {
     #expect(
       rendered.contains("class=\"swui-group-box swui-material swui-material-regular\""))
     #expect(rendered.contains("data-accessibility-identifier=\"client-counter\""))
-    #expect(rendered.contains("padding: var(--swui-space-sm)"))
+    #expect(rendered.contains("swui-p-sm"))
+    #expect(rendered.contains("swui-px-lg"))
+    #expect(rendered.contains("swui-py-xl"))
     #expect(rendered.contains("min-height: 120px"))
-    #expect(rendered.contains("padding-left: var(--swui-space-lg)"))
-    #expect(rendered.contains("padding-right: var(--swui-space-lg)"))
-    #expect(rendered.contains("padding-top: var(--swui-space-xl)"))
-    #expect(rendered.contains("padding-bottom: var(--swui-space-xl)"))
+    #expect(!rendered.contains("padding: var(--swui-space-sm)"))
+    #expect(!rendered.contains("padding-left: var(--swui-space-lg)"))
+    #expect(!rendered.contains("padding-right: var(--swui-space-lg)"))
+    #expect(!rendered.contains("padding-top: var(--swui-space-xl)"))
+    #expect(!rendered.contains("padding-bottom: var(--swui-space-xl)"))
   }
 
   @Test
@@ -273,7 +323,7 @@ struct SwiftWebUIRenderingTests {
     .render()
 
     #expect(rendered.contains("<form class=\"swui-form\" action=\"/counter\" method=\"post\">"))
-    #expect(rendered.contains("class=\"swui-lazy-hstack\""))
+    #expect(rendered.contains("class=\"swui-lazy-hstack swui-gap-stack swui-ai-center\""))
     #expect(rendered.contains("data-lazy=\"horizontal\""))
     #expect(
       rendered.contains(
@@ -471,7 +521,7 @@ struct SwiftWebUIRenderingTests {
 
     #expect(rendered.contains("class=\"swui-frame swui-fill-v\""))
     #expect(rendered.contains("class=\"swui-scroll-view swui-scroll-view-hidden-indicators\""))
-    #expect(rendered.contains("class=\"swui-lazy-vstack\""))
+    #expect(rendered.contains("class=\"swui-lazy-vstack swui-gap-stack swui-ai-leading\""))
     #expect(rendered.contains("data-lazy=\"vertical\""))
     #expect(rendered.contains("class=\"swui-section swui-fill-h\""))
     #expect(rendered.contains("role=\"list\""))
@@ -556,7 +606,7 @@ struct SwiftWebUIRenderingTests {
       .render()
     let shapedEnvironmentBackground = Text("Shape")
       .background(ColorSchemeShapeStyle(), in: .rect(cornerRadius: 6))
-      .environment(ColorSchemeEnvironmentKey.self, .dark)
+      .environment(\.colorScheme, .dark)
       .render()
     let layers = Text("Layered")
       .background(alignment: .topLeading) {
@@ -677,26 +727,6 @@ struct SwiftWebUIRenderingTests {
     #expect(rendered.contains("checked"))
     #expect(rendered.contains("<option value=\"draft\">Draft</option>"))
     #expect(rendered.contains("<option value=\"published\" selected>Published</option>"))
-  }
-
-  @Test
-  func rendersThemeSwitcherWithSelectionBinding() {
-    @State var theme = Theme.system
-
-    let rendered = ThemeSwitcher(selection: $theme, themes: [.system, .dark])
-      .render()
-
-    #expect(rendered.contains("swui-picker-segmented"))
-    #expect(rendered.contains("role=\"radiogroup\""))
-    // The radiogroup is named by the visible field label via aria-labelledby.
-    #expect(rendered.contains("aria-labelledby=\"swui-picker-appearance-label\""))
-    #expect(rendered.contains("id=\"swui-picker-appearance-label\""))
-    #expect(rendered.contains("data-theme-option=\"system\""))
-    #expect(rendered.contains("data-theme-option=\"dark\""))
-    #expect(rendered.contains("type=\"radio\""))
-    #expect(rendered.contains("value=\"system\""))
-    #expect(rendered.contains("name=\"swui-picker-appearance\" checked"))
-    #expect(rendered.contains("value=\"dark\""))
   }
 
   @Test
@@ -1281,7 +1311,7 @@ struct SwiftWebUIRenderingTests {
       PickerOption("Published", value: "published")
     }
     .pickerStyle(.segmented)
-    .environment(ThemeEnvironmentKey.self, .system)
+    .preferredColorScheme(.light)
     .render()
 
     #expect(rendered.contains(".swui-picker-segmented {"))
@@ -1582,6 +1612,33 @@ struct SwiftWebUIRenderingTests {
     return String(rendered[start.lowerBound..<end.upperBound])
   }
 
+  private func styleBlock(in rendered: String) -> String? {
+    guard let start = rendered.range(of: "<style>"),
+          let end = rendered[start.upperBound...].range(of: "</style>")
+    else {
+      return nil
+    }
+    return String(rendered[start.upperBound..<end.lowerBound])
+  }
+
+  private func containsInOrder(_ haystack: String, _ needles: [String]) -> Bool {
+    var searchStart = haystack.startIndex
+    for needle in needles {
+      guard let range = haystack[searchStart...].range(of: needle) else {
+        return false
+      }
+      searchStart = range.upperBound
+    }
+    return true
+  }
+
+  private func containsHashedLayoutUtility(_ rendered: String) -> Bool {
+    rendered.range(
+      of: #"swui-(gap|ai|ji)-[a-z]+-x[0-9a-f]"#,
+      options: .regularExpression
+    ) != nil
+  }
+
   // MARK: Control tint ownership (H2)
 
   @Test
@@ -1590,7 +1647,7 @@ struct SwiftWebUIRenderingTests {
       Button("Primary") {}
         .buttonStyle(.borderedProminent)
     }
-    .environment(ThemeEnvironmentKey.self, .light)
+    .preferredColorScheme(.light)
     .render()
     // No `.tint()` in scope: no control emits an inline --swui-control-tint, so
     // the rule's fallback resolves to the style-system token.
@@ -1618,7 +1675,7 @@ struct SwiftWebUIRenderingTests {
         .buttonStyle(.borderedProminent)
         .controlSize(.extraLarge)
     }
-    .environment(ThemeEnvironmentKey.self, .light)
+    .preferredColorScheme(.light)
     .render()
     #expect(rendered.contains("swui-control-extraLarge"))
     #expect(rendered.contains("--swui-control-extra-large-height: 52px;"))
@@ -1630,6 +1687,47 @@ struct SwiftWebUIRenderingTests {
     #expect(HStack(spacing: 12) { Text("a") }.render().contains("gap: 12px"))
     #expect(VStack(spacing: 8) { Text("a") }.render().contains("gap: 8px"))
     #expect(Text("x").padding(16).render().contains("padding: 16px"))
+  }
+
+  @Test
+  func stackTokenLayoutUsesReadableUtilityClasses() {
+    let rendered = main {
+      VStack {
+        Text("Wi-Fi")
+        HStack(alignment: .top, spacing: .small) {
+          Text("On")
+        }
+        LazyVStack(alignment: .leading, spacing: .xsmall) {
+          Text("Network")
+        }
+      }
+    }
+    .preferredColorScheme(.light)
+    .render()
+
+    #expect(rendered.contains("class=\"swui-vstack swui-gap-stack swui-ai-center\""))
+    #expect(rendered.contains("class=\"swui-hstack swui-gap-sm swui-ai-top\""))
+    #expect(rendered.contains("class=\"swui-lazy-vstack swui-gap-xs swui-ai-leading\""))
+    #expect(cssRule(".swui-gap-stack", in: rendered)?.contains("gap: var(--swui-stack-spacing);") == true)
+    #expect(cssRule(".swui-gap-sm", in: rendered)?.contains("gap: var(--swui-space-sm);") == true)
+    #expect(cssRule(".swui-ai-center", in: rendered)?.contains("align-items: center;") == true)
+    #expect(!containsHashedLayoutUtility(rendered))
+  }
+
+  @Test
+  func paddingTokenLayoutUsesReadableUtilityClasses() {
+    let rendered = main {
+      Text("Wi-Fi")
+        .padding(.horizontal, .small)
+    }
+    .preferredColorScheme(.light)
+    .render()
+
+    #expect(rendered.contains("swui-px-sm"))
+    #expect(cssRule(".swui-px-sm", in: rendered)?.contains("padding-left: var(--swui-space-sm);") == true)
+    #expect(cssRule(".swui-px-sm", in: rendered)?.contains("padding-right: var(--swui-space-sm);") == true)
+    #expect(!rendered.contains("paddingleft-x"))
+    #expect(!rendered.contains("paddingright-x"))
   }
 
   @Test
@@ -1743,14 +1841,14 @@ struct SwiftWebUIRenderingTests {
 
   @Test
   func transitionsReadTheAnimationTokenWithMotionFallback() {
-    let rendered = main { Button("x") {} }.environment(ThemeEnvironmentKey.self, .light).render()
+    let rendered = main { Button("x") {} }.preferredColorScheme(.light).render()
     #expect(rendered.contains("var(--swui-animation, var(--swui-motion-quick))"))
     #expect(rendered.contains(".swui-animation-scope {"))
   }
 
   @Test
   func stylesheetEmitsTypedAtRules() {
-    let rendered = main { Text("x") }.environment(ThemeEnvironmentKey.self, .light).render()
+    let rendered = main { Text("x") }.preferredColorScheme(.light).render()
     #expect(rendered.contains("@keyframes swui-spin"))
     #expect(rendered.contains("@supports not"))
     #expect(rendered.contains("@media (prefers-reduced-motion: reduce)"))
@@ -1765,7 +1863,7 @@ struct SwiftWebUIRenderingTests {
     let rendered = main {
       VStack { Text("x") }.animation(.easeInOut(duration: 0.3), value: 1)
     }
-    .environment(ThemeEnvironmentKey.self, .light)
+    .preferredColorScheme(.light)
     .render()
     #expect(rendered.contains("--swui-animation: 0.3s cubic-bezier(0.42, 0, 0.58, 1) 0s"))
     #expect(rendered.contains(".swui-animation-scope * {"))
@@ -1826,7 +1924,7 @@ struct SwiftWebUIRenderingTests {
 
   @Test
   func transitionStylesheetEmitsStartingStyleAndExitRule() {
-    let rendered = main { Text("x") }.environment(ThemeEnvironmentKey.self, .light).render()
+    let rendered = main { Text("x") }.preferredColorScheme(.light).render()
     #expect(rendered.contains("@starting-style"))
     #expect(rendered.contains(".swui-transition.swui-exiting"))
     #expect(rendered.contains("var(--swui-exit-opacity, 1)"))
@@ -1908,8 +2006,8 @@ struct SwiftWebUIRenderingTests {
   }
 
   @Test
-  func colorOpacityAndMixStayThemeAdaptive() {
-    // opacity fades the resolved (theme) color; opacity(0) is transparent.
+  func colorOpacityAndMixStayColorSchemeAdaptive() {
+    // opacity fades the resolved color-scheme color; opacity(0) is transparent.
     #expect(
       Color.accent.opacity(0.12).resolve(in: .default).cssValue
         == "color-mix(in srgb, var(--swui-accent) 12%, transparent)"

@@ -56,11 +56,11 @@ struct StoryboardControlPanel: Component {
         let controls = storyboardControls(for: id)
         if !controls.isEmpty {
             div(.style {
-                .custom("border-top", "1px solid var(--swui-border)")
+                .borderTop("1px solid var(--swui-border)")
                 .display("flex")
-                .custom("flex-wrap", "wrap")
+                .flexWrap("wrap")
                 .alignItems("center")
-                .custom("gap", "10px 18px")
+                .gap("10px 18px")
                 .padding("12px 14px")
             }) {
                 ForEach(controls) { control in
@@ -119,10 +119,10 @@ struct StoryboardControlPanel: Component {
                 .width("44px")
                 .height("28px")
                 .padding("2px")
-                .custom("border", "1px solid var(--swui-border)")
+                .border("1px solid var(--swui-border)")
                 .borderRadius("8px")
                 .backgroundColor("var(--swui-surface)")
-                .custom("cursor", "pointer")
+                .cursor("pointer")
                 .boxSizing("border-box")
             },
         ], isVoid: true)
@@ -140,12 +140,12 @@ struct StoryboardControlPanel: Component {
             .style {
                 .width("168px")
                 .padding("6px 10px")
-                .custom("border", "1px solid var(--swui-border)")
+                .border("1px solid var(--swui-border)")
                 .borderRadius("8px")
                 .fontSize("13px")
                 .backgroundColor("var(--swui-surface)")
-                .custom("color", "var(--swui-text)")
-                .custom("outline", "none")
+                .color("var(--swui-text)")
+                .outline("none")
                 .boxSizing("border-box")
             },
         ], isVoid: true)
@@ -202,7 +202,7 @@ struct StoryboardControlPanel: Component {
                         .height("18px")
                         .borderRadius("999px")
                         .backgroundColor(swatch.css)
-                        .custom("box-shadow", selected == swatch.value
+                        .boxShadow(selected == swatch.value
                             ? "0 0 0 2px var(--swui-surface), 0 0 0 4px var(--swui-accent)"
                             : "inset 0 0 0 1px var(--swui-border)")
                     }) {}

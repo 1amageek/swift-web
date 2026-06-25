@@ -31,9 +31,10 @@ public final class StyleRegistry: Sendable {
     /// propagator so SwiftHTML's dedicated render thread sees the same binding.
     @TaskLocal public static var current: StyleRegistry?
 
-    /// Bind `registry` as `current` for one render/reconcile. With no binding,
-    /// `current` is nil and `atom(_:)` falls back to inline — the isolated-render path
-    /// used by tests and direct SwiftHTML rendering.
+    /// Bind `registry` as `current` for one render/reconcile. SwiftWeb page,
+    /// action, stream, and client render paths must bind a registry so typed
+    /// styles serialize as classes and CSS is emitted through the stylesheet
+    /// channel. A nil binding is only for low-level isolated SwiftHTML rendering.
     @discardableResult
     public static func withCurrent<R>(_ registry: StyleRegistry?, _ body: () throws -> R) rethrows -> R {
         let transformer: (any HTMLAttributeTransformer)? = registry.map {
@@ -196,9 +197,9 @@ public final class StyleRegistry: Sendable {
 }
 
 /// Register `style` as atomic classes through the current `StyleRegistry` and return a
-/// `class` attribute. With no registry in scope (e.g. a component rendered in isolation,
-/// outside a page), it falls back to an inline `style` — the no-collector path, not error
-/// masking.
+/// `class` attribute. SwiftWeb renderers bind the registry before rendering; the no-registry
+/// branch exists only for low-level isolated SwiftHTML rendering where there is no stylesheet
+/// collector to receive atomic rules.
 public func atom(_ style: Style) -> HTMLAttribute {
     guard !style.isEmpty else { return .class("") }
     if let registry = StyleRegistry.current {

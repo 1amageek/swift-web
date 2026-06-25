@@ -9,7 +9,7 @@ public struct PickerStyleModifier: ComponentModifier {
 
     @HTMLBuilder
     public func body(content: ModifierContent) -> some HTML {
-        content.environment(PickerStyleEnvironmentKey.self, style)
+        content.environment(\.pickerStyle, style)
     }
 }
 

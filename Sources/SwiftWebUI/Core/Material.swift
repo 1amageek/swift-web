@@ -1,4 +1,4 @@
-/// A background material that adapts to the active theme and design style.
+/// A background material that adapts to the active color scheme and design style.
 ///
 /// `Material` is SwiftWebUI's frosted-vibrancy primitive, mirroring SwiftUI's
 /// `Material` (`.ultraThinMaterial` … `.bar`): a wide backdrop blur that

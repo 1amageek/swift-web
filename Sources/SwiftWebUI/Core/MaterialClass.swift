@@ -2,7 +2,7 @@
 ///
 /// Every chrome surface composes these tokens instead of hand-rolling its own
 /// translucency. The recipe (fill, backdrop blur, specular rim, refraction)
-/// lives once in `ThemeStylesheet`; components only pick a level.
+/// lives once in `RootStylesheet`; components only pick a level.
 enum MaterialClass {
     /// Opaque/translucent surface material (SwiftUI `Material`).
     static let material = "swui-material"

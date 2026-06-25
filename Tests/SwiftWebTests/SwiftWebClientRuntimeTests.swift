@@ -15,7 +15,7 @@ private extension EnvironmentValues {
 }
 
 private struct RuntimeStatefulComponent: ClientComponent {
-    @Environment(RuntimeTestEnvironmentKey.self) private var environmentValue: String
+    @Environment(\.runtimeTestValue) private var environmentValue: String
     @State private var value = 0
 
     var body: some HTML {
@@ -105,7 +105,7 @@ struct SwiftWebClientRuntimeTests {
     @Test
     func wasmManifestCarriesComponentStateAndEnvironmentSchemaHashes() throws {
         let artifact = RuntimeStatefulComponent()
-            .environment(RuntimeTestEnvironmentKey.self, "server")
+            .environment(\.runtimeTestValue, "server")
             .renderArtifact()
         let component = try #require(artifact.hydration.components.first)
         let unqualifiedTypeName = component.typeName.split(separator: ".").last.map(String.init) ?? component.typeName

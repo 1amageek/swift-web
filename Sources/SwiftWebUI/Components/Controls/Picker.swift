@@ -50,7 +50,7 @@ public struct Picker<Label: HTML, Content: HTML>: WebUIAttributeComponent {
                     extra: selectAttributes
                 )
             ) {
-                content.environment(PickerSelectionEnvironmentKey.self, selection.wrappedValue)
+                content.environment(\.pickerSelection, selection.wrappedValue)
             }
         }
     }
@@ -76,8 +76,8 @@ public struct Picker<Label: HTML, Content: HTML>: WebUIAttributeComponent {
                 )
             ) {
                 content
-                    .environment(PickerSelectionEnvironmentKey.self, selection.wrappedValue)
-                    .environment(PickerGroupNameEnvironmentKey.self, groupName)
+                    .environment(\.pickerSelection, selection.wrappedValue)
+                    .environment(\.pickerGroupName, groupName)
             }
         }
     }

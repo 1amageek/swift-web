@@ -127,7 +127,7 @@ struct CounterPage {
 | `services: AppServices` | Optionally register application-wide services and gateways. Page-local server actions do not require this. |
 | Page stored properties | Hold page-local route-lifetime services. |
 | `Page.cache` | Declare response cache behavior for the page. |
-| `.environment(...)` | Pass client-visible UI context such as theme, locale, and color scheme. |
+| `.environment(...)` | Pass client-visible UI context such as locale, color scheme, and style system. |
 
 ## Development Boundary
 
@@ -410,7 +410,7 @@ public struct ActionInvocationContext: Sendable, Codable {
 |---|---|
 | HTML component protocol and graph | `SwiftHTML` |
 | Diff algorithm | `SwiftHTML` |
-| SwiftUI-like components and theme defaults | `SwiftWebUI` |
+| SwiftUI-like components and style defaults | `SwiftWebUI` |
 | Macro code generation details | `SwiftWebMacros` |
 | App templates and file watching | `SwiftWebCLI` |
 | Replacing Vapor routing | Vapor / RoutingKit |

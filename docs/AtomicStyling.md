@@ -3,13 +3,17 @@
 ## Goal
 
 Emit **class-based** markup, not inline `style="…"`. The rendered HTML a component
-produces should read like `<div class="swui-frame swui-fill-h swui-jc-center swui-p-m">`
+produces should read like `<div class="swui-vstack swui-gap-sm swui-ai-center">`
 with all declarations living in stylesheets — never `style="padding: …; justify-content: …"`.
 
 This is the "Tailwind philosophy" built into the framework: every declaration becomes a
 small, reusable class. It is **self-contained** — a SwiftWebUI app needs no Tailwind
 toolchain, CDN, or build step — and it integrates with the existing `--swui-*` design
-tokens and the ~243 semantic classes already in `ThemeStylesheet`.
+tokens and the semantic classes already in `RootStylesheet`.
+
+The implementation goal state and remaining utility/variant work are tracked in
+[`UtilityStylingGoalState.md`](UtilityStylingGoalState.md). That document is the
+source of truth for the direct-CSS ban and Tailwind-like utility parity work.
 
 ## Current Contract
 
@@ -64,16 +68,27 @@ Arbitrary values  (width: 237, radius: 13px, custom hex, opacity 0.6 … = unbou
 
 ## Architecture — two tiers
 
+SwiftWebStyle owns the shared style primitives used by both tiers:
+
+| Primitive | Responsibility |
+|---|---|
+| `StyleClass` | One HTML class token plus its escaped CSS selector. It is a token primitive; Tailwind-like variant semantics belong to the utility/variant compiler defined in `UtilityStylingGoalState.md`. |
+| `StyleClassList` | Ordered, de-duplicated class composition for framework and user utility classes. |
+| `rule(StyleClass)` | Binds a static utility class to a typed `Style` rule without repeating selector strings. |
+| `StyleRegistry` / `atom(_:)` | Runtime registration for unbounded arbitrary `Style` declarations. |
+
 ### Tier 1 — Token utilities (static)
-Predefined classes for the bounded token API, emitted once into `ThemeStylesheet`,
+Predefined classes for the bounded token API, emitted once into `RootStylesheet`,
 referencing `--swui-*` tokens:
 
 | Modifier (token form) | Class | Rule |
 |---|---|---|
-| `.padding(.medium)` | `swui-p-m` | `padding: var(--swui-space-md)` |
-| `.padding(.top, .small)` | `swui-pt-s` | `padding-top: var(--swui-space-sm)` |
-| alignment `justify=center` | `swui-jc-center` | `justify-content: center` |
-| `.foregroundStyle(.accent)` | `swui-fg-accent` | `color: var(--swui-accent)` |
+| `.padding(.small)` | `swui-p-sm` | `padding: var(--swui-space-sm)` |
+| `.padding(.horizontal, .small)` | `swui-px-sm` | `padding-left/right: var(--swui-space-sm)` |
+| `VStack(spacing: .small)` | `swui-gap-sm` | `gap: var(--swui-space-sm)` |
+| default stack spacing | `swui-gap-stack` | `gap: var(--swui-stack-spacing)` |
+| stack alignment `center` | `swui-ai-center` | `align-items: center` |
+| grid alignment `leading` | `swui-ji-leading` | `justify-items: flex-start` |
 | `.background(.regularMaterial)` | (existing `swui-material-regular`) | — |
 
 No registry needed — these are static and cacheable.
@@ -125,7 +140,8 @@ public final class StyleRegistry: Sendable {     // Mutex-backed { order, bodies
 - The **transformer is the load-bearing conversion**: SwiftHTML calls it on every element's
   attributes during render, rewriting each typed `style` attribute into a registered class.
   So conversion happens uniformly at the render layer — modifier-level `atom(_:)` is the
-  in-scope fast path; isolated renders with no binding fall back to inline.
+  in-scope fast path. The supported SwiftWeb renderers bind a registry; low-level isolated
+  SwiftHTML renders without a registry are a debug path, not the SwiftWebUI markup contract.
 
 ### Validation & safety (mandatory — `<style>` is not `style="…"`)
 Moving declarations from an inline `style` attribute into a `<style>` block changes the
@@ -147,6 +163,7 @@ atomic class registration:
 
 | Source | Where | Contract |
 |---|---|---|
+| `StyleClass` / `StyleClassList` | finite framework and user utility classes — `SwiftWebStyle` | class tokens compose directly; rules are emitted via typed `rule(StyleClass)` |
 | `styleAttribute(_:)` | modifier layer (`.opacity`/`.padding`/`.frame`/`.shadow`/…) — `WebUIComponentModifiers.swift` | token utility class, or `atom(Style)` |
 | `mergedAttributes(class:styles:extra:)` | component-internal base styling — `SwiftWebUIAttributes.swift` | the component's base `Style` routes through the registry |
 | public `.style(_:)` / `.style { }` | WebUI modifier and low-level SwiftHTML typed style attributes | atomize the `Style`'s declarations through `atom` or the render-time attribute transformer |
@@ -178,7 +195,7 @@ the `data-node` hydration markers that the renderer adds to real tags:
 
 ```
 <head>
-  <style id="swui-base">…ThemeStylesheet (semantic + token utilities)…</style>
+  <style id="swui-base">…RootStylesheet (semantic + token utilities)…</style>
   <style id="swui-atomic">…registry.rules() for this page, deduped…</style>
 </head>
 <body> …class-based markup, zero style="…"… </body>
@@ -188,7 +205,7 @@ the `data-node` hydration markers that the renderer adds to real tags:
 arbitrary values exist in NO base sheet, so a *trailing* `<style>` would leave those elements
 unstyled until it parses → FOUC / layout shift. Head (or pre-content) injection is therefore
 **mandatory, not a fallback** (the earlier "trailing is fine, base prevents FOUC" claim was
-wrong for arbitrary-value classes). The base theme CSS therefore moved out of `ThemeScope`'s
+wrong for arbitrary-value classes). The base root CSS therefore moved out of `StyleRoot`'s
 in-tree `<style>` into the head's `<!--swui-base-->` marker (filled by
 `SwiftWebHeadAssets.baseStyle`), so the base and atomic sheets both precede the content they
 style — no buffer/two-pass needed, just marker replacement on the rendered string.
@@ -231,6 +248,11 @@ also merges `swui-base` / `swui-atomic` from the parsed head.
 | Render-time attribute conversion | Implemented: `HTMLAttributeTransformContext` lets SwiftWeb atomize low-level typed `.style(...)`. |
 | Server head emission | Implemented: `swui-base`, `swui-atomic`, and head scripts are emitted into `<head>`. |
 | Client flush | Implemented: WASM updates append new atomic rules to `<style id="swui-atomic">`. |
+| Utility class primitives | Implemented: `StyleClass`, `StyleClassList`, and `rule(StyleClass)` are the standard API for finite utility classes. |
+| Utility variant compiler | Implemented for state pseudo-class, pseudo-element, `dark:`, default breakpoint, group, peer, data, aria, structural, container, arbitrary selector, arbitrary attribute, arbitrary value, named group/peer, and typed custom utility registration through `SwiftWebStyle`. |
+| StyleSystem token utilities | Implemented: SwiftWebUI emits `swui-bg-*`, `swui-fg-*`, border, radius, and shadow utilities from StyleSystem-backed token namespaces. |
+| Layer order | Implemented and tested: root tokens, component rules, utility rules, material rules, at-rules, then render-scoped atomic rules in `<style id="swui-atomic">`. |
+| SwiftWebUI standard layout utilities | Implemented: stack/grid gap and alignment use `StyleClass` token utilities by default; arbitrary numeric spacing remains atomic. |
 | Raw/string style handling | Enforced: SwiftWeb render scopes reject string/raw `style` attributes. |
 | Tests | Implemented: representative page output has no `style="`; semicolon injection is rejected as an unsafe declaration. |
 
@@ -242,8 +264,9 @@ also merges `swui-base` / `swui-atomic` from the parsed head.
 - **CSS injection**: values now land in a `<style>` block, where `}` escapes the rule — the
   registry validates typed declarations and rejects unsafe values (see *Validation & safety*).
 - **Head-hoist is a render-architecture change**, not just a styling tweak: the base CSS moves
-  from `ThemeScope`'s in-tree `<style>` into `<head>` whenever a registry is bound. Direct
-  isolated SwiftHTML renders may still use the in-tree fallback for test/debug visibility.
+  from `StyleRoot`'s in-tree `<style>` into `<head>` whenever a registry is bound. SwiftWeb
+  page/action/stream/client render paths must bind the registry so component markup stays
+  class-only and CSS stays in the stylesheet channel.
 - Class-name collisions: namespaced + hashed; a collision with different rule bodies trips a precondition.
 - The "Rendered HTML" storyboard panel now shows clean class-based markup (the original ask);
   the declarations live in `<style id="swui-atomic">` / the base sheet.

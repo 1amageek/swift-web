@@ -3,7 +3,7 @@ public struct PageMetadata: Sendable, Equatable {
     public let description: String?
     public let language: String
     /// A class applied to the document `<body>`, letting a page opt into a
-    /// body-level surface (e.g. a full-viewport app shell) styled by the theme.
+    /// body-level surface (e.g. a full-viewport app shell) styled by the SwiftWebUI root.
     public let bodyClass: String?
 
     public init(

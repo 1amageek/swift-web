@@ -786,7 +786,7 @@ public extension StyleSystem {
             quick: "120ms ease",
             standard: "180ms ease"
         ),
-        // Solid base: every level renders as the opaque theme surface. A zero
+        // Solid base: every level renders as the opaque root surface. A zero
         // opacity step collapses the levels onto one fill, no backdrop blur, and
         // no SVG refraction; depth comes from the components' own borders and
         // shadows. Components may still override `--swui-material-tint` locally to

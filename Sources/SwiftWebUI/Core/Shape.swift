@@ -19,13 +19,13 @@ public struct Shape: Sendable, Equatable {
         self.kind = kind
     }
 
-    /// A pill: fully rounded ends. Maps to the theme pill radius.
+    /// A pill: fully rounded ends. Maps to the root pill radius.
     public static let capsule = Shape(kind: .capsule)
 
     /// A circle. Maps to `border-radius: 50%`.
     public static let circle = Shape(kind: .circle)
 
-    /// A rectangle using the theme's medium corner radius.
+    /// A rectangle using the root medium corner radius.
     public static let rect = Shape(kind: .rect(cornerRadius: .custom("var(--swui-radius-medium)")))
 
     /// A rounded rectangle with an explicit corner radius.

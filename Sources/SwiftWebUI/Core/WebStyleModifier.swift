@@ -15,7 +15,6 @@ public struct WebStyleModifier<S: ShapeStyle>: ComponentModifier {
         self.ignoredSafeAreaEdges = ignoredSafeAreaEdges
     }
 
-    @Environment(\.theme) private var theme: Theme
     @Environment(\.styleSystem) private var styleSystem: StyleSystem
     @Environment(\.colorScheme) private var colorScheme: ColorScheme
     @Environment(\.layoutDirection) private var layoutDirection: LayoutDirection
@@ -38,7 +37,6 @@ public struct WebStyleModifier<S: ShapeStyle>: ComponentModifier {
 
     private var resolvedStyle: ResolvedStyle {
         style.resolve(in: StyleResolutionContext(
-            theme: theme,
             styleSystem: styleSystem,
             colorScheme: colorScheme,
             layoutDirection: layoutDirection,

@@ -21,7 +21,7 @@ flowchart TD
 | Component graph | `SwiftHTML` | Component identity, child traversal, state slot registration, environment reads, hydration boundaries, diagnostics |
 | DynamicProperty | `SwiftHTML` | Runtime-backed property wrappers used during render, hydration, and client updates |
 | Modifier graph | `SwiftHTML` core + `SwiftWebUI` modifiers | Ordered modifier composition and lowering to attributes, wrappers, environment scopes, handlers, or layout metadata |
-| Style abstraction | `SwiftWebUI` | SwiftUI-like style values resolved through `EnvironmentValues`, `Theme`, and `StyleSystem` into web-safe CSS output |
+| Style abstraction | `SwiftWebUI` | SwiftUI-like style values resolved through `EnvironmentValues`, `ColorScheme`, and `StyleSystem` into web-safe CSS output |
 
 `SwiftWebUI` must not introduce a second renderer. It produces components and modifiers that lower into the existing `SwiftHTML` graph.
 
@@ -171,7 +171,7 @@ flowchart LR
     A["foregroundStyle(.primary)"] --> B["WebShapeStyle"]
     B --> C["StyleResolver"]
     C --> D["EnvironmentValues"]
-    D --> E["Theme"]
+    D --> E["ColorScheme"]
     D --> F["StyleSystem"]
     C --> G["ResolvedStyle"]
     G --> H["CSS declarations / classes"]
@@ -185,7 +185,6 @@ public protocol WebShapeStyle: Sendable {
 }
 
 public struct StyleResolutionContext: Sendable {
-    public let theme: Theme
     public let styleSystem: StyleSystem
     public let colorScheme: ColorScheme
     public let layoutDirection: LayoutDirection
@@ -213,14 +212,20 @@ public struct ResolvedStyle: Sendable, Equatable {
 | `.buttonStyle(_:)` | Semantic button treatment selection resolved by the active stylesheet |
 | `.textFieldStyle(_:)` | Future semantic field treatment selection resolved by the active stylesheet |
 
-Raw CSS strings should remain low-level SwiftHTML escape hatches, not the SwiftWebUI API. When SwiftWebUI needs to emit concrete CSS properties, it should use SwiftHTML `Style` helpers so standard CSS property names remain autocompleteable and shared across atomic declarations and stylesheet rules.
+Direct CSS is not a SwiftWebUI API. When SwiftWebUI needs concrete visual
+output, it must use semantic classes, typed utilities, or typed `Style`
+declarations that SwiftWebStyle validates and atomizes during render. The
+styling goal state and raw-CSS ban are defined in
+[`UtilityStylingGoalState.md`](UtilityStylingGoalState.md).
 
-## Environment, Theme, And StyleSystem
+## Environment, ColorScheme, And StyleSystem
 
-Theme is an environment value:
+ColorScheme is an environment value. Public UI code should use SwiftUI-shaped
+key-path environment writes, or `.preferredColorScheme(_:)` when it wants a
+styled root that also controls the emitted palette:
 
 ```swift
-content.environment(ThemeEnvironmentKey.self, .system)
+content.environment(\.colorScheme, .dark)
 ```
 
 StyleSystem is also an environment value:
@@ -237,37 +242,37 @@ let style = StyleSystem(id: "brand") {
 }
 
 content
-    .environment(ThemeEnvironmentKey.self, .system)
-    .environment(StyleSystemEnvironmentKey.self, style)
+    .preferredColorScheme(.dark)
+    .environment(\.styleSystem, style)
 ```
 
-There should be no `ThemeProvider`, `StyleSystemProvider`, or separate context modifier. Environment is the single propagation mechanism for values used by both server rendering and client hydration.
+There should be no separate color-scheme provider, `StyleSystemProvider`, or separate context modifier. Environment is the single propagation mechanism for values used by both server rendering and client hydration.
 
 | Value | Responsibility | Defaulting model |
 |---|---|---|
-| `Theme` | Semantic color mode and color role values | Built-in `.system`, `.light`, and `.dark` values |
+| `ColorScheme` | Light/dark color resolution for Swift-side style values | `\.colorScheme` defaults to `.light`; `.preferredColorScheme(nil)` removes the explicit root palette and lets CSS follow the user agent preference |
 | `StyleSystem` | Component-wide shape, spacing, material, control, and motion values | Complete `.default`; third-party styles override only changed token groups |
 
-`Theme` and `StyleSystem` are intentionally separate. Dark and light mode change color roles. StyleSystem changes component language, such as Material-like controls or glass-like surfaces. A custom StyleSystem must be built by overriding `StyleSystem.default`, so every component keeps a defined fallback token.
+`ColorScheme` and `StyleSystem` are intentionally separate. Dark and light mode change color roles. StyleSystem changes component language, such as Material-like controls or glass-like surfaces. A custom StyleSystem must be built by overriding `StyleSystem.default`, so every component keeps a defined fallback token.
 
 ```mermaid
 flowchart LR
-    A["Theme"] --> B["color role CSS variables"]
+    A["ColorScheme"] --> B["color role CSS variables"]
     C["StyleSystem"] --> D["component CSS variables"]
-    B --> E["ThemeStylesheet"]
+    B --> E["RootStylesheet"]
     D --> E
     E --> F["SwiftWebUI component classes"]
 ```
 
-When both values are set through modifiers, place `styleSystem` outside the theme scope:
+When both values are set through modifiers, place `styleSystem` outside the root created by `preferredColorScheme`:
 
 ```swift
 content
-    .environment(ThemeEnvironmentKey.self, .dark)
-    .environment(StyleSystemEnvironmentKey.self, .liquidGlass)
+    .preferredColorScheme(.dark)
+    .environment(\.styleSystem, .liquidGlass)
 ```
 
-Modifier order is semantic. The stylesheet scope created by `theme` reads outer environment values, then renders the scoped content.
+Modifier order is semantic. The style root created by `preferredColorScheme` reads outer environment values, then renders the scoped content.
 
 | Visibility | Use |
 |---|---|
@@ -283,7 +288,7 @@ Modifier order is semantic. The stylesheet scope created by `theme` reads outer 
 4. Move public SwiftWebUI modifiers from attribute-only mutation toward modifier wrappers.
 5. Add `WebShapeStyle`, `ResolvedStyle`, and `StyleResolutionContext`.
 6. Replace public `foregroundColor` with `foregroundStyle`.
-7. Keep raw `HTMLAttribute`, `Style.custom(_:_:)`, and `Stylesheet` APIs as escape hooks below the SwiftWebUI layer.
+7. Keep SwiftHTML typed style structures available as transport, while SwiftWebUI routes styling through SwiftWebStyle rather than raw CSS paths.
 8. Keep `StyleSystem.default` complete and make presets or third-party styles override that default through the builder DSL.
 
 ## Current Implementation
@@ -293,10 +298,10 @@ Modifier order is semantic. The stylesheet scope created by `theme` reads outer 
 | Modifier graph | `ComponentModifier`, `ModifierContent`, and `ModifiedContent` live in `SwiftHTML`. |
 | Style abstraction | `WebShapeStyle`, `SemanticShapeStyle`, `CSSShapeStyle`, `ResolvedStyle`, and style modifiers live in `SwiftWebUI`. |
 | Style modifiers | `foregroundStyle`, `backgroundStyle`, `tint`, and `border` are available on all `HTML`. |
-| Stylesheet output | SwiftHTML owns `Style`, generated standard CSS property helpers, `Stylesheet`, `CSSRule`, and `@StylesheetBuilder`; SwiftWebUI uses them for typed theme CSS. |
+| Stylesheet output | SwiftHTML owns `Style`, generated standard CSS property helpers, `Stylesheet`, `CSSRule`, and `@StylesheetBuilder`; SwiftWebUI uses them for typed root CSS. |
 | Style system | `StyleSystem`, built-in presets, environment propagation, and builder-based overrides live in `SwiftWebUI`. |
 | Control environment | `isEnabled`, `controlSize`, `controlState`, `tint`, `buttonStyle`, and `pickerStyle` are environment values. |
-| Control styles | `ButtonStyleKind` and `PickerStyleKind` select semantic treatments whose CSS lives in `ThemeStylesheet`. |
+| Control styles | `ButtonStyleKind` and `PickerStyleKind` select semantic treatments whose CSS lives in `RootStylesheet`. |
 | Binding-first controls | `TextField`, `Toggle`, `Slider`, `Stepper`, and `Picker` accept `Binding` values. |
 | Typography | `Font`, `FontWeight`, and `FontDesign` provide SwiftUI-style text modifiers. |
 | Navigation | `NavigationStack`, `NavigationLink`, `NavigationPath`, and `navigationTitle` are graph-level hooks. |

@@ -6,10 +6,10 @@ import SwiftWebUI
 /// on it, matching the design's preview stage.
 ///
 /// The dot color is a `ShapeStyle` (`Color`, defaulting to `.border`), so the
-/// grid follows the active theme. SwiftUI/SwiftWebUI has no canonical ShapeStyle
-/// for a repeating dot pattern, so the `background-image` is encapsulated here in
-/// a single Storyboard-only component rather than leaking raw CSS across the
-/// catalog; everything else (sizing, centering, padding) uses SwiftWebUI.
+/// grid follows the active color scheme. SwiftUI/SwiftWebUI has no canonical
+/// ShapeStyle for a repeating dot pattern, so the typed `background-image`
+/// payload is encapsulated here in one Storyboard-only component and atomized
+/// during render; everything else (sizing, centering, padding) uses SwiftWebUI.
 struct PreviewCanvas<Content: HTML>: Component {
     var dotColor: Color
     var content: Content

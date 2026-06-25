@@ -166,7 +166,7 @@ The resolver is intentionally smaller than a planner. It walks the rendered comp
 | Layer | Responsibility | Not responsible for |
 |---|---|---|
 | `SwiftHTML` | Component graph, island metadata, state/environment schema hashes, diff and hydration primitives. | Deciding app-level WASM product layout. |
-| `SwiftWebUI` | SwiftUI-like `ClientComponent` authoring API, loading modifiers, and style/theme environment values. | Serving assets or registering Vapor routes. |
+| `SwiftWebUI` | SwiftUI-like `ClientComponent` authoring API, loading modifiers, and style/color-scheme environment values. | Serving assets or registering Vapor routes. |
 | `SwiftWeb` | Build a client manifest from rendered islands, host content-hashed WASM assets, and inject the browser loader. | Inferring arbitrary split points from usage frequency or bundle size. |
 | `SwiftWebDevelopment` | Materialize generated packages, build dirty WASM products, cache build stamps, and emit HMR events. | Owning the public component API. |
 | `SwiftWebCLI` | Start dev/storyboard/build commands and delegate generation/build work to the runtime layers. | Implementing browser hydration or framework-specific component behavior. |

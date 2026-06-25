@@ -343,7 +343,13 @@ private func catalogStaticSnippet(for id: String) -> String {
       """
   case "style":
     return """
+      let utilityStylesheet = Stylesheet {
+          utility(StyleClass("hover:swui-bg-accent"), registry: .swiftWebUI)
+          utility(StyleClass("md:swui-fg-secondary"), registry: .swiftWebUI)
+      }
+
       Text("Wi-Fi")
+          .class("swui-fg-primary")
 
       List {
           HStack {
@@ -352,6 +358,7 @@ private func catalogStaticSnippet(for id: String) -> String {
               Text("On").foregroundStyle(.secondary)
           }
       }
+      .class("swui-bg-surface swui-radius-container hover:swui-bg-accent")
       """
   case "responsive":
     return """
@@ -364,12 +371,16 @@ private func catalogStaticSnippet(for id: String) -> String {
       """
   case "safearea":
     return """
-      Scene {
-          Content()
-      }
+      ZStack {
+          // Background reaches every edge, behind the notch and home indicator
+          Color.accent.ignoresSafeArea()
 
-      Hero()
-          .ignoresSafeArea()
+          // Foreground stays within the safe area
+          VStack {
+              Text("Title").font(.largeTitle)
+              Spacer()
+          }
+      }
       """
   case "materials":
     return """

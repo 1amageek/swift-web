@@ -1,7 +1,7 @@
 import Foundation
 import SwiftHTML
 
-/// A SwiftUI-style transition for a view's insertion and removal.
+/// A transition for a view's insertion and removal.
 ///
 /// Each transition describes the visual "from" state for insertion (animated to
 /// the normal state via CSS `@starting-style`) and the "to" state for removal

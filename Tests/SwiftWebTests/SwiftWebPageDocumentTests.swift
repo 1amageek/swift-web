@@ -1,7 +1,9 @@
 import SwiftHTML
-import SwiftWeb
+import SwiftWebStyle
 import SwiftWebUI
 import Testing
+import SwiftWeb
+@testable import SwiftWebCore
 
 @Suite
 struct SwiftWebPageDocumentTests {
@@ -72,6 +74,25 @@ struct SwiftWebPageDocumentTests {
         }
     }
 
+    @Test
+    func headAssetsEmitBaseBeforeAtomicCSS() {
+        let registry = StyleRegistry()
+        registry.registerStylesheet(".swui-base-layer { color: var(--swui-text); }")
+        _ = registry.register(.minWidth("12px"))
+
+        let rendered = SwiftWebHeadAssets.assets(from: registry, nonce: nil)
+
+        #expect(containsInOrder(
+            rendered,
+            [
+                "<style id=\"swui-base\">",
+                ".swui-base-layer",
+                "<style id=\"swui-atomic\">",
+                ".swui-minw-12px-",
+            ]
+        ))
+    }
+
     private func withApplication(
         _ body: (Application) async throws -> Void
     ) async throws {
@@ -83,6 +104,17 @@ struct SwiftWebPageDocumentTests {
             try await application.shutdown()
             throw error
         }
+    }
+
+    private func containsInOrder(_ haystack: String, _ needles: [String]) -> Bool {
+        var searchStart = haystack.startIndex
+        for needle in needles {
+            guard let range = haystack[searchStart...].range(of: needle) else {
+                return false
+            }
+            searchStart = range.upperBound
+        }
+        return true
     }
 }
 

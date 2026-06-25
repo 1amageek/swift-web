@@ -1,7 +1,8 @@
 import SwiftHTML
+import SwiftWebStyle
 
 public struct LazyVStack<Content: HTML>: WebUIAttributeComponent {
-    private let gap: String
+    private let gap: StackGap
     private let alignment: HorizontalAlignment
     private let pinnedViews: PinnedScrollableViews
     private let attributes: [HTMLAttribute]
@@ -13,7 +14,7 @@ public struct LazyVStack<Content: HTML>: WebUIAttributeComponent {
         pinnedViews: PinnedScrollableViews = [],
         @HTMLBuilder content: () -> Content
     ) {
-        self.gap = stackSpacingValue(spacing)
+        self.gap = stackGap(spacing)
         self.alignment = alignment
         self.pinnedViews = pinnedViews
         self.attributes = []
@@ -27,7 +28,7 @@ public struct LazyVStack<Content: HTML>: WebUIAttributeComponent {
         pinnedViews: PinnedScrollableViews = [],
         @HTMLBuilder content: () -> Content
     ) {
-        self.gap = stackSpacingValue(spacing)
+        self.gap = stackGap(spacing)
         self.alignment = alignment
         self.pinnedViews = pinnedViews
         self.attributes = []
@@ -39,10 +40,11 @@ public struct LazyVStack<Content: HTML>: WebUIAttributeComponent {
         Element(
             "div",
             attributes: mergedAttributes(
-                class: "swui-lazy-vstack",
+                class: styleClasses(.swuiLazyVStack, gap.className, alignment.alignItemsClassName).rawValue,
                 styles: Style {
-                    .gap(gap)
-                    .alignItems(alignment.rawValue)
+                    if let value = gap.cssValue {
+                        .gap(value)
+                    }
                 },
                 extra: lazyAttributes(axis: "vertical", pinnedViews: pinnedViews) + attributes
             )
@@ -62,7 +64,7 @@ public struct LazyVStack<Content: HTML>: WebUIAttributeComponent {
     }
 
     private init(
-        gap: String,
+        gap: StackGap,
         alignment: HorizontalAlignment,
         pinnedViews: PinnedScrollableViews,
         attributes: [HTMLAttribute],

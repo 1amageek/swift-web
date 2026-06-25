@@ -7,7 +7,6 @@ public struct ForegroundStylesModifier: ComponentModifier {
         self.styles = styles
     }
 
-    @Environment(\.theme) private var theme: Theme
     @Environment(\.styleSystem) private var styleSystem: StyleSystem
     @Environment(\.colorScheme) private var colorScheme: ColorScheme
     @Environment(\.layoutDirection) private var layoutDirection: LayoutDirection
@@ -31,7 +30,6 @@ public struct ForegroundStylesModifier: ComponentModifier {
     private var resolvedStyles: [ResolvedStyle] {
         styles.map { style in
             style.resolve(in: StyleResolutionContext(
-                theme: theme,
                 styleSystem: styleSystem,
                 colorScheme: colorScheme,
                 layoutDirection: layoutDirection,
@@ -100,7 +98,6 @@ public struct ShapeBackgroundStyleModifier<S: ShapeStyle>: ComponentModifier {
         self.shape = shape
     }
 
-    @Environment(\.theme) private var theme: Theme
     @Environment(\.styleSystem) private var styleSystem: StyleSystem
     @Environment(\.colorScheme) private var colorScheme: ColorScheme
     @Environment(\.layoutDirection) private var layoutDirection: LayoutDirection
@@ -123,7 +120,6 @@ public struct ShapeBackgroundStyleModifier<S: ShapeStyle>: ComponentModifier {
 
     private var resolvedStyle: ResolvedStyle {
         style.resolve(in: StyleResolutionContext(
-            theme: theme,
             styleSystem: styleSystem,
             colorScheme: colorScheme,
             layoutDirection: layoutDirection,

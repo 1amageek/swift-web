@@ -104,8 +104,8 @@ public struct SearchScopesModifier<Scopes: HTML>: ComponentModifier {
                 ]
             ) {
                 scopes
-                    .environment(SearchScopeSelectionEnvironmentKey.self, selection.wrappedValue)
-                    .environment(SearchScopeGroupNameEnvironmentKey.self, groupName)
+                    .environment(\.searchScopeSelection, selection.wrappedValue)
+                    .environment(\.searchScopeGroupName, groupName)
             }
             content
         }

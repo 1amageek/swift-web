@@ -5,7 +5,6 @@ public struct Link<Label: HTML>: WebUIAttributeComponent {
     private let destination: URL
     private let label: Label
     private let attributes: [HTMLAttribute]
-    @Environment(\.theme) private var theme: Theme
     @Environment(\.styleSystem) private var styleSystem: StyleSystem
     @Environment(\.colorScheme) private var colorScheme: ColorScheme
     @Environment(\.layoutDirection) private var layoutDirection: LayoutDirection
@@ -71,7 +70,6 @@ public struct Link<Label: HTML>: WebUIAttributeComponent {
                 tint: tint
             ),
             context: StyleResolutionContext(
-                theme: theme,
                 styleSystem: styleSystem,
                 colorScheme: colorScheme,
                 layoutDirection: layoutDirection,

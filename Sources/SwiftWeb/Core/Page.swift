@@ -5,7 +5,7 @@ public protocol Page {
     var cache: CachePolicy { get async throws }
     /// A class applied to the document `<body>`. Default is none; a page opts into
     /// a body-level surface (e.g. a full-viewport app shell) by returning a class
-    /// the theme styles.
+    /// the SwiftWebUI root styles.
     var bodyClass: String? { get async throws }
 }
 

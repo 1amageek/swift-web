@@ -1,9 +1,10 @@
 import SwiftHTML
+import SwiftWebStyle
 
 public struct LazyHGrid<Content: HTML>: WebUIAttributeComponent {
     private let rows: [GridItem]
     private let alignment: VerticalAlignment
-    private let gap: String
+    private let gap: StackGap
     private let pinnedViews: PinnedScrollableViews
     private let attributes: [HTMLAttribute]
     private let content: Content
@@ -17,7 +18,7 @@ public struct LazyHGrid<Content: HTML>: WebUIAttributeComponent {
     ) {
         self.rows = rows
         self.alignment = alignment
-        self.gap = stackSpacingValue(spacing)
+        self.gap = stackGap(spacing)
         self.pinnedViews = pinnedViews
         self.attributes = []
         self.content = content()
@@ -33,7 +34,7 @@ public struct LazyHGrid<Content: HTML>: WebUIAttributeComponent {
     ) {
         self.rows = rows
         self.alignment = alignment
-        self.gap = stackSpacingValue(spacing)
+        self.gap = stackGap(spacing)
         self.pinnedViews = pinnedViews
         self.attributes = []
         self.content = content()
@@ -44,12 +45,17 @@ public struct LazyHGrid<Content: HTML>: WebUIAttributeComponent {
         Element(
             "div",
             attributes: mergedAttributes(
-                class: "swui-lazy-hgrid",
+                class: styleClasses(
+                    .swuiLazyHGrid,
+                    gap.className,
+                    alignment.alignItemsClassName
+                ).rawValue,
                 styles: Style {
                     .gridTemplateRows(gridTemplateTracks(rows))
                     .gridAutoFlow("column")
-                    .gap(gap)
-                    .alignItems(alignment.rawValue)
+                    if let value = gap.cssValue {
+                        .gap(value)
+                    }
                 },
                 extra: lazyAttributes(axis: "horizontal-grid", pinnedViews: pinnedViews) + attributes
             )
@@ -72,7 +78,7 @@ public struct LazyHGrid<Content: HTML>: WebUIAttributeComponent {
     private init(
         rows: [GridItem],
         alignment: VerticalAlignment,
-        gap: String,
+        gap: StackGap,
         pinnedViews: PinnedScrollableViews,
         attributes: [HTMLAttribute],
         content: Content

@@ -12,7 +12,7 @@ enum CatalogChromeMetrics {
 // MARK: - Top bar
 
 struct CatalogTopBar: Component {
-    let theme: Binding<Theme>
+    let colorScheme: Binding<ColorScheme>
 
     var body: some HTML {
         HStack(spacing: .medium) {
@@ -61,8 +61,8 @@ struct CatalogTopBar: Component {
                 topBarLink("Docs", "https://github.com/1amageek/swift-web#readme", muted: true)
                 topBarLink("GitHub ↗", "https://github.com/1amageek/swift-web", muted: false)
                 HStack(spacing: .xsmall) {
-                    themeButton("Light", value: .light)
-                    themeButton("Dark", value: .dark)
+                    colorSchemeButton("Light", value: .light)
+                    colorSchemeButton("Dark", value: .dark)
                 }
                 .padding(3)
                 // Filled track only — no hard outline (matches a native segmented control).
@@ -83,8 +83,8 @@ struct CatalogTopBar: Component {
         .foregroundStyle(muted ? Color.secondary : Color.primary)
     }
 
-    private func themeButton(_ title: String, value: Theme) -> some HTML {
-        Button(action: { theme.wrappedValue = value }) {
+    private func colorSchemeButton(_ title: String, value: ColorScheme) -> some HTML {
+        Button(action: { colorScheme.wrappedValue = value }) {
             Text(title)
         }
         .buttonStyle(.plain)
@@ -93,7 +93,7 @@ struct CatalogTopBar: Component {
         .padding(.horizontal, 11)
         .frame(height: 30)
         .background(
-            Color.surfaceRaised.opacity(theme.wrappedValue == value ? 1 : 0),
+            Color.surfaceRaised.opacity(colorScheme.wrappedValue == value ? 1 : 0),
             in: .rect(cornerRadius: 6)
         )
     }

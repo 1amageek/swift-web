@@ -9,6 +9,6 @@ public struct ControlSizeModifier: ComponentModifier {
 
     @HTMLBuilder
     public func body(content: ModifierContent) -> some HTML {
-        content.environment(ControlSizeEnvironmentKey.self, size)
+        content.environment(\.controlSize, size)
     }
 }

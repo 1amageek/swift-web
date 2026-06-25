@@ -26,6 +26,6 @@ struct HelloPage {
             }
             .frame(maxWidth: 720)
         }
-        .environment(\.theme, .system)
+        .preferredColorScheme(.light)
     }
 }

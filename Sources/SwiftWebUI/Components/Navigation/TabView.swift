@@ -49,8 +49,8 @@ public struct TabView<Content: HTML>: WebUIAttributeComponent {
             )
         ) {
             content
-                .environment(TabSelectionEnvironmentKey.self, selection.wrappedValue)
-                .environment(TabGroupNameEnvironmentKey.self, groupName)
+                .environment(\.tabSelection, selection.wrappedValue)
+                .environment(\.tabGroupName, groupName)
         }
     }
 

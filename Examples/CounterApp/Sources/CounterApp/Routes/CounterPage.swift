@@ -66,6 +66,6 @@ struct CounterPage {
             }
             .frame(maxWidth: 920)
         }
-        .environment(\.theme, .system)
+        .preferredColorScheme(.light)
     }
 }

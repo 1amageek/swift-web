@@ -63,41 +63,41 @@ public enum TabViewStyleKind: String, Codable, Sendable, Equatable {
 
 public extension HTML {
     func toggleStyle(_ style: ToggleStyleKind) -> some HTML {
-        environment(ToggleStyleEnvironmentKey.self, style)
+        environment(\.toggleStyle, style)
     }
 
     func textFieldStyle(_ style: TextFieldStyleKind) -> some HTML {
-        environment(TextFieldStyleEnvironmentKey.self, style)
+        environment(\.textFieldStyle, style)
     }
 
     func labelStyle(_ style: LabelStyleKind) -> some HTML {
-        environment(LabelStyleEnvironmentKey.self, style)
+        environment(\.labelStyle, style)
     }
 
     func listStyle(_ style: ListStyleKind) -> some HTML {
-        environment(ListStyleEnvironmentKey.self, style)
+        environment(\.listStyle, style)
     }
 
     func formStyle(_ style: FormStyleKind) -> some HTML {
-        environment(FormStyleEnvironmentKey.self, style)
+        environment(\.formStyle, style)
     }
 
     func menuStyle(_ style: MenuStyleKind) -> some HTML {
-        environment(MenuStyleEnvironmentKey.self, style)
+        environment(\.menuStyle, style)
     }
 
     func progressViewStyle(
         _ style: ProgressViewStyleKind
     ) -> some HTML {
-        environment(ProgressViewStyleEnvironmentKey.self, style)
+        environment(\.progressViewStyle, style)
     }
 
     func gaugeStyle(_ style: GaugeStyleKind) -> some HTML {
-        environment(GaugeStyleEnvironmentKey.self, style)
+        environment(\.gaugeStyle, style)
     }
 
     func tabViewStyle(_ style: TabViewStyleKind) -> some HTML {
-        environment(TabViewStyleEnvironmentKey.self, style)
+        environment(\.tabViewStyle, style)
     }
 }
 

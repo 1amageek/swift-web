@@ -1,7 +1,7 @@
 /// A color shape style, mirroring SwiftUI's `Color`. It is the single concrete
 /// color type for the framework: literal colors (`Color(hex:)`,
 /// `Color(red:green:blue:opacity:)`, `.white`/`.black`/`.clear`), the semantic
-/// theme colors (`.accent`, `.surface`, `.primary`, …, resolving to theme custom
+/// semantic colors (`.accent`, `.surface`, `.primary`, …, resolving to root custom
 /// properties), and the results of `opacity(_:)`/`mix(with:by:)` are all `Color`,
 /// so they compose without type erasure.
 public struct Color: ShapeStyle, Sendable, Equatable {
@@ -35,7 +35,7 @@ public struct Color: ShapeStyle, Sendable, Equatable {
     }
 
     /// The color at the given opacity (clamped to `0...1`), mirroring SwiftUI's
-    /// `Color.opacity(_:)`. Stays theme-adaptive: `Color.accent.opacity(0.12)`
+    /// `Color.opacity(_:)`. Stays color-scheme-adaptive: `Color.accent.opacity(0.12)`
     /// fades the resolved accent, and `opacity(0)` is transparent.
     public func opacity(_ opacity: Double) -> Color {
         let alpha = Swift.max(0, Swift.min(1, opacity))
@@ -55,7 +55,7 @@ public extension ShapeStyle where Self == Color {
     static var white: Color { Color(cssValue: "#ffffff") }
     static var black: Color { Color(cssValue: "#000000") }
 
-    // Semantic theme colors — resolve to the active theme's custom properties.
+    // Semantic colors resolve to the active root custom properties.
     static var primary: Color { Color(cssValue: "var(--swui-text)") }
     static var secondary: Color { Color(cssValue: "var(--swui-text-muted)") }
     static var accent: Color { Color(cssValue: "var(--swui-accent)") }

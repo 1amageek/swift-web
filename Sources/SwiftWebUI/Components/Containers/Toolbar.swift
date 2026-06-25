@@ -1,4 +1,5 @@
 import SwiftHTML
+import SwiftWebStyle
 
 public struct Toolbar<Content: HTML>: WebUIAttributeComponent {
     private let attributes: [HTMLAttribute]
@@ -18,8 +19,13 @@ public struct Toolbar<Content: HTML>: WebUIAttributeComponent {
         Element(
             "div",
             attributes: mergedAttributes(
-                class: "swui-toolbar \(LayoutClass.fillHorizontal) \(MaterialClass.material) \(MaterialClass.bar)",
-                styles: .gap(Space.small.rawValue),
+                class: controlClassName(
+                    "swui-toolbar",
+                    LayoutClass.fillHorizontal,
+                    MaterialClass.material,
+                    MaterialClass.bar,
+                    Space.small.gapClassName.rawValue
+                ),
                 extra: attributes
             )
         ) {

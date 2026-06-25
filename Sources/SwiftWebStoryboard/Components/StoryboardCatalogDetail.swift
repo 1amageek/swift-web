@@ -1,5 +1,6 @@
 import Foundation
 import SwiftHTML
+import SwiftWebStyle
 import SwiftWebUI
 
 struct CatalogDetail: Component {
@@ -171,10 +172,19 @@ struct CatalogDetail: Component {
     /// never drift out of date (no hand-written copy). Runtime-only hydration
     /// attributes are stripped for readability.
     private func renderedDemoHTML() -> String {
-        var html = detailDemo().render()
-        html = html.replacingOccurrences(of: #"\s*data-node="[^"]*""#, with: "", options: .regularExpression)
-        html = html.replacingOccurrences(of: #"\s*data-event-[a-z]+="[^"]*""#, with: "", options: .regularExpression)
-        return html
+        let html: String
+        if StyleRegistry.current != nil {
+            html = detailDemo().render()
+        } else {
+            let registry = StyleRegistry()
+            html = StyleRegistry.withCurrent(registry) {
+                detailDemo().render()
+            }
+        }
+        var sanitizedHTML = html
+        sanitizedHTML = sanitizedHTML.replacingOccurrences(of: #"\s*data-node="[^"]*""#, with: "", options: .regularExpression)
+        sanitizedHTML = sanitizedHTML.replacingOccurrences(of: #"\s*data-event-[a-z]+="[^"]*""#, with: "", options: .regularExpression)
+        return sanitizedHTML
     }
 
     @HTMLBuilder

@@ -90,7 +90,7 @@ public let catalogCategories: [CatalogCategory] = [
         CatalogItem(id: "picker", name: "Picker", code: "Picker(selection:) { } label: { }", summary: "pickerStyle(_:) chooses dropdown, segmented, inline, or menu without changing the binding."),
         CatalogItem(id: "datepicker", name: "DatePicker", code: "DatePicker(selection:) { }", summary: "datePickerStyle picks the presentation while the binding owns the selected date."),
         CatalogItem(id: "colorpicker", name: "ColorPicker", code: "ColorPicker(selection:) { }", summary: "A native color well bound to a hex string."),
-        CatalogItem(id: "color", name: "Color & tint", code: ".tint(.accent)", summary: "tint(_:) applies a semantic or custom color to a control without changing the global theme."),
+        CatalogItem(id: "color", name: "Color & tint", code: ".tint(.accent)", summary: "tint(_:) applies a semantic or custom color to a control without changing the global color scheme."),
     ]),
     CatalogCategory(id: "status", title: "Status", items: [
         CatalogItem(id: "progressview", name: "ProgressView", code: "ProgressView(value:) { }", summary: "A determinate bar with a value, or an indeterminate spinner without one."),

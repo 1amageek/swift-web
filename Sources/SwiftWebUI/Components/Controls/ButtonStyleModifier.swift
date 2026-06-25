@@ -9,7 +9,7 @@ public struct ButtonStyleModifier: ComponentModifier {
 
     @HTMLBuilder
     public func body(content: ModifierContent) -> some HTML {
-        content.environment(ButtonStyleEnvironmentKey.self, style)
+        content.environment(\.buttonStyle, style)
     }
 }
 

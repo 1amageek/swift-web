@@ -36,7 +36,7 @@ public struct InteractiveDismissDisabledModifier: ComponentModifier {
 
     @HTMLBuilder
     public func body(content: ModifierContent) -> some HTML {
-        content.environment(InteractiveDismissDisabledEnvironmentKey.self, isDisabled)
+        content.environment(\.interactiveDismissDisabled, isDisabled)
     }
 }
 

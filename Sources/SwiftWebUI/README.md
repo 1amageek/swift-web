@@ -2,11 +2,11 @@
 
 SwiftWebUI is the SwiftUI-inspired component layer built on top of SwiftHTML.
 
-It owns reusable visual components, layout primitives, theme propagation, and developer-friendly modifiers. It does not own the HTML graph, page metadata, route registration, Vapor request handling, macros, or the CLI.
+It owns reusable visual components, layout primitives, color scheme propagation, and developer-friendly modifiers. It does not own the HTML graph, page metadata, route registration, Vapor request handling, macros, or the CLI.
 
 The core architecture is documented in [`docs/SwiftWebUICoreDesign.md`](../../docs/SwiftWebUICoreDesign.md). That document defines the component graph, dynamic property lifecycle, modifier graph, and style abstraction boundaries.
 
-The public style contract is documented in [`docs/SwiftWebUIStyleDesign.md`](../../docs/SwiftWebUIStyleDesign.md). That document defines the Theme / StyleSystem / CSS ownership model, component taxonomy, contextual styling rules, and styling gates for built-in components.
+The public style contract is documented in [`docs/SwiftWebUIStyleDesign.md`](../../docs/SwiftWebUIStyleDesign.md). That document defines the ColorScheme / StyleSystem / CSS ownership model, component taxonomy, contextual styling rules, and styling gates for built-in components.
 
 Client WASM loading is documented in [`docs/ClientBundleLoadingDesign.md`](../../docs/ClientBundleLoadingDesign.md). That document defines the `ClientComponent` loading contract, modifier precedence, nested island ownership, and bundle policy rules.
 
@@ -18,7 +18,7 @@ Client WASM loading is documented in [`docs/ClientBundleLoadingDesign.md`](../..
 | UI controls | Provides `Button`, server action reference buttons, `SubmitButton`, `TextField`, `SecureField`, `Toggle`, and links. |
 | Text components | Provides `Text`, semantic `TextElement` switching via `as`, `Heading`, and text tones. |
 | Containers | Provides `GroupBox`, `Section`, `List`, `ListRow`, and `Toolbar`. |
-| Theme | Provides `Theme` color mode values, `StyleSystem` component design values, `ThemeStylesheet`, and environment integration. |
+| Color scheme | Provides `ColorScheme` light/dark palette values, `StyleSystem` component design values, `RootStylesheet`, and environment integration. |
 | Modifiers | Provides SwiftUI-like modifier graph wrappers for styles, attributes, frame, padding, alignment, accessibility, and events. |
 | Navigation | Provides `NavigationStack`, `NavigationLink`, `NavigationPath`, and `navigationTitle` metadata hooks. |
 
@@ -33,7 +33,7 @@ Client WASM loading is documented in [`docs/ClientBundleLoadingDesign.md`](../..
 | `Components/Navigation/` | Navigation containers, navigation links, paths, and title metadata hooks. |
 | `Components/Containers/` | Structural UI components such as group boxes, sections, lists, toolbars, and badges. |
 | `Components/Media/` | Media-oriented components such as `Image`. |
-| `Theming/` | Theme values, `StyleSystem` values, typed stylesheet defaults, environment integration, scoped overrides, and theme switching controls. |
+| `Theming/` | Color scheme palettes, `StyleSystem` values, typed stylesheet defaults, environment integration, and scoped overrides. |
 
 ## Boundaries
 
@@ -43,7 +43,7 @@ SwiftWebUI should make common UI concise without hiding SwiftHTML.
 flowchart LR
   A["SwiftWebUI Component"] --> B["SwiftHTML Component"]
   B --> C["HTMLGraph"]
-  D["Theme Environment"] --> A
+  D["ColorScheme Environment"] --> A
   E["StyleSystem Environment"] --> A
   F["Modifiers"] --> A
 ```
@@ -64,8 +64,8 @@ flowchart LR
 ## Design Notes
 
 - Components should follow SwiftUI naming and initializer shape where it maps cleanly to the web.
-- Color mode should be theme-driven through `.environment(ThemeEnvironmentKey.self, value)`.
-- Component design language should be style-system-driven through `.environment(StyleSystemEnvironmentKey.self, value)`.
+- Color mode should be scheme-driven through `.preferredColorScheme(_:)`.
+- Component design language should be style-system-driven through `.environment(\.styleSystem, value)`.
 - Default CSS should be declared through SwiftHTML `Style` helpers and `Stylesheet` rules, not concatenated raw stylesheet strings.
 - Concrete CSS property output should use SwiftHTML generated standard property helpers so SwiftWebUI does not maintain a separate CSS property surface.
 - Public styling should prefer `foregroundStyle`, `backgroundStyle`, and `tint` over color-specific APIs.
@@ -81,15 +81,15 @@ flowchart LR
 - Components may wrap SwiftHTML primitives but should not introduce a second rendering model.
 - Components should not create `html`, `head`, `title`, or document-level metadata; those belong to SwiftWeb `Page`.
 
-## Theme And StyleSystem
+## Color Scheme And StyleSystem
 
-`Theme` controls semantic color values such as background, text, accent, and border. `StyleSystem` controls component-wide design choices such as container radius, button shape, field padding, material effects, and motion timing.
+`ColorScheme` selects the semantic color palette (background, text, accent, border) between light and dark. `StyleSystem` controls component-wide design choices such as container radius, button shape, field padding, material effects, and motion timing.
 
 ```mermaid
 flowchart LR
-  A["Theme"] --> B["color variables"]
+  A["ColorScheme"] --> B["color variables"]
   C["StyleSystem"] --> D["component variables"]
-  B --> E["ThemeStylesheet"]
+  B --> E["RootStylesheet"]
   D --> E
   E --> F["SwiftWebUI components"]
 ```
@@ -118,13 +118,13 @@ let glass = StyleSystem(id: "glass") {
 }
 
 CounterView()
-    .environment(ThemeEnvironmentKey.self, .dark)
-    .environment(StyleSystemEnvironmentKey.self, glass)
+    .preferredColorScheme(.dark)
+    .environment(\.styleSystem, glass)
 ```
 
 `solidFill` is the opaque fallback used where `backdrop-filter` is unsupported (e.g. Safari ignores `url()` filters) or when the reader requests reduced transparency. This degradation is part of the recipe, not a silent default. The built-in `.liquidGlass` preset already sets all of these knobs.
 
-When both values are set through modifiers, place `styleSystem` outside the theme scope as shown above. Modifier order is semantic: the stylesheet scope created by `theme` reads outer environment values.
+When both values are set through modifiers, place `styleSystem` outside the color scheme scope as shown above. Modifier order is semantic: the stylesheet scope created by `preferredColorScheme` reads outer environment values.
 
 ## Action Boundary
 
@@ -182,7 +182,7 @@ NavigationStack {
 | API | Responsibility |
 |---|---|
 | `GridSystem` / `Pane` | Applies responsive inline inset, grid columns, gutters, page vertical rhythm, and pane spans. Use `.frame(maxWidth:)` for outer width constraints. |
-| `foregroundStyle`, `backgroundStyle`, `tint`, `border` | Resolves `ShapeStyle` values (`Color`, `Material`, `LinearGradient`) through theme/environment and lowers to CSS. |
+| `foregroundStyle`, `backgroundStyle`, `tint`, `border` | Resolves `ShapeStyle` values (`Color`, `Material`, `LinearGradient`) through the color scheme/environment and lowers to CSS. |
 | `font`, `fontWeight`, `fontDesign`, `bold`, `italic`, `monospaced` | Provides SwiftUI-like typography without requiring raw CSS. |
 | `disabled`, `controlSize`, `buttonStyle`, `pickerStyle` | Propagates control state and semantic style selection through environment while controls render native attributes. |
 | `TextField`, `Toggle`, `Slider`, `Stepper`, `Picker` | Use `Binding` as the primary state interface. |

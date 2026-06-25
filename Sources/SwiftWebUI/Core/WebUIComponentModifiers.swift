@@ -121,7 +121,7 @@ public extension WebUIAttributeMutableHTML {
 public extension HTML {
     func padding() -> ModifiedContent<Self, HTMLAttributeModifier> {
         modifier(HTMLAttributeModifier([
-            styleAttribute(edgePaddingStyle(edges: .all, value: Space.medium.rawValue))
+            .class(Space.medium.paddingClassList(edges: .all))
         ]))
     }
 
@@ -141,13 +141,18 @@ public extension HTML {
 
     func padding(_ edges: Edge.Set, _ length: Space = .medium) -> ModifiedContent<Self, HTMLAttributeModifier> {
         modifier(HTMLAttributeModifier([
-            styleAttribute(edgePaddingStyle(edges: edges, value: length.rawValue))
+            .class(length.paddingClassList(edges: edges))
         ]))
     }
 
     func padding(_ edges: Edge.Set = .all, _ length: Length?) -> ModifiedContent<Self, HTMLAttributeModifier> {
-        modifier(HTMLAttributeModifier([
-            styleAttribute(edgePaddingStyle(edges: edges, value: length?.cssValue ?? Space.medium.rawValue))
+        if let length {
+            return modifier(HTMLAttributeModifier([
+                styleAttribute(edgePaddingStyle(edges: edges, value: length.cssValue))
+            ]))
+        }
+        return modifier(HTMLAttributeModifier([
+            .class(Space.medium.paddingClassList(edges: edges))
         ]))
     }
 
@@ -385,9 +390,8 @@ public struct Frame<Content: HTML>: WebUIAttributeComponent {
 }
 
 func styleAttribute(_ style: Style) -> HTMLAttribute {
-    // Route every declaration through the atomic registry so it renders as a class
-    // instead of an inline `style="…"`. Falls back to inline only outside a render
-    // scope (an isolated render). See docs/AtomicStyling.md.
+    // Route every declaration through the atomic registry so SwiftWeb renderers
+    // emit classes instead of inline style attributes. See docs/AtomicStyling.md.
     atom(style)
 }
 

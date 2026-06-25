@@ -26,6 +26,14 @@ struct SwiftWebStoryboardCatalogTests {
         haystack.components(separatedBy: needle).count - 1
     }
 
+    private func codeBlock(language: String, in html: String) -> String? {
+        guard let languageRange = html.range(of: "data-language=\"\(language)\""),
+              let endRange = html[languageRange.upperBound...].range(of: "</pre>") else {
+            return nil
+        }
+        return String(html[languageRange.upperBound..<endRange.lowerBound])
+    }
+
     /// Every `href="#anchor"` in the rendered page (the inspector table of
     /// contents); the in-page sidebar links use real paths, not fragments, so
     /// these are the table-of-contents targets.
@@ -71,6 +79,15 @@ struct SwiftWebStoryboardCatalogTests {
         #expect(rendered.contains("Related"))
         #expect(rendered.contains("Text(_:as:)"))
         #expect(rendered.contains("Text(\"Hello, SwiftWebUI\")"))
+    }
+
+    @Test
+    func renderedHTMLPanelUsesClassOnlyMarkup() {
+        let rendered = StoryboardCatalog(initialSelection: "list").render()
+        let htmlCode = codeBlock(language: "html", in: rendered) ?? ""
+
+        #expect(htmlCode.contains("&lt;div class=\"swui-"))
+        #expect(!htmlCode.contains("style=\""))
     }
 
     @Test

@@ -20,17 +20,10 @@ func mergedAttributes(
         classTokens.append(baseClass)
     }
 
-    var styleValues: [String] = []
-    if !styles.isEmpty {
-        // Atomize the component's base styles into classes; inline only outside a
-        // render scope (an isolated render). See docs/AtomicStyling.md.
-        if let registry = StyleRegistry.current {
-            classTokens.append(registry.register(styles))
-        } else {
-            StyleRegistry.validate(styles)
-            styleValues.append(styles.cssText)
-        }
-    }
+    // Accumulate the base styles and any extra typed style attributes into ONE typed
+    // Style. SwiftWeb renderers bind StyleRegistry, so this serializes as classes.
+    // A string style attribute would carry no typed payload and trip the transformer.
+    var combinedStyle = styles
     var remainingAttributes: [HTMLAttribute] = []
     remainingAttributes.reserveCapacity(attributes.count)
 
@@ -42,15 +35,7 @@ func mergedAttributes(
             }
         case "style":
             if let style = attribute.style {
-                if let registry = StyleRegistry.current {
-                    let className = registry.register(style)
-                    if !className.isEmpty {
-                        classTokens.append(className)
-                    }
-                } else if let value = attribute.value, !value.isEmpty {
-                    StyleRegistry.validate(style)
-                    styleValues.append(value)
-                }
+                combinedStyle.append(style)
             } else {
                 preconditionFailure("String style attributes are not supported by SwiftWebUI components")
             }
@@ -59,12 +44,22 @@ func mergedAttributes(
         }
     }
 
+    var styleFallback: HTMLAttribute?
+    if !combinedStyle.isEmpty {
+        if let registry = StyleRegistry.current {
+            classTokens.append(registry.register(combinedStyle))
+        } else {
+            StyleRegistry.validate(combinedStyle)
+            styleFallback = .style(combinedStyle)
+        }
+    }
+
     var result: [HTMLAttribute] = []
     if !classTokens.isEmpty {
         result.append(.class(classTokens.joined(separator: " ")))
     }
-    if !styleValues.isEmpty {
-        result.append(HTMLAttribute(name: "style", value: styleValues.joined(separator: "; "), kind: .string))
+    if let styleFallback {
+        result.append(styleFallback)
     }
     result.append(contentsOf: remainingAttributes)
     return result

@@ -200,7 +200,7 @@ public enum JavaScriptKitBrowserRuntime {
         // number of DOM nodes, so it cannot be selected or replaced directly.
         // Resolve it through its parent: when the rawHTML is the sole child of an
         // addressable element, replacing the parent's contents is the unambiguous,
-        // context-correct patch (e.g. a <style> whose CSS changes on re-theme).
+        // context-correct patch (e.g. a <style> whose CSS changes after an environment update).
         guard let node = resolveDOMNode(nodeID, hydrationIndex: hydrationIndex) else {
             reportUnresolvedTarget(nodeID, operation: "replaceSubtree")
             return

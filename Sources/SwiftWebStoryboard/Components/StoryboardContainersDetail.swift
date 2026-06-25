@@ -162,13 +162,13 @@ struct ContainersDetail: Component {
         // declaration, so the tile is emitted as a low-level element with the icon
         // centered inside.
         div(.style {
-            .custom("aspect-ratio", "1")
+            .aspectRatio("1")
             .borderRadius("10px")
             .background(color)
             .display("flex")
             .alignItems("center")
             .justifyContent("center")
-            .custom("color", "rgba(255,255,255,0.92)")
+            .color("rgba(255,255,255,0.92)")
         }) {
             Image(systemName: "photo")
         }

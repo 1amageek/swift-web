@@ -273,7 +273,7 @@ generated packages can reuse the same content-addressed artifact.
 | HTTP response rendering | `SwiftWeb` and `SwiftHTML` |
 | Development browser runtime injection | `SwiftWebDevelopment` |
 | Development watch/restart runtime | `SwiftWebDevelopment` |
-| Component layout and theme behavior | `SwiftWebUI` |
+| Component layout and style behavior | `SwiftWebUI` |
 | Macro expansion | `SwiftWebMacros` |
 | Vapor route registration | `SwiftWeb` |
 | Client WASM graph, diff, and hydration internals | `SwiftHTML` |

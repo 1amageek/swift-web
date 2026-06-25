@@ -57,7 +57,7 @@ struct FoundationsDetail: Component {
                     .maxWidth("80vw")
                     .height("120px")
                     .boxSizing("border-box")
-                    .custom("border", "1.5px dashed var(--swui-border)")
+                    .border("1.5px dashed var(--swui-border)")
                     .borderRadius("10px")
                     .display("flex")
                     .alignItems("center")
@@ -81,17 +81,33 @@ struct FoundationsDetail: Component {
             // and the CSS note beneath it.
             styleDemo(state.control("style", "ctx"))
         case "responsive":
-            // Show the "large" breakpoint as a real 12-column grid (three span-4
-            // panes) so the lattice fills the canvas, rather than relying on a
-            // multi-level flex-fill chain that collapses to intrinsic width.
+            // The size-class control (key "bp") drives column count, span, and
+            // gutter, so the same lattice reflows by breakpoint instead of scaling.
+            let bp = state.control("responsive", "bp")
             VStack(spacing: .small) {
-                GridSystem(columns: 12, gutter: .medium) {
-                    Pane(span: 4) { gridPane("span 4") }
-                    Pane(span: 4) { gridPane("span 4") }
-                    Pane(span: 4) { gridPane("span 4") }
+                switch bp {
+                case "compact":
+                    GridSystem(columns: 1, gutter: .small) {
+                        Pane(span: 1) { gridPane("span 1") }
+                        Pane(span: 1) { gridPane("span 1") }
+                        Pane(span: 1) { gridPane("span 1") }
+                    }
+                    .frame(maxWidth: .infinity)
+                case "regular":
+                    GridSystem(columns: 8, gutter: .medium) {
+                        Pane(span: 4) { gridPane("span 4") }
+                        Pane(span: 4) { gridPane("span 4") }
+                    }
+                    .frame(maxWidth: .infinity)
+                default:
+                    GridSystem(columns: 12, gutter: .medium) {
+                        Pane(span: 4) { gridPane("span 4") }
+                        Pane(span: 4) { gridPane("span 4") }
+                        Pane(span: 4) { gridPane("span 4") }
+                    }
+                    .frame(maxWidth: .infinity)
                 }
-                .frame(maxWidth: .infinity)
-                Text("large · > 1024px · 12 columns", as: .small)
+                Text(responsiveCaption(bp), as: .small)
                     .font(Font(size: .px(12), design: .monospaced))
                     .foregroundStyle(.secondary)
             }
@@ -154,23 +170,26 @@ struct FoundationsDetail: Component {
             }) {
                 div(.style {
                     .position("absolute")
-                    .custom("inset", "0")
+                    .top("0")
+                    .right("0")
+                    .bottom("0")
+                    .left("0")
                     .display("flex")
                     .alignItems("center")
                     .justifyContent("center")
-                    .custom("z-index", "0")
-                    .custom("color", "rgba(255,255,255,0.22)")
+                    .zIndex("0")
+                    .color("rgba(255,255,255,0.22)")
                     .fontSize("96px")
                     .fontWeight("800")
-                    .custom("letter-spacing", "-3px")
-                    .custom("pointer-events", "none")
-                    .custom("white-space", "nowrap")
+                    .letterSpacing("-3px")
+                    .pointerEvents("none")
+                    .whiteSpace("nowrap")
                 }) {
                     "SwiftWebUI"
                 }
                 div(.style {
                     .position("relative")
-                    .custom("z-index", "1")
+                    .zIndex("1")
                     .width("100%")
                 }) {
                     HStack(spacing: .large) {
@@ -185,6 +204,14 @@ struct FoundationsDetail: Component {
                 .font(.largeTitle)
                 .fontWeight(.bold)
                 .foregroundStyle(.primary)
+        }
+    }
+
+    private func responsiveCaption(_ bp: String) -> String {
+        switch bp {
+        case "compact": "compact · < 600px · 1 column"
+        case "regular": "regular · 600-1024px · 8 columns"
+        default: "large · > 1024px · 12 columns"
         }
     }
 
@@ -387,14 +414,14 @@ struct FoundationsDetail: Component {
         default: // standalone
             VStack(spacing: .medium) {
                 Text("Wi-Fi")
-                Text(".swui-text { color: var(--swui-text); }", as: .code)
+                Text("StyleClass(\"swui-fg-primary\")", as: .code)
             }
         }
     }
 
     /// A device frame whose chrome insets (top/bottom) shrink the inner safe
-    /// area. The hatched chrome bands and dashed accent safe-area box need inline
-    /// CSS, so the frame is emitted as raw markup matching the reference.
+    /// area. The hatched chrome bands and dashed accent safe-area box use typed
+    /// declarations that are atomized during render.
     private func deviceMock(_ device: String) -> some HTML {
         let top = safeAreaTop(device)
         let bottom = safeAreaBottom(device)
@@ -402,7 +429,7 @@ struct FoundationsDetail: Component {
             .position("relative")
             .width("188px")
             .height("300px")
-            .custom("border", "6px solid var(--swui-text)")
+            .border("6px solid var(--swui-text)")
             .borderRadius("30px")
             .overflow("hidden")
             .background("var(--swui-surface-raised)")
@@ -411,11 +438,11 @@ struct FoundationsDetail: Component {
             chromeBand(edge: "bottom", height: bottom, notch: false)
             div(.style {
                 .position("absolute")
-                .custom("top", "\(Int(top))px")
-                .custom("bottom", "\(Int(bottom))px")
-                .custom("left", "8px")
-                .custom("right", "8px")
-                .custom("border", "1.5px dashed color-mix(in srgb, var(--swui-accent) 55%, transparent)")
+                .top("\(Int(top))px")
+                .bottom("\(Int(bottom))px")
+                .left("8px")
+                .right("8px")
+                .border("1.5px dashed color-mix(in srgb, var(--swui-accent) 55%, transparent)")
                 .borderRadius("8px")
                 .background("color-mix(in srgb, var(--swui-accent) 9%, transparent)")
                 .display("flex")
@@ -437,9 +464,9 @@ struct FoundationsDetail: Component {
         if height > 8 {
             div(.style {
                 .position("absolute")
-                .custom(edge, "0")
-                .custom("left", "0")
-                .custom("right", "0")
+                chromeBandEdgeStyle(edge)
+                .left("0")
+                .right("0")
                 .height("\(Int(height))px")
                 .background("repeating-linear-gradient(45deg, color-mix(in srgb, var(--swui-text-muted) 22%, transparent), color-mix(in srgb, var(--swui-text-muted) 22%, transparent) 4px, transparent 4px, transparent 8px)")
             }) {
@@ -463,6 +490,10 @@ struct FoundationsDetail: Component {
                 }
             }
         }
+    }
+
+    private func chromeBandEdgeStyle(_ edge: String) -> Style {
+        edge == "bottom" ? .bottom("0") : .top("0")
     }
 
     private func safeAreaTop(_ device: String) -> Double {

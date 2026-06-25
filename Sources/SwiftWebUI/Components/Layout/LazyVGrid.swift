@@ -1,9 +1,10 @@
 import SwiftHTML
+import SwiftWebStyle
 
 public struct LazyVGrid<Content: HTML>: WebUIAttributeComponent {
     private let columns: [GridItem]
     private let alignment: HorizontalAlignment
-    private let gap: String
+    private let gap: StackGap
     private let pinnedViews: PinnedScrollableViews
     private let attributes: [HTMLAttribute]
     private let content: Content
@@ -17,7 +18,7 @@ public struct LazyVGrid<Content: HTML>: WebUIAttributeComponent {
     ) {
         self.columns = columns
         self.alignment = alignment
-        self.gap = stackSpacingValue(spacing)
+        self.gap = stackGap(spacing)
         self.pinnedViews = pinnedViews
         self.attributes = []
         self.content = content()
@@ -33,7 +34,7 @@ public struct LazyVGrid<Content: HTML>: WebUIAttributeComponent {
     ) {
         self.columns = columns
         self.alignment = alignment
-        self.gap = stackSpacingValue(spacing)
+        self.gap = stackGap(spacing)
         self.pinnedViews = pinnedViews
         self.attributes = []
         self.content = content()
@@ -44,11 +45,17 @@ public struct LazyVGrid<Content: HTML>: WebUIAttributeComponent {
         Element(
             "div",
             attributes: mergedAttributes(
-                class: "swui-lazy-vgrid \(LayoutClass.fillHorizontal)",
+                class: styleClasses(
+                    .swuiLazyVGrid,
+                    StyleClass(LayoutClass.fillHorizontal),
+                    gap.className,
+                    alignment.justifyItemsClassName
+                ).rawValue,
                 styles: Style {
                     .gridTemplateColumns(gridTemplateTracks(columns))
-                    .gap(gap)
-                    .justifyItems(alignment.rawValue)
+                    if let value = gap.cssValue {
+                        .gap(value)
+                    }
                 },
                 extra: lazyAttributes(axis: "vertical-grid", pinnedViews: pinnedViews) + attributes
             )
@@ -71,7 +78,7 @@ public struct LazyVGrid<Content: HTML>: WebUIAttributeComponent {
     private init(
         columns: [GridItem],
         alignment: HorizontalAlignment,
-        gap: String,
+        gap: StackGap,
         pinnedViews: PinnedScrollableViews,
         attributes: [HTMLAttribute],
         content: Content

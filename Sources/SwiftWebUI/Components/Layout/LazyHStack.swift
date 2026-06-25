@@ -1,7 +1,8 @@
 import SwiftHTML
+import SwiftWebStyle
 
 public struct LazyHStack<Content: HTML>: WebUIAttributeComponent {
-    private let gap: String
+    private let gap: StackGap
     private let alignment: VerticalAlignment
     private let pinnedViews: PinnedScrollableViews
     private let attributes: [HTMLAttribute]
@@ -13,7 +14,7 @@ public struct LazyHStack<Content: HTML>: WebUIAttributeComponent {
         pinnedViews: PinnedScrollableViews = [],
         @HTMLBuilder content: () -> Content
     ) {
-        self.gap = stackSpacingValue(spacing)
+        self.gap = stackGap(spacing)
         self.alignment = alignment
         self.pinnedViews = pinnedViews
         self.attributes = []
@@ -27,7 +28,7 @@ public struct LazyHStack<Content: HTML>: WebUIAttributeComponent {
         pinnedViews: PinnedScrollableViews = [],
         @HTMLBuilder content: () -> Content
     ) {
-        self.gap = stackSpacingValue(spacing)
+        self.gap = stackGap(spacing)
         self.alignment = alignment
         self.pinnedViews = pinnedViews
         self.attributes = []
@@ -39,10 +40,11 @@ public struct LazyHStack<Content: HTML>: WebUIAttributeComponent {
         Element(
             "div",
             attributes: mergedAttributes(
-                class: "swui-lazy-hstack",
+                class: styleClasses(.swuiLazyHStack, gap.className, alignment.alignItemsClassName).rawValue,
                 styles: Style {
-                    .gap(gap)
-                    .alignItems(alignment.rawValue)
+                    if let value = gap.cssValue {
+                        .gap(value)
+                    }
                 },
                 extra: lazyAttributes(axis: "horizontal", pinnedViews: pinnedViews) + attributes
             )
@@ -62,7 +64,7 @@ public struct LazyHStack<Content: HTML>: WebUIAttributeComponent {
     }
 
     private init(
-        gap: String,
+        gap: StackGap,
         alignment: VerticalAlignment,
         pinnedViews: PinnedScrollableViews,
         attributes: [HTMLAttribute],

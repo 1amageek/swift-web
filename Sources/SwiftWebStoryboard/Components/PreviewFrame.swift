@@ -7,7 +7,7 @@ import SwiftWebUI
 ///
 /// It is a width-100% block so it always fills the content column, sidestepping
 /// the modifier-wrapper width-collapse that `.background/.border/.cornerRadius`
-/// chains hit. The border color is a `ShapeStyle` (`Color`, theme-adaptive); the
+/// chains hit. The border color is a `ShapeStyle` (`Color`, color-scheme-adaptive); the
 /// raw border/radius lives in this one Storyboard-only component.
 struct PreviewFrame<Content: HTML>: Component {
     var borderColor: Color

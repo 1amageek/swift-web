@@ -7,7 +7,6 @@ public struct TintModifier<S: ShapeStyle>: ComponentModifier {
         self.style = style
     }
 
-    @Environment(\.theme) private var theme: Theme
     @Environment(\.styleSystem) private var styleSystem: StyleSystem
     @Environment(\.colorScheme) private var colorScheme: ColorScheme
     @Environment(\.layoutDirection) private var layoutDirection: LayoutDirection
@@ -15,12 +14,11 @@ public struct TintModifier<S: ShapeStyle>: ComponentModifier {
 
     @HTMLBuilder
     public func body(content: ModifierContent) -> some HTML {
-        content.environment(TintEnvironmentKey.self, resolvedTint)
+        content.environment(\.tint, resolvedTint)
     }
 
     private var resolvedTint: String {
         style.resolve(in: StyleResolutionContext(
-            theme: theme,
             styleSystem: styleSystem,
             colorScheme: colorScheme,
             layoutDirection: layoutDirection,

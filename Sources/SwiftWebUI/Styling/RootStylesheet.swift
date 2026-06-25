@@ -1,15 +1,51 @@
 import SwiftHTML
+import SwiftWebStyle
 
-enum ThemeStylesheet {
-  static func stylesheet(for theme: Theme, styleSystem: StyleSystem) -> Stylesheet {
+enum RootStylesheet {
+  private static func cls(_ name: String) -> StyleSelector {
+    .class(StyleClass(name))
+  }
+
+  private static func el(_ element: StyleElement) -> StyleSelector {
+    .element(element)
+  }
+
+  private static func list(_ selectors: StyleSelector...) -> StyleSelector {
+    .list(selectors)
+  }
+
+  static func stylesheet(for styleSystem: StyleSystem) -> Stylesheet {
     Stylesheet {
+      rootTokenStylesheet(for: styleSystem)
       componentStylesheet
+      utilityStylesheet
       materialStylesheet
       atRulesStylesheet
-      rule("[data-theme=\"\(cssAttributeString(theme.name))\"]") {
-        theme.cssVariableStyle
+    }
+  }
+
+  private static func rootTokenStylesheet(for styleSystem: StyleSystem) -> Stylesheet {
+    Stylesheet {
+      // Scheme-independent design tokens plus the light palette as the default.
+      // Light is the baseline; an explicit dark scope or the OS dark preference
+      // swaps only the color tokens.
+      rule(cls("swui-root")) {
+        baseTokenStyle
+        lightPalette
       }
-      rule("[data-style-system=\"\(cssAttributeString(styleSystem.id))\"]") {
+      // An explicit dark root overrides the light default. The selector is scoped
+      // to SwiftWebUI roots so unrelated data attributes do not inherit palette
+      // variables by accident.
+      rule(cls("swui-root").attribute("data-color-scheme", equals: "dark")) {
+        darkPalette
+      }
+      // A document that carries no explicit scheme follows the OS preference.
+      media(.prefersColorScheme(.dark)) {
+        rule(cls("swui-root").not(.attribute("data-color-scheme"))) {
+          darkPalette
+        }
+      }
+      rule(.attribute("data-style-system", equals: styleSystem.id)) {
         styleSystem.cssVariableStyle
       }
     }
@@ -18,51 +54,77 @@ enum ThemeStylesheet {
   /// The full stylesheet text. Every rule — including the `@supports`/`@media`/
   /// `@keyframes` at-rules — is modeled in the typed `Stylesheet`, so there is no
   /// raw CSS string.
-  static func css(for theme: Theme, styleSystem: StyleSystem) -> String {
-    stylesheet(for: theme, styleSystem: styleSystem).cssText
+  static func css(for styleSystem: StyleSystem) -> String {
+    stylesheet(for: styleSystem).cssText
   }
 
-  private static func cssAttributeString(_ value: String) -> String {
-    var escaped = ""
-    for scalar in value.unicodeScalars {
-      switch scalar.value {
-      case 0x22:
-        escaped.append("\\22 ")
-      case 0x5C:
-        escaped.append("\\5C ")
-      case 0x0A:
-        escaped.append("\\A ")
-      case 0x0C:
-        escaped.append("\\C ")
-      case 0x0D:
-        escaped.append("\\D ")
-      default:
-        if scalar.value >= 0x20 && scalar.value <= 0x7E {
-          escaped.unicodeScalars.append(scalar)
-        } else {
-          escaped.append("\\")
-          escaped.append(String(scalar.value, radix: 16, uppercase: true))
-          escaped.append(" ")
-        }
-      }
+  // The color palettes are keyed by `ColorScheme`. The light palette is the
+  // default; the dark palette applies under an explicit dark scope or the OS
+  // dark preference. Only the color tokens differ between schemes — the radius,
+  // spacing, and typography tokens are scheme-independent.
+  private static var lightPalette: Style {
+    Style {
+      .custom("--swui-background", "#f7f8fa")
+      .custom("--swui-surface", "#ffffff")
+      .custom("--swui-surface-raised", "#ffffff")
+      .custom("--swui-text", "#16181d")
+      .custom("--swui-text-muted", "#626975")
+      .custom("--swui-border", "#d9dee7")
+      .custom("--swui-accent", "#1769e0")
+      .custom("--swui-accent-text", "#ffffff")
+      .custom("--swui-danger", "#c93636")
+      .custom("--swui-danger-text", "#ffffff")
     }
-    return escaped
+  }
+
+  private static var darkPalette: Style {
+    Style {
+      .custom("--swui-background", "#111318")
+      .custom("--swui-surface", "#181b22")
+      .custom("--swui-surface-raised", "#20242d")
+      .custom("--swui-text", "#f4f6f8")
+      .custom("--swui-text-muted", "#a8b0bd")
+      .custom("--swui-border", "#343a46")
+      .custom("--swui-accent", "#65a8ff")
+      .custom("--swui-accent-text", "#07111f")
+      .custom("--swui-danger", "#ff7777")
+      .custom("--swui-danger-text", "#1f0707")
+    }
+  }
+
+  private static var baseTokenStyle: Style {
+    Style {
+      .custom("--swui-radius-small", "4px")
+      .custom("--swui-radius-medium", "8px")
+      .custom("--swui-radius-large", "12px")
+      .custom("--swui-radius-pill", "999px")
+      .custom("--swui-space-xs", "4px")
+      .custom("--swui-space-sm", "8px")
+      .custom("--swui-space-md", "12px")
+      .custom("--swui-space-lg", "16px")
+      .custom("--swui-space-xl", "24px")
+      .custom(
+        "--swui-font-family",
+        "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", \"SF Pro Display\", system-ui, sans-serif"
+      )
+      .custom(
+        "--swui-mono-font-family",
+        "\"JetBrains Mono\", ui-monospace, \"SFMono-Regular\", \"SF Mono\", Menlo, Consolas, \"Liberation Mono\", monospace"
+      )
+      .custom("--swui-base-size", "16px")
+      .custom("--swui-line-height", "1.5")
+    }
   }
 
   private static var componentStylesheet: Stylesheet {
     Stylesheet {
-      rule(
-        """
-        html,
-        body
-        """
-      ) {
+      rule(list(el(.html), el(.body))) {
         .minHeight("100%")
       }
-      rule("body") {
+      rule(el(.body)) {
         .margin("0")
       }
-      rule(".swui-root") {
+      rule(cls("swui-root")) {
         .minHeight("100%")
           .display("flex")
           .flexDirection("column")
@@ -73,15 +135,15 @@ enum ThemeStylesheet {
           .fontSize("var(--swui-base-size)")
           .lineHeight("var(--swui-line-height)")
       }
-      // A theme scope nested inside another (`.environment(ThemeEnvironmentKey.self,)` applied
+      // A root scope nested inside another (`.preferredColorScheme(_:)` applied
       // to a subtree, e.g. a preview matrix cell) is an inner surface, not the
-      // page canvas. It keeps the themed background so the subtree previews on
-      // its own theme, but drops the page-root fills: it sizes to its content
+      // page canvas. It keeps the scheme background so the subtree previews on
+      // its own scheme, but drops the page-root fills: it sizes to its content
       // instead of stretching to `min-height: 100%` (which would overrun
-      // siblings), rounds its corners so the themed fill frames a rounded
+      // siblings), rounds its corners so the scheme fill frames a rounded
       // container instead of poking square corners past it, and pads its content
       // so elevation is not clipped at a hard background seam.
-      rule(".swui-root .swui-root") {
+      rule(cls("swui-root").descendant(cls("swui-root"))) {
         .minHeight("auto")
           .borderRadius("var(--swui-radius-large)")
           .padding(.space(.medium))
@@ -90,41 +152,32 @@ enum ThemeStylesheet {
       // class to `swui-viewport`: the body is sized to the viewport and clips its
       // own overflow, so a descendant ScrollView scrolls internally (with native
       // bounce) instead of the whole page scrolling.
-      rule("body.swui-viewport") {
+      rule(el(.body).compound(cls("swui-viewport"))) {
         .height("100dvh")
           .overflow("hidden")
       }
-      rule("body.swui-viewport > .swui-root") {
+      rule(el(.body).compound(cls("swui-viewport")).child(cls("swui-root"))) {
         .height("100%")
           .minHeight("0")
       }
-      rule(
-        """
-        .swui-vstack,
-        .swui-hstack,
-        .swui-lazy-vstack,
-        .swui-lazy-hstack,
-        .swui-toolbar
-        """
-      ) {
+      rule(list(
+        cls("swui-vstack"),
+        cls("swui-hstack"),
+        cls("swui-lazy-vstack"),
+        cls("swui-lazy-hstack"),
+        cls("swui-toolbar")
+      )) {
         .display("flex")
           .boxSizing("border-box")
       }
-      rule(
-        """
-        .swui-vstack,
-        .swui-lazy-vstack
-        """
-      ) {
+      rule(list(cls("swui-vstack"), cls("swui-lazy-vstack"))) {
         .flexDirection("column")
       }
-      rule(
-        """
-        .swui-hstack,
-        .swui-lazy-hstack,
-        .swui-toolbar
-        """
-      ) {
+      rule(list(
+        cls("swui-hstack"),
+        cls("swui-lazy-hstack"),
+        cls("swui-toolbar")
+      )) {
         .flexDirection("row")
           .alignItems("center")
           // SwiftUI's HStack lays its children on a single row and never wraps
@@ -133,46 +186,37 @@ enum ThemeStylesheet {
           // second row.
           .flexWrap("nowrap")
       }
-      rule(
-        """
-        .swui-lazy-vstack > *,
-        .swui-lazy-hstack > *
-        """
-      ) {
+      rule(list(
+        cls("swui-lazy-vstack").child(.universal),
+        cls("swui-lazy-hstack").child(.universal)
+      )) {
         .contentVisibility("auto")
           .containIntrinsicSize("var(--swui-lazy-intrinsic-size)")
       }
-      rule(
-        """
-        .swui-lazy-vgrid,
-        .swui-lazy-hgrid
-        """
-      ) {
+      rule(list(cls("swui-lazy-vgrid"), cls("swui-lazy-hgrid"))) {
         .display("grid")
           .boxSizing("border-box")
       }
-      rule(
-        """
-        .swui-lazy-vgrid > *,
-        .swui-lazy-hgrid > *
-        """
-      ) {
+      rule(list(
+        cls("swui-lazy-vgrid").child(.universal),
+        cls("swui-lazy-hgrid").child(.universal)
+      )) {
         .contentVisibility("auto")
           .containIntrinsicSize("var(--swui-lazy-intrinsic-size)")
       }
-      rule(".swui-zstack") {
+      rule(cls("swui-zstack")) {
         .display("grid")
           .boxSizing("border-box")
       }
-      rule(".swui-zstack > *") {
+      rule(cls("swui-zstack").child(.universal)) {
         .gridArea("1 / 1")
       }
-      rule(".swui-frame") {
+      rule(cls("swui-frame")) {
         .display("flex")
       }
       // `.animation(_:value:)` wraps its subtree in this scope, which carries the
       // inherited `--swui-animation` custom property without adding a box.
-      rule(".swui-animation-scope") {
+      rule(cls("swui-animation-scope")) {
         .display("contents")
       }
       // Every element inside an animation scope transitions *every* animatable
@@ -182,44 +226,44 @@ enum ThemeStylesheet {
       // a descendant changes (color, backdrop-filter, layout, …) — rather than
       // only a hand-picked few. Declared before the control rules so a control's
       // own transition still wins on its element.
-      rule(".swui-animation-scope *") {
+      rule(cls("swui-animation-scope").descendant(.universal)) {
         .transition("all var(--swui-animation, 0s)")
       }
       // `.transition(_:)` insertion/removal. The "from" state is published as
       // --swui-enter-*/--swui-exit-* custom properties on the element; insertion
       // animates from the @starting-style values (below) and removal animates to
       // the exit values once the runtime adds `.swui-exiting`.
-      rule(".swui-transition") {
+      rule(cls("swui-transition")) {
         .transition(
           "opacity var(--swui-transition, 0.3s ease), "
             + "transform var(--swui-transition, 0.3s ease)"
         )
       }
-      rule(".swui-transition.swui-exiting") {
+      rule(cls("swui-transition").compound(cls("swui-exiting"))) {
         .opacity("var(--swui-exit-opacity, 1)")
           .transform("var(--swui-exit-transform, none)")
       }
-      rule(".swui-layered") {
+      rule(cls("swui-layered")) {
         .display("grid")
           .boxSizing("border-box")
       }
-      rule(".swui-layered > .swui-layer") {
+      rule(cls("swui-layered").child(cls("swui-layer"))) {
         .gridArea("1 / 1")
           .boxSizing("border-box")
       }
-      rule(".swui-layer-background") {
+      rule(cls("swui-layer-background")) {
         .zIndex("0")
       }
-      rule(".swui-layer-content") {
+      rule(cls("swui-layer-content")) {
         .zIndex("1")
       }
-      rule(".swui-layer-overlay") {
+      rule(cls("swui-layer-overlay")) {
         .zIndex("2")
       }
-      rule(".swui-spacer") {
+      rule(cls("swui-spacer")) {
         .flex("1 1 auto")
       }
-      rule(".swui-grid") {
+      rule(cls("swui-grid")) {
         .display("grid")
           .width("fit-content")
           .rowGap("var(--swui-grid-vertical-spacing)")
@@ -228,14 +272,14 @@ enum ThemeStylesheet {
       // SwiftUI Grid lays each GridRow's cells into auto-sized columns; mirror
       // that with a per-row column grid (a real `display: grid`, not a table).
       // Equal-width cells line up across rows.
-      rule(".swui-grid-row") {
+      rule(cls("swui-grid-row")) {
         .display("grid")
           .custom("grid-auto-flow", "column")
           .custom("grid-auto-columns", "minmax(0, max-content)")
           .custom("column-gap", "var(--swui-grid-horizontal-spacing)")
           .alignItems("var(--swui-grid-cell-vertical-alignment)")
       }
-      rule(".swui-grid-system") {
+      rule(cls("swui-grid-system")) {
         .display("grid")
           .gridTemplateColumns("repeat(var(--swui-grid-system-columns), minmax(0, 1fr))")
           .columnGap(.gridSystemGutter)
@@ -245,13 +289,13 @@ enum ThemeStylesheet {
           .margin("0 auto")
           .paddingInline(.pageInlinePadding)
       }
-      rule(".swui-grid-pane") {
+      rule(cls("swui-grid-pane")) {
         .boxSizing("border-box")
           .minWidth("0")
       }
       // GroupBox composes the shared material primitive and keeps only the
       // container chrome: padding, border, radius, and the elevated drop shadow.
-      rule(".swui-group-box") {
+      rule(cls("swui-group-box")) {
           .display("flex")
           .flexDirection("column")
           .alignItems("flex-start")
@@ -261,23 +305,23 @@ enum ThemeStylesheet {
           .boxShadow("var(--swui-container-shadow)")
           .padding(.space(.medium))
       }
-      rule(".swui-group-box-title") {
+      rule(cls("swui-group-box-title")) {
         .margin("0 0 var(--swui-space-sm) 0")
       }
       // The toolbar reads as a floating glass bar: its fill + backdrop come
       // from the shared `bar` material (composed in `Toolbar`); this rule
       // adds the padding and radius that give the bar its shape.
-      rule(".swui-toolbar") {
+      rule(cls("swui-toolbar")) {
         .padding(.space(.small), .space(.medium))
           .borderRadius("var(--swui-radius-large)")
       }
-      rule(".swui-label-style-titleOnly .swui-label-icon") {
+      rule(cls("swui-label-style-titleOnly").descendant(cls("swui-label-icon"))) {
         .display("none")
       }
       // Icon-only labels hide the title visually but keep it in the
       // accessibility tree (the icon itself is aria-hidden), so the control
       // still has an accessible name.
-      rule(".swui-label-style-iconOnly .swui-label-title") {
+      rule(cls("swui-label-style-iconOnly").descendant(cls("swui-label-title"))) {
         .position("absolute")
           .width("1px")
           .height("1px")
@@ -288,127 +332,106 @@ enum ThemeStylesheet {
           .whiteSpace("nowrap")
           .border("0")
       }
-      rule(
-        """
-        .swui-text-field-style-plain,
-        .swui-text-editor.swui-text-field-style-plain
-        """
-      ) {
+      rule(list(
+        cls("swui-text-field-style-plain"),
+        cls("swui-text-editor").compound(cls("swui-text-field-style-plain"))
+      )) {
         .background("transparent")
           .border("0")
           .boxShadow("none")
       }
-      rule(".swui-text-field-style-squareBorder") {
+      rule(cls("swui-text-field-style-squareBorder")) {
         .borderRadius("0")
       }
-      rule(".swui-list-style-plain") {
+      rule(cls("swui-list-style-plain")) {
         .border("0")
           .background("transparent")
       }
-      rule(
-        """
-        .swui-list-style-grouped,
-        .swui-list-style-insetGrouped
-        """
-      ) {
+      rule(list(cls("swui-list-style-grouped"), cls("swui-list-style-insetGrouped"))) {
         .padding(.space(.small))
           .borderRadius("var(--swui-radius-large)")
           .background("color-mix(in srgb, var(--swui-surface-raised) 72%, transparent)")
       }
-      rule(".swui-toggle-style-checkbox .swui-toggle-control") {
+      rule(cls("swui-toggle-style-checkbox").descendant(cls("swui-toggle-control"))) {
         .borderRadius("var(--swui-radius-small)")
       }
-      rule(".swui-tabview-style-page .swui-tab-item") {
+      rule(cls("swui-tabview-style-page").descendant(cls("swui-tab-item"))) {
         .display("none")
       }
       // MARK: Sizing intent markers (parent-axis aware)
       // Horizontal fill under a column parent -> stretch the cross axis.
-      rule(
-        """
-        .swui-vstack > .swui-fill-h,
-        .swui-lazy-vstack > .swui-fill-h,
-        .swui-group-box > .swui-fill-h,
-        .swui-zstack > .swui-fill-h,
-        .swui-frame > .swui-fill-h,
-        .swui-scroll-view > .swui-fill-h,
-        .swui-root > .swui-fill-h
-        """
-      ) {
+      rule(list(
+        cls("swui-vstack").child(cls("swui-fill-h")),
+        cls("swui-lazy-vstack").child(cls("swui-fill-h")),
+        cls("swui-group-box").child(cls("swui-fill-h")),
+        cls("swui-zstack").child(cls("swui-fill-h")),
+        cls("swui-frame").child(cls("swui-fill-h")),
+        cls("swui-scroll-view").child(cls("swui-fill-h")),
+        cls("swui-root").child(cls("swui-fill-h"))
+      )) {
         .alignSelf("stretch")
       }
       // Horizontal fill under a row parent -> grow along the main axis.
-      rule(
-        """
-        .swui-hstack > .swui-fill-h,
-        .swui-lazy-hstack > .swui-fill-h,
-        .swui-toolbar > .swui-fill-h
-        """
-      ) {
+      rule(list(
+        cls("swui-hstack").child(cls("swui-fill-h")),
+        cls("swui-lazy-hstack").child(cls("swui-fill-h")),
+        cls("swui-toolbar").child(cls("swui-fill-h"))
+      )) {
         .flex("1 1 0%")
           .minWidth("0")
       }
       // Vertical fill under a row parent -> stretch the cross axis.
-      rule(
-        """
-        .swui-hstack > .swui-fill-v,
-        .swui-lazy-hstack > .swui-fill-v,
-        .swui-toolbar > .swui-fill-v
-        """
-      ) {
+      rule(list(
+        cls("swui-hstack").child(cls("swui-fill-v")),
+        cls("swui-lazy-hstack").child(cls("swui-fill-v")),
+        cls("swui-toolbar").child(cls("swui-fill-v"))
+      )) {
         .alignSelf("stretch")
       }
       // Vertical fill under a column parent -> grow along the main axis.
-      rule(
-        """
-        .swui-vstack > .swui-fill-v,
-        .swui-lazy-vstack > .swui-fill-v,
-        .swui-group-box > .swui-fill-v,
-        .swui-frame > .swui-fill-v,
-        .swui-root > .swui-fill-v
-        """
-      ) {
+      rule(list(
+        cls("swui-vstack").child(cls("swui-fill-v")),
+        cls("swui-lazy-vstack").child(cls("swui-fill-v")),
+        cls("swui-group-box").child(cls("swui-fill-v")),
+        cls("swui-frame").child(cls("swui-fill-v")),
+        cls("swui-root").child(cls("swui-fill-v"))
+      )) {
         .flex("1 1 0%")
           .minHeight("0")
       }
       // Upward propagation: a container holding a horizontal-fill
       // descendant is itself horizontally greedy in its column parent.
-      rule(
-        """
-        .swui-vstack:has(.swui-fill-h),
-        .swui-lazy-vstack:has(.swui-fill-h),
-        .swui-hstack:has(.swui-fill-h),
-        .swui-lazy-hstack:has(.swui-fill-h),
-        .swui-group-box:has(.swui-fill-h),
-        .swui-toolbar:has(.swui-fill-h)
-        """
-      ) {
+      rule(list(
+        cls("swui-vstack").has(cls("swui-fill-h")),
+        cls("swui-lazy-vstack").has(cls("swui-fill-h")),
+        cls("swui-hstack").has(cls("swui-fill-h")),
+        cls("swui-lazy-hstack").has(cls("swui-fill-h")),
+        cls("swui-group-box").has(cls("swui-fill-h")),
+        cls("swui-toolbar").has(cls("swui-fill-h"))
+      )) {
         .alignSelf("stretch")
       }
       // A row that contains a Spacer is horizontally greedy; carry that
       // intent up to one enclosing column level.
-      rule(
-        """
-        .swui-hstack:has(> .swui-spacer),
-        .swui-toolbar:has(> .swui-spacer),
-        .swui-group-box:has(.swui-hstack > .swui-spacer),
-        .swui-group-box:has(.swui-toolbar > .swui-spacer),
-        .swui-vstack:has(.swui-hstack > .swui-spacer),
-        .swui-vstack:has(.swui-toolbar > .swui-spacer)
-        """
-      ) {
+      rule(list(
+        cls("swui-hstack").hasChild(cls("swui-spacer")),
+        cls("swui-toolbar").hasChild(cls("swui-spacer")),
+        cls("swui-group-box").has(cls("swui-hstack").child(cls("swui-spacer"))),
+        cls("swui-group-box").has(cls("swui-toolbar").child(cls("swui-spacer"))),
+        cls("swui-vstack").has(cls("swui-hstack").child(cls("swui-spacer"))),
+        cls("swui-vstack").has(cls("swui-toolbar").child(cls("swui-spacer")))
+      )) {
         .alignSelf("stretch")
       }
       // Row-parent override: a greedy column/container that is itself a row
       // item grows on the main axis instead of stretching the cross axis.
-      rule(
-        """
-        .swui-hstack > .swui-vstack:has(.swui-fill-h),
-        .swui-hstack > .swui-lazy-vstack:has(.swui-fill-h),
-        .swui-hstack > .swui-group-box:has(.swui-fill-h),
-        .swui-toolbar > .swui-vstack:has(.swui-fill-h),
-        .swui-toolbar > .swui-group-box:has(.swui-fill-h)
-        """
-      ) {
+      rule(list(
+        cls("swui-hstack").child(cls("swui-vstack").has(cls("swui-fill-h"))),
+        cls("swui-hstack").child(cls("swui-lazy-vstack").has(cls("swui-fill-h"))),
+        cls("swui-hstack").child(cls("swui-group-box").has(cls("swui-fill-h"))),
+        cls("swui-toolbar").child(cls("swui-vstack").has(cls("swui-fill-h"))),
+        cls("swui-toolbar").child(cls("swui-group-box").has(cls("swui-fill-h")))
+      )) {
         .flex("1 1 0%")
           .minWidth("0")
           .alignSelf("auto")
@@ -419,62 +442,54 @@ enum ThemeStylesheet {
       // so intrinsic content (Text, Image) is still positioned by the frame's
       // alignment rather than stretched. The frame is a flex row, so a
       // horizontal fill grows the main axis and a vertical fill stretches cross.
-      rule(
-        """
-        .swui-frame.swui-fill-h > .swui-vstack,
-        .swui-frame.swui-fill-h > .swui-hstack,
-        .swui-frame.swui-fill-h > .swui-lazy-vstack,
-        .swui-frame.swui-fill-h > .swui-lazy-hstack,
-        .swui-frame.swui-fill-h > .swui-zstack,
-        .swui-frame.swui-fill-h > .swui-group-box,
-        .swui-frame.swui-fill-h > .swui-scroll-view,
-        .swui-frame.swui-fill-h > .swui-grid-system,
-        .swui-frame.swui-fill-h > .swui-frame
-        """
-      ) {
+      rule(list(
+        cls("swui-frame").compound(cls("swui-fill-h")).child(cls("swui-vstack")),
+        cls("swui-frame").compound(cls("swui-fill-h")).child(cls("swui-hstack")),
+        cls("swui-frame").compound(cls("swui-fill-h")).child(cls("swui-lazy-vstack")),
+        cls("swui-frame").compound(cls("swui-fill-h")).child(cls("swui-lazy-hstack")),
+        cls("swui-frame").compound(cls("swui-fill-h")).child(cls("swui-zstack")),
+        cls("swui-frame").compound(cls("swui-fill-h")).child(cls("swui-group-box")),
+        cls("swui-frame").compound(cls("swui-fill-h")).child(cls("swui-scroll-view")),
+        cls("swui-frame").compound(cls("swui-fill-h")).child(cls("swui-grid-system")),
+        cls("swui-frame").compound(cls("swui-fill-h")).child(cls("swui-frame"))
+      )) {
         .flex("1 1 0%")
           .minWidth("0")
       }
-      rule(
-        """
-        .swui-frame.swui-fill-v > .swui-vstack,
-        .swui-frame.swui-fill-v > .swui-hstack,
-        .swui-frame.swui-fill-v > .swui-lazy-vstack,
-        .swui-frame.swui-fill-v > .swui-lazy-hstack,
-        .swui-frame.swui-fill-v > .swui-zstack,
-        .swui-frame.swui-fill-v > .swui-group-box,
-        .swui-frame.swui-fill-v > .swui-scroll-view,
-        .swui-frame.swui-fill-v > .swui-grid-system,
-        .swui-frame.swui-fill-v > .swui-frame
-        """
-      ) {
+      rule(list(
+        cls("swui-frame").compound(cls("swui-fill-v")).child(cls("swui-vstack")),
+        cls("swui-frame").compound(cls("swui-fill-v")).child(cls("swui-hstack")),
+        cls("swui-frame").compound(cls("swui-fill-v")).child(cls("swui-lazy-vstack")),
+        cls("swui-frame").compound(cls("swui-fill-v")).child(cls("swui-lazy-hstack")),
+        cls("swui-frame").compound(cls("swui-fill-v")).child(cls("swui-zstack")),
+        cls("swui-frame").compound(cls("swui-fill-v")).child(cls("swui-group-box")),
+        cls("swui-frame").compound(cls("swui-fill-v")).child(cls("swui-scroll-view")),
+        cls("swui-frame").compound(cls("swui-fill-v")).child(cls("swui-grid-system")),
+        cls("swui-frame").compound(cls("swui-fill-v")).child(cls("swui-frame"))
+      )) {
         .alignSelf("stretch")
           .minHeight("0")
       }
       // Explicit hug blocks fill and propagation. Declared after the
       // fill/:has rules so equal-specificity selectors win by source order.
-      rule(".swui-hug-h") {
+      rule(cls("swui-hug-h")) {
         .alignSelf("flex-start")
       }
-      rule(
-        """
-        .swui-vstack.swui-hug-h,
-        .swui-lazy-vstack.swui-hug-h,
-        .swui-hstack.swui-hug-h,
-        .swui-lazy-hstack.swui-hug-h,
-        .swui-group-box.swui-hug-h,
-        .swui-toolbar.swui-hug-h
-        """
-      ) {
+      rule(list(
+        cls("swui-vstack").compound(cls("swui-hug-h")),
+        cls("swui-lazy-vstack").compound(cls("swui-hug-h")),
+        cls("swui-hstack").compound(cls("swui-hug-h")),
+        cls("swui-lazy-hstack").compound(cls("swui-hug-h")),
+        cls("swui-group-box").compound(cls("swui-hug-h")),
+        cls("swui-toolbar").compound(cls("swui-hug-h"))
+      )) {
         .alignSelf("flex-start")
       }
-      rule(
-        """
-        .swui-hstack > .swui-hug-h,
-        .swui-lazy-hstack > .swui-hug-h,
-        .swui-toolbar > .swui-hug-h
-        """
-      ) {
+      rule(list(
+        cls("swui-hstack").child(cls("swui-hug-h")),
+        cls("swui-lazy-hstack").child(cls("swui-hug-h")),
+        cls("swui-toolbar").child(cls("swui-hug-h"))
+      )) {
         .flex("0 0 auto")
           .alignSelf("auto")
       }
@@ -482,58 +497,52 @@ enum ThemeStylesheet {
       // hug-h pins the width via flex above, but fill-v must still stretch it to
       // the row height so an inner ScrollView is bounded and can scroll. More
       // specific than the hug-h rule, so the cross-axis stretch wins.
-      rule(
-        """
-        .swui-hstack > .swui-hug-h.swui-fill-v,
-        .swui-lazy-hstack > .swui-hug-h.swui-fill-v,
-        .swui-toolbar > .swui-hug-h.swui-fill-v
-        """
-      ) {
+      rule(list(
+        cls("swui-hstack").child(cls("swui-hug-h").compound(cls("swui-fill-v"))),
+        cls("swui-lazy-hstack").child(cls("swui-hug-h").compound(cls("swui-fill-v"))),
+        cls("swui-toolbar").child(cls("swui-hug-h").compound(cls("swui-fill-v")))
+      )) {
         .alignSelf("stretch")
           .minHeight("0")
       }
       // Vertical hug, parent-axis aware.
-      rule(
-        """
-        .swui-vstack > .swui-hug-v,
-        .swui-lazy-vstack > .swui-hug-v,
-        .swui-group-box > .swui-hug-v,
-        .swui-root > .swui-hug-v
-        """
-      ) {
+      rule(list(
+        cls("swui-vstack").child(cls("swui-hug-v")),
+        cls("swui-lazy-vstack").child(cls("swui-hug-v")),
+        cls("swui-group-box").child(cls("swui-hug-v")),
+        cls("swui-root").child(cls("swui-hug-v"))
+      )) {
         .flex("0 0 auto")
       }
-      rule(
-        """
-        .swui-hstack > .swui-hug-v,
-        .swui-lazy-hstack > .swui-hug-v,
-        .swui-toolbar > .swui-hug-v
-        """
-      ) {
+      rule(list(
+        cls("swui-hstack").child(cls("swui-hug-v")),
+        cls("swui-lazy-hstack").child(cls("swui-hug-v")),
+        cls("swui-toolbar").child(cls("swui-hug-v"))
+      )) {
         .alignSelf("flex-start")
       }
-      rule(".swui-heading") {
+      rule(cls("swui-heading")) {
         .margin("0")
           .color("var(--swui-text)")
           .letterSpacing("0")
       }
-      rule(".swui-heading-page") {
+      rule(cls("swui-heading-page")) {
         .fontSize("var(--swui-heading-page-size)")
           .lineHeight("var(--swui-heading-page-line-height)")
       }
-      rule(".swui-heading-section") {
+      rule(cls("swui-heading-section")) {
         .fontSize("var(--swui-heading-section-size)")
           .lineHeight("1.2")
       }
-      rule(".swui-heading-subsection") {
+      rule(cls("swui-heading-subsection")) {
         .fontSize("var(--swui-heading-subsection-size)")
           .lineHeight("1.25")
       }
-      rule(".swui-text") {
+      rule(cls("swui-text")) {
         .margin("0")
           .color("var(--swui-text)")
       }
-      rule(".swui-inline-code") {
+      rule(cls("swui-inline-code")) {
         .display("inline-block")
           .padding(.zero, .em(0.35))
           .border("1px solid var(--swui-border)")
@@ -543,7 +552,7 @@ enum ThemeStylesheet {
           .fontSize("0.9em")
           .lineHeight("1.5")
       }
-      rule(".swui-preformatted") {
+      rule(cls("swui-preformatted")) {
         .maxWidth("100%")
           .overflowX("auto")
           .padding(.space(.medium))
@@ -557,7 +566,7 @@ enum ThemeStylesheet {
           .whiteSpace("pre")
           .boxSizing("border-box")
       }
-      rule(".swui-code-block") {
+      rule(cls("swui-code-block")) {
         .maxWidth("100%")
           .margin("0")
           .overflowX("auto")
@@ -572,30 +581,30 @@ enum ThemeStylesheet {
           .tabSize("4")
           .boxSizing("border-box")
       }
-      rule(".swui-code-block-content") {
+      rule(cls("swui-code-block-content")) {
         .display("block")
           .minWidth("max-content")
       }
-      rule(".swui-code-line") {
+      rule(cls("swui-code-line")) {
         .display("grid")
           .gridTemplateColumns("minmax(3ch, auto) 1fr")
           .columnGap(.space(.medium))
           .padding(.zero, .space(.medium))
           .whiteSpace("pre")
       }
-      rule(".swui-code-line-plain") {
+      rule(cls("swui-code-line-plain")) {
         .gridTemplateColumns("1fr")
       }
-      rule(".swui-code-line-number") {
+      rule(cls("swui-code-line-number")) {
         .color("var(--swui-text-muted)")
           .fontVariantNumeric("tabular-nums")
           .textAlign("right")
           .userSelect("none")
       }
-      rule(".swui-code-line-content") {
+      rule(cls("swui-code-line-content")) {
         .whiteSpace("pre")
       }
-      rule(".swui-button") {
+      rule(cls("swui-button")) {
         .display("inline-flex")
           .alignItems("center")
           .justifyContent("center")
@@ -615,30 +624,30 @@ enum ThemeStylesheet {
             "background var(--swui-animation, var(--swui-motion-quick)), border-color var(--swui-animation, var(--swui-motion-quick)), opacity var(--swui-animation, var(--swui-motion-quick)), transform var(--swui-animation, var(--swui-motion-quick))"
           )
       }
-      rule(".swui-control-mini") {
+      rule(cls("swui-control-mini")) {
         .minHeight("var(--swui-control-mini-height)")
           .paddingInline(.space(.small))
           .fontSize("12px")
       }
-      rule(".swui-control-small") {
+      rule(cls("swui-control-small")) {
         .minHeight("var(--swui-control-small-height)")
           .paddingInline(.space(.medium))
           .fontSize("14px")
       }
-      rule(".swui-control-regular") {
+      rule(cls("swui-control-regular")) {
         .minHeight("var(--swui-control-regular-height)")
       }
-      rule(".swui-control-large") {
+      rule(cls("swui-control-large")) {
         .minHeight("var(--swui-control-large-height)")
           .paddingInline(.space(.xlarge))
           .fontSize("17px")
       }
-      rule(".swui-control-extraLarge") {
+      rule(cls("swui-control-extraLarge")) {
         .minHeight("var(--swui-control-extra-large-height)")
           .paddingInline(.space(.xlarge))
           .fontSize("19px")
       }
-      rule(".swui-button-primary") {
+      rule(cls("swui-button-primary")) {
         .color("var(--swui-button-primary-foreground)")
           // Resolve the control tint on the button element itself so the local
           // per-button --swui-control-tint override wins. Falling back to the
@@ -649,12 +658,12 @@ enum ThemeStylesheet {
       // The component emits semantic classes only; this stylesheet feeds the
       // secondary background token in as the material tint so the active
       // StyleSystem owns translucency, blur, rim, and solid fallback.
-      rule(".swui-button-secondary") {
+      rule(cls("swui-button-secondary")) {
         .color("var(--swui-button-secondary-foreground)")
           .custom("--swui-material-tint", "var(--swui-button-secondary-background)")
           .borderColor("var(--swui-button-secondary-border)")
       }
-      rule(".swui-button-plain") {
+      rule(cls("swui-button-plain")) {
         .color("var(--swui-control-tint, var(--swui-button-plain-foreground))")
           .background("transparent")
           .borderColor("transparent")
@@ -664,53 +673,46 @@ enum ThemeStylesheet {
       // these rules only set semantic text/border behavior. The plain glass
       // keeps the neutral surface tint; the prominent glass is washed with the
       // control tint.
-      rule(".swui-button-glass") {
+      rule(cls("swui-button-glass")) {
         .color("var(--swui-text)")
           .borderColor("transparent")
       }
-      rule(".swui-button-glass-prominent") {
+      rule(cls("swui-button-glass-prominent")) {
         .color("var(--swui-accent-text)")
           .borderColor("transparent")
           .custom("--swui-material-tint", "var(--swui-control-tint, var(--swui-accent))")
       }
       // Shift the material tint on hover (rather than painting an opaque
       // background over the glass) so the frosted surface is preserved.
-      rule(".swui-button-secondary:hover") {
+      rule(cls("swui-button-secondary").pseudo(.hover)) {
         .custom("--swui-material-tint", "var(--swui-button-secondary-hover-background)")
       }
       // Press feedback is part of a button's own interaction (its responsibility,
       // not the caller's): every enabled button dips slightly when pressed,
       // eased by the transform transition above.
-      rule(".swui-button:not(:disabled):not(.swui-control-disabled):active") {
+      rule(cls("swui-button").not(.pseudo(.disabled)).not(cls("swui-control-disabled")).pseudo(.active)) {
         .transform("scale(0.97)")
       }
-      rule(
-        """
-        .swui-control-disabled,
-        .swui-button:disabled,
-        .swui-text-field:disabled,
-        .swui-picker:disabled,
-        .swui-slider:disabled
-        """
-      ) {
+      rule(list(
+        cls("swui-control-disabled"),
+        cls("swui-button").pseudo(.disabled),
+        cls("swui-text-field").pseudo(.disabled),
+        cls("swui-picker").pseudo(.disabled),
+        cls("swui-slider").pseudo(.disabled)
+      )) {
         .cursor("default")
           .opacity("var(--swui-control-disabled-opacity)")
       }
-      rule(".swui-modifier") {
+      rule(cls("swui-modifier")) {
         .boxSizing("border-box")
       }
-      rule(".swui-box-modifier") {
+      rule(cls("swui-box-modifier")) {
         .display("block")
       }
-      rule(
-        """
-        .swui-text-style-modifier,
-        .swui-semantic-modifier
-        """
-      ) {
+      rule(list(cls("swui-text-style-modifier"), cls("swui-semantic-modifier"))) {
         .display("contents")
       }
-      rule(".swui-text-style-modifier .swui-text") {
+      rule(cls("swui-text-style-modifier").descendant(cls("swui-text"))) {
         .fontFamily("inherit")
           .fontSize("inherit")
           .fontStyle("inherit")
@@ -718,26 +720,26 @@ enum ThemeStylesheet {
           .textAlign("inherit")
           .textDecoration("inherit")
       }
-      rule(".swui-style-foreground .swui-text") {
+      rule(cls("swui-style-foreground").descendant(cls("swui-text"))) {
         .color("inherit")
       }
-      rule(".swui-label") {
+      rule(cls("swui-label")) {
         .display("inline-flex")
           .alignItems("center")
           .gap(.space(.small))
       }
-      rule(".swui-label-icon") {
+      rule(cls("swui-label-icon")) {
         .display("inline-flex")
           .alignItems("center")
           .color("currentColor")
       }
-      rule(".swui-label-title") {
+      rule(cls("swui-label-title")) {
         .display("inline")
       }
       // The badge fill comes from the shared material (Badge composes
       // `.thinMaterial`); this rule keeps the badge's own border, radius,
       // padding, and text color.
-      rule(".swui-badge") {
+      rule(cls("swui-badge")) {
         .display("inline-flex")
           .alignItems("center")
           .width("fit-content")
@@ -748,114 +750,107 @@ enum ThemeStylesheet {
           .fontSize("12px")
           .lineHeight("1.4")
       }
-      rule(".swui-form") {
+      rule(cls("swui-form")) {
         .margin("0")
           .width("fit-content")
           .maxWidth("100%")
       }
-      rule(".swui-button-action-form") {
+      rule(cls("swui-button-action-form")) {
         .display("inline-flex")
       }
       // SwiftUI links are accent-tinted by default and not underlined. Default to
       // the accent (so a bare Link is a visible link) and drop the user-agent
       // underline; inside a foregroundStyle scope the link inherits that color
       // instead, mirroring `.swui-style-foreground .swui-text`.
-      rule(".swui-link") {
+      rule(cls("swui-link")) {
         .color("var(--swui-accent)")
           .textDecoration("none")
       }
-      rule(".swui-style-foreground .swui-link") {
+      rule(cls("swui-style-foreground").descendant(cls("swui-link"))) {
         .color("inherit")
       }
-      rule(".swui-navigation-stack") {
+      rule(cls("swui-navigation-stack")) {
         .display("grid")
           .gap(.navigationGap)
           .boxSizing("border-box")
           .width("fit-content")
           .maxWidth("100%")
       }
-      rule(".swui-navigation-link") {
+      rule(cls("swui-navigation-link")) {
         .color("var(--swui-navigation-link-foreground)")
           .textDecoration("var(--swui-navigation-link-decoration)")
       }
-      rule(".swui-navigation-link:hover") {
+      rule(cls("swui-navigation-link").pseudo(.hover)) {
         .textDecoration("var(--swui-navigation-link-hover-decoration)")
       }
-      rule(".swui-scroll-view") {
+      rule(cls("swui-scroll-view")) {
         .boxSizing("border-box")
           .maxWidth("100%")
           .maxHeight("100%")
           .overscrollBehavior("contain")
       }
-      rule(".swui-scroll-view-hidden-indicators") {
+      rule(cls("swui-scroll-view-hidden-indicators")) {
         .scrollbarWidth("none")
       }
-      rule(".swui-scroll-view-hidden-indicators::-webkit-scrollbar") {
+      rule(cls("swui-scroll-view-hidden-indicators").pseudoElement(.webkitScrollbar)) {
         .display("none")
       }
-      rule(".swui-divider") {
+      rule(cls("swui-divider")) {
         .background("var(--swui-border)")
           .flex("0 0 auto")
           .width("100%")
           .height("1px")
       }
-      rule(
-        """
-        .swui-hstack > .swui-divider,
-        .swui-lazy-hstack > .swui-divider,
-        .swui-toolbar > .swui-divider
-        """
-      ) {
+      rule(list(
+        cls("swui-hstack").child(cls("swui-divider")),
+        cls("swui-lazy-hstack").child(cls("swui-divider")),
+        cls("swui-toolbar").child(cls("swui-divider"))
+      )) {
         .width("1px")
           .height("auto")
           .alignSelf("stretch")
       }
-      rule(".swui-section") {
+      rule(cls("swui-section")) {
         .display("grid")
           .gap(.space(.medium))
           .boxSizing("border-box")
       }
-      rule(".swui-section-footer") {
+      rule(cls("swui-section-footer")) {
         .fontSize("13px")
           .color("var(--swui-text-muted)")
       }
-      rule(".swui-list") {
+      rule(cls("swui-list")) {
         .display("grid")
           .boxSizing("border-box")
       }
-      rule(".swui-list-row") {
+      rule(cls("swui-list-row")) {
         .display("flex")
           .alignItems("center")
           .gap(.space(.small))
           .boxSizing("border-box")
       }
-      rule(".swui-list-row .swui-text") {
+      rule(cls("swui-list-row").descendant(cls("swui-text"))) {
         .lineHeight("1.35")
       }
-      rule(".swui-list-row > .swui-text:first-child") {
+      rule(cls("swui-list-row").child(cls("swui-text").pseudo(.firstChild))) {
         .fontWeight("500")
       }
       // Secondary text in a row (anything after the leading title) reads smaller.
       // Keyed to structural position rather than colour, so muting (handled by
       // `.foregroundStyle(.secondary)`) and sizing stay independent concerns.
-      rule(".swui-list-row > .swui-text:not(:first-child)") {
+      rule(cls("swui-list-row").child(cls("swui-text").not(.pseudo(.firstChild)))) {
         .fontSize("13px")
       }
-      rule(".swui-field") {
+      rule(cls("swui-field")) {
         .display("grid")
           .gap(.space(.xsmall))
           .color("var(--swui-text)")
       }
-      rule(".swui-picker-field") {
+      rule(cls("swui-picker-field")) {
         .display("grid")
           .gap(.space(.xsmall))
       }
-      rule(
-        """
-        .swui-field-label,
-        .swui-toggle-label
-        """
-      ) {
+      rule(list(cls("swui-field-label"), cls("swui-toggle-label"))) {
         .color("var(--swui-text-muted)")
           .fontSize("var(--swui-field-label-size)")
       }
@@ -864,13 +859,7 @@ enum ThemeStylesheet {
       // border, radius, padding, and text color. `<input>`/`<select>` are
       // replaced elements, so the material's `::before` rim/refraction
       // overlay does not paint, but its fill and backdrop blur still apply.
-      rule(
-        """
-        .swui-text-field,
-        .swui-picker,
-        .swui-date-picker
-        """
-      ) {
+      rule(list(cls("swui-text-field"), cls("swui-picker"), cls("swui-date-picker"))) {
         .minHeight("var(--swui-control-regular-height)")
           .border("var(--swui-field-border)")
           .borderRadius("var(--swui-field-radius)")
@@ -879,18 +868,18 @@ enum ThemeStylesheet {
           .color("var(--swui-text)")
           .font("inherit")
       }
-      rule(".swui-slider") {
+      rule(cls("swui-slider")) {
         .accentColor("var(--swui-control-tint, var(--swui-accent))")
           .minWidth("160px")
       }
-      rule(".swui-toggle") {
+      rule(cls("swui-toggle")) {
         .display("inline-flex")
           .alignItems("center")
           .gap(.space(.small))
           .color("var(--swui-text)")
           .cursor("pointer")
       }
-      rule(".swui-toggle-input") {
+      rule(cls("swui-toggle-input")) {
         .position("absolute")
           .opacity("0")
           .pointerEvents("none")
@@ -899,7 +888,7 @@ enum ThemeStylesheet {
       // composes `.thinMaterial`); this rule keeps the track's size,
       // pill radius, and border. The checked rules below paint the track
       // solid accent, and the thumb lives on the track's own `::after`.
-      rule(".swui-toggle-control") {
+      rule(cls("swui-toggle-control")) {
         .width("var(--swui-toggle-width)")
           .height("var(--swui-toggle-height)")
           .borderRadius("var(--swui-radius-pill)")
@@ -907,7 +896,7 @@ enum ThemeStylesheet {
           .boxSizing("border-box")
           .position("relative")
       }
-      rule(".swui-toggle-control::after") {
+      rule(cls("swui-toggle-control").pseudoElement(.after)) {
         .content("\"\"")
           .position("absolute")
           .width("var(--swui-toggle-thumb-size)")
@@ -918,29 +907,29 @@ enum ThemeStylesheet {
           .background("var(--swui-text-muted)")
           .transition("transform var(--swui-animation, var(--swui-motion-quick)), background var(--swui-animation, var(--swui-motion-quick))")
       }
-      rule(".swui-toggle-input:checked + .swui-toggle-control") {
+      rule(cls("swui-toggle-input").pseudo(.checked).adjacentSibling(cls("swui-toggle-control"))) {
         .background("var(--swui-accent)")
           .borderColor("var(--swui-accent)")
       }
-      rule(".swui-toggle-input:checked + .swui-toggle-control::after") {
+      rule(cls("swui-toggle-input").pseudo(.checked).adjacentSibling(cls("swui-toggle-control").pseudoElement(.after))) {
         .transform("translateX(var(--swui-toggle-checked-thumb-offset))")
           .background("var(--swui-accent-text)")
       }
-      rule(".swui-image") {
+      rule(cls("swui-image")) {
         .maxWidth("100%")
           .height("auto")
           .display("inline-block")
       }
       // An SVG symbol scales with the surrounding text (slightly larger, like an
       // SF Symbol) and inherits its color via fill="currentColor".
-      rule(".swui-symbol") {
+      rule(cls("swui-symbol")) {
         .width("1.15em")
           .height("1.15em")
           .verticalAlign("-0.15em")
           .flexShrink("0")
       }
       // The text fallback for an unknown identifier keeps the monospace label.
-      rule(".swui-symbol-text") {
+      rule(cls("swui-symbol-text")) {
         .width("auto")
           .height("auto")
           .fontFamily("var(--swui-mono-font-family)")
@@ -951,20 +940,20 @@ enum ThemeStylesheet {
 
       // MARK: ProgressView
       // Container stacks an optional label over the bar/spinner.
-      rule(".swui-progress") {
+      rule(cls("swui-progress")) {
         .display("flex")
           .flexDirection("column")
           .gap(.space(.xsmall))
           .boxSizing("border-box")
       }
-      rule(".swui-progress-label") {
+      rule(cls("swui-progress-label")) {
         .color("var(--swui-text-muted)")
           .fontSize("var(--swui-field-label-size)")
       }
       // The track fill comes from the composed `.ultraThinMaterial`; the
       // value paints solid accent. `<progress>` is a replaced element, so
       // its `::before` overlay does not render and only the fill/blur apply.
-      rule(".swui-progress-bar") {
+      rule(cls("swui-progress-bar")) {
         .appearance("none")
           .custom("-webkit-appearance", "none")
           .width("100%")
@@ -974,21 +963,21 @@ enum ThemeStylesheet {
           .overflow("hidden")
           .boxSizing("border-box")
       }
-      rule(".swui-progress-bar::-webkit-progress-bar") {
+      rule(cls("swui-progress-bar").pseudoElement(.webkitProgressBar)) {
         .background("transparent")
           .borderRadius("var(--swui-radius-pill)")
       }
-      rule(".swui-progress-bar::-webkit-progress-value") {
+      rule(cls("swui-progress-bar").pseudoElement(.webkitProgressValue)) {
         .background("var(--swui-control-tint, var(--swui-accent))")
           .borderRadius("var(--swui-radius-pill)")
       }
-      rule(".swui-progress-bar::-moz-progress-bar") {
+      rule(cls("swui-progress-bar").pseudoElement(.mozProgressBar)) {
         .background("var(--swui-control-tint, var(--swui-accent))")
           .borderRadius("var(--swui-radius-pill)")
       }
-      // Indeterminate spinner; `@keyframes swui-spin` is appended raw in
-      // `css(for:)` because keyframes are not expressible as a flat rule.
-      rule(".swui-progress-spinner") {
+      // Indeterminate spinner; `@keyframes swui-spin` lives in the typed
+      // at-rule layer below.
+      rule(cls("swui-progress-spinner")) {
         .width("20px")
           .height("20px")
           .borderRadius("999px")
@@ -999,20 +988,20 @@ enum ThemeStylesheet {
       }
 
       // MARK: Gauge
-      rule(".swui-gauge") {
+      rule(cls("swui-gauge")) {
         .display("flex")
           .flexDirection("column")
           .gap(.space(.xsmall))
           .boxSizing("border-box")
       }
-      rule(".swui-gauge-label") {
+      rule(cls("swui-gauge-label")) {
         .color("var(--swui-text-muted)")
           .fontSize("var(--swui-field-label-size)")
       }
       // `<meter>` track fill comes from the composed `.ultraThinMaterial`;
       // the value paints solid accent. Like `<progress>` it is replaced, so
       // only the fill/blur apply and the rim overlay does not render.
-      rule(".swui-gauge-meter") {
+      rule(cls("swui-gauge-meter")) {
         .appearance("none")
           .custom("-webkit-appearance", "none")
           .width("100%")
@@ -1022,24 +1011,24 @@ enum ThemeStylesheet {
           .overflow("hidden")
           .boxSizing("border-box")
       }
-      rule(".swui-gauge-meter::-webkit-meter-bar") {
+      rule(cls("swui-gauge-meter").pseudoElement(.webkitMeterBar)) {
         .background("transparent")
           .border("none")
           .borderRadius("var(--swui-radius-pill)")
       }
-      rule(".swui-gauge-meter::-webkit-meter-optimum-value") {
+      rule(cls("swui-gauge-meter").pseudoElement(.webkitMeterOptimumValue)) {
         .background("var(--swui-control-tint, var(--swui-accent))")
           .borderRadius("var(--swui-radius-pill)")
       }
-      rule(".swui-gauge-meter::-webkit-meter-suboptimum-value") {
+      rule(cls("swui-gauge-meter").pseudoElement(.webkitMeterSuboptimumValue)) {
         .background("var(--swui-control-tint, var(--swui-accent))")
           .borderRadius("var(--swui-radius-pill)")
       }
-      rule(".swui-gauge-meter::-webkit-meter-even-less-good-value") {
+      rule(cls("swui-gauge-meter").pseudoElement(.webkitMeterEvenLessGoodValue)) {
         .background("var(--swui-control-tint, var(--swui-accent))")
           .borderRadius("var(--swui-radius-pill)")
       }
-      rule(".swui-gauge-meter::-moz-meter-bar") {
+      rule(cls("swui-gauge-meter").pseudoElement(.mozMeterBar)) {
         .background("var(--swui-control-tint, var(--swui-accent))")
           .borderRadius("var(--swui-radius-pill)")
       }
@@ -1047,13 +1036,13 @@ enum ThemeStylesheet {
       // MARK: DisclosureGroup
       // `<details>` is not replaced, so the composed `.regularMaterial`
       // paints its full recipe (fill + rim + refraction) on the container.
-      rule(".swui-disclosure-group") {
+      rule(cls("swui-disclosure-group")) {
         .borderRadius("var(--swui-container-radius)")
           .border("var(--swui-container-border)")
           .overflow("hidden")
           .boxSizing("border-box")
       }
-      rule(".swui-disclosure-summary") {
+      rule(cls("swui-disclosure-summary")) {
         .display("flex")
           .alignItems("center")
           .gap(.space(.small))
@@ -1064,10 +1053,10 @@ enum ThemeStylesheet {
           .userSelect("none")
           .listStyle("none")
       }
-      rule(".swui-disclosure-summary::-webkit-details-marker") {
+      rule(cls("swui-disclosure-summary").pseudoElement(.webkitDetailsMarker)) {
         .display("none")
       }
-      rule(".swui-disclosure-content") {
+      rule(cls("swui-disclosure-content")) {
         .padding(.zero, .space(.medium), .space(.medium), .space(.medium))
           .color("var(--swui-text)")
       }
@@ -1075,7 +1064,7 @@ enum ThemeStylesheet {
       // MARK: TextEditor
       // `<textarea>` is a form control: the composed `.thinMaterial` fill
       // and backdrop blur apply, while the rim overlay does not render.
-      rule(".swui-text-editor") {
+      rule(cls("swui-text-editor")) {
         .minHeight("calc(var(--swui-control-regular-height) * 3)")
           .width("100%")
           .border("var(--swui-field-border)")
@@ -1090,7 +1079,7 @@ enum ThemeStylesheet {
       // MARK: ColorPicker
       // Label and swatch sit in a row; this overrides the `.swui-field`
       // grid set earlier in source order.
-      rule(".swui-color-picker") {
+      rule(cls("swui-color-picker")) {
         .display("flex")
           .flexDirection("row")
           .alignItems("center")
@@ -1099,7 +1088,7 @@ enum ThemeStylesheet {
           .cursor("pointer")
       }
       // No material on the swatch — it must show the chosen color verbatim.
-      rule(".swui-color-picker-input") {
+      rule(cls("swui-color-picker-input")) {
         .appearance("none")
           .custom("-webkit-appearance", "none")
           .width("44px")
@@ -1111,14 +1100,14 @@ enum ThemeStylesheet {
           .cursor("pointer")
           .boxSizing("border-box")
       }
-      rule(".swui-color-picker-input::-webkit-color-swatch-wrapper") {
+      rule(cls("swui-color-picker-input").pseudoElement(.webkitColorSwatchWrapper)) {
         .padding(.zero)
       }
-      rule(".swui-color-picker-input::-webkit-color-swatch") {
+      rule(cls("swui-color-picker-input").pseudoElement(.webkitColorSwatch)) {
         .border("none")
           .borderRadius("calc(var(--swui-radius-small) - 1px)")
       }
-      rule(".swui-color-picker-input::-moz-color-swatch") {
+      rule(cls("swui-color-picker-input").pseudoElement(.mozColorSwatch)) {
         .border("none")
           .borderRadius("calc(var(--swui-radius-small) - 1px)")
       }
@@ -1129,7 +1118,7 @@ enum ThemeStylesheet {
       // segment, highlighted via the same `input:checked ~ label` sibling
       // pattern the toggle uses (no `:has()` dependency). The `.inline`
       // style is a plain vertical radio list with a leading marker.
-      rule(".swui-picker-segmented") {
+      rule(cls("swui-picker-segmented")) {
         .display("inline-flex")
           .flexDirection("row")
           .alignItems("stretch")
@@ -1140,29 +1129,29 @@ enum ThemeStylesheet {
           .boxSizing("border-box")
           .overflow("hidden")
       }
-      rule(".swui-picker-inline") {
+      rule(cls("swui-picker-inline")) {
         .display("flex")
           .flexDirection("column")
           .gap(.space(.xsmall))
       }
-      rule(".swui-picker-segment") {
+      rule(cls("swui-picker-segment")) {
         .position("relative")
           .display("inline-flex")
           .cursor("pointer")
           .color("var(--swui-text)")
       }
-      rule(".swui-picker-segmented .swui-picker-segment") {
+      rule(cls("swui-picker-segmented").descendant(cls("swui-picker-segment"))) {
         .flex("1 0 auto")
           .minWidth("max-content")
       }
-      rule(".swui-picker-segment-input") {
+      rule(cls("swui-picker-segment-input")) {
         .position("absolute")
           .opacity("0")
           .pointerEvents("none")
           .width("0")
           .height("0")
       }
-      rule(".swui-picker-segment-label") {
+      rule(cls("swui-picker-segment-label")) {
         .display("flex")
           .alignItems("center")
           .justifyContent("center")
@@ -1171,7 +1160,7 @@ enum ThemeStylesheet {
           .userSelect("none")
           .fontSize("var(--swui-field-label-size)")
       }
-      rule(".swui-picker-segmented .swui-picker-segment-label") {
+      rule(cls("swui-picker-segmented").descendant(cls("swui-picker-segment-label"))) {
         .minHeight("calc(var(--swui-control-regular-height) - 6px)")
           .padding(.px(6), .px(14))
           .borderRadius("calc(var(--swui-button-radius) - 2px)")
@@ -1180,17 +1169,20 @@ enum ThemeStylesheet {
           .whiteSpace("nowrap")
           .transition("background var(--swui-animation, var(--swui-motion-quick)), color var(--swui-animation, var(--swui-motion-quick))")
       }
-      rule(".swui-picker-segmented .swui-picker-segment-input:checked ~ .swui-picker-segment-label")
-      {
+      rule(
+        cls("swui-picker-segmented")
+          .descendant(cls("swui-picker-segment-input").pseudo(.checked))
+          .generalSibling(cls("swui-picker-segment-label"))
+      ) {
         .background("var(--swui-accent)")
           .color("var(--swui-accent-text)")
       }
-      rule(".swui-picker-inline .swui-picker-segment-label") {
+      rule(cls("swui-picker-inline").descendant(cls("swui-picker-segment-label"))) {
         .justifyContent("flex-start")
           .gap(.space(.small))
           .padding(.space(.xsmall), .zero)
       }
-      rule(".swui-picker-inline .swui-picker-segment-label::before") {
+      rule(cls("swui-picker-inline").descendant(cls("swui-picker-segment-label").pseudoElement(.before))) {
         .content("\"\"")
           .width("18px")
           .height("18px")
@@ -1200,13 +1192,15 @@ enum ThemeStylesheet {
           .flex("0 0 auto")
       }
       rule(
-        ".swui-picker-inline .swui-picker-segment-input:checked ~ .swui-picker-segment-label::before"
+        cls("swui-picker-inline")
+          .descendant(cls("swui-picker-segment-input").pseudo(.checked))
+          .generalSibling(cls("swui-picker-segment-label").pseudoElement(.before))
       ) {
         .borderColor("var(--swui-accent)")
           .background(
             "radial-gradient(circle at center, var(--swui-accent) 0 5px, transparent 6px)")
       }
-      rule(".swui-picker-segment-input:focus-visible ~ .swui-picker-segment-label") {
+      rule(cls("swui-picker-segment-input").pseudo(.focusVisible).generalSibling(cls("swui-picker-segment-label"))) {
         .outline("2px solid var(--swui-accent)")
           .outlineOffset("2px")
       }
@@ -1215,11 +1209,11 @@ enum ThemeStylesheet {
       // `<details>` anchors a floating panel under an interactive-glass
       // summary. The native disclosure triangle is hidden; the panel
       // composes `regularMaterial` plus the container elevation shadow.
-      rule(".swui-menu") {
+      rule(cls("swui-menu")) {
         .position("relative")
           .display("inline-block")
       }
-      rule(".swui-menu-label") {
+      rule(cls("swui-menu-label")) {
         .display("inline-flex")
           .alignItems("center")
           .gap(.space(.xsmall))
@@ -1230,10 +1224,10 @@ enum ThemeStylesheet {
           .listStyle("none")
           .color("var(--swui-text)")
       }
-      rule(".swui-menu-label::-webkit-details-marker") {
+      rule(cls("swui-menu-label").pseudoElement(.webkitDetailsMarker)) {
         .display("none")
       }
-      rule(".swui-menu-content") {
+      rule(cls("swui-menu-content")) {
         .position("absolute")
           .top(.menuOffset(.xsmall))
           .insetInlineStart("0")
@@ -1255,23 +1249,23 @@ enum ThemeStylesheet {
       // (order 1, full width). The active panel is revealed purely in CSS
       // via `:has(.swui-tab-input:checked)`, with no client runtime; the
       // adjacency stays scoped to one unit, so no panel leaks across tabs.
-      rule(".swui-tabview") {
+      rule(cls("swui-tabview")) {
         .display("flex")
           .flexWrap("wrap")
           .alignItems("center")
           .gap(.space(.xsmall))
       }
-      rule(".swui-tab") {
+      rule(cls("swui-tab")) {
         .display("contents")
       }
-      rule(".swui-tab-input") {
+      rule(cls("swui-tab-input")) {
         .position("absolute")
           .opacity("0")
           .pointerEvents("none")
           .width("0")
           .height("0")
       }
-      rule(".swui-tab-item") {
+      rule(cls("swui-tab-item")) {
         .order("0")
           .display("inline-flex")
           .alignItems("center")
@@ -1283,22 +1277,22 @@ enum ThemeStylesheet {
           .color("var(--swui-text)")
           .transition("background var(--swui-animation, var(--swui-motion-quick)), color var(--swui-animation, var(--swui-motion-quick))")
       }
-      rule(".swui-tab-item:has(.swui-tab-input:checked)") {
+      rule(cls("swui-tab-item").has(cls("swui-tab-input").pseudo(.checked))) {
         .background("var(--swui-accent)")
           .color("var(--swui-accent-text)")
       }
-      rule(".swui-tab-item:has(.swui-tab-input:focus-visible)") {
+      rule(cls("swui-tab-item").has(cls("swui-tab-input").pseudo(.focusVisible))) {
         .outline("2px solid var(--swui-accent)")
           .outlineOffset("2px")
       }
-      rule(".swui-tab-panel") {
+      rule(cls("swui-tab-panel")) {
         .order("1")
           .flexBasis("100%")
           .width("100%")
           .display("none")
           .paddingBlockStart(.space(.small))
       }
-      rule(".swui-tab-item:has(.swui-tab-input:checked) + .swui-tab-panel") {
+      rule(cls("swui-tab-item").has(cls("swui-tab-input").pseudo(.checked)).adjacentSibling(cls("swui-tab-panel"))) {
         .display("block")
       }
 
@@ -1306,15 +1300,15 @@ enum ThemeStylesheet {
       // The search field stacks above the searchable content. It composes
       // the shared thin material for its fill and backdrop blur; the rule
       // keeps its border, radius, padding, and text color.
-      rule(".swui-searchable") {
+      rule(cls("swui-searchable")) {
         .display("flex")
           .flexDirection("column")
           .gap(.space(.small))
       }
-      rule(".swui-search-bar") {
+      rule(cls("swui-search-bar")) {
         .display("flex")
       }
-      rule(".swui-search-field") {
+      rule(cls("swui-search-field")) {
         .custom("--swui-material-tint", "var(--swui-field-background)")
           .width("100%")
           .boxSizing("border-box")
@@ -1325,27 +1319,27 @@ enum ThemeStylesheet {
           .color("var(--swui-text)")
           .font("inherit")
       }
-      rule(".swui-search-suggestion-host, .swui-search-scoped") {
+      rule(list(cls("swui-search-suggestion-host"), cls("swui-search-scoped"))) {
         .display("flex")
           .flexDirection("column")
           .gap(.space(.small))
       }
-      rule(".swui-search-suggestions") {
+      rule(cls("swui-search-suggestions")) {
         .display("flex")
           .flexDirection("column")
           .gap(.space(.xsmall))
       }
-      rule(".swui-search-tokenized") {
+      rule(cls("swui-search-tokenized")) {
         .display("flex")
           .flexDirection("column")
           .gap(.space(.small))
       }
-      rule(".swui-search-tokens") {
+      rule(cls("swui-search-tokens")) {
         .display("flex")
           .gap(.space(.xsmall))
           .flexWrap("wrap")
       }
-      rule(".swui-search-token") {
+      rule(cls("swui-search-token")) {
         .display("inline-flex")
           .alignItems("center")
           .gap(.space(.xsmall))
@@ -1358,12 +1352,12 @@ enum ThemeStylesheet {
           .lineHeight("1")
           .cursor("pointer")
       }
-      rule(".swui-search-scopes") {
+      rule(cls("swui-search-scopes")) {
         .display("flex")
           .gap(.space(.xsmall))
           .flexWrap("wrap")
       }
-      rule(".swui-search-scope") {
+      rule(cls("swui-search-scope")) {
         .display("inline-flex")
           .alignItems("center")
           .gap(.space(.xsmall))
@@ -1373,7 +1367,7 @@ enum ThemeStylesheet {
       // rule keeps the border, radius, drop shadow, sizing, and modal layout.
       // A `<dialog>` without `open` is `display: none` by UA default, so the
       // overlay costs no layout while hidden.
-      rule(".swui-presentation") {
+      rule(cls("swui-presentation")) {
         .margin("auto")
           .padding(.zero)
           .boxSizing("border-box")
@@ -1387,7 +1381,7 @@ enum ThemeStylesheet {
       // Pin the open overlay to the viewport center. This holds for the
       // true top-layer modal (runtime `showModal()`) and for the in-flow
       // `<dialog open>` degradation when the client runtime is absent.
-      rule(".swui-presentation[open]") {
+      rule(cls("swui-presentation").attribute("open")) {
         .position("fixed")
           .top(.zero)
           .right("0")
@@ -1397,29 +1391,29 @@ enum ThemeStylesheet {
       // The scrim only paints for a true modal (top layer). Without the
       // runtime the dialog is in-flow and the page behind stays visible —
       // an explicit, documented degradation, not a silent fallback.
-      rule(".swui-presentation::backdrop") {
+      rule(cls("swui-presentation").pseudoElement(.backdrop)) {
         .background("color-mix(in srgb, var(--swui-text) 32%, transparent)")
           .custom("-webkit-backdrop-filter", "blur(2px)")
           .backdropFilter("blur(2px)")
       }
-      rule(".swui-presentation-surface") {
+      rule(cls("swui-presentation-surface")) {
         .display("flex")
           .flexDirection("column")
           .gap(.space(.medium))
           .padding(.space(.large))
           .boxSizing("border-box")
       }
-      rule(".swui-presentation-title") {
+      rule(cls("swui-presentation-title")) {
         .margin("0")
           .fontSize("var(--swui-heading-subsection-size)")
           .lineHeight("1.25")
           .color("var(--swui-text)")
       }
-      rule(".swui-presentation-message") {
+      rule(cls("swui-presentation-message")) {
         .margin("0")
           .color("var(--swui-text-muted)")
       }
-      rule(".swui-presentation-actions") {
+      rule(cls("swui-presentation-actions")) {
         .display("flex")
           .flexWrap("wrap")
           .gap(.space(.small))
@@ -1427,68 +1421,61 @@ enum ThemeStylesheet {
       }
       // Action sheets stack their choices full width, matching the native
       // confirmation dialog layout.
-      rule(".swui-presentation-confirmation .swui-presentation-actions") {
+      rule(cls("swui-presentation-confirmation").descendant(cls("swui-presentation-actions"))) {
         .flexDirection("column")
           .alignItems("stretch")
       }
       // The sheet anchors to the bottom edge and squares its lower corners.
-      rule(".swui-presentation-sheet") {
+      rule(cls("swui-presentation-sheet")) {
         .margin("auto auto 0 auto")
           .maxWidth("min(96vw, 40rem)")
           .borderBottomLeftRadius("0")
           .borderBottomRightRadius("0")
       }
-      rule(".swui-presentation-sheet[open]") {
+      rule(cls("swui-presentation-sheet").attribute("open")) {
         .top(.auto)
       }
       // The popover reads as a compact panel. True source anchoring needs the
       // CSS anchor positioning API; until then it presents centered.
-      rule(".swui-presentation-popover") {
+      rule(cls("swui-presentation-popover")) {
         .maxWidth("min(92vw, 20rem)")
       }
-      rule(".swui-grid-row > *") {
+      rule(cls("swui-grid-row").child(.universal)) {
         .textAlign("var(--swui-grid-cell-horizontal-alignment)")
       }
       // Native form controls inherit the page font.
-      rule(
-        """
-        input,
-        button,
-        select,
-        textarea
-        """
-      ) {
+      rule(list(el(.input), el(.button), el(.select), el(.textarea))) {
         .fontFamily("inherit")
       }
       // Button size variants use native-like compact dimensions, which are
       // tighter than the generic `swui-control-*` sizing; they are
       // component-specific values that live in the stylesheet rather than the
       // component body.
-      rule(".swui-button.swui-control-mini") {
+      rule(cls("swui-button").compound(cls("swui-control-mini"))) {
         .minHeight("0")
           .padding(.px(4), .px(9))
           .borderRadius("var(--swui-radius-small)")
           .fontSize("11px")
       }
-      rule(".swui-button.swui-control-small") {
+      rule(cls("swui-button").compound(cls("swui-control-small"))) {
         .minHeight("0")
           .padding(.px(5), .px(11))
           .fontSize("12px")
       }
-      rule(".swui-button.swui-control-regular") {
+      rule(cls("swui-button").compound(cls("swui-control-regular"))) {
         .minHeight("0")
           .padding(.px(7), .px(14))
           .fontSize("14px")
       }
-      rule(".swui-button.swui-control-large") {
+      rule(cls("swui-button").compound(cls("swui-control-large"))) {
         .minHeight("0")
           .padding(.px(10), .px(20))
           .fontSize("16px")
       }
-      rule(".swui-list-row:last-child") {
+      rule(cls("swui-list-row").pseudo(.lastChild)) {
         .borderBottom("0")
       }
-      rule(".swui-section-header") {
+      rule(cls("swui-section-header")) {
         .margin("0")
           .padding(.px(10), .px(14), .px(6), .px(14))
           .background("color-mix(in srgb, var(--swui-text-muted) 7%, transparent)")
@@ -1498,15 +1485,10 @@ enum ThemeStylesheet {
           .letterSpacing("0.05em")
           .textTransform("uppercase")
       }
-      rule(
-        """
-        .swui-text-field:focus,
-        .swui-text-editor:focus
-        """
-      ) {
+      rule(list(cls("swui-text-field").pseudo(.focus), cls("swui-text-editor").pseudo(.focus))) {
         .borderColor("var(--swui-accent)")
       }
-      rule(".swui-stepper") {
+      rule(cls("swui-stepper")) {
         .display("inline-flex")
           .alignItems("center")
           .width("fit-content")
@@ -1520,7 +1502,7 @@ enum ThemeStylesheet {
           .color("var(--swui-text)")
           .boxSizing("border-box")
       }
-      rule(".swui-stepper-button") {
+      rule(cls("swui-stepper-button")) {
         .display("inline-flex")
           .alignItems("center")
           .justifyContent("center")
@@ -1537,12 +1519,10 @@ enum ThemeStylesheet {
           .lineHeight("1")
           .cursor("pointer")
       }
-      rule(
-        """
-        .swui-stepper-value,
-        .swui-stepper .val
-        """
-      ) {
+      rule(list(
+        cls("swui-stepper-value"),
+        cls("swui-stepper").descendant(cls("val"))
+      )) {
         .display("flex")
           .alignItems("center")
           .justifyContent("center")
@@ -1558,11 +1538,81 @@ enum ThemeStylesheet {
   }
   // MARK: Liquid Glass material primitive
 
+  private static var utilityStylesheet: Stylesheet {
+    Stylesheet {
+      paddingUtilityRules
+      for utility in StyleSystemUtility.defaults {
+        rule(utility.className, utility.style)
+      }
+      rule(.swuiGapStack) {
+        .gap("var(--swui-stack-spacing)")
+      }
+      rule(.swuiGapNone) {
+        .gap("0")
+      }
+      rule(.swuiGapExtraSmall) {
+        .gap(.space(.xsmall))
+      }
+      rule(.swuiGapSmall) {
+        .gap(.space(.small))
+      }
+      rule(.swuiGapMedium) {
+        .gap(.space(.medium))
+      }
+      rule(.swuiGapLarge) {
+        .gap(.space(.large))
+      }
+      rule(.swuiGapExtraLarge) {
+        .gap(.space(.xlarge))
+      }
+      rule(.swuiAlignItemsLeading) {
+        .alignItems("flex-start")
+      }
+      rule(.swuiAlignItemsTop) {
+        .alignItems("flex-start")
+      }
+      rule(.swuiAlignItemsCenter) {
+        .alignItems("center")
+      }
+      rule(.swuiAlignItemsTrailing) {
+        .alignItems("flex-end")
+      }
+      rule(.swuiAlignItemsBottom) {
+        .alignItems("flex-end")
+      }
+      rule(.swuiAlignItemsStretch) {
+        .alignItems("stretch")
+      }
+      rule(.swuiJustifyItemsLeading) {
+        .justifyItems("flex-start")
+      }
+      rule(.swuiJustifyItemsCenter) {
+        .justifyItems("center")
+      }
+      rule(.swuiJustifyItemsTrailing) {
+        .justifyItems("flex-end")
+      }
+      rule(.swuiJustifyItemsStretch) {
+        .justifyItems("stretch")
+      }
+    }
+  }
+
   /// The single Liquid Glass recipe every chrome surface composes. A surface
   /// adds `.swui-material`/`.swui-glass` plus one level modifier; the level
   /// only scales the fill opacity, while blur, saturation, rim, and refraction
   /// come from the active design style's tokens. Solid styles set those tokens
   /// to no-op values, so the same markup reads as a plain surface.
+  private static var paddingUtilityRules: Stylesheet {
+    Stylesheet {
+      for space in Space.allCases {
+        for axis in PaddingClassAxis.allCases {
+          rule(space.paddingClassName(axis), axis.style(value: space.rawValue))
+        }
+      }
+    }
+  }
+
   private static var materialStylesheet: Stylesheet {
     Stylesheet {
       // Base fill + backdrop. `isolation: isolate` establishes a stacking
@@ -1571,12 +1621,7 @@ enum ThemeStylesheet {
       // into the backdrop brightness and defaults to 1.
       // Shared base: a translucent fill and its own stacking context. The glass
       // blur is a fraction of the material blur so refraction can show through.
-      rule(
-        """
-        .swui-material,
-        .swui-glass
-        """
-      ) {
+      rule(list(cls("swui-material"), cls("swui-glass"))) {
         .position("relative")
           .isolation("isolate")
           .custom("--swui-material-level-opacity", "var(--swui-material-opacity)")
@@ -1588,7 +1633,7 @@ enum ThemeStylesheet {
       // Material is frosted vibrancy: a wide Gaussian blur that *scatters* and
       // obscures the backdrop (SwiftUI `.regularMaterial` etc.). No refraction,
       // no specular — a flat translucent layer for backgrounds.
-      rule(".swui-material") {
+      rule(cls("swui-material")) {
         .backdropFilter(
           "blur(var(--swui-material-blur)) saturate(var(--swui-material-saturate)) brightness(calc(var(--swui-material-brightness) * var(--swui-material-interactive, 1)))"
         )
@@ -1603,7 +1648,7 @@ enum ThemeStylesheet {
       // backdrop at the rim and adds the specular highlight (SwiftUI `Glass` /
       // `glassEffect`). The only chrome is a soft drop shadow that floats the
       // control off the backdrop (liquid-dom's default optical model).
-      rule(".swui-glass") {
+      rule(cls("swui-glass")) {
         .background(
           "color-mix(in srgb, var(--swui-material-tint) calc(var(--swui-material-level-opacity) * 16%), transparent)"
         )
@@ -1618,49 +1663,49 @@ enum ThemeStylesheet {
       }
       // Level modifiers scale the regular-level opacity by ±N steps. Solid
       // styles use a zero step, collapsing every level onto one fill.
-      rule(".swui-material-ultra-thin") {
+      rule(cls("swui-material-ultra-thin")) {
         .custom(
           "--swui-material-level-opacity",
           "calc(var(--swui-material-opacity) - 2 * var(--swui-material-opacity-step))")
       }
-      rule(".swui-material-thin") {
+      rule(cls("swui-material-thin")) {
         .custom(
           "--swui-material-level-opacity",
           "calc(var(--swui-material-opacity) - 1 * var(--swui-material-opacity-step))")
       }
-      rule(".swui-material-regular") {
+      rule(cls("swui-material-regular")) {
         .custom("--swui-material-level-opacity", "var(--swui-material-opacity)")
       }
-      rule(".swui-material-thick") {
+      rule(cls("swui-material-thick")) {
         .custom(
           "--swui-material-level-opacity",
           "calc(var(--swui-material-opacity) + 1 * var(--swui-material-opacity-step))")
       }
-      rule(".swui-material-ultra-thick") {
+      rule(cls("swui-material-ultra-thick")) {
         .custom(
           "--swui-material-level-opacity",
           "calc(var(--swui-material-opacity) + 2 * var(--swui-material-opacity-step))")
       }
       // The bar material (toolbars/tab bars) sits one step more frosted
       // than regular so chrome reads as a distinct layer over content.
-      rule(".swui-material-bar") {
+      rule(cls("swui-material-bar")) {
         .custom(
           "--swui-material-level-opacity",
           "calc(var(--swui-material-opacity) + 1 * var(--swui-material-opacity-step))")
       }
       // Interactive glass: pointer hover/press scales the backdrop
       // brightness through the multiplier the base recipe folds in.
-      rule(".swui-glass-interactive") {
+      rule(cls("swui-glass-interactive")) {
         .cursor("pointer")
       }
-      rule(".swui-glass-interactive:hover") {
+      rule(cls("swui-glass-interactive").pseudo(.hover)) {
         .custom("--swui-material-interactive", "1.12")
       }
-      rule(".swui-glass-interactive:active") {
+      rule(cls("swui-glass-interactive").pseudo(.active)) {
         .custom("--swui-material-interactive", "0.94")
       }
       // Shared compositing context for grouped glass surfaces.
-      rule(".swui-glass-container") {
+      rule(cls("swui-glass-container")) {
         .display("flex")
           .isolation("isolate")
       }
@@ -1674,19 +1719,25 @@ enum ThemeStylesheet {
     Stylesheet {
       // Opaque material fallback where translucency is unavailable or unwanted:
       // both paths drop to the solid fill and hide the overlay.
-      supports("not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)))") {
-        rule(".swui-material,\n.swui-glass") {
+      supports(.not(.backdropFilterBlurAvailable())) {
+        rule(list(cls("swui-material"), cls("swui-glass"))) {
           .background("var(--swui-material-solid-fill)")
         }
-        rule(".swui-material::before,\n.swui-glass::before") {
+        rule(list(
+          cls("swui-material").pseudoElement(.before),
+          cls("swui-glass").pseudoElement(.before)
+        )) {
           .display("none")
         }
       }
-      media("(prefers-reduced-transparency: reduce)") {
-        rule(".swui-material,\n.swui-glass") {
+      media(.prefersReducedTransparency(.reduce)) {
+        rule(list(cls("swui-material"), cls("swui-glass"))) {
           .background("var(--swui-material-solid-fill)")
         }
-        rule(".swui-material::before,\n.swui-glass::before") {
+        rule(list(
+          cls("swui-material").pseudoElement(.before),
+          cls("swui-glass").pseudoElement(.before)
+        )) {
           .display("none")
         }
       }
@@ -1706,23 +1757,27 @@ enum ThemeStylesheet {
             .transform("none")
         }
       }
-      media("(prefers-reduced-motion: no-preference)") {
-        rule(".swui-presentation[open] .swui-presentation-surface") {
+      media(.prefersReducedMotion(.noPreference)) {
+        rule(cls("swui-presentation").attribute("open").descendant(cls("swui-presentation-surface"))) {
           .animation("swui-present var(--swui-motion-standard) both")
         }
       }
       // Insertion "from" state for `.transition(_:)`: the freshly-inserted element
       // starts at its enter opacity/transform, then animates to the normal state.
       startingStyle {
-        rule(".swui-transition") {
+        rule(cls("swui-transition")) {
           .opacity("var(--swui-enter-opacity, 1)")
             .transform("var(--swui-enter-transform, none)")
         }
       }
       // Honor reduced-motion globally: collapse all transitions/animations to a
       // near-instant duration (the new `--swui-animation` path included).
-      media("(prefers-reduced-motion: reduce)") {
-        rule("*, *::before, *::after") {
+      media(.prefersReducedMotion(.reduce)) {
+        rule(list(
+          .universal,
+          StyleSelector.universal.pseudoElement(.before),
+          StyleSelector.universal.pseudoElement(.after)
+        )) {
           .animationDuration("0.01ms !important")
             .animationIterationCount("1 !important")
             .transitionDuration("0.01ms !important")

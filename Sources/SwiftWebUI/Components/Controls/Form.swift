@@ -38,7 +38,7 @@ public struct Form<Content: HTML>: WebUIAttributeComponent {
                 extra: formAttributes + attributes
             )
         ) {
-            content.environment(IsInsideFormEnvironmentKey.self, true)
+            content.environment(\.isInsideForm, true)
         }
     }
 

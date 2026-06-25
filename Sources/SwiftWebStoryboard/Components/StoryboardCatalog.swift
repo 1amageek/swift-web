@@ -9,10 +9,10 @@ import SwiftWebUIRuntime
 
 /// The full component catalog as a single client component. The current
 /// selection is route-owned; this component owns the interactive demo state and
-/// the top-bar controls that retheme the page by re-applying the environment.
+/// the top-bar controls that switch the page color scheme.
 public struct StoryboardCatalog: ClientComponent, Sendable {
     private let selection: String
-    @State private var theme = Theme.light
+    @State private var colorScheme: ColorScheme = .light
     @State private var name = "Ada Lovelace"
     @State private var email = "ada@example.com"
     @State private var secret = "hunter2"
@@ -58,7 +58,7 @@ public struct StoryboardCatalog: ClientComponent, Sendable {
 
     public var body: some HTML {
         VStack(spacing: Space.none) {
-            CatalogTopBar(theme: $theme)
+            CatalogTopBar(colorScheme: $colorScheme)
             Divider()
             HStack(alignment: .top, spacing: Space.none) {
                 CatalogSidebar(selection: selection)
@@ -94,7 +94,7 @@ public struct StoryboardCatalog: ClientComponent, Sendable {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .environment(ThemeEnvironmentKey.self, theme)
+        .preferredColorScheme(colorScheme)
     }
 }
 
