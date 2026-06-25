@@ -37,8 +37,8 @@ struct CatalogDetail: Component {
                     detailHeader(item: item, spec: spec)
                     previewSection()
                     codeSection(anchor: "usage", title: "Usage", text: catalogSnippet(for: item.id, state: ui.wrappedValue), language: "swift", showsLineNumbers: true)
-                    if showsRenderedHTML {
-                        renderedHTMLSection()
+                    if showsDOMContract {
+                        domContractSection()
                     }
                     propertiesSection(spec.properties)
                     relatedSection(item: item)
@@ -53,9 +53,7 @@ struct CatalogDetail: Component {
         .accessibilityRole("main")
     }
 
-    private var showsRenderedHTML: Bool {
-        // The DOM is generated from the demo, so it is accurate for every
-        // component and always shown.
+    private var showsDOMContract: Bool {
         true
     }
 
@@ -157,21 +155,21 @@ struct CatalogDetail: Component {
     }
 
     @HTMLBuilder
-    private func renderedHTMLSection() -> some HTML {
+    private func domContractSection() -> some HTML {
         VStack(alignment: .leading, spacing: .small) {
-            sectionTitle("Rendered HTML", anchor: "rendered-html")
-            Text("The DOM SwiftWebUI emits for the preview above.")
+            sectionTitle("DOM Contract", anchor: "dom-contract")
+            Text("Stable semantic and utility classes emitted by the preview. Internal generated atom classes and runtime attributes are omitted.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-            Code(language: "html", showsLineNumbers: false) { renderedDemoHTML() }
+            Code(language: "html", showsLineNumbers: false) { domContractHTML() }
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
-    /// The DOM the live demo emits, generated from the demo itself so it can
-    /// never drift out of date (no hand-written copy). Runtime-only hydration
-    /// attributes are stripped for readability.
-    private func renderedDemoHTML() -> String {
+    /// The public DOM contract generated from the live demo. Runtime attributes
+    /// and generated atom classes are omitted so Storyboard exposes stable hooks,
+    /// not render-internal implementation details.
+    private func domContractHTML() -> String {
         let html: String
         if StyleRegistry.current != nil {
             html = detailDemo().render()
@@ -181,10 +179,7 @@ struct CatalogDetail: Component {
                 detailDemo().render()
             }
         }
-        var sanitizedHTML = html
-        sanitizedHTML = sanitizedHTML.replacingOccurrences(of: #"\s*data-node="[^"]*""#, with: "", options: .regularExpression)
-        sanitizedHTML = sanitizedHTML.replacingOccurrences(of: #"\s*data-event-[a-z]+="[^"]*""#, with: "", options: .regularExpression)
-        return sanitizedHTML
+        return storyboardDOMContractHTML(from: html)
     }
 
     @HTMLBuilder

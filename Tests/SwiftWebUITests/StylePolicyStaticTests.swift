@@ -21,6 +21,9 @@ struct StylePolicyStaticTests {
     ]
     let storyboardForbiddenPatterns = [
       #"\.custom\("#,
+      #"\.style\s*\("#,
+      #"\.style\s*\{"#,
+      #"\.webStyle\s*\("#,
     ]
 
     for file in try swiftFiles(in: scannedRoots) {

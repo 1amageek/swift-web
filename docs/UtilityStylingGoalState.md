@@ -125,7 +125,7 @@ allowlist for the final state.
 | Gate | Required check |
 |---|---|
 | Hover semantics | A `hover:*` utility emits a `:hover` selector and does not apply when the element is not hovered. |
-| Class-only DOM | Rendered HTML from representative pages and Storyboard entries contains no `style=`. |
+| Class-only DOM | Representative pages contain no `style=`, and Storyboard's DOM Contract panel shows only stable semantic/utility class hooks. |
 | Head-owned CSS | Base, component, utility, and atomic rules are emitted before styled content. |
 | Server/client parity | SSR and WASM reconcile compute the same class names for the same declarations. |
 | Injection safety | Semicolon, brace, comment, control-character, and selector-injection attempts are rejected. |

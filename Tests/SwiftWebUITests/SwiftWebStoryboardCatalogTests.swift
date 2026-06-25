@@ -74,7 +74,7 @@ struct SwiftWebStoryboardCatalogTests {
         #expect(rendered.contains("Text"))
         #expect(rendered.contains("Preview"))
         #expect(rendered.contains("Usage"))
-        #expect(rendered.contains("Rendered HTML"))
+        #expect(rendered.contains("DOM Contract"))
         #expect(rendered.contains("Properties"))
         #expect(rendered.contains("Related"))
         #expect(rendered.contains("Text(_:as:)"))
@@ -82,12 +82,22 @@ struct SwiftWebStoryboardCatalogTests {
     }
 
     @Test
-    func renderedHTMLPanelUsesClassOnlyMarkup() {
+    func domContractPanelUsesStableClassOnlyMarkup() {
         let rendered = StoryboardCatalog(initialSelection: "list").render()
         let htmlCode = codeBlock(language: "html", in: rendered) ?? ""
 
         #expect(htmlCode.contains("&lt;div class=\"swui-"))
         #expect(!htmlCode.contains("style=\""))
+        #expect(!htmlCode.contains("-x"))
+        #expect(!htmlCode.contains("data-node"))
+    }
+
+    @Test
+    func domContractSanitizerKeepsPublicUtilityClassesOnly() {
+        let html = #"<div class="swui-vstack swui-gap-sm swui-ai-center swui-w-237px-x12345678 swui-modifier" data-node="1" data-event-click="2"></div>"#
+        let contract = storyboardDOMContractHTML(from: html)
+
+        #expect(contract == #"<div class="swui-vstack swui-gap-sm swui-ai-center"></div>"#)
     }
 
     @Test
@@ -130,8 +140,7 @@ struct SwiftWebStoryboardCatalogTests {
 
     @Test
     func tableOfContentsAnchorsResolveToSectionIDs() {
-        // "list" shows the Rendered HTML section; "spacing" does not — both must
-        // keep every table-of-contents anchor pointing at a real section id.
+        // Every visible table-of-contents anchor must point at a real section id.
         for selection in ["list", "spacing"] {
             let rendered = StoryboardCatalog(initialSelection: selection).render()
             let anchors = tableOfContentsAnchors(in: rendered)

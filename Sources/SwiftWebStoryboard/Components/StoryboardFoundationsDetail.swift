@@ -48,22 +48,11 @@ struct FoundationsDetail: Component {
             // The chip is positioned within a bounded, dashed frame by the
             // selected alignment. The dashed frame uses typed style declarations:
             // SwiftWebUI's `.border(_:width:)` only produces a *solid* border, so
-            // the dashed style cannot be expressed through it — faking it with a
-            // solid border was the extra border the design rejected.
+            // the dashed style lives in the Storyboard stylesheet instead of being
+            // faked with a solid component border.
             let align = state.control("alignment", "align")
             VStack(spacing: .small) {
-                div(.style {
-                    .width("420px")
-                    .maxWidth("80vw")
-                    .height("120px")
-                    .boxSizing("border-box")
-                    .border("1.5px dashed var(--swui-border)")
-                    .borderRadius("10px")
-                    .display("flex")
-                    .alignItems("center")
-                    .justifyContent(alignmentJustify(align))
-                    .padding("0 14px")
-                }) {
+                div(.class("swui-storyboard-alignment-frame \(alignmentJustifyClass(align))")) {
                     Text("View")
                         .fontWeight(.semibold)
                         .foregroundStyle(.accentText)
@@ -156,42 +145,11 @@ struct FoundationsDetail: Component {
             // A soft gradient with faint typography behind, so the two effects are
             // evaluable side by side: Material frosts the backdrop away, while
             // Liquid Glass refracts and reveals the lettering bent at its edges.
-            div(.style {
-                .position("relative")
-                .width("100%")
-                .boxSizing("border-box")
-                .minHeight("300px")
-                .borderRadius("20px")
-                .overflow("hidden")
-                .display("flex")
-                .alignItems("center")
-                .padding("28px")
-                .backgroundImage("linear-gradient(135deg, #4338ca 0%, #7c3aed 48%, #db2777 100%)")
-            }) {
-                div(.style {
-                    .position("absolute")
-                    .top("0")
-                    .right("0")
-                    .bottom("0")
-                    .left("0")
-                    .display("flex")
-                    .alignItems("center")
-                    .justifyContent("center")
-                    .zIndex("0")
-                    .color("rgba(255,255,255,0.22)")
-                    .fontSize("96px")
-                    .fontWeight("800")
-                    .letterSpacing("-3px")
-                    .pointerEvents("none")
-                    .whiteSpace("nowrap")
-                }) {
+            div(.class("swui-storyboard-material-stage")) {
+                div(.class("swui-storyboard-material-word")) {
                     "SwiftWebUI"
                 }
-                div(.style {
-                    .position("relative")
-                    .zIndex("1")
-                    .width("100%")
-                }) {
+                div(.class("swui-storyboard-material-content")) {
                     HStack(spacing: .large) {
                         materialSample(state.control("materials", "level"))
                         glassSample()
@@ -367,12 +325,11 @@ struct FoundationsDetail: Component {
         }
     }
 
-    /// CSS `justify-content` for the alignment chip inside its bounded frame.
-    private func alignmentJustify(_ value: String) -> String {
+    private func alignmentJustifyClass(_ value: String) -> String {
         switch value {
-        case "leading": return "flex-start"
-        case "trailing": return "flex-end"
-        default: return "center"
+        case "leading": return "swui-storyboard-jc-leading"
+        case "trailing": return "swui-storyboard-jc-trailing"
+        default: return "swui-storyboard-jc-center"
         }
     }
 
@@ -420,35 +377,15 @@ struct FoundationsDetail: Component {
     }
 
     /// A device frame whose chrome insets (top/bottom) shrink the inner safe
-    /// area. The hatched chrome bands and dashed accent safe-area box use typed
-    /// declarations that are atomized during render.
+    /// area. The hatched chrome bands and dashed accent safe-area box are
+    /// storyboard stylesheet classes, not inline styles.
     private func deviceMock(_ device: String) -> some HTML {
         let top = safeAreaTop(device)
         let bottom = safeAreaBottom(device)
-        return div(.style {
-            .position("relative")
-            .width("188px")
-            .height("300px")
-            .border("6px solid var(--swui-text)")
-            .borderRadius("30px")
-            .overflow("hidden")
-            .background("var(--swui-surface-raised)")
-        }) {
+        return div(.class("swui-storyboard-device \(deviceClass(device))")) {
             chromeBand(edge: "top", height: top, notch: device == "notch")
             chromeBand(edge: "bottom", height: bottom, notch: false)
-            div(.style {
-                .position("absolute")
-                .top("\(Int(top))px")
-                .bottom("\(Int(bottom))px")
-                .left("8px")
-                .right("8px")
-                .border("1.5px dashed color-mix(in srgb, var(--swui-accent) 55%, transparent)")
-                .borderRadius("8px")
-                .background("color-mix(in srgb, var(--swui-accent) 9%, transparent)")
-                .display("flex")
-                .alignItems("center")
-                .justifyContent("center")
-            }) {
+            div(.class("swui-storyboard-safe-area")) {
                 Text("safe area")
                     .font(Font(size: .px(11)))
                     .fontWeight(.semibold)
@@ -462,38 +399,22 @@ struct FoundationsDetail: Component {
     @HTMLBuilder
     private func chromeBand(edge: String, height: Double, notch: Bool) -> some HTML {
         if height > 8 {
-            div(.style {
-                .position("absolute")
-                chromeBandEdgeStyle(edge)
-                .left("0")
-                .right("0")
-                .height("\(Int(height))px")
-                .background("repeating-linear-gradient(45deg, color-mix(in srgb, var(--swui-text-muted) 22%, transparent), color-mix(in srgb, var(--swui-text-muted) 22%, transparent) 4px, transparent 4px, transparent 8px)")
-            }) {
+            div(.class("swui-storyboard-chrome-band swui-storyboard-chrome-\(edge)")) {
                 if notch {
-                    div(.style {
-                        .width("96px")
-                        .height("18px")
-                        .background("#000")
-                        .borderRadius("0 0 12px 12px")
-                        .margin("0 auto")
-                    }) {}
+                    div(.class("swui-storyboard-notch")) {}
                 } else if edge == "bottom" {
-                    div(.style {
-                        .width("90px")
-                        .height("4px")
-                        .borderRadius("2px")
-                        .background("var(--swui-text-muted)")
-                        .margin("7px auto 0")
-                        .opacity("0.6")
-                    }) {}
+                    div(.class("swui-storyboard-home-indicator")) {}
                 }
             }
         }
     }
 
-    private func chromeBandEdgeStyle(_ edge: String) -> Style {
-        edge == "bottom" ? .bottom("0") : .top("0")
+    private func deviceClass(_ device: String) -> String {
+        switch device {
+        case "browser": return "swui-storyboard-device-browser"
+        case "none": return "swui-storyboard-device-none"
+        default: return "swui-storyboard-device-notch"
+        }
     }
 
     private func safeAreaTop(_ device: String) -> Double {

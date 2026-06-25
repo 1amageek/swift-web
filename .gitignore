@@ -23,6 +23,7 @@ xcuserdata/
 .swiftweb/
 .cache/
 /Packages/
+/SwiftWebUI Storyboard.html
 
 # IDE
 .vscode/

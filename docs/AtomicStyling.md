@@ -26,12 +26,13 @@ The atomic styling implementation is complete when **all** of the following hold
   `swui-fg-accent`) or generated atomic classes (`swui-w-237px-x<hash>`,
   `swui-o-0_6-x<hash>`, `swui-bg-x<hash>`)
   — and the rules live in `<head>` (`<style id="swui-base">` / `<style id="swui-atomic">`).
-- The storyboard **"Rendered HTML" panel shows clean, class-based markup** (the original trigger).
+- The storyboard **DOM Contract panel shows clean, stable class-based markup**; generated
+  atom/hash classes stay an internal transport detail.
 
 **Behaviour / parity**
 - The rendered result is **visually identical** to pre-migration — no design regression —
   spot-checked across components in the browser, light + dark.
-- Changing any control still updates **Preview + Usage + Rendered HTML** together; a new
+- Changing any control still updates **Preview + Usage + DOM Contract** together; a new
   arbitrary value flushes a new atomic rule on the client and **no inline `style` reappears**.
 - The SwiftUI-faithful modifier API (signatures + semantics) is **unchanged**.
 
@@ -268,7 +269,8 @@ also merges `swui-base` / `swui-atomic` from the parsed head.
   page/action/stream/client render paths must bind the registry so component markup stays
   class-only and CSS stays in the stylesheet channel.
 - Class-name collisions: namespaced + hashed; a collision with different rule bodies trips a precondition.
-- The "Rendered HTML" storyboard panel now shows clean class-based markup (the original ask);
-  the declarations live in `<style id="swui-atomic">` / the base sheet.
+- The Storyboard DOM Contract panel shows stable class hooks; generated atom classes remain
+  in the real transport DOM and live in `<style id="swui-atomic">`, but are not displayed as
+  the public component contract.
 - Raw/string `style` attributes inside a SwiftWeb render scope are rejected; low-level SwiftHTML
   can still render raw styles outside SwiftWeb policy.

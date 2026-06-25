@@ -55,14 +55,7 @@ struct StoryboardControlPanel: Component {
     var body: some HTML {
         let controls = storyboardControls(for: id)
         if !controls.isEmpty {
-            div(.style {
-                .borderTop("1px solid var(--swui-border)")
-                .display("flex")
-                .flexWrap("wrap")
-                .alignItems("center")
-                .gap("10px 18px")
-                .padding("12px 14px")
-            }) {
+            div(.class("swui-storyboard-control-panel")) {
                 ForEach(controls) { control in
                     controlRow(control)
                 }
@@ -115,16 +108,7 @@ struct StoryboardControlPanel: Component {
             .value(binding),
             .onInput { event in binding.wrappedValue = event.value ?? "#000000" },
             .type(.color),
-            .style {
-                .width("44px")
-                .height("28px")
-                .padding("2px")
-                .border("1px solid var(--swui-border)")
-                .borderRadius("8px")
-                .backgroundColor("var(--swui-surface)")
-                .cursor("pointer")
-                .boxSizing("border-box")
-            },
+            .class("swui-storyboard-color-input"),
         ], isVoid: true)
     }
 
@@ -137,17 +121,7 @@ struct StoryboardControlPanel: Component {
             .onInput { event in binding.wrappedValue = event.value ?? "" },
             .placeholder(placeholder),
             .type(.text),
-            .style {
-                .width("168px")
-                .padding("6px 10px")
-                .border("1px solid var(--swui-border)")
-                .borderRadius("8px")
-                .fontSize("13px")
-                .backgroundColor("var(--swui-surface)")
-                .color("var(--swui-text)")
-                .outline("none")
-                .boxSizing("border-box")
-            },
+            .class("swui-storyboard-text-input"),
         ], isVoid: true)
     }
 
@@ -197,19 +171,19 @@ struct StoryboardControlPanel: Component {
         HStack(spacing: .xsmall) {
             ForEach(options, id: { swatch in swatch.value }) { swatch in
                 Button(action: { ui.wrappedValue[fullKey] = swatch.value }) {
-                    div(.style {
-                        .width("18px")
-                        .height("18px")
-                        .borderRadius("999px")
-                        .backgroundColor(swatch.css)
-                        .boxShadow(selected == swatch.value
-                            ? "0 0 0 2px var(--swui-surface), 0 0 0 4px var(--swui-accent)"
-                            : "inset 0 0 0 1px var(--swui-border)")
-                    }) {}
+                    div(.class(swatchClass(swatch, selected: selected == swatch.value))) {}
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(swatch.label)
             }
         }
+    }
+
+    private func swatchClass(_ swatch: StoryboardSwatch, selected: Bool) -> String {
+        [
+            "swui-storyboard-swatch",
+            selected ? "swui-storyboard-swatch-selected" : "swui-storyboard-swatch-unselected",
+            "swui-storyboard-swatch-\(swatch.value)",
+        ].joined(separator: " ")
     }
 }

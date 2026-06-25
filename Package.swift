@@ -188,6 +188,7 @@ let package = Package(
             dependencies: [
                 swiftHTMLDependency,
                 "SwiftWeb",
+                "SwiftWebStyle",
                 "SwiftWebUI",
                 "SwiftWebUIRuntime",
             ],

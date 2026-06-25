@@ -148,28 +148,16 @@ struct ContainersDetail: Component {
         // The minColumnWidth control drives the adaptive track size, so the photo
         // grid reflows its column count as the minimum changes — matching the
         // design's repeat(auto-fit, minmax(min, 1fr)).
-        let palette = ["#8fa9c4", "#c4a98f", "#8fc4a9", "#a98fc4", "#c48fa0", "#9fb98f", "#8fb6c4", "#c4b08f"]
         LazyVGrid(columns: [GridItem(.adaptive(minimum: minimum))], spacing: .small) {
-            ForEach(palette.indices, id: { index in index }) { index in
-                gridTile(palette[index])
+            ForEach(0..<8, id: { index in index }) { index in
+                gridTile(index)
             }
         }
         .frame(width: 340)
     }
 
-    private func gridTile(_ color: String) -> some HTML {
-        // A square photo placeholder. The 1:1 aspect ratio needs a typed style
-        // declaration, so the tile is emitted as a low-level element with the icon
-        // centered inside.
-        div(.style {
-            .aspectRatio("1")
-            .borderRadius("10px")
-            .background(color)
-            .display("flex")
-            .alignItems("center")
-            .justifyContent("center")
-            .color("rgba(255,255,255,0.92)")
-        }) {
+    private func gridTile(_ index: Int) -> some HTML {
+        div(.class("swui-storyboard-grid-tile swui-storyboard-grid-tile-\(index)")) {
             Image(systemName: "photo")
         }
     }

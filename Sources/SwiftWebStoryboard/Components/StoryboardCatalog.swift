@@ -57,44 +57,46 @@ public struct StoryboardCatalog: ClientComponent, Sendable {
     }
 
     public var body: some HTML {
-        VStack(spacing: Space.none) {
-            CatalogTopBar(colorScheme: $colorScheme)
-            Divider()
-            HStack(alignment: .top, spacing: Space.none) {
-                CatalogSidebar(selection: selection)
+        StoryboardStyleRoot {
+            VStack(spacing: Space.none) {
+                CatalogTopBar(colorScheme: $colorScheme)
                 Divider()
-                CatalogDetail(
-                    selection: selection,
-                    name: $name,
-                    email: $email,
-                    secret: $secret,
-                    notes: $notes,
-                    enabled: $enabled,
-                    volume: $volume,
-                    density: $density,
-                    due: $due,
-                    accent: $accent,
-                    pick: $pick,
-                    segment: $segment,
-                    scope: $scope,
-                    menuPick: $menuPick,
-                    tab: $tab,
-                    query: $query,
-                    showsAlert: $showsAlert,
-                    showsConfirmation: $showsConfirmation,
-                    showsSheet: $showsSheet,
-                    showsPopover: $showsPopover,
-                    advancedOptionsExpanded: $advancedOptionsExpanded,
-                    animateOn: $animateOn,
-                    ui: $ui
-                )
-                Divider()
-                CatalogInspector(selection: selection)
+                HStack(alignment: .top, spacing: Space.none) {
+                    CatalogSidebar(selection: selection)
+                    Divider()
+                    CatalogDetail(
+                        selection: selection,
+                        name: $name,
+                        email: $email,
+                        secret: $secret,
+                        notes: $notes,
+                        enabled: $enabled,
+                        volume: $volume,
+                        density: $density,
+                        due: $due,
+                        accent: $accent,
+                        pick: $pick,
+                        segment: $segment,
+                        scope: $scope,
+                        menuPick: $menuPick,
+                        tab: $tab,
+                        query: $query,
+                        showsAlert: $showsAlert,
+                        showsConfirmation: $showsConfirmation,
+                        showsSheet: $showsSheet,
+                        showsPopover: $showsPopover,
+                        advancedOptionsExpanded: $advancedOptionsExpanded,
+                        animateOn: $animateOn,
+                        ui: $ui
+                    )
+                    Divider()
+                    CatalogInspector(selection: selection)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .preferredColorScheme(colorScheme)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .preferredColorScheme(colorScheme)
     }
 }
 

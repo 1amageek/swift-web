@@ -24,8 +24,8 @@ Every component page has the identical structure. Only the *data* differs.
 │          │     │ Control panel (per-component)   │   │ (anchors to  │
 │          │     └────────────────────────────────┘   │  each ②–⑥)  │
 │          │  ③ Usage      — code snippet             │              │
-│          │  ④ Properties — param/modifier table     │              │
-│          │  ⑤ Rendered HTML — the real DOM emitted   │              │
+│          │  ④ DOM Contract — stable class hooks      │              │
+│          │  ⑤ Properties — param/modifier table      │              │
 │          │  ⑥ Related    — sibling component links   │              │
 └──────────┴─────────────────────────────────────────┴──────────────┘
 ```
@@ -35,8 +35,8 @@ Every component page has the identical structure. Only the *data* differs.
 | ① | Header | breadcrumb (Category / Name), H1, one-line summary | static data |
 | ② | Preview | dot-grid canvas with the **live, centered demo** + the **control panel** | `demo(state)` + `controls` |
 | ③ | Usage | a **canonical usage example** for the component (stable documentation) | static data |
-| ④ | Properties | table: name · type · description | static data |
-| ⑤ | Rendered HTML | the actual DOM the demo emits — **generated from the demo** (never hand-written) | `render(demo(state))` |
+| ④ | DOM Contract | stable semantic and utility classes emitted by the demo; internal atom classes/runtime attributes omitted | `contract(render(demo(state)))` |
+| ⑤ | Properties | table: name · type · description | static data |
 | ⑥ | Related | up to 3 sibling components in the same category | static data |
 
 ## 2. Unified component model
@@ -58,8 +58,9 @@ StoryboardComponent {
 ```
 
 `State` is the component's own values (the things its controls mutate). The
-**demo is the single source of truth**: the Rendered HTML (⑤) is *generated from
-the demo*, so it can never drift. The snippet (③) is stable documentation, not a
+**demo is the single source of truth**: the DOM Contract (④) is *generated from
+the demo*, then normalized to public class hooks so it can never drift while
+avoiding internal atom/hash noise. The snippet (③) is stable documentation, not a
 regenerated mirror of the demo — that keeps it from becoming a second thing to
 sync. The shared template renders ①–⑥ identically for all.
 
@@ -173,9 +174,9 @@ knobs. (Derived from the design.) `seg` = segmented, `txt` = text,
   template; a component contributes only data + the `demo`/`snippet` closures.
   No component writes its own page layout.
 - **Generate, don't duplicate.** Anything that mirrors derived output is stale by
-  construction. The Rendered HTML is **generated from the demo** (the hand-written
-  stub is removed), and the snippet is **documentation** — not a generator that
-  re-mirrors the demo. Nothing derived has to be kept in sync by hand.
+  construction. The DOM Contract is **generated from the demo** and then filtered
+  down to stable public class hooks; the snippet is **documentation** — not a
+  generator that re-mirrors the demo. Nothing derived has to be kept in sync by hand.
 - **Fixed widget set.** Every control is one of the six widgets, so all panels
   look and behave the same regardless of component.
 - **The panel is always present** when a component declares controls — which,

@@ -166,8 +166,7 @@ struct CatalogSidebarRow: Component {
 struct CatalogInspector: Component {
     let selection: String
 
-    private var showsRenderedHTML: Bool {
-        // The Rendered HTML is generated from the demo and shown for every page.
+    private var showsDOMContract: Bool {
         true
     }
 
@@ -183,8 +182,8 @@ struct CatalogInspector: Component {
                 VStack(alignment: .leading, spacing: .small) {
                     inspectorLink("Preview", anchor: "preview", selected: true)
                     inspectorLink("Usage", anchor: "usage")
-                    if showsRenderedHTML {
-                        inspectorLink("Rendered HTML", anchor: "rendered-html")
+                    if showsDOMContract {
+                        inspectorLink("DOM Contract", anchor: "dom-contract")
                     }
                     inspectorLink("Properties", anchor: "properties")
                     inspectorLink("Related", anchor: "related")
