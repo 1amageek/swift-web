@@ -25,7 +25,7 @@ public struct Code: WebUIAttributeComponent {
     public var body: some HTML {
         Element("pre", attributes: mergedAttributes(class: "swui-code-block", extra: codeBlockAttributes)) {
             Element("code", attributes: codeAttributes) {
-                ForEach(lines, id: \.number) { line in
+                ForEach(lines, id: { line in line.number }) { line in
                     span(.class(lineClass), .data("line", String(line.number))) {
                         if showsLineNumbers {
                             span(.class("swui-code-line-number"), .aria("hidden", "true")) {

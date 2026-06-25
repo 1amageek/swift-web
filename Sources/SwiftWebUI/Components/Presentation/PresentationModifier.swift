@@ -19,15 +19,15 @@ import SwiftHTML
 public struct PresentationModifier<PresentedContent: HTML>: ComponentModifier {
     private let kind: PresentationKind
     private let isPresented: Binding<Bool>
-    private let onDismiss: (() -> Void)?
+    private let onDismiss: (@Sendable () -> Void)?
     private let presentedContent: PresentedContent
 
-    @Environment(\.interactiveDismissDisabled) private var interactiveDismissDisabled
+    @Environment(\.interactiveDismissDisabled) private var interactiveDismissDisabled: Bool
 
     init(
         kind: PresentationKind,
         isPresented: Binding<Bool>,
-        onDismiss: (() -> Void)? = nil,
+        onDismiss: (@Sendable () -> Void)? = nil,
         @HTMLBuilder presentedContent: () -> PresentedContent
     ) {
         self.kind = kind
@@ -168,7 +168,7 @@ public extension HTML {
     /// `sheet(isPresented:onDismiss:content:)`.
     func sheet<Content: HTML>(
         isPresented: Binding<Bool>,
-        onDismiss: (() -> Void)? = nil,
+        onDismiss: (@Sendable () -> Void)? = nil,
         @HTMLBuilder content: () -> Content
     ) -> some HTML {
         let content = content()

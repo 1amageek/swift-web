@@ -16,8 +16,8 @@ public struct DatePicker<Label: HTML>: WebUIAttributeComponent {
     private let selection: Binding<Date>
     private let displayedComponents: DatePickerComponents
     private let attributes: [HTMLAttribute]
-    @Environment(\.controlSize) private var controlSize
-    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.controlSize) private var controlSize: ControlSize
+    @Environment(\.isEnabled) private var isEnabled: Bool
 
     public init(
         selection: Binding<Date>,

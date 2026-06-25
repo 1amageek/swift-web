@@ -28,8 +28,8 @@ struct SwiftWebUIRenderingTests {
         }
       }
     }
-    .environment(\.theme, .system)
-    .environment(\.styleSystem, .swiftWeb)
+    .environment(ThemeEnvironmentKey.self, .system)
+    .environment(StyleSystemEnvironmentKey.self, .swiftWeb)
     .render()
 
     #expect(rendered.contains("[data-theme=\"system\"]"))
@@ -73,8 +73,8 @@ struct SwiftWebUIRenderingTests {
     let rendered = GroupBox {
       Button("Save") {}
     }
-    .environment(\.theme, .dark)
-    .environment(\.styleSystem, style)
+    .environment(ThemeEnvironmentKey.self, .dark)
+    .environment(StyleSystemEnvironmentKey.self, style)
     .render()
 
     #expect(rendered.contains("data-theme=\"dark\""))
@@ -95,8 +95,8 @@ struct SwiftWebUIRenderingTests {
       Badge("Preview")
       Text("7", as: .strong)
     }
-    .environment(\.theme, .system)
-    .environment(\.styleSystem, .liquidGlass)
+    .environment(ThemeEnvironmentKey.self, .system)
+    .environment(StyleSystemEnvironmentKey.self, .liquidGlass)
     .render()
 
     #expect(rendered.contains("data-style-system=\"liquid-glass\""))
@@ -120,8 +120,8 @@ struct SwiftWebUIRenderingTests {
         .buttonStyle(.borderedProminent)
         .tint(.danger)
     }
-    .environment(\.theme, .light)
-    .environment(\.styleSystem, .swiftWeb)
+    .environment(ThemeEnvironmentKey.self, .light)
+    .environment(StyleSystemEnvironmentKey.self, .swiftWeb)
     .render()
 
     // The style-system token is the plain default; the tint indirection lives
@@ -153,8 +153,8 @@ struct SwiftWebUIRenderingTests {
     let rendered = main {
       Badge("Glass")
     }
-    .environment(\.theme, .light)
-    .environment(\.styleSystem, .liquidGlass)
+    .environment(ThemeEnvironmentKey.self, .light)
+    .environment(StyleSystemEnvironmentKey.self, .liquidGlass)
     .render()
 
     #expect(rendered.contains("function hasFilter(el)"))
@@ -556,7 +556,7 @@ struct SwiftWebUIRenderingTests {
       .render()
     let shapedEnvironmentBackground = Text("Shape")
       .background(ColorSchemeShapeStyle(), in: .rect(cornerRadius: 6))
-      .environment(\.colorScheme, .dark)
+      .environment(ColorSchemeEnvironmentKey.self, .dark)
       .render()
     let layers = Text("Layered")
       .background(alignment: .topLeading) {
@@ -1281,7 +1281,7 @@ struct SwiftWebUIRenderingTests {
       PickerOption("Published", value: "published")
     }
     .pickerStyle(.segmented)
-    .environment(\.theme, .system)
+    .environment(ThemeEnvironmentKey.self, .system)
     .render()
 
     #expect(rendered.contains(".swui-picker-segmented {"))
@@ -1590,7 +1590,7 @@ struct SwiftWebUIRenderingTests {
       Button("Primary") {}
         .buttonStyle(.borderedProminent)
     }
-    .environment(\.theme, .light)
+    .environment(ThemeEnvironmentKey.self, .light)
     .render()
     // No `.tint()` in scope: no control emits an inline --swui-control-tint, so
     // the rule's fallback resolves to the style-system token.
@@ -1618,7 +1618,7 @@ struct SwiftWebUIRenderingTests {
         .buttonStyle(.borderedProminent)
         .controlSize(.extraLarge)
     }
-    .environment(\.theme, .light)
+    .environment(ThemeEnvironmentKey.self, .light)
     .render()
     #expect(rendered.contains("swui-control-extraLarge"))
     #expect(rendered.contains("--swui-control-extra-large-height: 52px;"))
@@ -1743,14 +1743,14 @@ struct SwiftWebUIRenderingTests {
 
   @Test
   func transitionsReadTheAnimationTokenWithMotionFallback() {
-    let rendered = main { Button("x") {} }.environment(\.theme, .light).render()
+    let rendered = main { Button("x") {} }.environment(ThemeEnvironmentKey.self, .light).render()
     #expect(rendered.contains("var(--swui-animation, var(--swui-motion-quick))"))
     #expect(rendered.contains(".swui-animation-scope {"))
   }
 
   @Test
   func stylesheetEmitsTypedAtRules() {
-    let rendered = main { Text("x") }.environment(\.theme, .light).render()
+    let rendered = main { Text("x") }.environment(ThemeEnvironmentKey.self, .light).render()
     #expect(rendered.contains("@keyframes swui-spin"))
     #expect(rendered.contains("@supports not"))
     #expect(rendered.contains("@media (prefers-reduced-motion: reduce)"))
@@ -1765,7 +1765,7 @@ struct SwiftWebUIRenderingTests {
     let rendered = main {
       VStack { Text("x") }.animation(.easeInOut(duration: 0.3), value: 1)
     }
-    .environment(\.theme, .light)
+    .environment(ThemeEnvironmentKey.self, .light)
     .render()
     #expect(rendered.contains("--swui-animation: 0.3s cubic-bezier(0.42, 0, 0.58, 1) 0s"))
     #expect(rendered.contains(".swui-animation-scope * {"))
@@ -1826,7 +1826,7 @@ struct SwiftWebUIRenderingTests {
 
   @Test
   func transitionStylesheetEmitsStartingStyleAndExitRule() {
-    let rendered = main { Text("x") }.environment(\.theme, .light).render()
+    let rendered = main { Text("x") }.environment(ThemeEnvironmentKey.self, .light).render()
     #expect(rendered.contains("@starting-style"))
     #expect(rendered.contains(".swui-transition.swui-exiting"))
     #expect(rendered.contains("var(--swui-exit-opacity, 1)"))
@@ -1936,16 +1936,22 @@ private struct ColorSchemeShapeStyle: ShapeStyle {
   }
 }
 
-private struct ChangeRecord<Value: Equatable>: Equatable {
+private struct ChangeRecord<Value: Equatable & Sendable>: Equatable, Sendable {
   var oldValue: Value
   var newValue: Value
 }
 
-private final class ChangeRecorder<Value: Equatable> {
-  private(set) var records: [ChangeRecord<Value>] = []
+private final class ChangeRecorder<Value: Equatable & Sendable>: Sendable {
+  private let storage = Mutex([ChangeRecord<Value>]())
+
+  var records: [ChangeRecord<Value>] {
+    storage.withLock { $0 }
+  }
 
   func record(oldValue: Value, newValue: Value) {
-    records.append(ChangeRecord(oldValue: oldValue, newValue: newValue))
+    storage.withLock { records in
+      records.append(ChangeRecord(oldValue: oldValue, newValue: newValue))
+    }
   }
 }
 

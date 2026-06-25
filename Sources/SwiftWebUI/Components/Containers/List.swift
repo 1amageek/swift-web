@@ -3,7 +3,7 @@ import SwiftHTML
 public struct List<Content: HTML>: WebUIAttributeComponent {
     private let attributes: [HTMLAttribute]
     private let content: Content
-    @Environment(\.listStyle) private var listStyle
+    @Environment(\.listStyle) private var listStyle: ListStyleKind
 
     public init(
         _ attributes: HTMLAttribute...,

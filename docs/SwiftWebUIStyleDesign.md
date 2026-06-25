@@ -119,8 +119,8 @@ leaf components.
 | `.controlSize(_:)` | Sets a scoped control size class/environment value. |
 | `.buttonStyle(_:)` | Selects a semantic button treatment that CSS resolves. |
 | `.pickerStyle(_:)` | Selects a semantic picker treatment that CSS resolves. |
-| `.environment(\.theme, ...)` | Color-mode and color-role scope. |
-| `.environment(\.styleSystem, ...)` | Component design-language and CSS-rule scope. |
+| `.environment(ThemeEnvironmentKey.self, ...)` | Color-mode and color-role scope. |
+| `.environment(StyleSystemEnvironmentKey.self, ...)` | Component design-language and CSS-rule scope. |
 
 Raw SwiftHTML elements and `Style.custom` remain escape hatches below SwiftWebUI. String/raw
 `style` attributes are not a SwiftWebUI styling path; SwiftWeb render scopes require typed

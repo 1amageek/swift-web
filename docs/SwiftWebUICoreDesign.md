@@ -56,7 +56,7 @@ flowchart LR
 
 ## DynamicProperty
 
-Dynamic properties are property wrappers whose value depends on the current render context. `@State`, `@Binding`, `@Environment`, `@Bindable`, and future runtime wrappers should share one lifecycle.
+Dynamic properties are property wrappers whose value depends on the current render context. `@State`, `@Binding`, `@Environment`, `@Server`, and future runtime wrappers should share one lifecycle.
 
 ```mermaid
 sequenceDiagram
@@ -88,9 +88,8 @@ public protocol DynamicProperty {
 | Wrapper | Responsibility |
 |---|---|
 | `@State` | Owns client-local mutable state for `ClientComponent`; registers a state slot |
-| `@Binding` | Provides read/write projection into state or observable models |
+| `@Binding` | Provides explicit read/write projection into state or observable models |
 | `@Environment` | Reads `EnvironmentValues`; records visibility for hydration diagnostics |
-| `@Bindable` | Projects bindings from `@Observable` reference models |
 | `@Server` | Reads server-only capabilities; emits diagnostics if read inside client-owned render |
 
 ### Context model
@@ -128,7 +127,7 @@ Text("Title")
 ### Proposed types
 
 ```swift
-public protocol ComponentModifier {
+public protocol ComponentModifier: Sendable {
     associatedtype Body: HTML
 
     @HTMLBuilder
@@ -141,7 +140,7 @@ public struct ModifiedContent<Content: HTML, Modifier: ComponentModifier>: HTML 
 }
 
 public struct ModifierContent: HTML {
-    let build: (inout HTMLGraphBuilder) -> HTMLNodeID
+    let build: @Sendable (inout HTMLGraphBuilder) -> HTMLNodeID
 }
 ```
 
@@ -221,7 +220,7 @@ Raw CSS strings should remain low-level SwiftHTML escape hatches, not the SwiftW
 Theme is an environment value:
 
 ```swift
-content.environment(\.theme, .system)
+content.environment(ThemeEnvironmentKey.self, .system)
 ```
 
 StyleSystem is also an environment value:
@@ -238,8 +237,8 @@ let style = StyleSystem(id: "brand") {
 }
 
 content
-    .environment(\.theme, .system)
-    .environment(\.styleSystem, style)
+    .environment(ThemeEnvironmentKey.self, .system)
+    .environment(StyleSystemEnvironmentKey.self, style)
 ```
 
 There should be no `ThemeProvider`, `StyleSystemProvider`, or separate context modifier. Environment is the single propagation mechanism for values used by both server rendering and client hydration.
@@ -264,8 +263,8 @@ When both values are set through modifiers, place `styleSystem` outside the them
 
 ```swift
 content
-    .environment(\.theme, .dark)
-    .environment(\.styleSystem, .liquidGlass)
+    .environment(ThemeEnvironmentKey.self, .dark)
+    .environment(StyleSystemEnvironmentKey.self, .liquidGlass)
 ```
 
 Modifier order is semantic. The stylesheet scope created by `theme` reads outer environment values, then renders the scoped content.

@@ -9,7 +9,7 @@ public struct ColorPicker<Label: HTML>: WebUIAttributeComponent {
     private let label: Label
     private let selection: Binding<String>
     private let attributes: [HTMLAttribute]
-    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.isEnabled) private var isEnabled: Bool
 
     public init(
         selection: Binding<String>,

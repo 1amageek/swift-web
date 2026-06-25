@@ -64,8 +64,8 @@ flowchart LR
 ## Design Notes
 
 - Components should follow SwiftUI naming and initializer shape where it maps cleanly to the web.
-- Color mode should be theme-driven through `.environment(\.theme, value)`.
-- Component design language should be style-system-driven through `.environment(\.styleSystem, value)`.
+- Color mode should be theme-driven through `.environment(ThemeEnvironmentKey.self, value)`.
+- Component design language should be style-system-driven through `.environment(StyleSystemEnvironmentKey.self, value)`.
 - Default CSS should be declared through SwiftHTML `Style` helpers and `Stylesheet` rules, not concatenated raw stylesheet strings.
 - Concrete CSS property output should use SwiftHTML generated standard property helpers so SwiftWebUI does not maintain a separate CSS property surface.
 - Public styling should prefer `foregroundStyle`, `backgroundStyle`, and `tint` over color-specific APIs.
@@ -118,8 +118,8 @@ let glass = StyleSystem(id: "glass") {
 }
 
 CounterView()
-    .environment(\.theme, .dark)
-    .environment(\.styleSystem, glass)
+    .environment(ThemeEnvironmentKey.self, .dark)
+    .environment(StyleSystemEnvironmentKey.self, glass)
 ```
 
 `solidFill` is the opaque fallback used where `backdrop-filter` is unsupported (e.g. Safari ignores `url()` filters) or when the reader requests reduced transparency. This degradation is part of the recipe, not a silent default. The built-in `.liquidGlass` preset already sets all of these knobs.

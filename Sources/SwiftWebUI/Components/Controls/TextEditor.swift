@@ -8,8 +8,8 @@ import SwiftHTML
 public struct TextEditor: WebUIAttributeComponent {
     private let text: Binding<String>
     private let attributes: [HTMLAttribute]
-    @Environment(\.isEnabled) private var isEnabled
-    @Environment(\.textFieldStyle) private var textFieldStyle
+    @Environment(\.isEnabled) private var isEnabled: Bool
+    @Environment(\.textFieldStyle) private var textFieldStyle: TextFieldStyleKind
 
     public init(text: Binding<String>, _ attributes: HTMLAttribute...) {
         self.text = text

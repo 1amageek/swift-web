@@ -3,7 +3,7 @@ import SwiftHTML
 public struct Badge: WebUIAttributeComponent {
     private let text: String
     private let attributes: [HTMLAttribute]
-    @Environment(\.tint) private var tint
+    @Environment(\.tint) private var tint: String?
 
     public init(_ text: String, _ attributes: HTMLAttribute...) {
         self.text = text

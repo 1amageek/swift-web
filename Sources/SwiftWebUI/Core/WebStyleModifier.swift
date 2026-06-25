@@ -15,12 +15,12 @@ public struct WebStyleModifier<S: ShapeStyle>: ComponentModifier {
         self.ignoredSafeAreaEdges = ignoredSafeAreaEdges
     }
 
-    @Environment(\.theme) private var theme
-    @Environment(\.styleSystem) private var styleSystem
-    @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.layoutDirection) private var layoutDirection
-    @Environment(\.controlState) private var controlState
-    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.theme) private var theme: Theme
+    @Environment(\.styleSystem) private var styleSystem: StyleSystem
+    @Environment(\.colorScheme) private var colorScheme: ColorScheme
+    @Environment(\.layoutDirection) private var layoutDirection: LayoutDirection
+    @Environment(\.controlState) private var controlState: ControlState
+    @Environment(\.isEnabled) private var isEnabled: Bool
 
     @HTMLBuilder
     public func body(content: ModifierContent) -> some HTML {

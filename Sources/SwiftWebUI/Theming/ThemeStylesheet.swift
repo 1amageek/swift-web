@@ -73,7 +73,7 @@ enum ThemeStylesheet {
           .fontSize("var(--swui-base-size)")
           .lineHeight("var(--swui-line-height)")
       }
-      // A theme scope nested inside another (`.environment(\.theme,)` applied
+      // A theme scope nested inside another (`.environment(ThemeEnvironmentKey.self,)` applied
       // to a subtree, e.g. a preview matrix cell) is an inner surface, not the
       // page canvas. It keeps the themed background so the subtree previews on
       // its own theme, but drops the page-root fills: it sizes to its content

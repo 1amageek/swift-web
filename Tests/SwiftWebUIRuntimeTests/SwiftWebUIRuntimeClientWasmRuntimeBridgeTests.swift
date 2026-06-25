@@ -144,7 +144,7 @@ private extension EnvironmentValues {
 }
 
 private struct WasmBridgeEnvironmentReader: ClientComponent {
-    @Environment(\.wasmBridgeValue) private var value: String
+    @Environment(WasmBridgeEnvironmentKey.self) private var value: String
 
     var body: some HTML {
         span {
@@ -160,9 +160,9 @@ private struct WasmBridgeScopedEnvironmentRoot: Component, Sendable {
     var body: some HTML {
         div {
             WasmBridgeEnvironmentReader()
-                .environment(\.wasmBridgeValue, left)
+                .environment(WasmBridgeEnvironmentKey.self, left)
             WasmBridgeEnvironmentReader()
-                .environment(\.wasmBridgeValue, right)
+                .environment(WasmBridgeEnvironmentKey.self, right)
         }
     }
 }
@@ -1006,7 +1006,7 @@ struct SwiftWebUIRuntimeClientWasmRuntimeBridgeTests {
     @Test
     func bridgeRestoresClientEnvironmentSnapshotFromBootstrapIndex() throws {
         let serverArtifact = WasmBridgeEnvironmentReader()
-            .environment(\.wasmBridgeValue, "server")
+            .environment(WasmBridgeEnvironmentKey.self, "server")
             .renderArtifact()
         let registry = ClientEnvironmentRegistry()
             .registering(WasmBridgeEnvironmentKey.self)

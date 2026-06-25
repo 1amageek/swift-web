@@ -166,10 +166,10 @@ private enum ThemeScopeAssets {
 
 public extension HTML {
     func environment(
-        _ keyPath: WritableKeyPath<EnvironmentValues, Theme>,
+        _ key: ThemeEnvironmentKey.Type,
         _ value: Theme
     ) -> some HTML {
-        EnvironmentModifier(keyPath, value) {
+        EnvironmentModifier(key, value: value) {
             ThemeScope {
                 self
             }

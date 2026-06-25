@@ -1,67 +1,97 @@
 import SwiftHTML
 
-struct IsEnabledEnvironmentKey: ClientEnvironmentKey {
-    static let defaultValue = true
+public struct IsEnabledEnvironmentKey: ClientEnvironmentKey {
+    public static let defaultValue = true
+
+    public init() {}
 }
 
-struct ControlSizeEnvironmentKey: ClientEnvironmentKey {
-    static let defaultValue = ControlSize.regular
+public struct ControlSizeEnvironmentKey: ClientEnvironmentKey {
+    public static let defaultValue = ControlSize.regular
+
+    public init() {}
 }
 
-struct ControlStateEnvironmentKey: ClientEnvironmentKey {
-    static let defaultValue = ControlState.enabled
+public struct ControlStateEnvironmentKey: ClientEnvironmentKey {
+    public static let defaultValue = ControlState.enabled
+
+    public init() {}
 }
 
-struct TintEnvironmentKey: ClientEnvironmentKey {
+public struct TintEnvironmentKey: ClientEnvironmentKey {
     // Absent until a `.tint(...)` is applied. Keeping the default `nil` lets each
     // control's CSS fall back to its style-system token
     // (`var(--swui-control-tint, var(--swui-button-primary-background))`, etc.)
     // instead of an environment default silently overriding those tokens.
-    static let defaultValue: String? = nil
+    public static let defaultValue: String? = nil
+
+    public init() {}
 }
 
-struct ButtonStyleEnvironmentKey: ClientEnvironmentKey {
-    static let defaultValue = ButtonStyleKind.automatic
+public struct ButtonStyleEnvironmentKey: ClientEnvironmentKey {
+    public static let defaultValue = ButtonStyleKind.automatic
+
+    public init() {}
 }
 
-struct PickerStyleEnvironmentKey: ClientEnvironmentKey {
-    static let defaultValue = PickerStyleKind.automatic
+public struct PickerStyleEnvironmentKey: ClientEnvironmentKey {
+    public static let defaultValue = PickerStyleKind.automatic
+
+    public init() {}
 }
 
-struct ToggleStyleEnvironmentKey: ClientEnvironmentKey {
-    static let defaultValue = ToggleStyleKind.automatic
+public struct ToggleStyleEnvironmentKey: ClientEnvironmentKey {
+    public static let defaultValue = ToggleStyleKind.automatic
+
+    public init() {}
 }
 
-struct TextFieldStyleEnvironmentKey: ClientEnvironmentKey {
-    static let defaultValue = TextFieldStyleKind.automatic
+public struct TextFieldStyleEnvironmentKey: ClientEnvironmentKey {
+    public static let defaultValue = TextFieldStyleKind.automatic
+
+    public init() {}
 }
 
-struct LabelStyleEnvironmentKey: ClientEnvironmentKey {
-    static let defaultValue = LabelStyleKind.automatic
+public struct LabelStyleEnvironmentKey: ClientEnvironmentKey {
+    public static let defaultValue = LabelStyleKind.automatic
+
+    public init() {}
 }
 
-struct ListStyleEnvironmentKey: ClientEnvironmentKey {
-    static let defaultValue = ListStyleKind.automatic
+public struct ListStyleEnvironmentKey: ClientEnvironmentKey {
+    public static let defaultValue = ListStyleKind.automatic
+
+    public init() {}
 }
 
-struct FormStyleEnvironmentKey: ClientEnvironmentKey {
-    static let defaultValue = FormStyleKind.automatic
+public struct FormStyleEnvironmentKey: ClientEnvironmentKey {
+    public static let defaultValue = FormStyleKind.automatic
+
+    public init() {}
 }
 
-struct MenuStyleEnvironmentKey: ClientEnvironmentKey {
-    static let defaultValue = MenuStyleKind.automatic
+public struct MenuStyleEnvironmentKey: ClientEnvironmentKey {
+    public static let defaultValue = MenuStyleKind.automatic
+
+    public init() {}
 }
 
-struct ProgressViewStyleEnvironmentKey: ClientEnvironmentKey {
-    static let defaultValue = ProgressViewStyleKind.automatic
+public struct ProgressViewStyleEnvironmentKey: ClientEnvironmentKey {
+    public static let defaultValue = ProgressViewStyleKind.automatic
+
+    public init() {}
 }
 
-struct GaugeStyleEnvironmentKey: ClientEnvironmentKey {
-    static let defaultValue = GaugeStyleKind.automatic
+public struct GaugeStyleEnvironmentKey: ClientEnvironmentKey {
+    public static let defaultValue = GaugeStyleKind.automatic
+
+    public init() {}
 }
 
-struct TabViewStyleEnvironmentKey: ClientEnvironmentKey {
-    static let defaultValue = TabViewStyleKind.automatic
+public struct TabViewStyleEnvironmentKey: ClientEnvironmentKey {
+    public static let defaultValue = TabViewStyleKind.automatic
+
+    public init() {}
 }
 
 struct IsInsideFormEnvironmentKey: ClientEnvironmentKey {

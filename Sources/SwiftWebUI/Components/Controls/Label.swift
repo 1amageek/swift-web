@@ -4,7 +4,7 @@ public struct Label<Title: HTML, Icon: HTML>: WebUIAttributeComponent {
     private let title: Title
     private let icon: Icon
     private let attributes: [HTMLAttribute]
-    @Environment(\.labelStyle) private var labelStyle
+    @Environment(\.labelStyle) private var labelStyle: LabelStyleKind
 
     public init(
         @HTMLBuilder title: () -> Title,

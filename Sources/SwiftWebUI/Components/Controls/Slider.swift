@@ -4,17 +4,17 @@ public struct Slider: WebUIAttributeComponent {
     private let value: Binding<Double>
     private let bounds: ClosedRange<Double>
     private let step: Double?
-    private let onEditingChanged: (Bool) -> Void
+    private let onEditingChanged: @Sendable (Bool) -> Void
     private let attributes: [HTMLAttribute]
-    @Environment(\.controlSize) private var controlSize
-    @Environment(\.isEnabled) private var isEnabled
-    @Environment(\.tint) private var tint
+    @Environment(\.controlSize) private var controlSize: ControlSize
+    @Environment(\.isEnabled) private var isEnabled: Bool
+    @Environment(\.tint) private var tint: String?
 
     public init(
         value: Binding<Double>,
         in bounds: ClosedRange<Double> = 0...1,
         step: Double? = nil,
-        onEditingChanged: @escaping (Bool) -> Void = { _ in },
+        onEditingChanged: @escaping @Sendable (Bool) -> Void = { _ in },
         _ attributes: HTMLAttribute...
     ) {
         self.value = value
@@ -51,7 +51,7 @@ public struct Slider: WebUIAttributeComponent {
         value: Binding<Double>,
         bounds: ClosedRange<Double>,
         step: Double?,
-        onEditingChanged: @escaping (Bool) -> Void,
+        onEditingChanged: @escaping @Sendable (Bool) -> Void,
         attributes: [HTMLAttribute]
     ) {
         self.value = value

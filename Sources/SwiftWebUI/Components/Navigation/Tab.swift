@@ -41,9 +41,9 @@ public struct Tab<Content: HTML>: WebUIAttributeComponent {
     private let attributes: [HTMLAttribute]
     private let content: Content
 
-    @Environment(\.tabSelection) private var tabSelection
-    @Environment(\.tabGroupName) private var tabGroupName
-    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.tabSelection) private var tabSelection: String?
+    @Environment(\.tabGroupName) private var tabGroupName: String?
+    @Environment(\.isEnabled) private var isEnabled: Bool
 
     public init(
         _ title: String,

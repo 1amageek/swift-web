@@ -45,10 +45,10 @@ private final class TapGestureRuntimeState: Sendable {
 
 public struct TapGestureModifier: ComponentModifier {
     private let count: Int
-    private let action: () -> Void
+    private let action: @Sendable () -> Void
     private let runtimeState = TapGestureRuntimeState()
 
-    init(count: Int, action: @escaping () -> Void) {
+    init(count: Int, action: @escaping @Sendable () -> Void) {
         self.count = max(count, 1)
         self.action = action
     }
@@ -212,112 +212,112 @@ public struct LongPressGestureModifier: ComponentModifier {
 }
 
 public extension WebUIAttributeMutableHTML {
-    func on(_ eventName: String, _ handler: @escaping (DOMEvent) -> Void) -> Self {
+    func on(_ eventName: String, _ handler: @escaping @Sendable (DOMEvent) -> Void) -> Self {
         attribute(.event(eventName, handler))
     }
 
-    func onSubmit(_ handler: @escaping (DOMEvent) -> Void) -> Self {
+    func onSubmit(_ handler: @escaping @Sendable (DOMEvent) -> Void) -> Self {
         attribute(.onSubmit(handler))
     }
 
-    func onKeyDown(_ handler: @escaping (DOMEvent) -> Void) -> Self {
+    func onKeyDown(_ handler: @escaping @Sendable (DOMEvent) -> Void) -> Self {
         attribute(.onKeyDown(handler))
     }
 
-    func onKeyUp(_ handler: @escaping (DOMEvent) -> Void) -> Self {
+    func onKeyUp(_ handler: @escaping @Sendable (DOMEvent) -> Void) -> Self {
         attribute(.onKeyUp(handler))
     }
 
-    func onFocus(_ handler: @escaping (DOMEvent) -> Void) -> Self {
+    func onFocus(_ handler: @escaping @Sendable (DOMEvent) -> Void) -> Self {
         attribute(.onFocus(handler))
     }
 
-    func onBlur(_ handler: @escaping (DOMEvent) -> Void) -> Self {
+    func onBlur(_ handler: @escaping @Sendable (DOMEvent) -> Void) -> Self {
         attribute(.onBlur(handler))
     }
 
-    func onMouseDown(_ handler: @escaping (DOMEvent) -> Void) -> Self {
+    func onMouseDown(_ handler: @escaping @Sendable (DOMEvent) -> Void) -> Self {
         attribute(.onMouseDown(handler))
     }
 
-    func onMouseUp(_ handler: @escaping (DOMEvent) -> Void) -> Self {
+    func onMouseUp(_ handler: @escaping @Sendable (DOMEvent) -> Void) -> Self {
         attribute(.onMouseUp(handler))
     }
 
-    func onMouseMove(_ handler: @escaping (DOMEvent) -> Void) -> Self {
+    func onMouseMove(_ handler: @escaping @Sendable (DOMEvent) -> Void) -> Self {
         attribute(.onMouseMove(handler))
     }
 
-    func onMouseEnter(_ handler: @escaping (DOMEvent) -> Void) -> Self {
+    func onMouseEnter(_ handler: @escaping @Sendable (DOMEvent) -> Void) -> Self {
         attribute(.onMouseEnter(handler))
     }
 
-    func onMouseLeave(_ handler: @escaping (DOMEvent) -> Void) -> Self {
+    func onMouseLeave(_ handler: @escaping @Sendable (DOMEvent) -> Void) -> Self {
         attribute(.onMouseLeave(handler))
     }
 
-    func onPointerDown(_ handler: @escaping (DOMEvent) -> Void) -> Self {
+    func onPointerDown(_ handler: @escaping @Sendable (DOMEvent) -> Void) -> Self {
         attribute(.onPointerDown(handler))
     }
 
-    func onPointerUp(_ handler: @escaping (DOMEvent) -> Void) -> Self {
+    func onPointerUp(_ handler: @escaping @Sendable (DOMEvent) -> Void) -> Self {
         attribute(.onPointerUp(handler))
     }
 
-    func onPointerMove(_ handler: @escaping (DOMEvent) -> Void) -> Self {
+    func onPointerMove(_ handler: @escaping @Sendable (DOMEvent) -> Void) -> Self {
         attribute(.onPointerMove(handler))
     }
 
-    func onPointerEnter(_ handler: @escaping (DOMEvent) -> Void) -> Self {
+    func onPointerEnter(_ handler: @escaping @Sendable (DOMEvent) -> Void) -> Self {
         attribute(.onPointerEnter(handler))
     }
 
-    func onPointerLeave(_ handler: @escaping (DOMEvent) -> Void) -> Self {
+    func onPointerLeave(_ handler: @escaping @Sendable (DOMEvent) -> Void) -> Self {
         attribute(.onPointerLeave(handler))
     }
 
-    func onDragStart(_ handler: @escaping (DOMEvent) -> Void) -> Self {
+    func onDragStart(_ handler: @escaping @Sendable (DOMEvent) -> Void) -> Self {
         attribute(.onDragStart(handler))
     }
 
-    func onDragOver(_ handler: @escaping (DOMEvent) -> Void) -> Self {
+    func onDragOver(_ handler: @escaping @Sendable (DOMEvent) -> Void) -> Self {
         attribute(.onDragOver(handler))
     }
 
-    func onDrop(_ handler: @escaping (DOMEvent) -> Void) -> Self {
+    func onDrop(_ handler: @escaping @Sendable (DOMEvent) -> Void) -> Self {
         attribute(.onDrop(handler))
     }
 
-    func onReset(_ handler: @escaping (DOMEvent) -> Void) -> Self {
+    func onReset(_ handler: @escaping @Sendable (DOMEvent) -> Void) -> Self {
         attribute(.onReset(handler))
     }
 
-    func onInvalid(_ handler: @escaping (DOMEvent) -> Void) -> Self {
+    func onInvalid(_ handler: @escaping @Sendable (DOMEvent) -> Void) -> Self {
         attribute(.onInvalid(handler))
     }
 
-    func onLoad(_ handler: @escaping (DOMEvent) -> Void) -> Self {
+    func onLoad(_ handler: @escaping @Sendable (DOMEvent) -> Void) -> Self {
         attribute(.onLoad(handler))
     }
 
-    func onError(_ handler: @escaping (DOMEvent) -> Void) -> Self {
+    func onError(_ handler: @escaping @Sendable (DOMEvent) -> Void) -> Self {
         attribute(.onError(handler))
     }
 
-    func onScroll(_ handler: @escaping (DOMEvent) -> Void) -> Self {
+    func onScroll(_ handler: @escaping @Sendable (DOMEvent) -> Void) -> Self {
         attribute(.onScroll(handler))
     }
 }
 
 public extension HTML {
-    func onAppear(perform action: (() -> Void)? = nil) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func onAppear(perform action: (@Sendable () -> Void)? = nil) -> ModifiedContent<Self, HTMLAttributeModifier> {
         modifier(HTMLAttributeModifier([
             .data("lifecycle", "appear"),
             .event("appear") { _ in action?() },
         ], role: .semantic))
     }
 
-    func onDisappear(perform action: (() -> Void)? = nil) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func onDisappear(perform action: (@Sendable () -> Void)? = nil) -> ModifiedContent<Self, HTMLAttributeModifier> {
         modifier(HTMLAttributeModifier([
             .data("lifecycle", "disappear"),
             .event("disappear") { _ in action?() },
@@ -358,7 +358,7 @@ public extension HTML {
 
     func onTapGesture(
         count: Int = 1,
-        perform action: @escaping () -> Void
+        perform action: @escaping @Sendable () -> Void
     ) -> ModifiedContent<Self, TapGestureModifier> {
         modifier(TapGestureModifier(count: count, action: action))
     }
@@ -378,7 +378,7 @@ public extension HTML {
     }
 
     func onHover(
-        perform action: @escaping (Bool) -> Void
+        perform action: @escaping @Sendable (Bool) -> Void
     ) -> ModifiedContent<Self, HTMLAttributeModifier> {
         modifier(HTMLAttributeModifier([
             .onMouseEnter { _ in action(true) },
@@ -388,7 +388,7 @@ public extension HTML {
 
     func onContinuousHover(
         coordinateSpace: CoordinateSpace = .local,
-        perform action: @escaping (HoverPhase) -> Void
+        perform action: @escaping @Sendable (HoverPhase) -> Void
     ) -> ModifiedContent<Self, HTMLAttributeModifier> {
         modifier(HTMLAttributeModifier([
             .data("hover-coordinate-space", coordinateSpace.cssName),

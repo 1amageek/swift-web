@@ -186,7 +186,7 @@ public extension HTML {
 
     func accessibilityAction(
         _ actionKind: AccessibilityActionKind = .default,
-        _ handler: @escaping () -> Void
+        _ handler: @escaping @Sendable () -> Void
     ) -> ModifiedContent<Self, HTMLAttributeModifier> {
         modifier(HTMLAttributeModifier([
             .data("accessibility-action", actionKind.cssValue),
@@ -196,7 +196,7 @@ public extension HTML {
 
     func accessibilityAction(
         named name: String,
-        _ handler: @escaping () -> Void
+        _ handler: @escaping @Sendable () -> Void
     ) -> ModifiedContent<Self, HTMLAttributeModifier> {
         modifier(HTMLAttributeModifier([
             .data("accessibility-action", name),
@@ -205,7 +205,7 @@ public extension HTML {
     }
 
     func accessibilityAdjustableAction(
-        _ handler: @escaping (AccessibilityAdjustmentDirection) -> Void
+        _ handler: @escaping @Sendable (AccessibilityAdjustmentDirection) -> Void
     ) -> ModifiedContent<Self, HTMLAttributeModifier> {
         modifier(HTMLAttributeModifier([
             .data("accessibility-adjustable", "true"),
@@ -356,7 +356,7 @@ public extension WebUIAttributeMutableHTML {
 
     func accessibilityAction(
         _ actionKind: AccessibilityActionKind = .default,
-        _ handler: @escaping () -> Void
+        _ handler: @escaping @Sendable () -> Void
     ) -> Self {
         addingAttributes([
             .data("accessibility-action", actionKind.cssValue),
@@ -366,7 +366,7 @@ public extension WebUIAttributeMutableHTML {
 
     func accessibilityAction(
         named name: String,
-        _ handler: @escaping () -> Void
+        _ handler: @escaping @Sendable () -> Void
     ) -> Self {
         addingAttributes([
             .data("accessibility-action", name),
@@ -375,7 +375,7 @@ public extension WebUIAttributeMutableHTML {
     }
 
     func accessibilityAdjustableAction(
-        _ handler: @escaping (AccessibilityAdjustmentDirection) -> Void
+        _ handler: @escaping @Sendable (AccessibilityAdjustmentDirection) -> Void
     ) -> Self {
         addingAttributes([
             .data("accessibility-adjustable", "true"),

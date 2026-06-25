@@ -16,7 +16,7 @@ struct FoundationsDetail: Component {
             let cols = Int(state.control("gridsystem", "cols")) ?? 12
             let spans = gridPanes(state.control("gridsystem", "preset"), cols)
             GridSystem(columns: cols, gutter: gridGutter(state.control("gridsystem", "gutter"))) {
-                ForEach(spans.indices, id: \.self) { index in
+                ForEach(spans.indices, id: { index in index }) { index in
                     Pane(span: spans[index]) { gridPane("span \(spans[index])") }
                 }
             }
@@ -319,9 +319,9 @@ struct FoundationsDetail: Component {
 
     private func tileGrid(cell: Double) -> some HTML {
         VStack(spacing: .xsmall) {
-            ForEach(0..<4, id: \.self) { _ in
+            ForEach(0..<4, id: { index in index }) { _ in
                 HStack(spacing: .xsmall) {
-                    ForEach(0..<4, id: \.self) { _ in
+                    ForEach(0..<4, id: { index in index }) { _ in
                         VStack {}
                             .frame(width: cell, height: cell)
                             .background(Color.accent.opacity(0.2), in: .rect(cornerRadius: 2))

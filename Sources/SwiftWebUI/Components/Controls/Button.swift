@@ -4,15 +4,15 @@ public struct Button<Label: HTML>: WebUIAttributeComponent {
     private let attributes: [HTMLAttribute]
     private let action: (any ActionRepresentable)?
     private let label: Label
-    @Environment(\.theme) private var theme
-    @Environment(\.styleSystem) private var styleSystem
-    @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.layoutDirection) private var layoutDirection
-    @Environment(\.controlSize) private var controlSize
-    @Environment(\.isEnabled) private var isEnabled
-    @Environment(\.tint) private var tint
-    @Environment(\.buttonStyle) private var buttonStyle
-    @Environment(\.isInsideForm) private var isInsideForm
+    @Environment(\.theme) private var theme: Theme
+    @Environment(\.styleSystem) private var styleSystem: StyleSystem
+    @Environment(\.colorScheme) private var colorScheme: ColorScheme
+    @Environment(\.layoutDirection) private var layoutDirection: LayoutDirection
+    @Environment(\.controlSize) private var controlSize: ControlSize
+    @Environment(\.isEnabled) private var isEnabled: Bool
+    @Environment(\.tint) private var tint: String?
+    @Environment(\.buttonStyle) private var buttonStyle: ButtonStyleKind
+    @Environment(\.isInsideForm) private var isInsideForm: Bool
 
     public init(
         @HTMLBuilder label: () -> Label
@@ -23,7 +23,7 @@ public struct Button<Label: HTML>: WebUIAttributeComponent {
     }
 
     public init(
-        action: @escaping () -> Void,
+        action: @escaping @Sendable () -> Void,
         @HTMLBuilder label: () -> Label
     ) {
         self.attributes = [.type(ButtonType.button), .onClick(action)]
@@ -201,7 +201,7 @@ public struct Button<Label: HTML>: WebUIAttributeComponent {
 
 private struct ButtonActionHiddenFields: ServerComponent {
     let excludedNames: [String]
-    @Environment(\.actionHiddenFields) private var actionHiddenFields
+    @Environment(\.actionHiddenFields) private var actionHiddenFields: [ActionField]
 
     init(excluding excludedNames: [String]) {
         self.excludedNames = excludedNames
@@ -234,7 +234,7 @@ public extension Button where Label == text {
 
     init(
         _ title: String,
-        action: @escaping () -> Void
+        action: @escaping @Sendable () -> Void
     ) {
         self.init(action: action) {
             title

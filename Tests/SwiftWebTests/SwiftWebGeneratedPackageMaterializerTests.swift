@@ -1651,7 +1651,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
   private func writeSwiftHTMLRuntimeSources(in swiftHTMLPackage: URL) throws {
     let sourceRoot = swiftHTMLPackage.appendingPathComponent("Sources/SwiftHTML", isDirectory: true)
     try write(
-      "public protocol HTML {}",
+      "public protocol HTML: Sendable {}",
       to: sourceRoot.appendingPathComponent("Core/HTML.swift")
     )
     try write(

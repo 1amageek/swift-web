@@ -100,14 +100,14 @@ struct ContainersDetail: Component {
         ScrollView(.vertical) {
             if axis == "hstack" {
                 LazyHStack(spacing: .small) {
-                    ForEach(["Ada", "Grace", "Alan", "Katherine"], id: \.self) { name in
+                    ForEach(["Ada", "Grace", "Alan", "Katherine"], id: { name in name }) { name in
                         Text(name)
                     }
                 }
                 .padding(.all, 8)
             } else {
                 LazyVStack(alignment: .leading, spacing: .small) {
-                    ForEach(["Ada Lovelace", "Grace Hopper", "Alan Turing", "Katherine Johnson"], id: \.self) { name in
+                    ForEach(["Ada Lovelace", "Grace Hopper", "Alan Turing", "Katherine Johnson"], id: { name in name }) { name in
                         HStack(spacing: .small) {
                             Image(systemName: "envelope")
                             Text(name)
@@ -130,7 +130,7 @@ struct ContainersDetail: Component {
         let height = state.controlNumber("scrollview", "height")
         ScrollView(state.control("scrollview", "axes") == "horizontal" ? .horizontal : .vertical) {
             VStack(alignment: .leading, spacing: .small) {
-                ForEach(1...8, id: \.self) { index in
+                ForEach(1...8, id: { index in index }) { index in
                     Text("Item 0\(index)")
                 }
             }
@@ -150,7 +150,7 @@ struct ContainersDetail: Component {
         // design's repeat(auto-fit, minmax(min, 1fr)).
         let palette = ["#8fa9c4", "#c4a98f", "#8fc4a9", "#a98fc4", "#c48fa0", "#9fb98f", "#8fb6c4", "#c4b08f"]
         LazyVGrid(columns: [GridItem(.adaptive(minimum: minimum))], spacing: .small) {
-            ForEach(palette.indices, id: \.self) { index in
+            ForEach(palette.indices, id: { index in index }) { index in
                 gridTile(palette[index])
             }
         }

@@ -5,20 +5,20 @@ public struct Stepper: WebUIAttributeComponent {
     private let value: Binding<Int>?
     private let step: Int
     private let bounds: ClosedRange<Int>?
-    private let onIncrement: (() -> Void)?
-    private let onDecrement: (() -> Void)?
-    private let onEditingChanged: (Bool) -> Void
+    private let onIncrement: (@Sendable () -> Void)?
+    private let onDecrement: (@Sendable () -> Void)?
+    private let onEditingChanged: @Sendable (Bool) -> Void
     private let attributes: [HTMLAttribute]
-    @Environment(\.controlSize) private var controlSize
-    @Environment(\.isEnabled) private var isEnabled
-    @Environment(\.tint) private var tint
+    @Environment(\.controlSize) private var controlSize: ControlSize
+    @Environment(\.isEnabled) private var isEnabled: Bool
+    @Environment(\.tint) private var tint: String?
 
     public init(
         _ title: String,
         value: Binding<Int>,
         step: Int = 1,
         in bounds: ClosedRange<Int>? = nil,
-        onEditingChanged: @escaping (Bool) -> Void = { _ in },
+        onEditingChanged: @escaping @Sendable (Bool) -> Void = { _ in },
         _ attributes: HTMLAttribute...
     ) {
         self.title = title
@@ -33,9 +33,9 @@ public struct Stepper: WebUIAttributeComponent {
 
     public init(
         _ title: String,
-        onIncrement: (() -> Void)?,
-        onDecrement: (() -> Void)?,
-        onEditingChanged: @escaping (Bool) -> Void = { _ in },
+        onIncrement: (@Sendable () -> Void)?,
+        onDecrement: (@Sendable () -> Void)?,
+        onEditingChanged: @escaping @Sendable (Bool) -> Void = { _ in },
         _ attributes: HTMLAttribute...
     ) {
         self.title = title
@@ -121,9 +121,9 @@ public struct Stepper: WebUIAttributeComponent {
         value: Binding<Int>?,
         step: Int,
         bounds: ClosedRange<Int>?,
-        onIncrement: (() -> Void)?,
-        onDecrement: (() -> Void)?,
-        onEditingChanged: @escaping (Bool) -> Void,
+        onIncrement: (@Sendable () -> Void)?,
+        onDecrement: (@Sendable () -> Void)?,
+        onEditingChanged: @escaping @Sendable (Bool) -> Void,
         attributes: [HTMLAttribute]
     ) {
         self.title = title
@@ -174,7 +174,7 @@ public struct Stepper: WebUIAttributeComponent {
         symbol: String,
         label: String,
         isEnabled: Bool,
-        action: @escaping () -> Void
+        action: @escaping @Sendable () -> Void
     ) -> Element {
         Element(
             "button",

@@ -156,7 +156,7 @@ struct StoryboardControlPanel: Component {
         let fullKey = "\(id).\(key)"
         let selected = ui.wrappedValue[fullKey] ?? storyboardControlDefaults[fullKey] ?? ""
         HStack(spacing: .xsmall) {
-            ForEach(options, id: \.value) { option in
+            ForEach(options, id: { option in option.value }) { option in
                 Button(action: { ui.wrappedValue[fullKey] = option.value }) {
                     Text(option.label)
                 }
@@ -195,7 +195,7 @@ struct StoryboardControlPanel: Component {
         let fullKey = "\(id).\(key)"
         let selected = ui.wrappedValue[fullKey] ?? storyboardControlDefaults[fullKey] ?? ""
         HStack(spacing: .xsmall) {
-            ForEach(options, id: \.value) { swatch in
+            ForEach(options, id: { swatch in swatch.value }) { swatch in
                 Button(action: { ui.wrappedValue[fullKey] = swatch.value }) {
                     div(.style {
                         .width("18px")

@@ -74,13 +74,13 @@ extension ChangeObservationValue: Codable where Value: Codable {}
 public struct OnChangeModifier<Value: Equatable & Codable & Sendable>: ComponentModifier {
     private let value: Value
     private let initial: Bool
-    private let action: (Value, Value) -> Void
+    private let action: @Sendable (Value, Value) -> Void
     @State private var previousValue: ChangeObservationValue<Value>
 
     init(
         value: Value,
         initial: Bool,
-        action: @escaping (Value, Value) -> Void
+        action: @escaping @Sendable (Value, Value) -> Void
     ) {
         self.value = value
         self.initial = initial
@@ -123,7 +123,7 @@ public struct OnChangeModifier<Value: Equatable & Codable & Sendable>: Component
 public extension HTML {
     func onSubmit(
         of triggers: SubmitTriggers = .text,
-        _ action: @escaping () -> Void
+        _ action: @escaping @Sendable () -> Void
     ) -> ModifiedContent<Self, HTMLAttributeModifier> {
         modifier(HTMLAttributeModifier([
             .data("submit-triggers", triggers.cssName),
@@ -168,7 +168,7 @@ public extension HTML {
     func onChange<Value>(
         of value: Value,
         initial: Bool = false,
-        _ action: @escaping (Value, Value) -> Void
+        _ action: @escaping @Sendable (Value, Value) -> Void
     ) -> ModifiedContent<Self, OnChangeModifier<Value>> where Value: Equatable & Codable & Sendable {
         modifier(OnChangeModifier(value: value, initial: initial, action: action))
     }
@@ -176,7 +176,7 @@ public extension HTML {
     func onChange<Value>(
         of value: Value,
         initial: Bool = false,
-        _ action: @escaping (Value) -> Void
+        _ action: @escaping @Sendable (Value) -> Void
     ) -> ModifiedContent<Self, OnChangeModifier<Value>> where Value: Equatable & Codable & Sendable {
         onChange(of: value, initial: initial) { _, newValue in
             action(newValue)

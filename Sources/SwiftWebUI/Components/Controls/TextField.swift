@@ -5,9 +5,9 @@ public struct TextField<Label: HTML>: WebUIAttributeComponent {
     private let placeholder: String?
     private let type: InputType
     private let attributes: [HTMLAttribute]
-    @Environment(\.controlSize) private var controlSize
-    @Environment(\.isEnabled) private var isEnabled
-    @Environment(\.textFieldStyle) private var textFieldStyle
+    @Environment(\.controlSize) private var controlSize: ControlSize
+    @Environment(\.isEnabled) private var isEnabled: Bool
+    @Environment(\.textFieldStyle) private var textFieldStyle: TextFieldStyleKind
 
     public init(
         text: Binding<String>,

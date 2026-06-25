@@ -93,19 +93,19 @@ public extension WebUIAttributeMutableHTML {
         attribute(.value(value))
     }
 
-    func onClick(_ handler: @escaping () -> Void) -> Self {
+    func onClick(_ handler: @escaping @Sendable () -> Void) -> Self {
         attribute(.onClick(handler))
     }
 
-    func onClick(_ handler: @escaping (DOMEvent) -> Void) -> Self {
+    func onClick(_ handler: @escaping @Sendable (DOMEvent) -> Void) -> Self {
         attribute(.onClick(handler))
     }
 
-    func onInput(_ handler: @escaping (DOMEvent) -> Void) -> Self {
+    func onInput(_ handler: @escaping @Sendable (DOMEvent) -> Void) -> Self {
         attribute(.onInput(handler))
     }
 
-    func onChange(_ handler: @escaping (DOMEvent) -> Void) -> Self {
+    func onChange(_ handler: @escaping @Sendable (DOMEvent) -> Void) -> Self {
         attribute(.onChange(handler))
     }
 

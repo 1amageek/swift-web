@@ -104,8 +104,8 @@ public struct SearchScopesModifier<Scopes: HTML>: ComponentModifier {
                 ]
             ) {
                 scopes
-                    .environment(\.searchScopeSelection, selection.wrappedValue)
-                    .environment(\.searchScopeGroupName, groupName)
+                    .environment(SearchScopeSelectionEnvironmentKey.self, selection.wrappedValue)
+                    .environment(SearchScopeGroupNameEnvironmentKey.self, groupName)
             }
             content
         }
@@ -122,11 +122,11 @@ public struct SearchScopesModifier<Scopes: HTML>: ComponentModifier {
 
 public struct SearchTokensModifier<TokenContent: HTML>: ComponentModifier {
     private let tokens: Binding<[String]>
-    private let tokenContent: (String) -> TokenContent
+    private let tokenContent: @Sendable (String) -> TokenContent
 
     init(
         tokens: Binding<[String]>,
-        @HTMLBuilder token: @escaping (String) -> TokenContent
+        @HTMLBuilder token: @escaping @Sendable (String) -> TokenContent
     ) {
         self.tokens = tokens
         self.tokenContent = token
@@ -137,7 +137,7 @@ public struct SearchTokensModifier<TokenContent: HTML>: ComponentModifier {
         let tokens = self.tokens
         Element("div", attributes: [.class("swui-search-tokenized")]) {
             Element("div", attributes: [.class("swui-search-tokens")]) {
-                ForEach(tokens.wrappedValue, id: \.self) { token in
+                ForEach(tokens.wrappedValue, id: { token in token }) { token in
                     Element(
                         "button",
                         attributes: [
@@ -166,9 +166,9 @@ public struct SearchScope: WebUIAttributeComponent {
     private let value: String
     private let attributes: [HTMLAttribute]
 
-    @Environment(\.searchScopeSelection) private var searchScopeSelection
-    @Environment(\.searchScopeGroupName) private var searchScopeGroupName
-    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.searchScopeSelection) private var searchScopeSelection: String?
+    @Environment(\.searchScopeGroupName) private var searchScopeGroupName: String?
+    @Environment(\.isEnabled) private var isEnabled: Bool
 
     public init(_ title: String, value: String, _ attributes: HTMLAttribute...) {
         self.title = title
@@ -348,7 +348,7 @@ public extension HTML {
         tokens: Binding<[String]>,
         placement: SearchFieldPlacement = .automatic,
         prompt: String? = nil,
-        @HTMLBuilder token: @escaping (String) -> TokenContent
+        @HTMLBuilder token: @escaping @Sendable (String) -> TokenContent
     ) -> some HTML {
         searchable(text: text, placement: placement, prompt: prompt)
             .searchTokens(tokens, token: token)
@@ -359,7 +359,7 @@ public extension HTML {
         tokens: Binding<[String]>,
         placement: SearchFieldPlacement = .automatic,
         prompt: String? = nil,
-        @HTMLBuilder token: @escaping (String) -> TokenContent,
+        @HTMLBuilder token: @escaping @Sendable (String) -> TokenContent,
         @HTMLBuilder suggestions: () -> Suggestions
     ) -> some HTML {
         searchable(text: text, placement: placement, prompt: prompt, suggestions: suggestions)
@@ -397,7 +397,7 @@ public extension HTML {
 
     func searchTokens<TokenContent: HTML>(
         _ tokens: Binding<[String]>,
-        @HTMLBuilder token: @escaping (String) -> TokenContent
+        @HTMLBuilder token: @escaping @Sendable (String) -> TokenContent
     ) -> ModifiedContent<Self, SearchTokensModifier<TokenContent>> {
         modifier(SearchTokensModifier(tokens: tokens, token: token))
     }

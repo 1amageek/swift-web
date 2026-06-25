@@ -94,7 +94,7 @@ public struct StoryboardCatalog: ClientComponent, Sendable {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .environment(\.theme, theme)
+        .environment(ThemeEnvironmentKey.self, theme)
     }
 }
 

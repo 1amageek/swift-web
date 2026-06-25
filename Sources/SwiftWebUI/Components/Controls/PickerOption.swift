@@ -29,10 +29,10 @@ public struct PickerOption: WebUIAttributeComponent {
     private let label: String
     private let attributes: [HTMLAttribute]
 
-    @Environment(\.pickerSelection) private var pickerSelection
-    @Environment(\.pickerStyle) private var pickerStyle
-    @Environment(\.pickerGroupName) private var pickerGroupName
-    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.pickerSelection) private var pickerSelection: String?
+    @Environment(\.pickerStyle) private var pickerStyle: PickerStyleKind
+    @Environment(\.pickerGroupName) private var pickerGroupName: String?
+    @Environment(\.isEnabled) private var isEnabled: Bool
 
     public init(_ label: String, value: String, _ attributes: HTMLAttribute...) {
         self.label = label

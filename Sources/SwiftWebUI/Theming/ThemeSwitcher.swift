@@ -12,7 +12,7 @@ public struct ThemeSwitcher: ClientComponent {
     @HTMLBuilder
     public var body: some HTML {
         Picker("Appearance", selection: themeName) {
-            ForEach(themes, id: \.name) { theme in
+            ForEach(themes, id: { theme in theme.name }) { theme in
                 PickerOption(theme.name, value: theme.name, .data("theme-option", theme.name))
             }
         }

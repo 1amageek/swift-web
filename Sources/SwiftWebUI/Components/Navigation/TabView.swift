@@ -20,8 +20,8 @@ public struct TabView<Content: HTML>: WebUIAttributeComponent {
     private let sourceLine: Int
     private let sourceColumn: Int
 
-    @Environment(\.isEnabled) private var isEnabled
-    @Environment(\.tabViewStyle) private var tabViewStyle
+    @Environment(\.isEnabled) private var isEnabled: Bool
+    @Environment(\.tabViewStyle) private var tabViewStyle: TabViewStyleKind
 
     public init(
         selection: Binding<String>,
@@ -49,8 +49,8 @@ public struct TabView<Content: HTML>: WebUIAttributeComponent {
             )
         ) {
             content
-                .environment(\.tabSelection, selection.wrappedValue)
-                .environment(\.tabGroupName, groupName)
+                .environment(TabSelectionEnvironmentKey.self, selection.wrappedValue)
+                .environment(TabGroupNameEnvironmentKey.self, groupName)
         }
     }
 

@@ -5,9 +5,9 @@ public struct Toggle<Label: HTML>: WebUIAttributeComponent {
     private let isOn: Binding<Bool>?
     private let initialValue: Bool
     private let attributes: [HTMLAttribute]
-    @Environment(\.controlSize) private var controlSize
-    @Environment(\.isEnabled) private var isEnabled
-    @Environment(\.toggleStyle) private var toggleStyle
+    @Environment(\.controlSize) private var controlSize: ControlSize
+    @Environment(\.isEnabled) private var isEnabled: Bool
+    @Environment(\.toggleStyle) private var toggleStyle: ToggleStyleKind
 
     public init(
         isOn: Binding<Bool>,

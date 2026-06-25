@@ -5,7 +5,7 @@ public struct Form<Content: HTML>: WebUIAttributeComponent {
     private let method: FormMethod
     private let attributes: [HTMLAttribute]
     private let content: Content
-    @Environment(\.formStyle) private var formStyle
+    @Environment(\.formStyle) private var formStyle: FormStyleKind
 
     public init(
         _ attributes: HTMLAttribute...,
@@ -38,7 +38,7 @@ public struct Form<Content: HTML>: WebUIAttributeComponent {
                 extra: formAttributes + attributes
             )
         ) {
-            content.environment(\.isInsideForm, true)
+            content.environment(IsInsideFormEnvironmentKey.self, true)
         }
     }
 

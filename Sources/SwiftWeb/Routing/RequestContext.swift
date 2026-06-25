@@ -84,19 +84,46 @@ public struct ServerValues: Sendable {
     }
 }
 
-@propertyWrapper
-public struct Server<Value> {
-    private let keyPath: KeyPath<ServerValues, Value>
+public protocol ServerValueKey: Sendable {
+    associatedtype Value
 
-    public init(_ keyPath: KeyPath<ServerValues, Value>) {
-        self.keyPath = keyPath
+    static var serverCapabilityName: String { get }
+    static func value(from values: ServerValues) -> Value
+}
+
+public extension ServerValueKey {
+    static var serverCapabilityName: String {
+        String(reflecting: Self.self)
+    }
+}
+
+public struct RequestServerValueKey: ServerValueKey {
+    public static let serverCapabilityName = "RequestServerValueKey.self"
+
+    public static func value(from values: ServerValues) -> Request {
+        values.request
+    }
+
+    public init() {}
+}
+
+@propertyWrapper
+public struct Server<Value>: Sendable {
+    private let capability: String
+    private let read: @Sendable (ServerValues) -> Value
+
+    public init<Key: ServerValueKey>(_ key: Key.Type) where Key.Value == Value {
+        self.capability = "@Server(\(Key.serverCapabilityName))"
+        self.read = { values in
+            Key.value(from: values)
+        }
     }
 
     public var wrappedValue: Value {
-        ServerCapabilityReadContext.record(String(describing: keyPath), valueType: Value.self)
+        ServerCapabilityReadContext.record(capability, valueType: Value.self)
         guard let context = RequestContext.current else {
             preconditionFailure("@Server was accessed outside a SwiftWeb page request")
         }
-        return ServerValues(context: context)[keyPath: keyPath]
+        return read(ServerValues(context: context))
     }
 }

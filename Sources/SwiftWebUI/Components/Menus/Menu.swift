@@ -10,7 +10,7 @@ public struct Menu<Label: HTML, Content: HTML>: WebUIAttributeComponent {
     private let attributes: [HTMLAttribute]
     private let label: Label
     private let content: Content
-    @Environment(\.menuStyle) private var menuStyle
+    @Environment(\.menuStyle) private var menuStyle: MenuStyleKind
 
     public init(
         @HTMLBuilder content: () -> Content,

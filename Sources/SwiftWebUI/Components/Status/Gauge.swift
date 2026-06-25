@@ -9,8 +9,8 @@ public struct Gauge<Label: HTML>: WebUIAttributeComponent {
     private let bounds: ClosedRange<Double>
     private let label: Label
     private let attributes: [HTMLAttribute]
-    @Environment(\.gaugeStyle) private var gaugeStyle
-    @Environment(\.tint) private var tint
+    @Environment(\.gaugeStyle) private var gaugeStyle: GaugeStyleKind
+    @Environment(\.tint) private var tint: String?
 
     public init(
         value: Double,

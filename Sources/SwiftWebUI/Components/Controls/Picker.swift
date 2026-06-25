@@ -6,9 +6,9 @@ public struct Picker<Label: HTML, Content: HTML>: WebUIAttributeComponent {
     private let selection: Binding<String>
     private let attributes: [HTMLAttribute]
     private let content: Content
-    @Environment(\.controlSize) private var controlSize
-    @Environment(\.isEnabled) private var isEnabled
-    @Environment(\.pickerStyle) private var pickerStyle
+    @Environment(\.controlSize) private var controlSize: ControlSize
+    @Environment(\.isEnabled) private var isEnabled: Bool
+    @Environment(\.pickerStyle) private var pickerStyle: PickerStyleKind
 
     public init(
         selection: Binding<String>,
@@ -50,7 +50,7 @@ public struct Picker<Label: HTML, Content: HTML>: WebUIAttributeComponent {
                     extra: selectAttributes
                 )
             ) {
-                content.environment(\.pickerSelection, selection.wrappedValue)
+                content.environment(PickerSelectionEnvironmentKey.self, selection.wrappedValue)
             }
         }
     }
@@ -76,8 +76,8 @@ public struct Picker<Label: HTML, Content: HTML>: WebUIAttributeComponent {
                 )
             ) {
                 content
-                    .environment(\.pickerSelection, selection.wrappedValue)
-                    .environment(\.pickerGroupName, groupName)
+                    .environment(PickerSelectionEnvironmentKey.self, selection.wrappedValue)
+                    .environment(PickerGroupNameEnvironmentKey.self, groupName)
             }
         }
     }

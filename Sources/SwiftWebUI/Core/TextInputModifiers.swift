@@ -45,7 +45,7 @@ public extension WebUIAttributeMutableHTML {
         attribute(.autocorrect(disable ? .off : .on))
     }
 
-    func onSubmit(_ action: @escaping () -> Void) -> Self {
+    func onSubmit(_ action: @escaping @Sendable () -> Void) -> Self {
         attribute(.onSubmit { _ in action() })
     }
 

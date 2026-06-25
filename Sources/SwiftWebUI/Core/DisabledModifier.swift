@@ -10,7 +10,7 @@ public struct DisabledModifier: ComponentModifier {
     @HTMLBuilder
     public func body(content: ModifierContent) -> some HTML {
         content
-            .environment(\.isEnabled, !isDisabled)
-            .environment(\.controlState, isDisabled ? .disabled : .enabled)
+            .environment(IsEnabledEnvironmentKey.self, !isDisabled)
+            .environment(ControlStateEnvironmentKey.self, isDisabled ? .disabled : .enabled)
     }
 }

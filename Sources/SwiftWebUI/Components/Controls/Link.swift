@@ -5,14 +5,14 @@ public struct Link<Label: HTML>: WebUIAttributeComponent {
     private let destination: URL
     private let label: Label
     private let attributes: [HTMLAttribute]
-    @Environment(\.theme) private var theme
-    @Environment(\.styleSystem) private var styleSystem
-    @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.layoutDirection) private var layoutDirection
-    @Environment(\.controlSize) private var controlSize
-    @Environment(\.isEnabled) private var isEnabled
-    @Environment(\.tint) private var tint
-    @Environment(\.buttonStyle) private var buttonStyle
+    @Environment(\.theme) private var theme: Theme
+    @Environment(\.styleSystem) private var styleSystem: StyleSystem
+    @Environment(\.colorScheme) private var colorScheme: ColorScheme
+    @Environment(\.layoutDirection) private var layoutDirection: LayoutDirection
+    @Environment(\.controlSize) private var controlSize: ControlSize
+    @Environment(\.isEnabled) private var isEnabled: Bool
+    @Environment(\.tint) private var tint: String?
+    @Environment(\.buttonStyle) private var buttonStyle: ButtonStyleKind
 
     public init(
         destination: URL,

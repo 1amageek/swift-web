@@ -14,8 +14,8 @@ public struct ProgressView<Label: HTML>: WebUIAttributeComponent {
     private let value: Double?
     private let total: Double
     private let attributes: [HTMLAttribute]
-    @Environment(\.progressViewStyle) private var progressViewStyle
-    @Environment(\.tint) private var tint
+    @Environment(\.progressViewStyle) private var progressViewStyle: ProgressViewStyleKind
+    @Environment(\.tint) private var tint: String?
 
     public init(
         value: Double?,
