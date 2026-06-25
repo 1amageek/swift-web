@@ -130,14 +130,25 @@ struct ContainersDetail: Component {
     @HTMLBuilder
     private func scrollViewDemo() -> some HTML {
         let height = state.controlNumber("scrollview", "height")
-        ScrollView(state.control("scrollview", "axes") == "horizontal" ? .horizontal : .vertical) {
-            VStack(alignment: .leading, spacing: .small) {
-                ForEach(1...8, id: { index in index }) { index in
-                    Text("Item 0\(index)")
+        let isHorizontal = state.control("scrollview", "axes") == "horizontal"
+        ScrollView(isHorizontal ? .horizontal : .vertical) {
+            if isHorizontal {
+                HStack(spacing: .small) {
+                    ForEach(1...8, id: { index in index }) { index in
+                        Text("Item 0\(index)")
+                            .frame(width: 96)
+                    }
                 }
+                .padding(.all, 8)
+            } else {
+                VStack(alignment: .leading, spacing: .small) {
+                    ForEach(1...8, id: { index in index }) { index in
+                        Text("Item 0\(index)")
+                    }
+                }
+                .padding(.all, 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.all, 8)
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(maxWidth: .infinity, height: height)
         .background(.surfaceRaised)

@@ -251,9 +251,22 @@ func catalogSnippet(for id: String, state: [String: String] = [:]) -> String {
     let axes = state.control(id, "axes")
     let height = state.controlNumber(id, "height")
     if axes == "horizontal" {
-      return "ScrollView(.horizontal) {\n    HStack(spacing: .small) { ForEach(cards) { CardView($0) } }\n}"
+      return "ScrollView(.horizontal) {\n"
+        + "    HStack(spacing: .small) {\n"
+        + "        ForEach(1...8, id: { index in index }) { index in\n"
+        + "            Text(\"Item 0\\(index)\")\n"
+        + "                .frame(width: 96)\n"
+        + "        }\n"
+        + "    }\n}\n"
+        + ".frame(maxWidth: .infinity, height: \(iStr(height)))"
     }
-    return "ScrollView(.vertical) {\n    VStack(spacing: .medium) { ForEach(paragraphs) { Text($0) } }\n}\n"
+    return "ScrollView(.vertical) {\n"
+      + "    VStack(alignment: .leading, spacing: .small) {\n"
+      + "        ForEach(1...8, id: { index in index }) { index in\n"
+      + "            Text(\"Item 0\\(index)\")\n"
+      + "        }\n"
+      + "    }\n"
+      + "    .frame(maxWidth: .infinity, alignment: .leading)\n}\n"
       + ".frame(maxWidth: .infinity, height: \(iStr(height)))"
 
   case "stacks":
@@ -496,6 +509,7 @@ private func catalogStaticSnippet(for id: String, state: [String: String]) -> St
       .animation(.easeInOut(duration: 0.3), value: highlighted)
       """
   case "transition":
+    let isShown = state.controlFlag(id, "on")
     return """
       if isShown {
           GroupBox {
@@ -503,6 +517,8 @@ private func catalogStaticSnippet(for id: String, state: [String: String]) -> St
           }
           .transition(.scale.combined(with: .opacity))
       }
+
+      // isShown = \(isShown ? "true" : "false")
       """
   case "withanimation":
     return """

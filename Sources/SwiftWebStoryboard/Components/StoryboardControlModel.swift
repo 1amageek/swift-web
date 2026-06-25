@@ -373,8 +373,10 @@ func storyboardControls(for id: String) -> [StoryboardControl] {
         ]
 
     // Animation
-    case "animation", "transition", "withanimation":
+    case "animation", "withanimation":
         return [.toggle(label: "animate", key: "on")]
+    case "transition":
+        return [.toggle(label: "isShown", key: "on")]
 
     default:
         return []
@@ -434,5 +436,5 @@ let storyboardControlDefaults: [String: String] = [
     "progressview.value": "0.35", "progressview.indeterminate": "false",
     "gauge.value": "0.62",
     "badge.label": "Ready", "badge.tint": "accent",
-    "animation.on": "false", "transition.on": "false", "withanimation.on": "false",
+    "animation.on": "false", "transition.on": "true", "withanimation.on": "false",
 ]

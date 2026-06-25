@@ -330,6 +330,10 @@ struct SwiftWebStoryboardCatalogTests {
             #expect(!snippet.contains("…"), "Usage for \(item.id) still contains placeholder ellipsis")
             #expect(!snippet.contains("minColumnWidth"), "Usage for \(item.id) still documents raw minColumnWidth")
             #expect(!snippet.contains("px\""), "Usage for \(item.id) still passes a raw pixel string")
+            #expect(!snippet.contains("ForEach(cards)"), "Usage for \(item.id) still depends on an undefined cards collection")
+            #expect(!snippet.contains("ForEach(paragraphs)"), "Usage for \(item.id) still depends on an undefined paragraphs collection")
+            #expect(!snippet.contains("CardView"), "Usage for \(item.id) still references an undefined CardView")
+            #expect(!snippet.contains("Component content"), "Usage for \(item.id) fell back to the generic placeholder snippet")
             for line in snippet.split(separator: "\n") {
                 let trimmed = line.trimmingCharacters(in: .whitespaces)
                 if trimmed.hasPrefix("Button(") {
@@ -337,6 +341,17 @@ struct SwiftWebStoryboardCatalogTests {
                 }
             }
         }
+    }
+
+    @Test
+    func transitionPreviewShowsTargetByDefault() {
+        let snippet = catalogSnippet(for: "transition")
+        let rendered = StoryboardCatalog(initialSelection: "transition").render()
+
+        #expect(storyboardControlDefaults["transition.on"] == "true")
+        #expect(snippet.contains("// isShown = true"))
+        #expect(rendered.contains("isShown"))
+        #expect(rendered.contains("Now you see me"))
     }
 
     @Test
