@@ -214,7 +214,7 @@ public struct ResolvedStyle: Sendable, Equatable {
 | `.buttonStyle(_:)` | Semantic button treatment selection resolved by the active stylesheet |
 | `.textFieldStyle(_:)` | Future semantic field treatment selection resolved by the active stylesheet |
 
-Raw CSS strings should remain as escape hatches, not the primary API. When SwiftWebUI needs to emit concrete CSS properties, it should use SwiftHTML `Style` helpers so standard CSS property names remain autocompleteable and shared across inline styles and stylesheet rules.
+Raw CSS strings should remain low-level SwiftHTML escape hatches, not the SwiftWebUI API. When SwiftWebUI needs to emit concrete CSS properties, it should use SwiftHTML `Style` helpers so standard CSS property names remain autocompleteable and shared across atomic declarations and stylesheet rules.
 
 ## Environment, Theme, And StyleSystem
 

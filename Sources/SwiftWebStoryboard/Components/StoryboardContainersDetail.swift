@@ -158,8 +158,9 @@ struct ContainersDetail: Component {
     }
 
     private func gridTile(_ color: String) -> some HTML {
-        // A square photo placeholder. The 1:1 aspect ratio needs inline CSS, so
-        // the tile is emitted as raw markup with the icon centered inside.
+        // A square photo placeholder. The 1:1 aspect ratio needs a typed style
+        // declaration, so the tile is emitted as a low-level element with the icon
+        // centered inside.
         div(.style {
             .custom("aspect-ratio", "1")
             .borderRadius("10px")

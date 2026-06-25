@@ -57,7 +57,8 @@ public enum JavaScriptKitBrowserRuntime {
             return element
         }
         let element = document.createElement("style").object!
-        _ = element.setAttribute("id", "swui-atomic")
+        // JSObject dynamic methods are optional callables in the JavaScriptKit fork.
+        _ = element.setAttribute!("id", "swui-atomic")
         _ = document.head.appendChild(element)
         return element
     }
@@ -122,7 +123,8 @@ public enum JavaScriptKitBrowserRuntime {
             return element
         }
         let element = document.createElement("style").object!
-        _ = element.setAttribute("id", "swui-animation")
+        // JSObject dynamic methods are optional callables in the JavaScriptKit fork.
+        _ = element.setAttribute!("id", "swui-animation")
         _ = document.head.appendChild(element)
         return element
     }

@@ -75,7 +75,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/1amageek/swift-web.git", branch: "main"),
-        .package(url: "https://github.com/1amageek/swift-html.git", from: "0.5.0"),
+        .package(url: "https://github.com/1amageek/swift-html.git", from: "0.6.6"),
     ],
     targets: [
         .target(
@@ -146,7 +146,7 @@ MyApp
    └─ wasm
 ```
 
-The app package depends on the local SwiftWeb checkout and released `swift-html 0.5.0`.
+The app package depends on the local SwiftWeb checkout and released `swift-html 0.6.6`.
 Generated launchers, dev packages, server packages, and WASM packages stay under
 `.swiftweb/generated`.
 
@@ -561,7 +561,7 @@ WASM content hash so unchanged artifacts are not recompressed.
 | Topic | Current contract |
 |---|---|
 | Swift version | Keep `Package.swift` at `// swift-tools-version: 6.3`. |
-| `swift-html` | Released dependency: `0.5.0`. |
+| `swift-html` | Released dependency for generated apps: `0.6.6`; this repository may use a local `../swift-html` checkout during framework development. |
 | Host compatibility | Current Vapor 5 HTTP stack may require an Xcode Swift toolchain for host/dev builds. |
 | WASM compatibility | Browser runtime remains pinned to Swift 6.3.1 and the matching WASM SDK. |
 | Versioned SwiftPM release | Blocked until branch/revision host dependencies are replaced or explicitly scoped out. |

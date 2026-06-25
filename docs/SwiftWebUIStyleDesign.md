@@ -122,19 +122,20 @@ leaf components.
 | `.environment(\.theme, ...)` | Color-mode and color-role scope. |
 | `.environment(\.styleSystem, ...)` | Component design-language and CSS-rule scope. |
 
-Raw `HTMLAttribute`, `Style.custom`, and raw SwiftHTML elements remain escape
-hatches below SwiftWebUI. They are not the default way to author application UI.
+Raw SwiftHTML elements and `Style.custom` remain escape hatches below SwiftWebUI. String/raw
+`style` attributes are not a SwiftWebUI styling path; SwiftWeb render scopes require typed
+`Style` declarations so validation and atomic class generation can run.
 
 ## Modifier Responsibility Map
 
 | Modifier family | Examples | Design layer | Contract |
 |---|---|---|---|
-| Attribute escape hatches | `id`, `class`, `data`, `aria`, `role`, `style`, `webStyle` | SwiftHTML escape layer | Allowed for exact HTML control; not the primary SwiftWebUI styling path. |
+| Attribute escape hatches | `id`, `class`, `data`, `aria`, `role`, typed `style`, `webStyle` | SwiftHTML escape layer | Allowed for exact HTML control; typed style is atomized in SwiftWeb render scopes. |
 | Layout and sizing | `padding`, `frame`, `fixedSize`, `layoutPriority`, `aspectRatio`, `containerRelativeFrame`, `alignmentGuide`, `offset`, `position`, `zIndex` | Layout geometry | `frame` uses SwiftUI-style numeric values; CSS-unit modifiers use `Length`; component-local spacing uses `Space`; page/grid inset belongs to `GridSystem`. |
 | Page grid layout | `GridSystem`, `Pane` | Page/grid layout | Owns responsive inline inset, columns, gutters, pane spans, and page vertical rhythm; width caps stay in `.frame(maxWidth:)`. |
 | Safe area | `ignoresSafeArea`, `safeAreaPadding`, `safeAreaInset` | Browser viewport compensation | Combines CSS safe-area environment values with explicit user lengths; does not consume `Space` as page margin. |
 | Shape and style | `foregroundStyle`, `backgroundStyle`, `background(_:in:)`, `overlay`, `border`, `tint`, `background(_: Material)`, `glassEffect` | Theme and StyleSystem | Resolves semantic style values through environment and stylesheet tokens. |
-| Visual effects | `opacity`, `shadow`, `cornerRadius`, `clipShape`, `clipped`, `blur`, `brightness`, `contrast`, `saturation`, `grayscale`, `hueRotation`, `colorInvert`, `colorMultiply`, `blendMode`, `rotationEffect`, `scaleEffect` | Per-instance visual effect | May emit inline CSS for an explicit effect; must not encode component design recipes. |
+| Visual effects | `opacity`, `shadow`, `cornerRadius`, `clipShape`, `clipped`, `blur`, `brightness`, `contrast`, `saturation`, `grayscale`, `hueRotation`, `colorInvert`, `colorMultiply`, `blendMode`, `rotationEffect`, `scaleEffect` | Per-instance visual effect | Emits typed style declarations that lower to atomic classes; must not encode component design recipes. |
 | Typography | `font`, `fontWeight`, `fontDesign`, `bold`, `italic`, `monospaced`, `lineLimit`, `multilineTextAlignment`, `lineSpacing`, `truncationMode`, `allowsTightening`, `minimumScaleFactor`, `textCase`, `fontWidth`, `kerning`, `tracking`, `baselineOffset`, `underline`, `strikethrough`, `textSelection` | Typography | Owns text presentation only; no layout container or page spacing responsibility. |
 | Control state and style | `disabled`, `controlSize`, `buttonStyle`, `pickerStyle`, `toggleStyle`, `textFieldStyle`, `labelStyle`, `listStyle`, `formStyle`, `menuStyle`, `progressViewStyle`, `gaugeStyle`, `tabViewStyle` | Environment-driven component variants | Propagates semantic state/style; controls lower the environment to classes and native attributes. |
 | Text input and form semantics | `keyboardType`, `textContentType`, `submitLabel`, `textInputAutocapitalization`, `autocorrectionDisabled`, `focused`, `onSubmit`, `submitScope`, `onChange`, `focusable`, `searchable`, `searchSuggestions`, `searchScopes`, `searchTokens`, `searchCompletion` | Native form semantics | Lowers to HTML attributes, bindings, search scopes, and semantic data; no visual recipe ownership. |

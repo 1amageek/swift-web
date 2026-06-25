@@ -46,7 +46,7 @@ struct FoundationsDetail: Component {
             .frame(maxWidth: .infinity, alignment: .leading)
         case "alignment":
             // The chip is positioned within a bounded, dashed frame by the
-            // selected alignment. The dashed frame is emitted as raw inline CSS:
+            // selected alignment. The dashed frame uses typed style declarations:
             // SwiftWebUI's `.border(_:width:)` only produces a *solid* border, so
             // the dashed style cannot be expressed through it — faking it with a
             // solid border was the extra border the design rejected.
