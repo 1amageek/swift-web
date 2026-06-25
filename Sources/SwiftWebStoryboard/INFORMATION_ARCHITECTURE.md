@@ -75,7 +75,7 @@ rule. This fixed set is what makes every panel look and behave the same.
 | `segmented(label, options)` | enum (String) | pill group | font, alignment, listStyle, style, size, axis, context |
 | `text(label, placeholder)` | String | text field | Content, Title, Query, action, message |
 | `toggle(label)` | Bool | switch | isOn, disabled, isExpanded, showsLineNumbers, indeterminate |
-| `range(label, min…max, step)` | Double | slider + readout | value, opacity, height, minColumnWidth |
+| `range(label, min…max, step)` | Double | slider + readout | value, opacity, height |
 | `swatch(label, palette)` | semantic color | color dots | foregroundStyle, tint |
 | `color(label)` | hex string | color well | .css(_:), selection |
 
@@ -112,7 +112,7 @@ knobs. (Derived from the design.) `seg` = segmented, `txt` = text,
 | list | seg listStyle [Plain/Inset/Grouped/Inset Grouped/Sidebar] |
 | section | txt Header · txt Footer |
 | disclosuregroup | tgl isExpanded |
-| grid | rng minColumnWidth [80…200 px] |
+| grid | — |
 | lazy | seg Axis [LazyVStack/LazyHStack] |
 | tabview | seg selection [Summary/Settings] |
 | stacks | seg Axis [VStack/HStack] |

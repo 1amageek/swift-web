@@ -78,7 +78,7 @@ struct ContainersDetail: Component {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         case "grid":
-            gridDemo(state.controlNumber("grid", "min"))
+            gridDemo()
         case "lazy":
             lazyDemo(state.control("lazy", "axis"))
         case "scrollview":
@@ -144,13 +144,17 @@ struct ContainersDetail: Component {
     }
 
     @HTMLBuilder
-    private func gridDemo(_ minimum: Double) -> some HTML {
-        // The minColumnWidth control drives the adaptive track size, so the photo
-        // grid reflows its column count as the minimum changes — matching the
-        // design's repeat(auto-fit, minmax(min, 1fr)).
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: minimum))], spacing: .small) {
-            ForEach(0..<8, id: { index in index }) { index in
-                gridTile(index)
+    private func gridDemo() -> some HTML {
+        Grid(horizontalSpacing: 12, verticalSpacing: 12) {
+            GridRow {
+                gridTile(0)
+                gridTile(1)
+                gridTile(2)
+            }
+            GridRow {
+                gridTile(3)
+                gridTile(4)
+                gridTile(5)
             }
         }
         .frame(width: 340)

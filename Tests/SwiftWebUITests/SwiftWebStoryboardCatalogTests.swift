@@ -306,6 +306,22 @@ struct SwiftWebStoryboardCatalogTests {
     }
 
     @Test
+    func gridStoryboardUsesStaticGridContract() {
+        let snippet = catalogSnippet(for: "grid", state: [:])
+        let rendered = StoryboardCatalog(initialSelection: "grid").render()
+
+        #expect(storyboardControls(for: "grid").isEmpty)
+        #expect(storyboardControlDefaults["grid.min"] == nil)
+        #expect(snippet.contains("Grid(horizontalSpacing: 12, verticalSpacing: 12)"))
+        #expect(snippet.contains("GridRow"))
+        #expect(!snippet.contains("minColumnWidth"))
+        #expect(!snippet.contains("LazyVGrid"))
+        #expect(!snippet.contains(#""120px""#))
+        #expect(rendered.contains("swui-grid"))
+        #expect(rendered.contains("swui-grid-row"))
+    }
+
+    @Test
     func catalogCoversPrimarySwiftWebUIComponents() {
         let coverageText = allItems.map { item in
             let spec = catalogDetailSpec(for: item)

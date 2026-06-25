@@ -246,8 +246,6 @@ func storyboardControls(for id: String) -> [StoryboardControl] {
         ]
     case "disclosuregroup":
         return [.toggle(label: "isExpanded", key: "open")]
-    case "grid":
-        return [.range(label: "minColumnWidth", key: "min", min: 80, max: 200, step: 10, unit: .pixels)]
     case "lazy":
         return [.segmented(label: "Axis", key: "axis", options: [.init("vstack", "LazyVStack"), .init("hstack", "LazyHStack")])]
     case "tabview":
@@ -404,7 +402,6 @@ let storyboardControlDefaults: [String: String] = [
     "list.style": "plain",
     "section.title": "Account", "section.footer": "Signed in as ada@example.com",
     "disclosuregroup.open": "true",
-    "grid.min": "120",
     "lazy.axis": "vstack",
     "tabview.tab": "summary",
     "stacks.axis": "h",

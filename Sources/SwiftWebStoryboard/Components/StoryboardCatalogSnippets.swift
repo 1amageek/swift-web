@@ -147,9 +147,18 @@ func catalogSnippet(for id: String, state: [String: String] = [:]) -> String {
       + "    Label(\"Verbose logging\", systemImage: \"doc.text\")\n}"
 
   case "grid":
-    let minWidth = state.controlNumber(id, "min")
-    return "Grid(minColumnWidth: \"\(iStr(minWidth))px\", spacing: .small) {\n"
-      + "    ForEach(photos) { photo in\n        Image(systemName: photo.symbol)\n    }\n}"
+    return "Grid(horizontalSpacing: 12, verticalSpacing: 12) {\n"
+      + "    GridRow {\n"
+      + "        Image(systemName: \"photo\")\n"
+      + "        Image(systemName: \"heart\")\n"
+      + "        Image(systemName: \"star\")\n"
+      + "    }\n"
+      + "    GridRow {\n"
+      + "        Text(\"Photos\")\n"
+      + "        Text(\"Favorites\")\n"
+      + "        Text(\"Featured\")\n"
+      + "    }\n"
+      + "}"
 
   case "lazy":
     let axis = state.control(id, "axis")
