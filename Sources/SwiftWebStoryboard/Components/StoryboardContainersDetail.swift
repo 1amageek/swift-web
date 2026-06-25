@@ -97,32 +97,34 @@ struct ContainersDetail: Component {
 
     @HTMLBuilder
     private func lazyDemo(_ axis: String) -> some HTML {
-        ScrollView(.vertical) {
-            if axis == "hstack" {
+        if axis == "hstack" {
+            ScrollView(.horizontal) {
                 LazyHStack(spacing: .small) {
                     ForEach(["Ada", "Grace", "Alan", "Katherine"], id: { name in name }) { name in
                         Text(name)
                     }
                 }
                 .padding(.all, 8)
-            } else {
+            }
+            .frame(width: 280, height: 160)
+            .background(.surfaceRaised)
+            .cornerRadius(12)
+            .border(.border)
+        } else {
+            ScrollView(.vertical) {
                 LazyVStack(alignment: .leading, spacing: .small) {
-                    ForEach(["Ada Lovelace", "Grace Hopper", "Alan Turing", "Katherine Johnson"], id: { name in name }) { name in
-                        HStack(spacing: .small) {
-                            Image(systemName: "envelope")
-                            Text(name)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    ForEach(["Ada", "Grace", "Alan", "Katherine"], id: { name in name }) { name in
+                        Text(name)
                     }
                 }
                 .padding(.all, 8)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .frame(width: 280, height: 160)
+            .background(.surfaceRaised)
+            .cornerRadius(12)
+            .border(.border)
         }
-        .frame(width: 280, height: 160)
-        .background(.surfaceRaised)
-        .cornerRadius(12)
-        .border(.border)
     }
 
     @HTMLBuilder
@@ -147,23 +149,17 @@ struct ContainersDetail: Component {
     private func gridDemo() -> some HTML {
         Grid(horizontalSpacing: 12, verticalSpacing: 12) {
             GridRow {
-                gridTile(0)
-                gridTile(1)
-                gridTile(2)
+                Image(systemName: "photo")
+                Image(systemName: "heart")
+                Image(systemName: "star")
             }
             GridRow {
-                gridTile(3)
-                gridTile(4)
-                gridTile(5)
+                Text("Photos")
+                Text("Favorites")
+                Text("Featured")
             }
         }
         .frame(width: 340)
-    }
-
-    private func gridTile(_ index: Int) -> some HTML {
-        div(.class("swui-storyboard-grid-tile swui-storyboard-grid-tile-\(index)")) {
-            Image(systemName: "photo")
-        }
     }
 
     private func badgeTintColor(_ tint: String) -> Color {

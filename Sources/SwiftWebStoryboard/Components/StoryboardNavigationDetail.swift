@@ -33,16 +33,17 @@ struct NavigationDetail: Component {
                 ListRow { Text("Drafts") }
                 ListRow { Text("Sent") }
             }
-            .searchable(text: ui.string("searchable.query"))
+            .searchable(text: ui.string("searchable.query"), prompt: "Search folders")
         default:
             NavigationStack {
                 VStack(alignment: .leading, spacing: .small) {
-                    NavigationLink("Overview", destination: URL(string: "#")!)
+                    NavigationLink("Overview", destination: URL(string: "#overview")!)
                     NavigationLink("Components", destination: URL(string: "#components")!)
                     NavigationLink("Tokens", destination: URL(string: "#tokens")!)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .navigationTitle(state.control("navigationstack", "title"))
         }
     }
 

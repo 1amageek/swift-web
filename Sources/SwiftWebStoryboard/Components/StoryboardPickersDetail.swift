@@ -16,7 +16,7 @@ struct PickersDetail: Component {
         case "menu":
             Menu(menuLabel) {
                 Button("Duplicate") {}
-                Button("Move…") {}
+                Button("Move") {}
                 Button("Delete") {}
             }
             .disabled(state.controlFlag("menu", "disabled"))

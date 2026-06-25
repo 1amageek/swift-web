@@ -22,23 +22,20 @@ struct FoundationsDetail: Component {
             }
             .frame(maxWidth: .infinity)
         case "spacing":
-            // The ladder of fixed steps is constant (8 is always the base unit);
-            // the right-hand tile grid is sized by the selected grid unit so the
-            // 4/8/16 control visibly changes the lattice cell size.
-            let unit = spacingUnit(state.control("spacing", "unit"))
+            let token = state.control("spacing", "unit")
             HStack(alignment: .top, spacing: .large) {
                 VStack(alignment: .leading, spacing: .xsmall) {
-                    spacingBar("4", width: 12, active: false)
-                    spacingBar("8", width: 24, active: true)
-                    spacingBar("16", width: 48, active: false)
-                    spacingBar("24", width: 72, active: false)
-                    spacingBar("32", width: 96, active: false)
-                    spacingBar("40", width: 120, active: false)
-                    spacingBar("48", width: 144, active: false)
+                    spacingBar(".small", width: 48, active: token == "small")
+                    spacingBar(".medium", width: 72, active: token == "medium")
+                    spacingBar(".large", width: 96, active: token == "large")
                 }
-                VStack(spacing: .xsmall) {
-                    tileGrid(cell: unit)
-                    Text("\(Int(unit))px grid", as: .small)
+                VStack(spacing: spacingSpace(token)) {
+                    GroupBox("Content") {
+                        Text("Spacing token")
+                            .foregroundStyle(.secondary)
+                    }
+                    Button("Continue").buttonStyle(.borderedProminent)
+                    Text(".\(token)", as: .small)
                         .font(Font(size: .px(12), design: .monospaced))
                         .foregroundStyle(.secondary)
                 }
@@ -302,26 +299,11 @@ struct FoundationsDetail: Component {
         }
     }
 
-    private func tileGrid(cell: Double) -> some HTML {
-        VStack(spacing: .xsmall) {
-            ForEach(0..<4, id: { index in index }) { _ in
-                HStack(spacing: .xsmall) {
-                    ForEach(0..<4, id: { index in index }) { _ in
-                        VStack {}
-                            .frame(width: cell, height: cell)
-                            .background(Color.accent.opacity(0.2), in: .rect(cornerRadius: 2))
-                    }
-                }
-            }
-        }
-    }
-
-    /// The grid unit (cell size in px) the spacing demo lays its tile lattice on.
-    private func spacingUnit(_ value: String) -> Double {
+    private func spacingSpace(_ value: String) -> Space {
         switch value {
-        case "4": return 4
-        case "16": return 16
-        default: return 8
+        case "small": return .small
+        case "large": return .large
+        default: return .medium
         }
     }
 
@@ -451,7 +433,7 @@ struct FoundationsDetail: Component {
                 .frame(width: width, height: 10)
                 .background(active ? Color.accent : Color.border, in: .rect(cornerRadius: 3))
             if active {
-                Text("base unit", as: .small)
+                Text("selected", as: .small)
                     .font(Font(size: .px(11)))
                     .foregroundStyle(.accent)
             }

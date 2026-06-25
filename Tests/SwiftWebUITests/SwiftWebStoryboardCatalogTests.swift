@@ -262,11 +262,13 @@ struct SwiftWebStoryboardCatalogTests {
     }
 
     @Test
-    func spacingPreviewRendersScaleAndGridLabel() {
+    func spacingPreviewRendersTokenScale() {
         let rendered = StoryboardCatalog(initialSelection: "spacing").render()
 
-        #expect(rendered.contains("8px grid"))
-        #expect(rendered.contains("base unit"))
+        #expect(rendered.contains(".small"))
+        #expect(rendered.contains(".medium"))
+        #expect(rendered.contains(".large"))
+        #expect(rendered.contains("selected"))
     }
 
     @Test
@@ -319,6 +321,22 @@ struct SwiftWebStoryboardCatalogTests {
         #expect(!snippet.contains(#""120px""#))
         #expect(rendered.contains("swui-grid"))
         #expect(rendered.contains("swui-grid-row"))
+    }
+
+    @Test
+    func storyboardUsageSnippetsAvoidLegacyDemoSyntax() {
+        for item in allItems {
+            let snippet = catalogSnippet(for: item.id)
+            #expect(!snippet.contains("…"), "Usage for \(item.id) still contains placeholder ellipsis")
+            #expect(!snippet.contains("minColumnWidth"), "Usage for \(item.id) still documents raw minColumnWidth")
+            #expect(!snippet.contains("px\""), "Usage for \(item.id) still passes a raw pixel string")
+            for line in snippet.split(separator: "\n") {
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                if trimmed.hasPrefix("Button(") {
+                    #expect(!trimmed.contains("prominence:"), "Usage for \(item.id) uses non-existent Button prominence syntax")
+                }
+            }
+        }
     }
 
     @Test

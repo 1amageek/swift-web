@@ -42,6 +42,17 @@ private func trimNum(_ value: Double) -> String {
     return String(format: "%g", value)
 }
 
+private func codeBody(language: String) -> String {
+  switch language {
+  case "json":
+    return "    \"\"\"\n    {\n      \"columns\": 12,\n      \"gutter\": \"medium\"\n    }\n    \"\"\""
+  case "bash":
+    return "    \"\"\"\n    swift run sweb storyboard --port 3001\n    \"\"\""
+  default:
+    return "    \"\"\"\n    struct Counter: View {\n        @State private var count = 0\n    }\n    \"\"\""
+  }
+}
+
 // MARK: - Usage snippet
 
 /// The Usage code shown for a component. The snippet is generated from the live
@@ -63,12 +74,20 @@ func catalogSnippet(for id: String, state: [String: String] = [:]) -> String {
     ]
     let set = presetsByCols[cols] ?? presetsByCols["12"]!
     let spans = set[preset] ?? set["sidebar"]!
-    let panes = spans.enumerated().map { i, s in "    Pane(span: \(s)) { Block\(i + 1)() }" }.joined(separator: "\n")
+    let panes = spans.map { s in "    Pane(span: \(s)) { Text(\"span \(s)\") }" }.joined(separator: "\n")
     let sum = spans.map(String.init).joined(separator: " + ")
     return "// Place content; the grid is applied automatically.\n"
       + "GridSystem(columns: \(cols), gutter: .\(gutter)) {\n"
       + panes + "\n}\n"
       + "// \(sum) = \(cols) · panes stack to full width under 600px"
+
+  case "spacing":
+    let token = state.control(id, "unit")
+    return "VStack(spacing: .\(token)) {\n"
+      + "    GroupBox { Text(\"Content\") }\n"
+      + "        .padding(.\(token))\n"
+      + "    Button(\"Continue\")\n"
+      + "}"
 
   case "alignment":
     let align = state.control(id, "align")
@@ -80,8 +99,60 @@ func catalogSnippet(for id: String, state: [String: String] = [:]) -> String {
     let align = state.control(id, "align")
     return "VStack(alignment: .leading, spacing: .small) {\n"
       + "    Badge(\"Fixed\")\n"
-      + "    Button(\"Flexible\", prominence: .primary)\n"
+      + "    Button(\"Flexible\").buttonStyle(.borderedProminent)\n"
       + "        .frame(maxWidth: .infinity, alignment: .\(align))\n}"
+
+  case "style":
+    let context = state.control(id, "ctx")
+    switch context {
+    case "toolbar":
+      return "Toolbar {\n"
+        + "    Text(\"Settings\").fontWeight(.semibold)\n"
+        + "    Spacer()\n"
+        + "    Button(\"Done\").buttonStyle(.borderedProminent).controlSize(.small)\n"
+        + "}\n"
+        + ".class(\"swui-toolbar\")"
+    case "list":
+      return "List {\n"
+        + "    ListRow { Text(\"Wi-Fi\"); Spacer(); Text(\"On\").foregroundStyle(.secondary) }\n"
+        + "    ListRow { Text(\"Bluetooth\"); Spacer(); Text(\"Off\").foregroundStyle(.secondary) }\n"
+        + "}\n"
+        + ".class(\"swui-list\")"
+    default:
+      return "Text(\"Wi-Fi\")\n"
+        + "    .class(\"swui-fg-primary\")"
+    }
+
+  case "responsive":
+    let bp = state.control(id, "bp")
+    switch bp {
+    case "compact":
+      return "GridSystem(columns: 1, gutter: .small) {\n"
+        + "    Pane(span: 1) { Text(\"span 1\") }\n"
+        + "    Pane(span: 1) { Text(\"span 1\") }\n"
+        + "    Pane(span: 1) { Text(\"span 1\") }\n"
+        + "}"
+    case "regular":
+      return "GridSystem(columns: 8, gutter: .medium) {\n"
+        + "    Pane(span: 4) { Text(\"span 4\") }\n"
+        + "    Pane(span: 4) { Text(\"span 4\") }\n"
+        + "}"
+    default:
+      return "GridSystem(columns: 12, gutter: .medium) {\n"
+        + "    Pane(span: 4) { Text(\"span 4\") }\n"
+        + "    Pane(span: 4) { Text(\"span 4\") }\n"
+        + "    Pane(span: 4) { Text(\"span 4\") }\n"
+        + "}"
+    }
+
+  case "materials":
+    let level = state.control(id, "level")
+    return "HStack(spacing: .large) {\n"
+      + "    VStack { Text(\"Material\") }\n"
+      + "        .background(.\(level)Material, in: .rect(cornerRadius: 20))\n"
+      + "    VStack { Text(\"Liquid Glass\") }\n"
+      + "        .glassEffect(.regular, in: .rect(cornerRadius: 20))\n"
+      + "}"
 
   // MARK: Content
   case "typography":
@@ -107,7 +178,7 @@ func catalogSnippet(for id: String, state: [String: String] = [:]) -> String {
     let lang = state.control(id, "lang")
     let lineNumbers = state.controlFlag(id, "lineNumbers")
     let lnArg = lineNumbers ? "" : ", showsLineNumbers: false"
-    let body = "    \"\"\"\n    struct Counter: View {\n        @State private var count = 0\n    }\n    \"\"\""
+    let body = codeBody(language: lang)
     return "Code(language: \(q(lang))\(lnArg)) {\n" + body + "\n}"
 
   // MARK: Layout & organization
@@ -129,21 +200,27 @@ func catalogSnippet(for id: String, state: [String: String] = [:]) -> String {
     let style = state.control(id, "style")
     return "List {\n"
       + "    ListRow { Text(\"Wi-Fi\"); Spacer(); Badge(\"On\") }\n"
-      + "    ListRow { Text(\"Bluetooth\"); Spacer(); Text(\"Off\").foregroundStyle(.secondary) }\n}\n"
+      + "    ListRow { Text(\"Bluetooth\"); Spacer(); Text(\"Off\").foregroundStyle(.secondary) }\n"
+      + "    ListRow { Text(\"Updates\"); Spacer(); Badge(\"3\") }\n}\n"
       + ".listStyle(.\(style))"
 
   case "section":
     let title = state.control(id, "title")
     let footer = state.control(id, "footer")
     let footerBlock = footer.isEmpty ? "" : "\n} footer: {\n    Text(\(q(footer))).foregroundStyle(.secondary)"
-    return "Section {\n"
-      + "    Text(\"Profile\")\n    Text(\"Security\")\n    Text(\"Notifications\")\n"
-      + "} header: {\n    Heading(\(q(title)), level: .subsection)"
-      + footerBlock + "\n}"
+    return "VStack(alignment: .leading, spacing: .medium) {\n"
+      + "    Section {\n"
+      + "        Text(\"Profile\")\n        Text(\"Security\")\n        Text(\"Notifications\")\n"
+      + "    } header: {\n        Heading(\(q(title)), level: .subsection)"
+      + footerBlock.replacingOccurrences(of: "\n", with: "\n    ") + "\n    }\n"
+      + "    Section {\n"
+      + "        Text(\"iPhone\")\n        Text(\"iPad\")\n"
+      + "    } header: {\n        Heading(\"Devices\", level: .subsection)\n    }\n}"
 
   case "disclosuregroup":
     let open = state.controlFlag(id, "open")
     return "DisclosureGroup(\"Advanced options\", isExpanded: \(open ? "true" : "false")) {\n"
+      + "    Text(\"Nested content reveals when expanded.\").foregroundStyle(.secondary)\n"
       + "    Label(\"Verbose logging\", systemImage: \"doc.text\")\n}"
 
   case "grid":
@@ -165,7 +242,10 @@ func catalogSnippet(for id: String, state: [String: String] = [:]) -> String {
     let horizontal = axis == "hstack"
     return "ScrollView" + (horizontal ? "(.horizontal)" : "") + " {\n"
       + "    Lazy" + (horizontal ? "HStack" : "VStack") + "(spacing: .small) {\n"
-      + "        ForEach(messages) { MessageRow($0) }\n    }\n}"
+      + "        ForEach([\"Ada\", \"Grace\", \"Alan\", \"Katherine\"], id: { name in name }) { name in\n"
+      + "            Text(name)\n"
+      + "        }\n"
+      + "    }\n}"
 
   case "scrollview":
     let axes = state.control(id, "axes")
@@ -174,31 +254,31 @@ func catalogSnippet(for id: String, state: [String: String] = [:]) -> String {
       return "ScrollView(.horizontal) {\n    HStack(spacing: .small) { ForEach(cards) { CardView($0) } }\n}"
     }
     return "ScrollView(.vertical) {\n    VStack(spacing: .medium) { ForEach(paragraphs) { Text($0) } }\n}\n"
-      + ".frame(maxWidth: .infinity, height: \"\(iStr(height))px\")"
+      + ".frame(maxWidth: .infinity, height: \(iStr(height)))"
 
   case "stacks":
     let axis = state.control(id, "axis")
     if axis == "h" {
       return "HStack(spacing: .small) {\n"
-        + "    Image(systemName: \"checkmark.seal.fill\")\n"
-        + "    VStack(alignment: .leading) {\n        Text(\"Ada Lovelace\")\n        Text(\"Mathematician\").foregroundStyle(.secondary)\n    }\n"
-        + "    Spacer()\n    Button(\"Follow\", prominence: .primary)\n}"
+        + "    Text(\"Leading\")\n"
+        + "    Text(\"Center\")\n"
+        + "    Text(\"Trailing\")\n}"
     }
     return "VStack(spacing: .small) {\n"
-      + "    Image(systemName: \"checkmark.seal.fill\")\n"
-      + "    Text(\"Ada Lovelace\")\n    Text(\"Mathematician\").foregroundStyle(.secondary)\n"
-      + "    Button(\"Follow\", prominence: .primary)\n}"
+      + "    Text(\"Top\")\n"
+      + "    Text(\"Middle\")\n"
+      + "    Text(\"Bottom\")\n}"
 
   case "spacer":
     let pos = state.control(id, "pos")
     let inner: String
     switch pos {
     case "leading":
-      inner = "    Spacer()\n    Button(\"Back\")\n    Button(\"Save\", prominence: .primary)"
+      inner = "    Spacer()\n    Button(\"Back\")\n    Button(\"Save\").buttonStyle(.borderedProminent)"
     case "trailing":
-      inner = "    Button(\"Back\")\n    Button(\"Save\", prominence: .primary)\n    Spacer()"
+      inner = "    Button(\"Back\")\n    Button(\"Save\").buttonStyle(.borderedProminent)\n    Spacer()"
     default:
-      inner = "    Button(\"Back\")\n    Spacer()\n    Button(\"Save\", prominence: .primary)"
+      inner = "    Button(\"Back\")\n    Spacer()\n    Button(\"Save\").buttonStyle(.borderedProminent)"
     }
     return "HStack {\n" + inner + "\n}"
 
@@ -211,13 +291,14 @@ func catalogSnippet(for id: String, state: [String: String] = [:]) -> String {
 
   case "toolbar":
     let label = state.control(id, "label")
-    return "Toolbar {\n    Button(\"Back\")\n    Spacer()\n    Button(\(q(label)), prominence: .primary)\n}"
+    return "Toolbar {\n    Button(\"Back\")\n    Spacer()\n    Button(\(q(label))).buttonStyle(.borderedProminent)\n}"
 
   // MARK: Menus & actions
   case "button":
     let label = state.control(id, "label")
     let prominence = state.control(id, "prominence")
-    return "Button(\(q(label)), prominence: .\(prominence)) {\n    count += 1\n}"
+    let styleLine = prominence == "primary" ? "\n    .buttonStyle(.borderedProminent)" : ""
+    return "Button(\(q(label))) {\n    count += 1\n}" + styleLine
 
   case "button-styles":
     let label = state.control(id, "label")
@@ -233,7 +314,7 @@ func catalogSnippet(for id: String, state: [String: String] = [:]) -> String {
     let label = state.control(id, "label")
     let tint = state.control(id, "tint")
     let disabled = state.controlFlag(id, "disabled")
-    return "Button(\(q(label)), prominence: .primary)\n    .tint(\(tintStyle(tint)))" + (disabled ? "\n    .disabled()" : "")
+    return "Button(\(q(label)))\n    .buttonStyle(.borderedProminent)\n    .tint(\(tintStyle(tint)))" + (disabled ? "\n    .disabled()" : "")
 
   case "links":
     let label = state.control(id, "label")
@@ -245,33 +326,46 @@ func catalogSnippet(for id: String, state: [String: String] = [:]) -> String {
   case "menu":
     let label = state.control(id, "label")
     let disabled = state.controlFlag(id, "disabled")
-    return "Menu(\(q(label))) {\n    Button(\"Duplicate\") {}\n    Button(\"Move…\") {}\n    Button(\"Delete\") {}\n}" + (disabled ? "\n.disabled()" : "")
+    return "Menu(\(q(label))) {\n    Button(\"Duplicate\") {}\n    Button(\"Move\") {}\n    Button(\"Delete\") {}\n}" + (disabled ? "\n    .disabled()" : "")
 
   // MARK: Navigation & search
   case "navigationstack":
     let title = state.control(id, "title")
-    return "NavigationStack {\n    List { … }\n}\n.navigationTitle(\(q(title)))"
+    return "NavigationStack {\n"
+      + "    VStack(alignment: .leading, spacing: .small) {\n"
+      + "        NavigationLink(\"Overview\", destination: URL(string: \"#overview\")!)\n"
+      + "        NavigationLink(\"Components\", destination: URL(string: \"#components\")!)\n"
+      + "        NavigationLink(\"Tokens\", destination: URL(string: \"#tokens\")!)\n"
+      + "    }\n"
+      + "}\n.navigationTitle(\(q(title)))"
 
   case "navigationlink":
     let label = state.control(id, "label")
-    return "NavigationLink(\(q(label)), destination: URL(string: \"#\")!)"
+    return "NavigationLink(\(q(label)), destination: URL(string: \"#overview\")!)"
 
   case "searchable":
     let query = state.control(id, "query")
     let queryComment = query.isEmpty ? "" : "\n// query = \(q(query))"
-    return "List { … }\n    .searchable(text: $query, prompt: \"Search folders\")" + queryComment
+    return "List {\n"
+      + "    ListRow { Text(\"Inbox\") }\n"
+      + "    ListRow { Text(\"Drafts\") }\n"
+      + "    ListRow { Text(\"Sent\") }\n"
+      + "}\n.searchable(text: $query, prompt: \"Search folders\")" + queryComment
 
   // MARK: Presentation
   case "alert":
     let message = state.control(id, "message")
     return "Button(\"Show alert\") { showsAlert = true }\n"
-      + ".alert(\"Delete this draft?\", isPresented: $showsAlert) {\n    Button(\"Delete\", action: Action.post(\"/delete\"))\n} message: {\n    Text(\(q(message)))\n}"
+      + ".alert(\"Delete this draft?\", isPresented: $showsAlert) {\n    Button(\"Delete\", action: Action.post(\"/storyboard/delete\"))\n} message: {\n    Text(\(q(message)))\n}"
 
   // MARK: Selection & input
   case "textfield":
+    let placeholder = state.control(id, "placeholder")
     let type = state.control(id, "type")
     let fieldStyle = state.control(id, "fieldStyle")
-    return "TextField(\"Email\", text: $email, .type(.\(type)))\n    .textFieldStyle(.\(fieldStyle))"
+    let value = state.control(id, "input")
+    let valueComment = value.isEmpty ? "" : "\n// text = \(q(value))"
+    return "TextField(\(q(placeholder)), text: $text, .type(.\(type)))\n    .textFieldStyle(.\(fieldStyle))" + valueComment
 
   case "securefield":
     let fieldStyle = state.control(id, "fieldStyle")
@@ -287,7 +381,7 @@ func catalogSnippet(for id: String, state: [String: String] = [:]) -> String {
 
   case "stepper":
     let value = state.controlNumber(id, "value")
-    return "Stepper(\"Density\", value: $density, in: 0...8)\n// value = \(iStr(value))"
+    return "Stepper(\"Value\", value: $value, in: 0...8)\n// value = \(iStr(value))"
 
   case "picker":
     let value = state.control(id, "value")
@@ -300,7 +394,7 @@ func catalogSnippet(for id: String, state: [String: String] = [:]) -> String {
     let style = state.control(id, "style")
     let time = state.controlFlag(id, "time")
     let components = time ? "[.date, .hourAndMinute]" : "[.date]"
-    return "DatePicker(\n    \"Starts at\",\n    selection: $due,\n    displayedComponents: \(components)\n)\n.datePickerStyle(.\(style))"
+    return "DatePicker(\n    \"Due date\",\n    selection: $due,\n    displayedComponents: \(components)\n)\n.datePickerStyle(.\(style))"
 
   case "colorpicker":
     let value = state.control(id, "value")
@@ -308,17 +402,21 @@ func catalogSnippet(for id: String, state: [String: String] = [:]) -> String {
 
   case "color":
     let custom = state.control(id, "custom")
-    return "Button(\"Custom\", prominence: .primary)\n    .tint(.css(\(q(custom))))"
+    return "HStack(spacing: .small) {\n"
+      + "    Button(\"Accent\").buttonStyle(.borderedProminent).tint(.accent)\n"
+      + "    Button(\"Danger\").buttonStyle(.borderedProminent).tint(.danger)\n"
+      + "    Button(\"Custom\").buttonStyle(.borderedProminent).tint(.css(\(q(custom))))\n"
+      + "}"
 
   // MARK: Status
   case "progressview":
     let value = state.controlNumber(id, "value")
     let indeterminate = state.controlFlag(id, "indeterminate")
-    return indeterminate ? "ProgressView(\"Loading\")" : "ProgressView(\"Uploading\", value: \(f2(value)))"
+    return indeterminate ? "ProgressView(\"Loading\")" : "ProgressView(\"Progress\", value: \(f2(value)))"
 
   case "gauge":
     let value = state.controlNumber(id, "value")
-    return "Gauge(value: \(f2(value))) {\n    Text(\"CPU\")\n}"
+    return "Gauge(value: \(f2(value))) {\n    Text(\"Value\")\n}"
 
   case "badge":
     let label = state.control(id, "label")
@@ -328,56 +426,21 @@ func catalogSnippet(for id: String, state: [String: String] = [:]) -> String {
   case "tabview":
     let tab = state.control(id, "tab")
     return "TabView(selection: $tab) {\n"
-      + "    Tab(\"Summary\", systemImage: \"doc.text\", value: \"summary\") { … }\n"
-      + "    Tab(\"Settings\", systemImage: \"gear\", value: \"settings\") { … }\n}\n"
+      + "    Tab(\"Summary\", systemImage: \"doc.text\", value: \"summary\") { Text(\"Summary panel content.\") }\n"
+      + "    Tab(\"Activity\", systemImage: \"chart.bar\", value: \"activity\") { Text(\"Activity panel content.\") }\n"
+      + "    Tab(\"Settings\", systemImage: \"gear\", value: \"settings\") { Text(\"Settings panel content.\") }\n}\n"
       + "// selection = \(q(tab))"
 
   // MARK: Components whose code does not vary with their controls.
   default:
-    return catalogStaticSnippet(for: id)
+    return catalogStaticSnippet(for: id, state: state)
   }
 }
 
 /// Static snippets for components whose Usage code does not change with a knob
 /// (the knob varies only the rendered demo, or the component has no knobs).
-private func catalogStaticSnippet(for id: String) -> String {
+private func catalogStaticSnippet(for id: String, state: [String: String]) -> String {
   switch id {
-  case "spacing":
-    return """
-      VStack(spacing: .large) {
-          GroupBox { Text("Content") }
-              .padding(.medium)
-          Button("Continue")
-      }
-      """
-  case "style":
-    return """
-      let utilityStylesheet = Stylesheet {
-          utility(StyleClass("hover:swui-bg-accent"), registry: .swiftWebUI)
-          utility(StyleClass("md:swui-fg-secondary"), registry: .swiftWebUI)
-      }
-
-      Text("Wi-Fi")
-          .class("swui-fg-primary")
-
-      List {
-          HStack {
-              Text("Wi-Fi")
-              Spacer()
-              Text("On").foregroundStyle(.secondary)
-          }
-      }
-      .class("swui-bg-surface swui-radius-container hover:swui-bg-accent")
-      """
-  case "responsive":
-    return """
-      LazyVGrid(columns: columns, spacing: sizeClass.gutter) {
-          ForEach(items) { item in
-              ContentTile(item)
-          }
-      }
-      .padding(.horizontal, sizeClass.margin)
-      """
   case "safearea":
     return """
       ZStack {
@@ -391,27 +454,22 @@ private func catalogStaticSnippet(for id: String) -> String {
           }
       }
       """
-  case "materials":
-    return """
-      // Material — frosted vibrancy, for backgrounds
-      Panel()
-          .background(.regularMaterial, in: .rect(cornerRadius: 18))
-
-      // Liquid Glass — refraction, for floating controls (the default)
-      Panel()
-          .glassEffect(.regular, in: .rect(cornerRadius: 18))
-      """
   case "texteditor":
+    let value = state.control(id, "value")
     return """
       TextEditor(text: $notes)
           .frame(minHeight: 120, alignment: .topLeading)
+
+      // text = \(q(value))
       """
   case "form":
+    let method = state.control(id, "method")
+    let action = state.control(id, "action")
     return """
-      Form(action: "/subscribe", method: .post) {
+      Form(action: \(q(action)), method: .\(method)) {
           VStack(alignment: .leading, spacing: .medium) {
               Label("Email address", systemImage: "envelope")
-              SubmitButton("Subscribe").buttonStyle(.borderedProminent)
+              SubmitButton("Subscribe", prominence: .primary)
           }
       }
       """

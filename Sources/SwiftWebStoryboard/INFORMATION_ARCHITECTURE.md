@@ -72,7 +72,7 @@ rule. This fixed set is what makes every panel look and behave the same.
 
 | Control | Binds | Widget | Example uses |
 |---|---|---|---|
-| `segmented(label, options)` | enum (String) | pill group | font, alignment, listStyle, style, size, axis, context |
+| `segmented(label, options)` | enum (String) | pill group | font, alignment, spacing, listStyle, style, size, axis, context |
 | `text(label, placeholder)` | String | text field | Content, Title, Query, action, message |
 | `toggle(label)` | Bool | switch | isOn, disabled, isExpanded, showsLineNumbers, indeterminate |
 | `range(label, min…max, step)` | Double | slider + readout | value, opacity, height |
@@ -89,7 +89,7 @@ knobs. (Derived from the design.) `seg` = segmented, `txt` = text,
 | id | controls |
 |---|---|
 | gridsystem | seg columns [12/8/4] · seg gutter [.small/.medium/.large] · seg arrangement [Sidebar/Halves/Thirds/Full] |
-| spacing | seg grid unit [4/8/16 px] |
+| spacing | seg spacing [.small/.medium/.large] |
 | alignment | seg alignment [Leading/Center/Trailing] |
 | hug-fill | seg fill alignment [Leading/Center/Trailing] |
 | style | seg context [Standalone/In List/In Toolbar] |

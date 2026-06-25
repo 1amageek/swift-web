@@ -208,7 +208,7 @@ struct CatalogDetail: Component {
         case "bash":
             return "swift run sweb storyboard --port 3001"
         default:
-            return "GridSystem(columns: 12, gutter: .medium) {\n    Pane(span: 8) { Article() }\n    Pane(span: 4) { Sidebar() }\n}"
+            return "struct Counter: View {\n    @State private var count = 0\n}"
         }
     }
 

@@ -186,7 +186,7 @@ func storyboardControls(for id: String) -> [StoryboardControl] {
             .segmented(label: "arrangement", key: "preset", options: [.init("sidebar", "Sidebar"), .init("halves", "Halves"), .init("thirds", "Thirds"), .init("full", "Full")]),
         ]
     case "spacing":
-        return [.segmented(label: "grid unit", key: "unit", options: [.init("4", "4px"), .init("8", "8px"), .init("16", "16px")])]
+        return [.segmented(label: "spacing", key: "unit", options: [.init("small", ".small"), .init("medium", ".medium"), .init("large", ".large")])]
     case "alignment":
         return [.segmented(label: "alignment", key: "align", options: alignmentOptions)]
     case "hug-fill":
@@ -386,7 +386,7 @@ func storyboardControls(for id: String) -> [StoryboardControl] {
 /// Initial knob and live preview state values, keyed `"componentID.value"`.
 let storyboardControlDefaults: [String: String] = [
     "gridsystem.cols": "12", "gridsystem.gutter": "medium", "gridsystem.preset": "sidebar",
-    "spacing.unit": "8",
+    "spacing.unit": "medium",
     "alignment.align": "center",
     "hug-fill.align": "center",
     "style.ctx": "standalone",

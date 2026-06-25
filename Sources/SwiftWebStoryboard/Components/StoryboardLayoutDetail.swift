@@ -44,15 +44,17 @@ struct LayoutDetail: Component {
         HStack(spacing: .small) {
             switch pos {
             case "leading":
-                Text("leading")
                 Spacer()
+                Button("Back")
+                Button("Save").buttonStyle(.borderedProminent)
             case "trailing":
+                Button("Back")
+                Button("Save").buttonStyle(.borderedProminent)
                 Spacer()
-                Text("trailing")
             default:
-                Text("leading")
+                Button("Back")
                 Spacer()
-                Text("trailing")
+                Button("Save").buttonStyle(.borderedProminent)
             }
         }
         .frame(maxWidth: .infinity)
@@ -62,9 +64,11 @@ struct LayoutDetail: Component {
     private func dividerDemo(_ orientation: String) -> some HTML {
         if orientation == "vertical" {
             HStack(spacing: .medium) {
-                Text("Leading")
+                Text("Edit")
                 Divider()
-                Text("Trailing")
+                Text("Share")
+                Divider()
+                Text("Delete")
             }
             .frame(height: 60)
         } else {
@@ -79,14 +83,12 @@ struct LayoutDetail: Component {
 
     @HTMLBuilder
     private func hugFillDemo(_ align: String) -> some HTML {
-        HStack(spacing: .small) {
-            Text("frame(maxWidth: .infinity)")
-            Text("aligns within the row").foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: .small) {
+            Badge("Fixed")
+            Button("Flexible").buttonStyle(.borderedProminent)
+                .frame(maxWidth: .infinity, alignment: hugAlignment(align))
         }
-        .padding(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
-        .background(Color.accent.opacity(0.12))
-        .cornerRadius(12)
-        .frame(maxWidth: .infinity, alignment: hugAlignment(align))
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func hugAlignment(_ value: String) -> Alignment {
