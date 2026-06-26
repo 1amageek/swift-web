@@ -26,8 +26,7 @@ flowchart LR
   A["sweb new MyApp"] --> B["Package.swift"]
   A --> C["Sources/MyApp/App.swift"]
   A --> D["Sources/MyApp/Routes/HomePage.swift"]
-  A --> E["prepare"]
-  E --> F[".swiftweb/generated"]
+  A --> E["materialize .swiftweb/generated"]
 ```
 
 | Generated file | Responsibility |
@@ -39,21 +38,23 @@ flowchart LR
 
 ## Prepare Command
 
-`sweb prepare` materializes generated packages for an existing SwiftWeb app without building or running them. `sweb new` uses the same prepare path after writing the initial app skeleton.
+`sweb prepare` materializes generated packages for an existing SwiftWeb app without building or running them. `sweb new` already runs the same materialization path after writing the initial app skeleton.
 
-Package commands default to the current directory. The intended workflow is to run
-`sweb prepare`, `sweb xcode`, `sweb dev`, `sweb build`, and `sweb clean` from the
-directory that contains the app's `Package.swift`; `--package-path` is for targeting
-a package from another directory.
+Package commands default to the current directory. Run `sweb xcode`, `sweb dev`,
+`sweb build`, and `sweb clean` from the directory that contains the app's
+`Package.swift`; use `sweb prepare` only when you want to refresh generated
+packages without starting or building the app. `--package-path` is for targeting a
+package from another directory.
 
 ```mermaid
 flowchart LR
   A["Existing App package"] --> B["sweb prepare"]
   C["sweb new"] --> D["App skeleton"]
-  D --> B
-  B --> E[".swiftweb/generated/server"]
-  B --> F[".swiftweb/generated/dev"]
-  B --> G[".swiftweb/generated/wasm"]
+  D --> E["materialize .swiftweb/generated"]
+  B --> E
+  E --> F[".swiftweb/generated/server"]
+  E --> G[".swiftweb/generated/dev"]
+  E --> H[".swiftweb/generated/wasm"]
 ```
 
 | Option | Behavior |
@@ -234,11 +235,11 @@ flowchart LR
   C --> D["persistent DevHost"]
   C --> E["build app-server-dev"]
   E --> F["AppDevelopmentServerLauncher"]
-  F --> G["SwiftWebCore"]
+  F --> G["SwiftWebVapor"]
   F --> H["SwiftWebDevelopmentHooks"]
 ```
 
-This boundary keeps the worker out of the watcher, proxy, SwiftSyntax classifier, package materializer, and child-process supervisor. The worker launcher imports `SwiftWebCore` for runtime configuration instead of the public macro facade. It does not by itself remove macro expansion from the app target; apps using `@Page` or `@ServerAction` still need the macro toolchain during app compilation.
+This boundary keeps the worker out of the watcher, proxy, SwiftSyntax classifier, package materializer, and child-process supervisor. The worker launcher imports `SwiftWebVapor` for host execution instead of the public macro facade. It does not by itself remove macro expansion from the app target; apps using `@Page` or `@ServerAction` still need the macro toolchain during app compilation.
 
 ## Clean Command
 
@@ -275,7 +276,7 @@ generated packages can reuse the same content-addressed artifact.
 | Development watch/restart runtime | `SwiftWebDevelopment` |
 | Component layout and style behavior | `SwiftWebUI` |
 | Macro expansion | `SwiftWebMacros` |
-| Vapor route registration | `SwiftWeb` |
+| Vapor server lifecycle and route registration | `SwiftWebVapor` with current route-lowering support still in `SwiftWebCore` |
 | Client WASM graph, diff, and hydration internals | `SwiftHTML` |
 
 ## Design Notes

@@ -1,4 +1,5 @@
 import Foundation
+import Vapor
 
 public struct RouteParametersDecoder: Sendable {
     private let request: Request

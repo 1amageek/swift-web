@@ -1,3 +1,5 @@
+import Vapor
+
 public protocol UploadAction: SendableMetatype {
     associatedtype Params: Decodable & Sendable = NoParams
     associatedtype Input: Decodable & Sendable

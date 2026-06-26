@@ -1,14 +1,14 @@
-# SwiftWeb
+# SwiftWebCore
 
-SwiftWeb is the Vapor integration layer and page runtime for SwiftHTML.
+SwiftWebCore is the current page/runtime target for SwiftHTML. It still owns Vapor-backed route lowering, request context, route actions, streaming, uploads, WebSocket/SSE registration, HTML responses, production runtime hooks, and hosted WASM runtime assets while the host adapter split is underway. It does not own the visual component library, the HTML graph engine, or the development watch/HMR implementation.
 
-It owns page routing, request context, route actions, streaming, uploads, WebSocket/SSE registration, HTML responses, production runtime hooks, and the hosted WASM runtime assets. It does not own the visual component library, the HTML graph engine, or the development watch/HMR implementation.
+This README describes the current Vapor-backed runtime target. The target architecture separates the host-neutral app/runtime model from host adapters such as Vapor and Cloudflare; see [`../../docs/PlatformHostArchitecture.md`](../../docs/PlatformHostArchitecture.md).
 
 ## Responsibility
 
 | Area | Responsibility |
 |---|---|
-| App composition | Defines `App`, `AppContent`, `AppBuilder`, app-level route/runtime declarations, and optional app-wide service registration. |
+| App composition | Defines `App`, `Scene`, `SceneBuilder`, app-level route/runtime declarations, and optional app-wide service registration. |
 | Page routing | Defines `Page`, `PageRoute`, `NoParams`, `NoSearchParams`, route path handling, and parameter decoding. |
 | Page metadata | Resolves async `title`, `description`, and `language` values before rendering the document shell. |
 | Macro surface | Exposes `@Page` as the public macro imported by applications. |
@@ -43,14 +43,15 @@ SwiftWeb is a thin layer over Vapor routing.
 
 ```mermaid
 flowchart LR
-  A["@Page type"] --> B["PageRoute.register(on:)"]
-  B --> C["Vapor RoutesBuilder"]
-  C --> D["params/search decode"]
-  D --> E["load"]
-  E --> F["async page metadata"]
-  F --> G["body HTML"]
-  G --> H["PageDocument"]
-  H --> I["Vapor Response"]
+  A["App.body scenes"] --> B["internal scene lowering"]
+  B --> C["@Page routes"]
+  C --> D["Vapor RoutesBuilder"]
+  D --> E["params/search decode"]
+  E --> F["load"]
+  F --> G["async page metadata"]
+  G --> H["body HTML"]
+  H --> I["PageDocument"]
+  I --> J["Vapor Response"]
 ```
 
 ## App Composition
@@ -59,9 +60,9 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-  A["struct MyApp: SwiftWeb.App"] --> B["AppBuilder"]
+  A["struct MyApp: SwiftWeb.App"] --> B["SceneBuilder"]
   A --> R["clientRuntime"]
-  B --> C["AppContent.register(on:)"]
+  B --> C["internal scene lowering"]
   R --> W["WASM runtime hosting"]
   C --> D["Vapor Application"]
   W --> D
@@ -87,9 +88,23 @@ public struct CounterApp: SwiftWeb.App {
         )
     }
 
-    public var body: some AppContent {
+    public var body: some Scene {
         Redirect("/", to: "/counter")
         CounterPage()
+    }
+}
+```
+
+`PageGroup` scopes child scenes under a shared path prefix. App bodies can still mount
+pages directly; direct pages live under the implicit root group.
+
+```swift
+public var body: some Scene {
+    HomePage()
+
+    PageGroup("admin") {
+        AdminDashboardPage()
+        AdminUsersPage()
     }
 }
 ```
@@ -123,32 +138,74 @@ struct CounterPage {
 
 | Location | Responsibility |
 |---|---|
-| `body: AppContent` | Mount pages, redirects, and endpoints. |
+| `body: Scene` | Mount pages, redirects, and endpoints. |
 | `services: AppServices` | Optionally register application-wide services and gateways. Page-local server actions do not require this. |
 | Page stored properties | Hold page-local route-lifetime services. |
 | `Page.cache` | Declare response cache behavior for the page. |
 | `.environment(...)` | Pass client-visible UI context such as locale, color scheme, and style system. |
 
+## Request Session
+
+`@Session` exposes the current client session to request-time surfaces such as page
+bodies and server actions. The public value is `WebSession`, so app code can read and
+mutate session state without depending on the host request type.
+
+```swift
+@Page("/account")
+struct AccountPage {
+    @Session var session
+
+    func body() -> some HTML {
+        if session.isAuthenticated {
+            AccountView()
+        } else {
+            LoginView()
+        }
+    }
+}
+```
+
+| API | Behavior |
+|---|---|
+| `session.isAuthenticated` | Reads the SwiftWeb authentication marker or the stored `userID`. |
+| `session.userID` | Reads the stored user identifier. |
+| `session["key"]` | Reads or writes a string session value. |
+| `session.authenticate(userID:)` | Stores the user identifier and marks the session authenticated. |
+| `session.clearAuthentication()` | Removes SwiftWeb authentication keys. |
+| `session.destroy()` | Invalidates the current persisted session. |
+
+Reading `@Session` does not create a new browser cookie. A session is materialized
+only when app code writes a value, authenticates, or mutates an existing restored
+session.
+
+Application page files should import `SwiftWeb`, not raw host modules. Host-specific
+embedding code belongs in `SwiftWebVapor`; page/session code should stay on the
+SwiftWeb surface.
+
 ## Development Boundary
 
-The production runtime lives in `SwiftWebCore`. The public `SwiftWeb` product is a thin facade that re-exports `SwiftWebCore` and exposes source macros such as `@Page` and `@ServerAction`. The long-lived dev host uses `SwiftWebDevelopment`; the short-lived Vapor worker installs the smaller `SwiftWebDevelopmentHooks` runtime before `App.run()`.
+The application runtime model lives in `SwiftWebCore`. The public `SwiftWeb` product is a thin facade that re-exports `SwiftWebCore` and exposes source macros such as `@Page` and `@ServerAction`. Vapor server execution lives in `SwiftWebVapor`, which provides `App.run()` and the Vapor `Application` lifecycle. The long-lived dev host uses `SwiftWebDevelopment`; the short-lived Vapor worker imports `SwiftWebVapor` and installs the smaller `SwiftWebDevelopmentHooks` runtime before `App.run()`.
+
+Custom Vapor embedders that call `AppRunner.configure(_:)` directly must keep the returned `AppRunnerInstallation` and call `shutdown()` when the host application stops. `shutdown()` cancels development parent monitoring and clears the shared web actor registry; `shutdown(_:)` also shuts down the provided Vapor application.
 
 ```mermaid
 flowchart LR
   A["user app source"] --> B["SwiftWeb facade"]
   B --> C["SwiftWebCore runtime"]
-  C --> D["no-op development hooks"]
-  E["SwiftWebDevLauncher"] --> F["SwiftWebDevelopment"]
-  F --> G["DevHost / watcher / builder"]
-  G --> H["app-server-dev worker"]
-  H --> I["SwiftWebDevelopmentHooksRuntime.install()"]
-  I --> J["HMR routes / HTML injection / worker monitor"]
+  C --> D["host-neutral app model"]
+  D --> E["SwiftWebVapor"]
+  F["SwiftWebDevLauncher"] --> G["SwiftWebDevelopment"]
+  G --> H["DevHost / watcher / builder"]
+  H --> I["app-server-dev worker"]
+  I --> J["SwiftWebDevelopmentHooksRuntime.install()"]
+  J --> K["HMR routes / HTML injection / worker monitor"]
 ```
 
 | Mechanism | Responsibility |
 |---|---|
 | `SwiftWebCore` product | Contains route/action/page/WASM hosting runtime and no source macro dependency. |
 | `SwiftWeb` product | Public facade for app source that re-exports `SwiftWebCore` and provides macros. |
+| `SwiftWebVapor` product | Provides Vapor host execution, `App.run()`, middleware installation, and native/container server lifecycle. |
 | `SwiftWebDevelopment` product | Contains generated package materialization, FSEvents watching, HMR events, reload fallback, artifact cleanup, and dev process supervision. |
 | `SwiftWebDevelopmentHooks` product | Contains only worker-side development hooks and typed HMR contracts needed inside the Vapor worker. |
 | Generated server package | Builds the production `app-server` product without linking `SwiftWebDevelopment`. |
@@ -240,7 +297,7 @@ distributed actor ReservationService {
 }
 ```
 
-`@ServerAction` generates a runtime descriptor and an instance-owned action reference. Page-owned services are registered by `@Page` when the stored service uses `WebActorSystem`, so `AppContent` does not need per-method route declarations.
+`@ServerAction` generates a runtime descriptor and an instance-owned action reference. Page-owned services are registered by `@Page` when the stored service uses `WebActorSystem`, so `Scene` does not need per-method route declarations.
 
 The UI consumes the generated action reference. It should not hold a server closure.
 

@@ -52,6 +52,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
               .library(name: "SwiftWebUIRuntime", targets: ["SwiftWebUIRuntime"]),
               .library(name: "SwiftWebCore", targets: ["SwiftWebCore"]),
               .library(name: "SwiftWeb", targets: ["SwiftWeb"]),
+              .library(name: "SwiftWebVapor", targets: ["SwiftWebVapor"]),
           ],
           dependencies: [
               .package(path: "\(swiftHTMLPackage.path)"),
@@ -63,6 +64,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
               .target(name: "SwiftWebUIRuntime"),
               .target(name: "SwiftWebCore"),
               .target(name: "SwiftWeb"),
+              .target(name: "SwiftWebVapor"),
           ]
       )
       """,
@@ -272,7 +274,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     #expect(
       devPackageSwift.contains(".product(name: \"SwiftWebDevelopment\", package: \"swift-web\")"))
     #expect(
-      devPackageSwift.contains(".product(name: \"SwiftWebCore\", package: \"swift-web\")"))
+      devPackageSwift.contains(".product(name: \"SwiftWebVapor\", package: \"swift-web\")"))
     #expect(
       devPackageSwift.contains(
         ".product(name: \"SwiftWebDevelopmentHooks\", package: \"swift-web\")"))
@@ -412,10 +414,10 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       encoding: .utf8
     )
     #expect(serverLauncher.contains("SWIFTWEB_WASM_SCRATCH_PATH"))
-    #expect(serverLauncher.contains("import SwiftWebCore"))
+    #expect(serverLauncher.contains("import SwiftWebVapor"))
     #expect(serverLauncher.contains("scratchDirectory: wasmScratchDirectory"))
     #expect(!serverLauncher.contains("SwiftWebDevelopmentHooksRuntime.install()"))
-    #expect(developmentServerLauncher.contains("import SwiftWebCore"))
+    #expect(developmentServerLauncher.contains("import SwiftWebVapor"))
     #expect(developmentServerLauncher.contains("import SwiftWebDevelopmentHooks"))
     #expect(developmentServerLauncher.contains("SwiftWebDevelopmentHooksRuntime.install()"))
     #expect(developmentLauncher.contains("SWIFT_WEB_DEV_PRODUCT"))
@@ -556,6 +558,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
               .library(name: "SwiftWebUIRuntime", targets: ["SwiftWebUIRuntime"]),
               .library(name: "SwiftWebCore", targets: ["SwiftWebCore"]),
               .library(name: "SwiftWeb", targets: ["SwiftWeb"]),
+              .library(name: "SwiftWebVapor", targets: ["SwiftWebVapor"]),
           ],
           dependencies: [
               .package(path: "\(swiftHTMLPackage.path)"),
@@ -567,6 +570,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
               .target(name: "SwiftWebUIRuntime"),
               .target(name: "SwiftWebCore"),
               .target(name: "SwiftWeb"),
+              .target(name: "SwiftWebVapor"),
           ]
       )
       """,
@@ -723,6 +727,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
               .library(name: "SwiftWebUIRuntime", targets: ["SwiftWebUIRuntime"]),
               .library(name: "SwiftWebCore", targets: ["SwiftWebCore"]),
               .library(name: "SwiftWeb", targets: ["SwiftWeb"]),
+              .library(name: "SwiftWebVapor", targets: ["SwiftWebVapor"]),
           ],
           dependencies: [
               .package(path: "\(swiftHTMLPackage.path)"),
@@ -734,6 +739,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
               .target(name: "SwiftWebUIRuntime"),
               .target(name: "SwiftWebCore"),
               .target(name: "SwiftWeb"),
+              .target(name: "SwiftWebVapor"),
           ]
       )
       """,
@@ -898,6 +904,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
               .library(name: "SwiftWebUIRuntime", targets: ["SwiftWebUIRuntime"]),
               .library(name: "SwiftWebCore", targets: ["SwiftWebCore"]),
               .library(name: "SwiftWeb", targets: ["SwiftWeb"]),
+              .library(name: "SwiftWebVapor", targets: ["SwiftWebVapor"]),
           ],
           dependencies: [
               .package(path: "\(swiftHTMLPackage.path)"),
@@ -909,6 +916,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
               .target(name: "SwiftWebUIRuntime"),
               .target(name: "SwiftWebCore"),
               .target(name: "SwiftWeb"),
+              .target(name: "SwiftWebVapor"),
           ]
       )
       """,
@@ -1070,6 +1078,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
               .library(name: "SwiftWebUIRuntime", targets: ["SwiftWebUIRuntime"]),
               .library(name: "SwiftWebCore", targets: ["SwiftWebCore"]),
               .library(name: "SwiftWeb", targets: ["SwiftWeb"]),
+              .library(name: "SwiftWebVapor", targets: ["SwiftWebVapor"]),
           ],
           dependencies: [
               .package(path: "\(swiftHTMLPackage.path)"),
@@ -1081,6 +1090,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
               .target(name: "SwiftWebUIRuntime"),
               .target(name: "SwiftWebCore"),
               .target(name: "SwiftWeb"),
+              .target(name: "SwiftWebVapor"),
           ]
       )
       """,
@@ -1257,6 +1267,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
               .library(name: "SwiftWebUIRuntime", targets: ["SwiftWebUIRuntime"]),
               .library(name: "SwiftWebCore", targets: ["SwiftWebCore"]),
               .library(name: "SwiftWeb", targets: ["SwiftWeb"]),
+              .library(name: "SwiftWebVapor", targets: ["SwiftWebVapor"]),
           ],
           dependencies: [
               .package(path: "\(swiftHTMLPackage.path)"),
@@ -1268,6 +1279,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
               .target(name: "SwiftWebUIRuntime"),
               .target(name: "SwiftWebCore"),
               .target(name: "SwiftWeb"),
+              .target(name: "SwiftWebVapor"),
           ]
       )
       """,
@@ -1524,6 +1536,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
               .library(name: "SwiftWebUIRuntime", targets: ["SwiftWebUIRuntime"]),
               .library(name: "SwiftWebCore", targets: ["SwiftWebCore"]),
               .library(name: "SwiftWeb", targets: ["SwiftWeb"]),
+              .library(name: "SwiftWebVapor", targets: ["SwiftWebVapor"]),
           ],
           dependencies: [
               .package(path: "\(swiftHTMLPackage.path)"),
@@ -1535,6 +1548,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
               .target(name: "SwiftWebUIRuntime"),
               .target(name: "SwiftWebCore"),
               .target(name: "SwiftWeb"),
+              .target(name: "SwiftWebVapor"),
           ]
       )
       """,

@@ -1,8 +1,8 @@
 import Vapor
 
-public struct UploadEndpoint<Action: UploadAction>: AppContent {
+public struct UploadEndpoint<Action: UploadAction>: Scene, _PrimitiveScene {
     private let path: String
-    private let body: HTTPBodyStreamStrategy
+    private let bodyStrategy: HTTPBodyStreamStrategy
 
     public init(
         _ action: Action.Type,
@@ -10,10 +10,10 @@ public struct UploadEndpoint<Action: UploadAction>: AppContent {
         body: HTTPBodyStreamStrategy = .collect
     ) {
         self.path = path
-        self.body = body
+        self.bodyStrategy = body
     }
 
-    public func register(on application: Application) async throws {
-        UploadRoute.post(Action.self, on: application, path: path, body: body)
+    func _makeScene(in context: _SceneContext) async throws {
+        UploadRoute.post(Action.self, on: context.routes, path: path, body: bodyStrategy)
     }
 }

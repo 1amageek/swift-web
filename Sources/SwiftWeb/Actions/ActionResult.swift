@@ -1,6 +1,7 @@
 import Foundation
 import HTTPTypes
 import SwiftWebStyle
+import Vapor
 
 public enum ActionResult: Sendable, Codable {
     case html(String, status: HTTPStatus = .ok)

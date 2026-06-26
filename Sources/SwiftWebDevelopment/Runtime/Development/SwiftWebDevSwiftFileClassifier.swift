@@ -141,7 +141,7 @@ struct SwiftWebDevSwiftFileClassifier: Sendable {
 
     private static let serverRuntimeInheritedTypes: Set<String> = [
         "App",
-        "AppContent",
+        "Scene",
         "FormAction",
         "ServerComponent",
         "SocketPage",

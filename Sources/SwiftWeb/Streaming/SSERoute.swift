@@ -1,4 +1,5 @@
 import HTTPTypes
+import Vapor
 
 public protocol SSERoute: SendableMetatype {
     associatedtype SearchParams: Decodable & Sendable = NoSearchParams

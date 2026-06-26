@@ -68,7 +68,7 @@ CounterApp
 `CounterApp` mounts routes only:
 
 ```swift
-public var body: some AppContent {
+public var body: some Scene {
     Redirect("/", to: "/counter")
     CounterPage()
 }
@@ -102,16 +102,16 @@ flowchart LR
 
 ## Run
 
-Prepare the generated development environment without running it:
-
-```bash
-sweb prepare
-```
-
 Run the development server with rebuild/restart and dev browser updates:
 
 ```bash
 sweb dev
+```
+
+Refresh the generated development packages without running the server:
+
+```bash
+sweb prepare
 ```
 
 Open:

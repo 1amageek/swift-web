@@ -22,12 +22,25 @@ flowchart LR
 
 | Product | Purpose |
 |---|---|
-| `SwiftWeb` | Public app facade, page routing, server actions, Vapor integration, and runtime hosting. |
+| `SwiftWeb` | Public app facade, page routing, server actions, and source macros. |
+| `SwiftWebVapor` | Vapor host adapter for local development workers, Cloud Run, and native/container server builds. |
 | `SwiftWebUI` | SwiftUI-inspired component layer built on top of SwiftHTML. |
 | `SwiftWebUIRuntime` | Browser-side WASM runtime bridge for SwiftWebUI client components. |
 | `SwiftWebActors` | Shared distributed actor runtime support for server/client actor calls. |
 | `SwiftWebDevelopment` | Development server, generated packages, HMR, Storyboard, and WASM build tooling. |
 | `sweb` | CLI for new projects, dev server, Storyboard, and production builds. |
+
+## Architecture Direction
+
+SwiftWeb is moving toward a host-neutral runtime core with separate host adapters for
+Vapor/container servers and Cloudflare Workers. Vapor remains the native server host
+for local development, Cloud Run, and other container targets, while Cloudflare support
+should lower the same `App`/`Scene`/`Page`/`Worker` model into generated TypeScript
+entrypoints and Swift/Wasm artifacts.
+
+See [Platform Host Architecture](docs/PlatformHostArchitecture.md) for the target
+responsibility split, `Worker` model, `@Session` API, Cloudflare placement, and Vapor
+extraction plan.
 
 ## Requirements
 
@@ -147,11 +160,10 @@ MyApp
 ```
 
 The app package depends on the local SwiftWeb checkout and released `swift-html 0.6.6`.
-Generated launchers, dev packages, server packages, and WASM packages stay under
-`.swiftweb/generated`.
-
-You can materialize the generated development environment for any existing SwiftWeb app
-without building or running it:
+`sweb new` also materializes the generated launchers, dev packages, server packages,
+and WASM packages under `.swiftweb/generated`. Use `sweb prepare` only when you want
+to refresh generated packages for an existing SwiftWeb app without building or
+running it:
 
 ```bash
 cd ../MyApp
@@ -208,7 +220,7 @@ import SwiftWeb
 public struct MyApp: App {
     public init() {}
 
-    public var body: some AppContent {
+    public var body: some Scene {
         HomePage()
     }
 }
@@ -246,9 +258,22 @@ struct AboutPage {
 ```
 
 ```swift
-public var body: some AppContent {
+public var body: some Scene {
     HomePage()
     AboutPage()
+}
+```
+
+Use `PageGroup` when a set of pages shares a path prefix:
+
+```swift
+public var body: some Scene {
+    HomePage()
+
+    PageGroup("admin") {
+        AdminDashboardPage()
+        AdminUsersPage()
+    }
 }
 ```
 
@@ -411,8 +436,8 @@ flowchart LR
 
 | Step | Command | When to use it |
 |---|---|---|
-| Create an app | `sweb new MyApp --output ../MyApp` | Start a new SwiftWeb package. |
-| Materialize generated packages | `sweb prepare` | Refresh `.swiftweb/generated` without starting the server. |
+| Create an app | `sweb new MyApp --output ../MyApp` | Start a new SwiftWeb package and materialize `.swiftweb/generated`. |
+| Refresh generated packages | `sweb prepare` | Refresh `.swiftweb/generated` for an existing app without starting the server. |
 | Open the generated dev package | `sweb xcode` | Inspect or debug the generated development package in Xcode. |
 | Run the dev loop | `sweb dev` | Start the server, watcher, rebuild loop, and browser updates. |
 | Build the server package | `sweb build` | Validate the generated production server package. |

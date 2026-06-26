@@ -12,7 +12,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/1amageek/swift-web.git", branch: "main"),
-        .package(url: "https://github.com/1amageek/swift-html.git", from: "0.5.0"),
+        .package(url: "https://github.com/1amageek/swift-html.git", from: "0.6.6"),
     ],
     targets: [
         .target(

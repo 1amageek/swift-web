@@ -1,3 +1,5 @@
+import Vapor
+
 public protocol FormAction: SendableMetatype {
     associatedtype Params: Decodable & Sendable = NoParams
     associatedtype Input: Decodable & Sendable

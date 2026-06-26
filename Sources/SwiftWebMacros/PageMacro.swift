@@ -55,16 +55,23 @@ public struct PageMacro: MemberMacro, ExtensionMacro {
         let pageServiceRegistrations = model.pageStoredProperties
             .map { "                try await SwiftWeb.PageOwnedServices.register(routePage.\($0), on: application)" }
             .joined(separator: "\n")
+        let pageServiceRegistrationBody =
+            pageServiceRegistrations.isEmpty
+            ? ""
+            : """
+                  let routePage = self
+          \(pageServiceRegistrations)
+          """
 
         let extensionDecl = DeclSyntax(stringLiteral: """
-        extension \(type.trimmed): SwiftWeb.PageRoute, SwiftWeb.Page, SwiftWeb.AppContent {
-            static func register(on routes: any RoutesBuilder) {
+        extension \(type.trimmed): SwiftWeb.PageRoute, SwiftWeb.Page {
+            static func register(on routes: any SwiftWeb.RoutesBuilder) {
                 Self().register(on: routes)
             }
 
-            func register(on routes: any RoutesBuilder) {
+            func register(on routes: any SwiftWeb.RoutesBuilder) {
                 let routePage = self
-                \(getCall) { req async throws -> Response in
+                \(getCall) { req async throws -> SwiftWeb.Response in
                     let params = try SwiftWeb.RouteParametersDecoder(req).decode(\(model.paramsTypeReference).self)
                     let searchParams = try req.query.decode(\(model.searchParamsTypeReference).self)
                     return try await SwiftWeb.RequestContext.withValue(
@@ -76,10 +83,8 @@ public struct PageMacro: MemberMacro, ExtensionMacro {
                 }
             }
 
-            func register(on application: Application) async throws {
-                let routePage = self
-        \(pageServiceRegistrations)
-                routePage.register(on: application as any RoutesBuilder)
+            func registerPageOwnedServices(on application: SwiftWeb.Application) async throws {
+        \(pageServiceRegistrationBody)
             }
         }
         """)

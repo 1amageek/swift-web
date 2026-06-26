@@ -98,21 +98,21 @@ flowchart LR
   G --> H["HMR routes and browser injection"]
 ```
 
-Production server builds use `.swiftweb/generated/server` and the `app-server` product. Dev runs use `.swiftweb/generated/dev`. The `SwiftWebDevLauncher` target imports `SwiftWebDevelopment`; the `app-server-dev` worker target imports only `SwiftWebDevelopmentHooks`.
+Production server builds use `.swiftweb/generated/server` and the `app-server` product. Dev runs use `.swiftweb/generated/dev`. The `SwiftWebDevLauncher` target imports `SwiftWebDevelopment`; the `app-server-dev` worker target imports `SwiftWebVapor` plus `SwiftWebDevelopmentHooks`.
 
-The long-lived dev host depends on `SwiftWebDevelopment`. The short-lived Vapor worker imports `SwiftWebCore` plus `SwiftWebDevelopmentHooks`, which contain the route injection, browser HMR metadata, context propagation, and dev event contracts needed inside the worker. This keeps the worker out of the file watcher, package materializer, SwiftSyntax classifier, HTTP proxy, and child-process supervisor.
+The long-lived dev host depends on `SwiftWebDevelopment`. The short-lived Vapor worker imports `SwiftWebVapor` plus `SwiftWebDevelopmentHooks`, which contain the route injection, browser HMR metadata, context propagation, and dev event contracts needed inside the worker. This keeps the worker out of the file watcher, package materializer, SwiftSyntax classifier, HTTP proxy, and child-process supervisor.
 
 ```mermaid
 flowchart LR
   A["SwiftWebDevLauncher"] --> B["SwiftWebDevelopment"]
   B --> C["DevHost / watcher / classifier / builder"]
   C --> D["app-server-dev worker"]
-  D --> E["SwiftWebCore"]
+  D --> E["SwiftWebVapor"]
   D --> F["SwiftWebDevelopmentHooks"]
   F --> G["SwiftWebDevelopmentSupport hooks"]
 ```
 
-Cold worker builds can still compile macro infrastructure because the user app target normally imports the public `SwiftWeb` facade and uses `@Page` / `@ServerAction`. The hooks split and `SwiftWebCore` boundary remove macro dependencies from the worker launcher and hooks targets, but they do not remove macro expansion from app compilation. Before claiming dev startup speed is solved, measure the generated `app-server-dev` cold build and record whether `SwiftSyntax` still appears in the build log.
+Cold worker builds can still compile macro infrastructure because the user app target normally imports the public `SwiftWeb` facade and uses `@Page` / `@ServerAction`. The hooks split, `SwiftWebCore` boundary, and `SwiftWebVapor` host adapter remove macro dependencies from the worker launcher and hooks targets, but they do not remove macro expansion from app compilation. Before claiming dev startup speed is solved, measure the generated `app-server-dev` cold build and record whether `SwiftSyntax` still appears in the build log.
 
 ## DevHost Proxy Security
 

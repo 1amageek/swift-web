@@ -1,3 +1,5 @@
+import Vapor
+
 public struct UploadContext<Params: Decodable & Sendable, Input: Decodable & Sendable>: Sendable {
     public let request: Request
     public let params: Params

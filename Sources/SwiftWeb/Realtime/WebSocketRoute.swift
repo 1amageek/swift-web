@@ -1,4 +1,5 @@
 import HTTPTypes
+import Vapor
 
 public protocol WebSocketRoute: SendableMetatype, Sendable {
     init()

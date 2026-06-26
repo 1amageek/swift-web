@@ -1,7 +1,5 @@
-import Vapor
-
 public protocol App {
-    associatedtype Body: AppContent
+    associatedtype Body: Scene
     associatedtype Services: AppServices = EmptyAppServices
 
     init()
@@ -13,7 +11,7 @@ public protocol App {
     @AppServiceBuilder
     var services: Services { get }
 
-    @AppBuilder
+    @SceneBuilder
     var body: Body { get }
 }
 
@@ -24,18 +22,6 @@ public extension App {
 
     var security: SecurityConfiguration {
         .defaults
-    }
-
-    static func run() async throws {
-        try await AppRunner(Self()).run()
-    }
-
-    static func run(clientRuntime: ClientRuntimeConfiguration) async throws {
-        try await AppRunner(Self(), clientRuntime: clientRuntime).run()
-    }
-
-    static func main() async throws {
-        try await run()
     }
 }
 

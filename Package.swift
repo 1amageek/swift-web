@@ -44,6 +44,7 @@ let package = Package(
         .library(name: "SwiftWebUIRuntime", targets: ["SwiftWebUIRuntime"]),
         .library(name: "SwiftWebCore", targets: ["SwiftWebCore"]),
         .library(name: "SwiftWeb", targets: ["SwiftWeb"]),
+        .library(name: "SwiftWebVapor", targets: ["SwiftWebVapor"]),
         .library(name: "SwiftWebDevelopmentHooks", targets: ["SwiftWebDevelopmentHooks"]),
         .library(name: "SwiftWebDevelopment", targets: ["SwiftWebDevelopment"]),
         .library(name: "SwiftWebStoryboard", targets: ["SwiftWebStoryboard"]),
@@ -141,6 +142,15 @@ let package = Package(
             swiftSettings: swiftWebSwiftSettings
         ),
         .target(
+            name: "SwiftWebVapor",
+            dependencies: [
+                .product(name: "Vapor", package: "vapor"),
+                "SwiftWebActors",
+                "SwiftWebCore",
+            ],
+            swiftSettings: swiftWebSwiftSettings
+        ),
+        .target(
             name: "SwiftWebUI",
             dependencies: swiftWebUIDependencies,
             exclude: ["README.md"],
@@ -227,6 +237,7 @@ let package = Package(
             name: "SwiftWebTests",
             dependencies: [
                 "SwiftWeb",
+                "SwiftWebVapor",
                 "SwiftWebUI",
                 "SwiftWebDevelopmentHooks",
                 "SwiftWebDevelopment",

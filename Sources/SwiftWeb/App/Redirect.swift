@@ -1,6 +1,6 @@
 import Vapor
 
-public struct Redirect: AppContent, Sendable {
+public struct Redirect: Scene, Sendable, _PrimitiveScene {
     private let source: RoutePath
     private let destination: String
 
@@ -12,9 +12,9 @@ public struct Redirect: AppContent, Sendable {
         self.destination = destination
     }
 
-    public func register(on application: Application) async throws {
+    func _makeScene(in context: _SceneContext) async throws {
         let destination = self.destination
-        application.get(source.vaporComponents) { request in
+        context.routes.get(source.vaporComponents) { request in
             request.redirect(to: destination)
         }
     }

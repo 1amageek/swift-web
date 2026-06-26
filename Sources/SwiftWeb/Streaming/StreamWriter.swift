@@ -1,5 +1,6 @@
 import NIOCore
 import SwiftWebStyle
+import Vapor
 
 public struct StreamWriter: Sendable {
     private let writer: (any AsyncBodyStreamWriter)?

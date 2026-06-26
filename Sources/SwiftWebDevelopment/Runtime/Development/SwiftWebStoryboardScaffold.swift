@@ -233,7 +233,7 @@ public struct SwiftWebStoryboardScaffold: Sendable {
         public struct \(Self.moduleName): SwiftWeb.App {
             public init() {}
 
-            public var body: some AppContent {
+            public var body: some Scene {
                 Redirect("/", to: "/storyboard")
                 StoryboardPage()
                 StoryboardSelectionPage()

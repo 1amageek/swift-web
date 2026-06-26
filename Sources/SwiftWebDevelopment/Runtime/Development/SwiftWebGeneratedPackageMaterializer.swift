@@ -322,7 +322,6 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
       appPackageName: packageName,
       appPackageDependencyName: Self.localPackageIdentity(for: appPackageDirectory),
       appProductName: appProductName,
-      importsSwiftWebCore: !wasmRuntimeTargets.isEmpty,
       swiftWebPackageDirectory: swiftWebPackageDirectory
     )
     let devPackageSwiftContents = devPackageSwift(
@@ -1281,7 +1280,8 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
       : ""
     guard let runtimeTarget = wasmRuntimeTargets.first else {
       return """
-        import \(appProductName)\(developmentImport)
+        import \(appProductName)
+        import SwiftWebVapor\(developmentImport)
 
         @main
         struct AppServerLauncher {
@@ -1326,7 +1326,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
     return """
       import \(appProductName)
       import Foundation
-      import SwiftWebCore\(developmentImport)
+      import SwiftWebVapor\(developmentImport)
 
       @main
       struct AppServerLauncher {
@@ -1412,7 +1412,6 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
     appPackageName: String,
     appPackageDependencyName: String,
     appProductName: String,
-    importsSwiftWebCore: Bool,
     swiftWebPackageDirectory: URL
   ) -> String {
     let appDependencyPath = Self.relativePath(
@@ -1423,14 +1422,6 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
       from: serverPackageDirectory,
       to: swiftWebPackageDirectory
     )
-    let targetDependencies =
-      importsSwiftWebCore
-      ? #".product(name: "SwiftWebCore", package: "swift-web"),"#
-      : ""
-    let packageDependencies =
-      importsSwiftWebCore
-      ? #".package(path: "\#(Self.swiftStringLiteral(swiftWebDependencyPath))"),"#
-      : ""
     return """
       // swift-tools-version: 6.3
 
@@ -1444,7 +1435,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
           name: "AppServerLauncher",
           dependencies: [
               .product(name: "\(appProductName)", package: "\(appPackageDependencyName)"),
-              \(targetDependencies)
+              .product(name: "SwiftWebVapor", package: "swift-web"),
           ],
           path: "Sources/AppServerLauncher",
           swiftSettings: swiftSettings
@@ -1460,7 +1451,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
           ],
           dependencies: [
               .package(path: "\(Self.swiftStringLiteral(appDependencyPath))"),
-              \(packageDependencies)
+              .package(path: "\(Self.swiftStringLiteral(swiftWebDependencyPath))"),
           ],
           targets: [
               appServerTarget,
@@ -1509,7 +1500,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
           name: "AppDevelopmentServerLauncher",
           dependencies: [
               .product(name: "\(appProductName)", package: "\(appPackageDependencyName)"),
-              .product(name: "SwiftWebCore", package: "swift-web"),
+              .product(name: "SwiftWebVapor", package: "swift-web"),
               .product(name: "SwiftWebDevelopmentHooks", package: "swift-web"),
           ],
           path: "Sources/AppDevelopmentServerLauncher",

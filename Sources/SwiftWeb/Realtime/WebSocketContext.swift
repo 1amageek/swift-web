@@ -1,3 +1,4 @@
+import Vapor
 import WebSocketKit
 
 public struct WebSocketContext: Sendable {

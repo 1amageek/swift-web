@@ -1,4 +1,5 @@
 import SwiftHTML
+import Vapor
 
 public struct RequestValues: Sendable {
     public let request: Request

@@ -1,4 +1,5 @@
 import HTTPTypes
+import Vapor
 
 public enum CachePolicy: Equatable, Sendable {
     case none

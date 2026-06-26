@@ -1,3 +1,5 @@
+import Vapor
+
 public struct SSEContext<SearchParams: Decodable & Sendable>: Sendable {
     public let request: Request
     public let searchParams: SearchParams

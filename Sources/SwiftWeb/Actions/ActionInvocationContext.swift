@@ -1,5 +1,6 @@
 import Foundation
 import HTTPTypes
+import Vapor
 
 public struct ActionInvocationContext: Sendable, Codable {
     public let id: UUID
