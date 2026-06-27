@@ -460,6 +460,12 @@ The loader can keep multiple component runtimes in one physical bundle. This is 
 
 Server page invalidation must preserve client islands. The browser merge algorithm treats `data-hmr-boundary`, `data-component-type`, and `data-bundle` as protected runtime boundaries, so a server patch updates server-owned DOM while leaving active WASM-owned subtrees and their `@State` stores intact.
 
+Same-origin route navigation is a distinct document transition path and is defined
+in [`ClientNavigationDesign.md`](ClientNavigationDesign.md). Navigation may
+replace client island DOM from the next server document and rebootstrap already
+loaded bundles against the next hydration index, while invalidation preserves the
+currently mounted client DOM.
+
 ## Development And Production Boundary
 
 | Capability | Development | Production |

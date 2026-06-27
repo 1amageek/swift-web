@@ -10,7 +10,8 @@ This document defines the target architecture for separating SwiftWeb's applicat
 | Decision date | 2026-06-26 |
 | Primary goal | Keep `App`, `Scene`, `Page`, session, actions, and workers host-neutral. |
 | Secondary goal | Support both container server targets and Cloudflare edge targets from the same user-facing SwiftWeb app model. |
-| Current gap | `SwiftWebVapor` now owns `App.run()` and Vapor application lifecycle, but the current `SwiftWebCore` target still imports Vapor and owns route lowering, request/response conversion, middleware support, and runtime asset serving. |
+| Implemented now | `Scene`, `PageGroup`, `SwiftWebVapor` host execution, and `@Session` backed by a Vapor session middleware adapter. |
+| Current gap | `SwiftWebCore` still imports Vapor and owns route lowering, request/response conversion, middleware support, and runtime asset serving. `.restrict(...)` is not implemented yet and should be added as scene policy data, not as request-scoped `Scene.body` evaluation. |
 
 ## Core Decision
 
@@ -185,6 +186,53 @@ struct AccountPage {
 | Server action | Request time. | Read and mutate session state directly. |
 | Worker method | Event time. | Read session only when passed through an explicit event/request context. |
 
+## Restrict Modifier Contract
+
+`.restrict(...)` is required as the scene-level counterpart to `@Session`. `@Session`
+solves request-local rendering and mutation. `.restrict(...)` solves shared route
+access policy without making `Scene.body` request-scoped.
+
+```mermaid
+flowchart TD
+  A["App.body"] --> B["Scene graph"]
+  B --> C["PageGroup admin"]
+  C --> D["restrict authenticated"]
+  D --> E["route descriptors"]
+  E --> F["request"]
+  F --> G["evaluate WebSession"]
+  G -->|allow| H["load / render / action"]
+  G -->|deny| I["redirect / 401 / 403"]
+```
+
+Target usage:
+
+```swift
+public var body: some Scene {
+    PageGroup("admin") {
+        AdminDashboardPage()
+        AdminUsersPage()
+    }
+    .restrict(.authenticated, redirectTo: "/login")
+}
+```
+
+| Contract | Required behavior |
+|---|---|
+| Attachment surface | Available on `Page`, `PageGroup`, and other route-bearing scenes. |
+| Evaluation timing | After route match, before `Page.load`, `Page.body`, streaming setup, upload handling, or action invocation. |
+| Inheritance | Parent policy applies to nested scenes; child policies compose with parent policies. |
+| Composition | Default composition is conjunctive: every inherited policy must allow the request. |
+| Denial modes | Redirect for navigational pages; `401` for unauthenticated API/action requests; `403` for authenticated-but-forbidden requests. |
+| Session source | Read `WebSession` from the request context; do not expose raw Vapor or Cloudflare request/session types. |
+| Descriptor shape | Store policy as scene metadata so Vapor and Cloudflare adapters can lower the same app graph. |
+
+| Anti-pattern | Replacement |
+|---|---|
+| Reading `@Session` in `Scene.body`. | Use `.restrict(...)` on the scene graph. |
+| Copying auth checks into every page body. | Put the shared policy on `PageGroup`. |
+| Returning different app topology per user. | Keep topology stable and branch at request-time policy evaluation. |
+| Exposing host request/session objects in policy APIs. | Keep policy APIs on `WebSession` and SwiftWeb-owned request context. |
+
 ## Worker Model
 
 `Worker` is the public name. It is intentionally more general than Durable Object, distributed actor, queue consumer, or scheduled job.
@@ -313,10 +361,10 @@ Future commands should express host intent directly:
 
 | Step | Work | Result |
 |---:|---|---|
-| 1 | Introduce host-neutral `WebRequest`, `WebResponse`, headers, cookies, and session descriptors. | Pages/actions can stop depending on raw Vapor request types. |
+| 1 | Complete host-neutral `WebRequest`, `WebResponse`, headers, cookies, and session descriptors. | Pages/actions can stop depending on raw Vapor request types. |
 | 2 | Convert `Page`, `Scene`, endpoint, action, and worker lowering into descriptors. | The core produces topology instead of registering directly into Vapor. |
 | 3 | Move Vapor host execution into `SwiftWebVapor`; continue by moving route registration, middleware, and `Response` conversion out of core. | Cloud Run remains supported through the Vapor host adapter. |
-| 4 | Lift `@Session` onto the descriptor-backed request context and add `.restrict(...)`. | Page/session logic and Scene-level auth policy share the same request-time model. |
+| 4 | Move the implemented `@Session` surface onto the descriptor-backed request context and add `.restrict(...)`. | Page/session logic and Scene-level auth policy share the same request-time model. |
 | 5 | Add `Worker` descriptors with stateless, stateful, queue, and scheduled kinds. | The public app model can declare runtime units without naming platform backends. |
 | 6 | Add `SwiftWebCloudflare` materialization. | `sweb build cloudflare` emits TypeScript host code, `app.wasm`, and bindings. |
 | 7 | Lower stateful workers to Durable Objects. | Actor-backed stateful workers work on Cloudflare without exposing Durable Object terminology in the public API. |

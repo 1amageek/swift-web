@@ -557,14 +557,14 @@ struct SwiftWebDevHMRTests {
   @Test
   func initialWasmBuildFailureIsFatalAndActionable() {
     let error = SwiftWebDevRuntimeError.initialWasmBuildFailed(
-      component: "Demo.StoryboardCatalog",
+      component: "Demo.StoryboardDetailIsland",
       product: "storyboard-preview-wasm-runtime",
       reason: "missing SDK"
     )
 
     #expect(error.exitCode == 70)
     #expect(error.description.contains("Initial Client WASM build failed"))
-    #expect(error.description.contains("Demo.StoryboardCatalog"))
+    #expect(error.description.contains("Demo.StoryboardDetailIsland"))
     #expect(error.description.contains("storyboard-preview-wasm-runtime"))
     #expect(error.description.contains("non-interactive"))
     #expect(error.description.contains("missing SDK"))

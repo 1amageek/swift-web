@@ -8,7 +8,7 @@ The core architecture is documented in [`docs/SwiftWebUICoreDesign.md`](../../do
 
 The public style contract is documented in [`docs/SwiftWebUIStyleDesign.md`](../../docs/SwiftWebUIStyleDesign.md). That document defines the ColorScheme / StyleSystem / CSS ownership model, component taxonomy, contextual styling rules, and styling gates for built-in components.
 
-Client WASM loading is documented in [`docs/ClientBundleLoadingDesign.md`](../../docs/ClientBundleLoadingDesign.md). That document defines the `ClientComponent` loading contract, modifier precedence, nested island ownership, and bundle policy rules.
+Client WASM loading is documented in [`docs/ClientBundleLoadingDesign.md`](../../docs/ClientBundleLoadingDesign.md). That document defines the `ClientComponent` loading contract, modifier precedence, nested island ownership, and bundle policy rules. Client-side document navigation is documented in [`docs/ClientNavigationDesign.md`](../../docs/ClientNavigationDesign.md).
 
 ## Responsibility
 
@@ -187,7 +187,7 @@ NavigationStack {
 | `disabled`, `controlSize`, `buttonStyle`, `pickerStyle` | Propagates control state and semantic style selection through environment while controls render native attributes. |
 | `TextField`, `Toggle`, `Slider`, `Stepper`, `Picker` | Use `Binding` as the primary state interface. |
 | `accessibilityLabel`, `accessibilityHint`, `accessibilityValue`, `accessibilityHidden`, `accessibilityRole` | Maps common accessibility intent to semantic attributes. |
-| `NavigationStack`, `NavigationLink`, `navigationTitle` | Creates a navigation graph that can later be connected to browser history and transitions. |
+| `NavigationStack`, `NavigationLink`, `navigationTitle` | Creates semantic navigation anchors and metadata that the SwiftWeb WASM host can enhance into same-origin browser history transitions. |
 | `animation(_:value:)`, `transition(_:)`, `withAnimation(_:_:)` | Lower SwiftUI-style animation to CSS so the browser interpolates the change; there is no Swift-side animation engine. |
 
 ## Animation

@@ -12,7 +12,7 @@ This README describes the current Vapor-backed runtime target. The target archit
 | Page routing | Defines `Page`, `PageRoute`, `NoParams`, `NoSearchParams`, route path handling, and parameter decoding. |
 | Page metadata | Resolves async `title`, `description`, and `language` values before rendering the document shell. |
 | Macro surface | Exposes `@Page` as the public macro imported by applications. |
-| Request context | Provides request-scoped values, params, search params, and server-only values. |
+| Request context | Provides request-scoped values, params, search params, route environment, and session access. |
 | Responses | Wraps page bodies in `PageDocument` and converts rendered SwiftHTML artifacts into Vapor `Response` values. |
 | Actions | Provides route actions, form/button server action gateway contracts, `ClientAction`, `ActionResult`, `ActionReference`, and action contexts. |
 | Actor gateway | Hosts the Vapor gateway for ActorRuntime invocation envelopes. The shared distributed actor system lives in `SwiftWebActors`. |
@@ -182,6 +182,45 @@ Application page files should import `SwiftWeb`, not raw host modules. Host-spec
 embedding code belongs in `SwiftWebVapor`; page/session code should stay on the
 SwiftWeb surface.
 
+## Route Access Policy Direction
+
+`@Session` is the right tool for request-local rendering and action logic. Shared
+route access control should be declared on the scene graph as a policy descriptor,
+not repeated inside every page body.
+
+```mermaid
+flowchart TD
+  A["Scene / PageGroup"] --> B["route policy descriptor"]
+  B --> C["route registration"]
+  C --> D["request arrives"]
+  D --> E["policy reads WebSession"]
+  E -->|allow| F["Page.load / Page.body / action"]
+  E -->|deny| G["redirect / 401 / 403"]
+```
+
+The target modifier shape is:
+
+```swift
+public var body: some Scene {
+    PageGroup("admin") {
+        AdminDashboardPage()
+        AdminUsersPage()
+    }
+    .restrict(.authenticated, redirectTo: "/login")
+}
+```
+
+This modifier is design direction, not current public API. Until it exists,
+route-specific checks belong in request-time surfaces that can read `@Session`.
+
+| Contract | Reason |
+|---|---|
+| Apply to `Page` and `PageGroup`. | Auth policy must work for one route and for route subtrees. |
+| Inherit into child scenes. | A group-level policy should cover nested pages and endpoints. |
+| Evaluate after route match and before `load`, `body`, or action invocation. | Protected code should not run for denied requests. |
+| Represent denial as redirect, `401`, or `403`. | HTML pages and API/action surfaces need different failure behavior. |
+| Store policy as data on the scene graph. | `Scene.body` is app-build time and cannot read `@Session`. |
+
 ## Development Boundary
 
 The application runtime model lives in `SwiftWebCore`. The public `SwiftWeb` product is a thin facade that re-exports `SwiftWebCore` and exposes source macros such as `@Page` and `@ServerAction`. Vapor server execution lives in `SwiftWebVapor`, which provides `App.run()` and the Vapor `Application` lifecycle. The long-lived dev host uses `SwiftWebDevelopment`; the short-lived Vapor worker imports `SwiftWebVapor` and installs the smaller `SwiftWebDevelopmentHooks` runtime before `App.run()`.
@@ -229,7 +268,7 @@ WASM builds use the same generated package boundary but switch to a client-only 
 
 `SwiftPMWasmArtifact.location(target:)` resolves the served `.wasm` file from the user app package root, the app's `.swiftweb/generated` package root, and local `.package(path:)` dependency roots. This lets `sweb build --wasm` write into the shared SwiftWeb scratch directory while the app still declares the asset from its own `clientRuntime`.
 
-Client bundle loading is contract-first and documented in [`docs/ClientBundleLoadingDesign.md`](../../docs/ClientBundleLoadingDesign.md). `SwiftWeb` hosts resolved manifests and content-hashed WASM assets; `ClientComponent` contracts and modifiers decide bundle/load policy, while the runtime validates those contracts and serves the resulting assets.
+Client bundle loading is contract-first and documented in [`docs/ClientBundleLoadingDesign.md`](../../docs/ClientBundleLoadingDesign.md). `SwiftWeb` hosts resolved manifests and content-hashed WASM assets; `ClientComponent` contracts and modifiers decide bundle/load policy, while the runtime validates those contracts and serves the resulting assets. Same-origin browser navigation for WASM pages is defined in [`docs/ClientNavigationDesign.md`](../../docs/ClientNavigationDesign.md).
 
 WASM asset routes are sidecar-aware. If a built artifact has `.wasm.br` or `.wasm.gz` siblings, `SwiftWeb` selects the best accepted variant from `Accept-Encoding` and sets `Content-Encoding` plus `Vary: Accept-Encoding`. The production artifact processor that creates those sidecars lives in `SwiftWebDevelopment` / `sweb build --wasm`; `SwiftWeb` only owns HTTP serving.
 
@@ -393,6 +432,14 @@ flowchart LR
 | `.invalidate(.path(path))` | Revalidates another rendered path and merges the returned server DOM. |
 | `.redirect(path)` | Performs navigation and starts a fresh page/runtime state. |
 | `.html`, `.text`, `.json`, `.empty` | Returns direct action output for specialized handlers. |
+
+Client navigation is a separate runtime path from action invalidation. Eligible
+same-origin anchors fetch the next server-rendered document, update browser
+history, replace the document body for the new route, and rebootstrap active
+WASM bundles against the new hydration index without reloading already loaded
+runtime artifacts. Action invalidation keeps the protected node-level merge path
+because it refreshes server-owned DOM on the current route while preserving
+active client islands.
 
 ### Vapor Architecture
 

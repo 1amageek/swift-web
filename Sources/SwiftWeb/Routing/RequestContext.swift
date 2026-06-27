@@ -1,4 +1,3 @@
-import SwiftHTML
 import Vapor
 
 public struct RequestValues: Sendable {
@@ -70,61 +69,5 @@ private struct RequestContextPropagator: EnlargedStackContextPropagator {
 
     func apply<Result>(_ operation: () throws -> Result) rethrows -> Result {
         try RequestContext.$current.withValue(value, operation: operation)
-    }
-}
-
-public struct ServerValues: Sendable {
-    public let context: RequestValues
-
-    public init(context: RequestValues) {
-        self.context = context
-    }
-
-    public var request: Request {
-        context.request
-    }
-}
-
-public protocol ServerValueKey: Sendable {
-    associatedtype Value
-
-    static var serverCapabilityName: String { get }
-    static func value(from values: ServerValues) -> Value
-}
-
-public extension ServerValueKey {
-    static var serverCapabilityName: String {
-        String(reflecting: Self.self)
-    }
-}
-
-public struct RequestServerValueKey: ServerValueKey {
-    public static let serverCapabilityName = "RequestServerValueKey.self"
-
-    public static func value(from values: ServerValues) -> Request {
-        values.request
-    }
-
-    public init() {}
-}
-
-@propertyWrapper
-public struct Server<Value>: Sendable {
-    private let capability: String
-    private let read: @Sendable (ServerValues) -> Value
-
-    public init<Key: ServerValueKey>(_ key: Key.Type) where Key.Value == Value {
-        self.capability = "@Server(\(Key.serverCapabilityName))"
-        self.read = { values in
-            Key.value(from: values)
-        }
-    }
-
-    public var wrappedValue: Value {
-        ServerCapabilityReadContext.record(capability, valueType: Value.self)
-        guard let context = RequestContext.current else {
-            preconditionFailure("@Server was accessed outside a SwiftWeb page request")
-        }
-        return read(ServerValues(context: context))
     }
 }

@@ -52,13 +52,15 @@ extension HTML {
                 body: .init(string: html)
             )
         case .wasm(let wasmRuntime):
+            let fullHydrationIndex = BrowserHydrationIndexExporter().export(artifact)
+            let clientHydrationIndex = SwiftWebClientHydrationIndexPruner.prune(fullHydrationIndex)
             let manifest = SwiftWebWasmClientManifestBuilder.manifest(
                 from: artifact,
                 runtime: wasmRuntime
             )
             let descriptor = SwiftWebClientRuntimeDescriptor(
                 mode: .wasm,
-                hydrationIndex: BrowserHydrationIndexExporter().export(artifact),
+                hydrationIndex: clientHydrationIndex,
                 manifest: manifest,
                 wasm: wasmRuntime,
                 security: request.clientSecurityDescriptor
@@ -66,7 +68,7 @@ extension HTML {
             let annotatedHTML = developmentHooks.annotateClientRuntimeHTML(
                 renderedHTML,
                 manifest,
-                descriptor.hydrationIndex
+                clientHydrationIndex
             )
             let runtimeHTML = try SwiftWebClientRuntimeHTMLInjector().inject(
                 into: annotatedHTML,

@@ -1,3 +1,4 @@
+import Foundation
 import SwiftHTML
 import SwiftWebUIRuntime
 import Synchronization
@@ -364,6 +365,24 @@ private struct WasmBridgeMountedPropertySelectionRoot: Component, Sendable {
 
 @Suite(.serialized)
 struct SwiftWebUIRuntimeClientWasmRuntimeBridgeTests {
+    @Test
+    func bootstrapRequestCodableSupportsNavigationMode() throws {
+        let request = ClientWasmBootstrapRequest(
+            hydrationIndex: .empty,
+            location: ClientWasmBootstrapLocation(
+                href: "http://127.0.0.1:8080/storyboard/style",
+                search: ""
+            ),
+            mode: .navigation
+        )
+
+        let data = try JSONEncoder().encode(request)
+        let decoded = try JSONDecoder().decode(ClientWasmBootstrapRequest.self, from: data)
+
+        #expect(decoded.mode == .navigation)
+        #expect(String(decoding: data, as: UTF8.self).contains("\"mode\":\"navigation\""))
+    }
+
     @Test
     func bridgeBootstrapsAndDispatchesClientStateWithoutServerSession() throws {
         let bridge = ClientWasmRuntimeBridge<WasmBridgeCounter> { _ in

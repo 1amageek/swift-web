@@ -202,7 +202,7 @@ public struct SwiftWebStoryboardScaffold: Sendable {
             return #".package(path: "\#(Self.swiftStringLiteral(directory.path))")"#
         }
 
-        return #".package(url: "https://github.com/1amageek/swift-html.git", from: "0.6.6")"#
+        return #".package(url: "https://github.com/1amageek/swift-html.git", from: "0.7.1")"#
     }
 
     private func localSwiftHTMLPackageDirectory() throws -> URL? {

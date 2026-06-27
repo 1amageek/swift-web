@@ -1,9 +1,34 @@
+import Foundation
 import SwiftHTML
 import SwiftWebStyle
 import SwiftWebUI
 import Testing
 import SwiftWeb
 @testable import SwiftWebCore
+
+private struct PageDocumentRuntimeClientComponent: ClientComponent {
+    @State private var value = 0
+
+    var body: some HTML {
+        button(.type(ButtonType.button), .onClick {
+            value += 1
+        }) {
+            "Client \(value)"
+        }
+    }
+}
+
+private struct PageDocumentRuntimeStaticPage: Component {
+    var body: some HTML {
+        main {
+            h1 { "Static heading" }
+            div {
+                PageDocumentRuntimeClientComponent()
+            }
+            footer { "Static footer" }
+        }
+    }
+}
 
 @Suite
 struct SwiftWebPageDocumentTests {
@@ -75,6 +100,35 @@ struct SwiftWebPageDocumentTests {
     }
 
     @Test
+    func wasmPageResponsePrunesServerOnlyDOMFromClientRuntimeDescriptor() async throws {
+        try await withApplication { application in
+            application.swiftWebClientRuntime = .wasm(
+                SwiftWebWasmClientRuntime(
+                    manifestPath: "/assets/client.json",
+                    runtimeAssetPath: "/assets/client.wasm"
+                )
+            )
+            let request = Request(application: application)
+            let response = try await PageDocumentRuntimeStaticPage().encodePageResponse(
+                for: request,
+                metadata: PageMetadata(title: "Runtime")
+            )
+            let rendered = try #require(response.body.string)
+            let descriptor = try clientRuntimeDescriptor(in: rendered)
+            let descriptorTexts = Set(descriptor.hydrationIndex.nodes.compactMap(\.text))
+
+            #expect(rendered.contains("Static heading"))
+            #expect(rendered.contains("Static footer"))
+            #expect(descriptor.mode == .wasm)
+            #expect(descriptor.hydrationIndex.components.count == 1)
+            #expect(descriptor.hydrationIndex.handlers.count == 1)
+            #expect(descriptor.hydrationIndex.nodes.contains { $0.text == "Client 0" })
+            #expect(!descriptorTexts.contains("Static heading"))
+            #expect(!descriptorTexts.contains("Static footer"))
+        }
+    }
+
+    @Test
     func headAssetsEmitBaseBeforeAtomicCSS() {
         let registry = StyleRegistry()
         registry.registerStylesheet(".swui-base-layer { color: var(--swui-text); }")
@@ -115,6 +169,16 @@ struct SwiftWebPageDocumentTests {
             searchStart = range.upperBound
         }
         return true
+    }
+
+    private func clientRuntimeDescriptor(in html: String) throws -> SwiftWebClientRuntimeDescriptor {
+        let marker = "<script type=\"application/json\" id=\"client-runtime\">"
+        let start = try #require(html.range(of: marker))
+        let remainder = html[start.upperBound...]
+        let end = try #require(remainder.range(of: "</script>"))
+        let json = String(remainder[..<end.lowerBound])
+        let data = Data(json.utf8)
+        return try JSONDecoder().decode(SwiftWebClientRuntimeDescriptor.self, from: data)
     }
 }
 

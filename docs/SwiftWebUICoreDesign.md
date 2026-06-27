@@ -56,7 +56,7 @@ flowchart LR
 
 ## DynamicProperty
 
-Dynamic properties are property wrappers whose value depends on the current render context. `@State`, `@Binding`, `@Environment`, `@Server`, and future runtime wrappers should share one lifecycle.
+Dynamic properties are property wrappers whose value depends on the current render context. In SwiftWebUI this includes `@State`, `@Binding`, `@Environment`, and future UI runtime wrappers. Request-scoped server wrappers such as `@Session` belong to SwiftWeb page and action surfaces, not to the SwiftWebUI component core.
 
 ```mermaid
 sequenceDiagram
@@ -90,7 +90,6 @@ public protocol DynamicProperty {
 | `@State` | Owns client-local mutable state for `ClientComponent`; registers a state slot |
 | `@Binding` | Provides explicit read/write projection into state or observable models |
 | `@Environment` | Reads `EnvironmentValues`; records visibility for hydration diagnostics |
-| `@Server` | Reads server-only capabilities; emits diagnostics if read inside client-owned render |
 
 ### Context model
 

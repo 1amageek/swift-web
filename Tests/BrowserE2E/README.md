@@ -6,6 +6,7 @@ These tests exercise the real browser WASM runtime. They are opt-in because they
 cd Tests/BrowserE2E
 npm install
 npm run counter-wasm
+npm run storyboard-navigation
 ```
 
 For the stronger local stability gate, install WebKit and require the smoke pass:
@@ -24,6 +25,9 @@ The test copies `Examples/CounterApp` into a temporary directory, rewrites its d
 - `.visible`, `.idle`, `.interaction`, and `.manual` ClientComponent loading policies
 - named/shared split bundle contracts
 - ServerAction page invalidation without full navigation
+- Storyboard same-origin sidebar navigation without reloading or reinstantiating the WASM runtime
+- Storyboard current-link state remains singular after client navigation and history traversal
+- Storyboard browser history and native hash/external-link fallbacks
 - ClientComponent HMR patching while preserving state
 - ClientComponent HMR build failure rollback without replacing the old UI
 - Server worker restart HMR followed by page patch without losing compatible client state
@@ -53,12 +57,14 @@ Environment variables:
 | `SWIFT_WEB_WASM_TOOLCHAIN_BIN` | Optional WASM toolchain bin directory override. |
 | `SWIFTWEB_E2E_BROWSER_EXECUTABLE_PATH` | Use a specific Chromium-compatible browser executable. |
 | `SWIFTWEB_E2E_REQUIRE_WEBKIT` | Set to `1` to fail when the optional WebKit smoke cannot run. |
+| `SWIFTWEB_E2E_KEEP_STORYBOARD` | Set to `1` to keep the generated `.swiftweb/storyboard` package after Storyboard navigation E2E. |
 
 ## Stability Gates
 
 | Gate | Command | Expected browser coverage |
 |---|---|---|
 | Default browser E2E | `npm run counter-wasm` | Chromium-compatible browser plus optional WebKit smoke. |
+| Storyboard navigation E2E | `npm run storyboard-navigation` | Chromium-compatible browser, same-origin client navigation, singular current sidebar link, back/forward, native hash/external fallback. |
 | Full local browser E2E | `npm run counter-wasm:webkit` | Chromium-compatible browser and required WebKit smoke. |
 
 The full gate is intended to prove the browser-visible dev loop, not just unit-level runtime helpers:

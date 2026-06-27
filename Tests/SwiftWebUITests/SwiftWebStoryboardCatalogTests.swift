@@ -216,7 +216,7 @@ struct SwiftWebStoryboardCatalogTests {
 
     @Test
     func bootstrapInitialSelectionFollowsStoryboardPath() throws {
-        let catalog = try StoryboardCatalog(
+        let island = try StoryboardDetailIsland(
             bootstrap: ClientWasmBootstrapRequest(
                 hydrationIndex: .empty,
                 location: ClientWasmBootstrapLocation(
@@ -225,11 +225,11 @@ struct SwiftWebStoryboardCatalogTests {
                 )
             )
         )
-        let rendered = catalog.render()
+        let rendered = island.render()
 
-        #expect(rendered.contains("href=\"/storyboard/stepper\""))
         #expect(rendered.contains("Stepper"))
-        #expect(rendered.contains("aria-current=\"page\""))
+        #expect(rendered.contains("Preview"))
+        #expect(rendered.contains("Usage"))
         #expect(rendered.contains("swui-stepper"))
     }
 

@@ -111,6 +111,74 @@ struct SwiftWebWasmRuntimeRoutesTests {
   }
 
   @Test
+  func wasmAssetSupportsETagRevalidation() async throws {
+    try await withApplication { application in
+      let root = try temporaryDirectory()
+      defer {
+        do {
+          try FileManager.default.removeItem(at: root)
+        } catch {}
+      }
+      let wasmURL = root.appendingPathComponent("runtime.wasm")
+      try Data("raw".utf8).write(to: wasmURL)
+      SwiftWebWasmRuntimeRoutes.registerWasmAsset(
+        on: application,
+        path: "/assets/runtime.wasm",
+        fileURL: wasmURL
+      )
+
+      let first = try await application.testing().sendRequest(
+        .get,
+        "/assets/runtime.wasm"
+      )
+      let etag = try #require(first.headers[.eTag])
+
+      var headers: HTTPFields = [:]
+      headers[.ifNoneMatch] = etag
+      let second = try await application.testing().sendRequest(
+        .get,
+        "/assets/runtime.wasm",
+        headers: headers
+      )
+
+      #expect(first.status == .ok)
+      #expect(String(buffer: first.body) == "raw")
+      #expect(first.headers[.cacheControl] == "no-cache")
+      #expect(second.status == .notModified)
+      #expect(String(buffer: second.body).isEmpty)
+      #expect(second.headers[.eTag] == etag)
+      #expect(second.headers[HTTPField.Name("Vary")!] == "Accept-Encoding")
+    }
+  }
+
+  @Test
+  func runtimeHostScriptSupportsETagRevalidation() async throws {
+    try await withApplication { application in
+      SwiftWebWasmRuntimeRoutes.registerHost(on: application)
+
+      let first = try await application.testing().sendRequest(
+        .get,
+        SwiftWebWasmRuntimeRoutes.hostScriptPath
+      )
+      let etag = try #require(first.headers[.eTag])
+
+      var headers: HTTPFields = [:]
+      headers[.ifNoneMatch] = etag
+      let second = try await application.testing().sendRequest(
+        .get,
+        SwiftWebWasmRuntimeRoutes.hostScriptPath,
+        headers: headers
+      )
+
+      #expect(first.status == .ok)
+      #expect(String(buffer: first.body).contains("SwiftWebWasmRuntime"))
+      #expect(second.status == .notModified)
+      #expect(String(buffer: second.body).isEmpty)
+      #expect(second.headers[.eTag] == etag)
+    }
+  }
+
+  @Test
   func explicitEncodingRejectionOverridesWildcardAcceptance() async throws {
     try await withApplication { application in
       let root = try temporaryDirectory()

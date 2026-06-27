@@ -9,13 +9,15 @@ islands.
 
 ```mermaid
 flowchart LR
-  A["SwiftWeb.App"] --> B["@Page routes"]
-  A --> C["Server actions"]
-  B --> D["SwiftHTML render graph"]
-  C --> E["Vapor runtime"]
-  D --> F["HTML response"]
-  D --> G["Client WASM island"]
+  A["SwiftWeb.App"] --> B["Scene graph"]
+  B --> C["Page / PageGroup"]
+  B --> D["Route policies"]
+  C --> E["SwiftHTML render graph"]
+  E --> F["HTML response"]
+  E --> G["Client WASM island"]
   G --> H["SwiftWebUIRuntime"]
+  I["Server actions"] --> J["request context"]
+  J --> K["@Session"]
 ```
 
 ## Packages
@@ -88,7 +90,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/1amageek/swift-web.git", branch: "main"),
-        .package(url: "https://github.com/1amageek/swift-html.git", from: "0.6.6"),
+        .package(url: "https://github.com/1amageek/swift-html.git", from: "0.7.1"),
     ],
     targets: [
         .target(
@@ -159,7 +161,7 @@ MyApp
    └─ wasm
 ```
 
-The app package depends on the local SwiftWeb checkout and released `swift-html 0.6.6`.
+The app package depends on the local SwiftWeb checkout and released `swift-html 0.7.1`.
 `sweb new` also materializes the generated launchers, dev packages, server packages,
 and WASM packages under `.swiftweb/generated`. Use `sweb prepare` only when you want
 to refresh generated packages for an existing SwiftWeb app without building or
@@ -277,7 +279,50 @@ public var body: some Scene {
 }
 ```
 
-### 6. Use SwiftWebUI Components
+### 6. Read The Request Session
+
+Use `@Session` inside request-time surfaces such as page bodies and server actions.
+The wrapped value is `WebSession`, not a raw host request object.
+
+```swift
+@Page("/account")
+struct AccountPage {
+    @Session var session
+
+    func body() -> some HTML {
+        if session.isAuthenticated {
+            AccountView()
+        } else {
+            LoginView()
+        }
+    }
+}
+```
+
+| Session API | Meaning |
+|---|---|
+| `session.isAuthenticated` | Reads SwiftWeb's authentication marker or stored `userID`. |
+| `session.userID` | Reads the stored user identifier. |
+| `session["key"]` | Reads or writes string session state. |
+| `session.authenticate(userID:)` | Stores the user identifier and marks the session authenticated. |
+| `session.clearAuthentication()` | Removes SwiftWeb authentication keys. |
+| `session.destroy()` | Invalidates the current persisted session. |
+
+`@Session` is request-scoped. Do not read it from `App.body` or `Scene.body`, because
+those build app topology without an active request. Scene-level access control belongs
+to route policy descriptors such as the planned `.restrict(...)` modifier.
+
+```swift
+public var body: some Scene {
+    PageGroup("admin") {
+        AdminDashboardPage()
+    }
+    // Target route-policy shape; this is a request-time descriptor.
+    // .restrict(.authenticated, redirectTo: "/login")
+}
+```
+
+### 7. Use SwiftWebUI Components
 
 Import `SwiftWebUI` when you want the higher-level component layer:
 
@@ -311,7 +356,7 @@ struct HomePage {
 SwiftWebUI lowers into the SwiftHTML graph. It does not replace SwiftHTML; raw SwiftHTML
 elements remain available when you need exact HTML control.
 
-### 7. Inspect Components With Storyboard
+### 8. Inspect Components With Storyboard
 
 Run the SwiftWebUI component Storyboard from the SwiftWeb checkout:
 
@@ -328,7 +373,7 @@ http://127.0.0.1:3001/storyboard
 Storyboard generates an isolated package under `.swiftweb/storyboard`; it does not edit
 your app package.
 
-### 8. Build For Production
+### 9. Build For Production
 
 Build the generated server package:
 
@@ -367,7 +412,7 @@ Use the embedded profile for production pages whose browser behavior is server-d
 Production WASM builds strip debug/producers sections, optionally run `wasm-opt -Oz`,
 write `<artifact>.wasm.size.json`, and create cached `.gz` / `.br` sidecars.
 
-### 9. Try The Examples
+### 10. Try The Examples
 
 The repository includes a minimal hello world app and a counter app with server
 actions, page invalidation, and a client-side counter component.
@@ -586,7 +631,7 @@ WASM content hash so unchanged artifacts are not recompressed.
 | Topic | Current contract |
 |---|---|
 | Swift version | Keep `Package.swift` at `// swift-tools-version: 6.3`. |
-| `swift-html` | Released dependency for generated apps: `0.6.6`; this repository may use a local `../swift-html` checkout during framework development. |
+| `swift-html` | Released dependency for generated apps: `0.7.1`. Storyboard development can still use a local sibling checkout when present. |
 | Host compatibility | Current Vapor 5 HTTP stack may require an Xcode Swift toolchain for host/dev builds. |
 | WASM compatibility | Browser runtime remains pinned to Swift 6.3.1 and the matching WASM SDK. |
 | Versioned SwiftPM release | Blocked until branch/revision host dependencies are replaced or explicitly scoped out. |

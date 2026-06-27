@@ -57,6 +57,26 @@ private struct RuntimeSplitShell: Component {
     }
 }
 
+private struct RuntimeStaticPage: Component {
+    var body: some HTML {
+        div {
+            span { "Static heading" }
+            div {
+                RuntimeStatefulComponent()
+            }
+            span { "Static footer" }
+        }
+    }
+}
+
+private struct RuntimeServerOnlyPage: Component {
+    var body: some HTML {
+        div {
+            span { "Static only" }
+        }
+    }
+}
+
 @Suite
 struct SwiftWebClientRuntimeTests {
     @Test
@@ -238,5 +258,34 @@ struct SwiftWebClientRuntimeTests {
         #expect(editorAsset.bundleID == editorBundleID)
         #expect(try #require(chartBundle.asset).path == "/assets/deferred.wasm")
         #expect(try #require(editorBundle.asset).path == "/assets/deferred.wasm")
+    }
+
+    @Test
+    func clientHydrationIndexPrunerKeepsOnlyClientComponentSubtrees() throws {
+        let artifact = RuntimeStaticPage().renderArtifact()
+        let fullIndex = BrowserHydrationIndexExporter().export(artifact)
+        let prunedIndex = SwiftWebClientHydrationIndexPruner.prune(fullIndex)
+        let component = try #require(fullIndex.components.first)
+        let prunedTexts = Set(prunedIndex.nodes.compactMap(\.text))
+
+        #expect(prunedIndex.components.map(\.id) == fullIndex.components.map(\.id))
+        #expect(prunedIndex.nodes.contains { $0.id == component.nodeID })
+        #expect(prunedIndex.handlers == fullIndex.handlers)
+        #expect(prunedIndex.nodes.count < fullIndex.nodes.count)
+        #expect(!prunedTexts.contains("Static heading"))
+        #expect(!prunedTexts.contains("Static footer"))
+    }
+
+    @Test
+    func clientHydrationIndexPrunerReturnsEmptyForServerOnlyPages() {
+        let artifact = RuntimeServerOnlyPage().renderArtifact()
+        let fullIndex = BrowserHydrationIndexExporter().export(artifact)
+        let prunedIndex = SwiftWebClientHydrationIndexPruner.prune(fullIndex)
+
+        #expect(fullIndex.components.isEmpty)
+        #expect(prunedIndex.nodes.isEmpty)
+        #expect(prunedIndex.components.isEmpty)
+        #expect(prunedIndex.serverSlots.isEmpty)
+        #expect(prunedIndex.handlers.isEmpty)
     }
 }

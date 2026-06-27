@@ -35,23 +35,29 @@ public enum SwiftWebWasmRuntimeRoutes {
     @discardableResult
     public static func registerHost(on routes: any RoutesBuilder) -> [Route] {
         [
-            routes.get("__swiftweb", "wasm", "runtime-host.js") { _ async throws -> Response in
-                Response(
-                    headers: [
-                        .contentType: "text/javascript; charset=utf-8",
-                        .cacheControl: "no-cache",
-                    ],
-                    body: .init(string: SwiftWebWasmRuntimeHostScript.source)
+            routes.get("__swiftweb", "wasm", "runtime-host.js") { req async throws -> Response in
+                let body = SwiftWebWasmRuntimeHostScript.source
+                let etag = quotedETag("swiftweb-host-\(hostScriptVersion)")
+                let headers = cacheValidationHeaders(
+                    contentType: "text/javascript; charset=utf-8",
+                    etag: etag
                 )
+                if matchesETag(req.headers[.ifNoneMatch], etag: etag) {
+                    return Response(status: .notModified, headers: headers, body: .empty)
+                }
+                return Response(headers: headers, body: .init(string: body))
             },
-            routes.get("__swiftweb", "wasm", "javascript-kit-runtime.js") { _ async throws -> Response in
-                Response(
-                    headers: [
-                        .contentType: "text/javascript; charset=utf-8",
-                        .cacheControl: "no-cache",
-                    ],
-                    body: .init(string: try SwiftWebJavaScriptKitRuntimeScript.load())
+            routes.get("__swiftweb", "wasm", "javascript-kit-runtime.js") { req async throws -> Response in
+                let body = try SwiftWebJavaScriptKitRuntimeScript.load()
+                let etag = quotedETag("swiftweb-javascript-kit-\(contentHash(of: body))")
+                let headers = cacheValidationHeaders(
+                    contentType: "text/javascript; charset=utf-8",
+                    etag: etag
                 )
+                if matchesETag(req.headers[.ifNoneMatch], etag: etag) {
+                    return Response(status: .notModified, headers: headers, body: .empty)
+                }
+                return Response(headers: headers, body: .init(string: body))
             },
         ]
     }
@@ -65,15 +71,17 @@ public enum SwiftWebWasmRuntimeRoutes {
         let routePath = RoutePath(path)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
-        return routes.on(.get, routePath.vaporComponents) { _ async throws -> Response in
+        return routes.on(.get, routePath.vaporComponents) { req async throws -> Response in
             let data = try encoder.encode(manifest)
-            return Response(
-                headers: [
-                    .contentType: "application/json; charset=utf-8",
-                    .cacheControl: "no-cache",
-                ],
-                body: .init(data: data)
+            let etag = quotedETag("swiftweb-manifest-\(contentHash(of: String(decoding: data, as: UTF8.self)))")
+            let headers = cacheValidationHeaders(
+                contentType: "application/json; charset=utf-8",
+                etag: etag
             )
+            if matchesETag(req.headers[.ifNoneMatch], etag: etag) {
+                return Response(status: .notModified, headers: headers, body: .empty)
+            }
+            return Response(headers: headers, body: .init(data: data))
         }
     }
 
@@ -104,18 +112,15 @@ public enum SwiftWebWasmRuntimeRoutes {
                 fileURL: resolvedFileURL,
                 acceptEncoding: req.headers[HTTPField.Name("Accept-Encoding")!] ?? ""
             )
+            let etag = try fileETag(for: asset.fileURL, contentEncoding: asset.contentEncoding)
+            let headers = wasmAssetHeaders(etag: etag, contentEncoding: asset.contentEncoding)
+            if matchesETag(req.headers[.ifNoneMatch], etag: etag) {
+                return Response(status: .notModified, headers: headers, body: .empty)
+            }
             let data = try Data(
                 contentsOf: asset.fileURL,
                 options: [.mappedIfSafe]
             )
-            var headers: HTTPFields = [
-                .contentType: "application/wasm",
-                .cacheControl: "no-cache",
-                HTTPField.Name("Vary")!: "Accept-Encoding",
-            ]
-            if let contentEncoding = asset.contentEncoding {
-                headers[HTTPField.Name("Content-Encoding")!] = contentEncoding
-            }
             return Response(
                 headers: headers,
                 body: .init(data: data)
@@ -144,6 +149,62 @@ public enum SwiftWebWasmRuntimeRoutes {
         }
 
         return (fileURL, nil)
+    }
+
+    private static func cacheValidationHeaders(
+        contentType: String,
+        etag: String
+    ) -> HTTPFields {
+        [
+            .contentType: contentType,
+            .cacheControl: "no-cache",
+            .eTag: etag,
+        ]
+    }
+
+    private static func wasmAssetHeaders(
+        etag: String,
+        contentEncoding: String?
+    ) -> HTTPFields {
+        var headers: HTTPFields = [
+            .contentType: "application/wasm",
+            .cacheControl: "no-cache",
+            .eTag: etag,
+            HTTPField.Name("Vary")!: "Accept-Encoding",
+        ]
+        if let contentEncoding {
+            headers[HTTPField.Name("Content-Encoding")!] = contentEncoding
+        }
+        return headers
+    }
+
+    private static func fileETag(
+        for fileURL: URL,
+        contentEncoding: String?
+    ) throws -> String {
+        let attributes = try FileManager.default.attributesOfItem(atPath: fileURL.path)
+        let size = attributes[.size] as? NSNumber
+        let modified = attributes[.modificationDate] as? Date
+        let sizeValue = size?.uint64Value ?? 0
+        let modifiedNanoseconds = UInt64((modified?.timeIntervalSince1970 ?? 0) * 1_000_000_000)
+        let encoding = contentEncoding ?? "identity"
+        return quotedETag("swiftweb-wasm-\(encoding)-\(sizeValue)-\(modifiedNanoseconds)")
+    }
+
+    private static func quotedETag(_ value: String) -> String {
+        "\"\(value)\""
+    }
+
+    private static func matchesETag(_ header: String?, etag: String) -> Bool {
+        guard let header else {
+            return false
+        }
+        return header
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .contains { candidate in
+                candidate == etag || candidate == "*"
+            }
     }
 
     private static func acceptedEncodingQuality(_ encoding: String, in header: String) -> Double {

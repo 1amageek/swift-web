@@ -112,6 +112,7 @@ enum SwiftWebWasmRuntimeHostScript {
         this.primaryBundleID = null;
         this.swiftRuntimes = new Map();
         this.bootstrappedBundleIDs = new Set();
+        this.currentDocumentURL = window.location.href;
         this.metrics = this.createMetrics();
         this.recordMetric("runtime.created");
       }
@@ -138,6 +139,7 @@ enum SwiftWebWasmRuntimeHostScript {
         });
         this.installEventListeners();
         this.installServerActionListeners();
+        this.installNavigationListeners();
         this.installPresentationReconciler();
         this.publishStatus(true);
         this.completeReadyMetrics(runtimeStartedAt);
@@ -673,15 +675,15 @@ enum SwiftWebWasmRuntimeHostScript {
         throw new Error("SwiftWeb WASM runtime bundle was not loaded");
       }
 
-      bootstrapBundle(bundleID, instance) {
+      bootstrapBundle(bundleID, instance, options = {}) {
         const rawBundleID = rawValue(bundleID);
-        if (this.bootstrappedBundleIDs.has(rawBundleID)) {
+        if (!options.force && this.bootstrappedBundleIDs.has(rawBundleID)) {
           this.recordMetric("bundle.bootstrap.cacheHit", { bundleID: rawBundleID });
           return null;
         }
         const assetPath = this.assetPathForBundleID(rawBundleID);
         const bootstrappedAliasBundleID = this.bootstrappedBundleIDForAssetPath(assetPath, rawBundleID);
-        if (bootstrappedAliasBundleID) {
+        if (!options.force && bootstrappedAliasBundleID) {
           this.bootstrappedBundleIDs.add(rawBundleID);
           this.recordMetric("bundle.bootstrap.assetAliasHit", {
             bundleID: rawBundleID,
@@ -699,7 +701,8 @@ enum SwiftWebWasmRuntimeHostScript {
           location: {
             href: window.location.href,
             search: window.location.search
-          }
+          },
+          mode: options.mode || undefined
         }, instance);
         if (response && response.commandBatch && response.appliesDOMCommandsInRuntime !== true) {
           applyCommandBatch(response.commandBatch, this);
@@ -816,6 +819,45 @@ enum SwiftWebWasmRuntimeHostScript {
             console.error("SwiftWeb server action failed", error);
           });
         }, true);
+      }
+
+      installNavigationListeners() {
+        document.addEventListener("click", (event) => {
+          const anchor = navigationAnchorForEvent(event);
+          if (!anchor) {
+            return;
+          }
+          const target = new URL(anchor.getAttribute("href"), window.location.href);
+          event.preventDefault();
+          event.stopPropagation();
+          this.eventQueue = this.eventQueue
+            .then(() => this.navigateServerDocument(target.href, { history: "push" }))
+            .catch((error) => {
+              console.error("SwiftWeb navigation failed", error);
+              window.location.assign(target.href);
+            });
+        }, true);
+
+        window.addEventListener("popstate", () => {
+          const target = new URL(window.location.href);
+          if (this.isSameDocumentURL(target)) {
+            this.currentDocumentURL = target.href;
+            return;
+          }
+          this.eventQueue = this.eventQueue
+            .then(() => this.navigateServerDocument(target.href, { history: "popstate" }))
+            .catch((error) => {
+              console.error("SwiftWeb history navigation failed", error);
+              window.location.reload();
+            });
+        });
+      }
+
+      isSameDocumentURL(target) {
+        const current = new URL(this.currentDocumentURL || window.location.href, window.location.href);
+        return target.origin === current.origin &&
+          target.pathname === current.pathname &&
+          target.search === current.search;
       }
 
       // Upgrades server-rendered presentation dialogs to true top-layer modals.
@@ -997,10 +1039,121 @@ enum SwiftWebWasmRuntimeHostScript {
         this.mergeServerDocument(html);
       }
 
-      mergeServerDocument(html) {
+      async navigateServerDocument(href, options = {}) {
+        const target = new URL(href || window.location.href, window.location.href);
+        const startedAt = this.now();
+        const historyMode = options.history || "push";
+        this.recordMetric("navigation.start", {
+          href: target.href,
+          history: historyMode
+        });
+        this.publishStatus(false, "navigating");
+
+        let response;
+        try {
+          response = await fetch(target.href, {
+            credentials: "same-origin",
+            headers: {
+              "Accept": "text/html",
+              "X-SwiftWeb-Navigation": "client",
+              ...this.csrfHeaders()
+            }
+          });
+        } catch (error) {
+          this.recordMetric("navigation.fetch.failed", {
+            href: target.href,
+            error: String(error && error.message ? error.message : error)
+          });
+          throw error;
+        }
+
+        const finalURL = new URL(response.url || target.href, window.location.href);
+        if (finalURL.origin !== window.location.origin) {
+          this.recordMetric("navigation.fallback.crossOriginRedirect", { href: finalURL.href });
+          window.location.assign(finalURL.href);
+          return;
+        }
+        const contentType = response.headers.get("content-type") || "";
+        if (!response.ok || !contentType.includes("text/html")) {
+          this.recordMetric("navigation.fallback.native", {
+            href: finalURL.href,
+            status: response.status,
+            contentType
+          });
+          window.location.assign(finalURL.href);
+          return;
+        }
+
+        const html = await response.text();
+        if (historyMode === "push" && finalURL.href !== window.location.href) {
+          window.history.pushState({ swiftWeb: true }, "", finalURL.href);
+        } else if (historyMode === "replace" && finalURL.href !== window.location.href) {
+          window.history.replaceState({ swiftWeb: true }, "", finalURL.href);
+        }
+        this.currentDocumentURL = finalURL.href;
+        this.mergeServerDocument(html, {
+          mode: "navigation",
+          preserveClientNodes: false,
+          updateTitle: true
+        });
+        await this.rebootstrapServerDocument("navigation");
+        this.publishStatus(true);
+        this.recordMetric("navigation.complete", {
+          href: finalURL.href,
+          history: historyMode,
+          durationMs: this.durationSince(startedAt)
+        });
+        this.publishMetrics();
+      }
+
+      async rebootstrapServerDocument(mode) {
+        if (this.documentHydrationIndex) {
+          this.hydrationIndex = this.documentHydrationIndex;
+        }
+        if (!this.manifest && this.configuration && this.configuration.manifestPath) {
+          this.manifest = await this.fetchJSON(this.configuration.manifestPath);
+        }
+        const bundleIDs = this.initialBundleIDs();
+        await this.loadBundles(bundleIDs);
+        this.primaryBundleID = this.selectPrimaryBundleID();
+        this.primaryInstance = this.instances.get(this.primaryBundleID);
+        this.bootstrappedBundleIDs.clear();
+        const bootstrappedBundleIDs = [];
+        for (const bundleID of bundleIDs) {
+          const rawBundleID = rawValue(bundleID);
+          const instance = this.instances.get(rawBundleID);
+          if (!instance) {
+            continue;
+          }
+          this.bootstrapBundle(rawBundleID, instance, {
+            force: true,
+            mode
+          });
+          bootstrappedBundleIDs.push(rawBundleID);
+        }
+        this.updateSummary({
+          navigationBootstrappedBundleIDs: bootstrappedBundleIDs
+        });
+      }
+
+      mergeServerDocument(html, options = {}) {
         const nextDocument = new DOMParser().parseFromString(html, "text/html");
+        if (options.updateTitle && nextDocument.title) {
+          document.title = nextDocument.title;
+        }
         this.mergeHeadStyle(nextDocument, "swui-base");
         this.mergeHeadStyle(nextDocument, "swui-atomic");
+        if (options.preserveClientNodes === false) {
+          const replaced = this.replaceServerDocumentBody(nextDocument);
+          this.updateDescriptorFromDocument(nextDocument);
+          this.recordMetric("serverDocument.merge.complete", {
+            mode: options.mode || "navigation",
+            strategy: "body",
+            replacementCount: replaced ? 1 : 0,
+            replacedNodeIDs: []
+          });
+          return;
+        }
         const protectedNodeIDs = this.protectedClientNodeIDs();
         const currentNodes = Array.from(document.querySelectorAll(`[${swiftWebRuntimeMarkers.nodeAttribute}]`));
         const replacedNodeIDs = [];
@@ -1029,7 +1182,23 @@ enum SwiftWebWasmRuntimeHostScript {
           replacementCount += 1;
         }
         this.updateDescriptorFromDocument(nextDocument);
-        this.recordMetric("serverDocument.merge.complete", { replacementCount, replacedNodeIDs });
+        this.recordMetric("serverDocument.merge.complete", {
+          mode: options.mode || "invalidation",
+          strategy: "node",
+          replacementCount,
+          replacedNodeIDs
+        });
+      }
+
+      replaceServerDocumentBody(nextDocument) {
+        if (!nextDocument.body || !document.body) {
+          return false;
+        }
+        copyElementAttributes(document.body, nextDocument.body);
+        const nextChildren = Array.from(nextDocument.body.childNodes)
+          .map((node) => document.importNode(node, true));
+        document.body.replaceChildren(...nextChildren);
+        return true;
       }
 
       mergeHeadStyle(nextDocument, id) {
@@ -1091,6 +1260,7 @@ enum SwiftWebWasmRuntimeHostScript {
         currentDescriptorElement.textContent = nextDescriptorElement.textContent;
         const descriptor = JSON.parse(nextDescriptorElement.textContent);
         this.descriptor = descriptor;
+        this.configuration = descriptor.wasm || this.configuration;
         this.security = descriptor.security || {};
         if (descriptor.hydrationIndex) {
           this.documentHydrationIndex = descriptor.hydrationIndex;
@@ -2369,6 +2539,57 @@ enum SwiftWebWasmRuntimeHostScript {
         hash = BigInt.asUintN(64, hash * 0x100000001b3n);
       }
       return hash.toString(16).padStart(16, "0");
+    }
+
+    function navigationAnchorForEvent(event) {
+      if (!event || event.defaultPrevented) {
+        return null;
+      }
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+        return null;
+      }
+      const path = eventPath(event);
+      let anchor = null;
+      for (const item of path) {
+        if (!(item instanceof Element)) {
+          continue;
+        }
+        if (item.hasAttribute(`${swiftWebRuntimeMarkers.eventAttributePrefix}click`)) {
+          return null;
+        }
+        if (item.matches("a[href]")) {
+          anchor = item;
+          break;
+        }
+      }
+      if (!anchor || anchor.hasAttribute("download")) {
+        return null;
+      }
+      const target = (anchor.getAttribute("target") || "").toLowerCase();
+      if (target && target !== "_self") {
+        return null;
+      }
+      const href = anchor.getAttribute("href");
+      if (!href || href.startsWith("#")) {
+        return null;
+      }
+      let url;
+      try {
+        url = new URL(href, window.location.href);
+      } catch {
+        return null;
+      }
+      if (url.origin !== window.location.origin) {
+        return null;
+      }
+      if (url.protocol !== "http:" && url.protocol !== "https:") {
+        return null;
+      }
+      const current = new URL(window.location.href);
+      if (url.pathname === current.pathname && url.search === current.search) {
+        return null;
+      }
+      return anchor;
     }
 
     function findServerActionSubmitter(event) {

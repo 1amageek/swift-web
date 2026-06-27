@@ -34,6 +34,7 @@ public struct ClientWasmBootstrapRequest: Sendable, Codable, Equatable {
 public enum ClientWasmBootstrapMode: String, Sendable, Codable, Equatable {
     case standard
     case hotReload
+    case navigation
 }
 
 public typealias ClientWasmStateSnapshot = StateStoreSnapshot
