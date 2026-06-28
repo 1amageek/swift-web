@@ -4,6 +4,7 @@ import FoundationEssentials
 import Foundation
 #endif
 import SwiftHTML
+import SwiftWebActors
 
 public struct ClientComponentRegistration {
     public let typeName: String
@@ -16,6 +17,7 @@ public struct ClientComponentRegistration {
     public init<Root: HTML>(
         _ type: Root.Type,
         environmentRegistry: ClientEnvironmentRegistry = .empty,
+        actorResolverRegistry: SwiftWebActorResolverRegistry = .empty,
         rootFactory: @escaping ClientRuntimeBridge<Root>.RootFactory
     ) {
         let registeredTypeName = String(reflecting: type)
@@ -32,6 +34,7 @@ public struct ClientComponentRegistration {
                     ),
                     domHost: domHost,
                     stateStore: stateStore,
+                    actorResolverRegistry: actorResolverRegistry,
                     rootFactory: rootFactory
                 )
             )
@@ -174,7 +177,8 @@ public final class ClientBundleRuntimeEntrypoint {
                 hydrationIndex: currentIndex,
                 location: request.location,
                 mode: request.mode,
-                stateSnapshot: request.stateSnapshot
+                stateSnapshot: request.stateSnapshot,
+                actorBindings: request.actorBindings
             )
             let response = try runtime.bootstrap(componentRequest)
             if let commandBatch = response.commandBatch {

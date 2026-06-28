@@ -1,10 +1,15 @@
 import SwiftWeb
 
 public struct CounterApp: SwiftWeb.App {
-    public init() {}
+    private let counterService: CounterService
+
+    public init() {
+        self.counterService = CounterService(actorSystem: .shared)
+    }
 
     public var body: some Scene {
         Redirect("/", to: "/counter")
-        CounterPage()
+        CounterPage(counterService: counterService)
+            .actor(counterService)
     }
 }

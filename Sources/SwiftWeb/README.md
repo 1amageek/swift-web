@@ -296,7 +296,7 @@ flowchart TD
 | Method | Use when | Developer-facing API | Runtime path | Result model |
 |---|---|---|---|---|
 | Server Action | A button/form intentionally mutates server state and the page should refresh, redirect, or return a command result. | `@ServerAction` + generated `ActionReference` consumed by `Button`/`Form`. | HTTP method + path -> page-local Vapor route -> generated action bridge. | `ActionResult` or another typed codable output. |
-| Resolvable RPC | Client WASM needs to talk to a typed service directly, especially for stateful sessions or repeated service calls. | Apple `@Resolvable protocol` + `$Protocol.resolve(id:using:)`. | ActorRuntime envelope -> `WebActorGateway` -> `WebActorSystem`. | Direct typed `distributed func` return value. |
+| Resolvable RPC | Client WASM needs to talk to a typed service directly, especially for stateful sessions or repeated service calls. | Apple `@Resolvable protocol`; the standard component surface is `@Actor var service: any ServiceProtocol`, backed by `$Protocol.resolve(id:using:)`. | ActorRuntime envelope -> `WebActorGateway` -> `WebActorSystem`. | Direct typed `distributed func` return value. |
 
 `ActionReference` is a form/action handle. It is not Apple's `@Resolvable` model. Client-visible typed service APIs should use an `@Resolvable` protocol. Conversely, a `@Resolvable` protocol is not a replacement for a page mutation action when the intended result is page invalidation.
 
@@ -359,6 +359,8 @@ Server Action should be the default for page-local HTTP work:
 
 Client WASM should call long-lived or session-scoped services through an Apple `@Resolvable` protocol. This is the Swift-native RPC path and is the right model for typed service APIs, AI chat sessions, terminal sessions, collaborative editing, and other stateful service conversations.
 
+The SwiftWeb component API is documented in [`docs/ActorInjectionDesign.md`](../../docs/ActorInjectionDesign.md). A client component should read an `@Actor` property as the resolved service object; `WebActorSystem`, actor ids, and `$Protocol.resolve(id:using:)` remain runtime details for the standard API.
+
 ```swift
 @Resolvable
 public protocol CounterServiceProtocol: DistributedActor
@@ -369,6 +371,7 @@ where ActorSystem == WebActorSystem {
 ```
 
 ```swift
+@ResolvableActor(CounterServiceProtocol.self)
 public distributed actor CounterService: CounterServiceProtocol {
     public typealias ActorSystem = WebActorSystem
 
@@ -388,6 +391,33 @@ public distributed actor CounterService: CounterServiceProtocol {
 ```swift
 let service = try $CounterServiceProtocol.resolve(id: actorID, using: actorSystem)
 let value = try await service.increment()
+```
+
+That direct call is the low-level primitive. The standard component surface should
+be:
+
+```swift
+public struct CounterClient: ClientComponent {
+    @Actor
+    private var counter: any CounterServiceProtocol
+}
+```
+
+The scene that renders the component provides the actor instance:
+
+```swift
+CounterPage()
+    .actor(counterService)
+```
+
+```mermaid
+flowchart TD
+  A["Scene .actor(counter)"] --> B["actor id in scene scope"]
+  B --> C["client bootstrap bindings"]
+  C --> D["generated resolver registry"]
+  D --> E["@Actor property"]
+  E --> F["$CounterServiceProtocol.resolve(id:using:)"]
+  F --> G["counter: any CounterServiceProtocol"]
 ```
 
 ```mermaid
@@ -411,7 +441,10 @@ Resolvable RPC should be the default for client-owned interaction loops:
 | Security | Gateway request validation plus application middleware around the actor gateway route. |
 | State ownership | Actor identity represents the service/session being called. |
 | UI update | Client code decides how to update local state from the typed result. |
-| API shape | Client code resolves `$ServiceProtocol` and calls `distributed func` as if it were local. |
+| API shape | Client components use `@Actor` as the resolved service object and call `distributed func` as if it were local. |
+
+The manual `$ServiceProtocol.resolve` form is reserved for low-level runtime or
+diagnostic code.
 
 ### Action Results
 

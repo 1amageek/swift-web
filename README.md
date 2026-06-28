@@ -16,6 +16,8 @@ flowchart LR
   E --> F["HTML response"]
   E --> G["Client WASM island"]
   G --> H["SwiftWebUIRuntime"]
+  G --> L["@Actor resolved services"]
+  L --> M["@Resolvable distributed actor"]
   I["Server actions"] --> J["request context"]
   J --> K["@Session"]
 ```
@@ -51,7 +53,9 @@ entrypoints and Swift/Wasm artifacts.
 See [Platform Host Architecture](docs/PlatformHostArchitecture.md) for the target
 responsibility split, `Worker` model, `@Session` API, Cloudflare placement, and Vapor
 extraction plan. See [Directory And File Structure Design](docs/DirectoryFileStructureDesign.md)
-for the source layout and file placement rules.
+for the source layout and file placement rules. See [Actor Injection Design](docs/ActorInjectionDesign.md)
+for the `@Actor` client component API over Apple's `@Resolvable` distributed
+actor model.
 
 ## Requirements
 

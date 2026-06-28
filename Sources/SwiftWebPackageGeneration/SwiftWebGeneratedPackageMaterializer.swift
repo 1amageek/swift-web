@@ -525,14 +525,14 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
 
     let mainTargetName = "\(appProductName)WasmRuntime"
     let mainBundleID = ClientBundleID(Self.productName(forWasmRuntimeTarget: mainTargetName))
+    let mainComponents = clientComponents.filter { Self.resolvedBundleID(for: $0) == nil }
     var targets: [WasmRuntimeTargetDeclaration] = [
       WasmRuntimeTargetDeclaration(
         targetName: mainTargetName,
         bundleID: mainBundleID,
         componentTypeNames: Self.uniqueTypeNames(
-          clientComponents
-            .filter { Self.resolvedBundleID(for: $0) == nil }
-            .map(\.typeName)),
+          mainComponents.map(\.typeName)),
+        actorContracts: Self.actorContracts(for: mainComponents),
         linkMode: .standalone
       )
     ]
@@ -574,6 +574,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
             targetName: targetName,
             bundleID: ClientBundleID(Self.productName(forWasmRuntimeTarget: targetName)),
             componentTypeNames: Self.uniqueTypeNames(policyPairs.map(\.typeName)),
+            actorContracts: Self.actorContracts(for: policyPairs),
             bundleArtifacts: policyBundleGroups.keys.sorted().map { bundleID in
               let components = policyBundleGroups[bundleID, default: []].sorted { left, right in
                 left.typeName < right.typeName
@@ -606,6 +607,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
           targetName: targetName,
           bundleID: bundleID,
           componentTypeNames: Self.uniqueTypeNames(components.map(\.typeName)),
+          actorContracts: Self.actorContracts(for: components),
           bundleArtifacts: [
             WasmRuntimeBundleArtifactDeclaration(
               bundleID: bundleID,
@@ -1612,6 +1614,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
             name: "SwiftWebUI",
             dependencies: [
                 "SwiftHTML",
+                "SwiftWebActors",
                 "SwiftWebStyle",
             ],
             path: "Sources/SwiftWebUI",
@@ -1947,6 +1950,20 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
     return unique
   }
 
+  private static func actorContracts(
+    for components: [ClientComponentDeclaration]
+  ) -> [ClientActorContractDeclaration] {
+    var seen = Set<String>()
+    var unique: [ClientActorContractDeclaration] = []
+    for declaration in components
+      .flatMap(\.actorContracts)
+      .sorted(by: { $0.serviceTypeName < $1.serviceTypeName })
+    where seen.insert(declaration.serviceTypeName).inserted {
+      unique.append(declaration)
+    }
+    return unique
+  }
+
   private func wasmEntrypointSwift(
     appProductName: String,
     target: WasmRuntimeTargetDeclaration
@@ -1964,11 +1981,22 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
     target: WasmRuntimeTargetDeclaration
   ) -> String {
     let runtimeVariableName = "\(Self.lowerCamelCase(target.targetName))Runtime"
+    let actorResolverVariableName = "\(Self.lowerCamelCase(target.targetName))ActorResolvers"
+    let actorResolvers = target.actorContracts.map { contract in
+      """
+          SwiftWebActorResolver(
+              contract: \(contract.contractKeyExpression),
+              actorContract: \(contract.stubTypeName).self
+          )
+      """
+    }
+    .joined(separator: ",\n")
     let registrations = target.componentTypeNames.map { typeName in
       """
           ClientComponentRegistration(
               \(typeName).self,
-              environmentRegistry: .swiftWebUI
+              environmentRegistry: .swiftWebUI,
+              actorResolverRegistry: \(actorResolverVariableName)
           ) { request in
               try makeSwiftWebWasmRoot(
                   \(typeName).self,
@@ -1982,6 +2010,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
     return """
       import \(appProductName)
       import SwiftHTML
+      import SwiftWebActors
       import SwiftWebUI
       import SwiftWebUIRuntime
 
@@ -1999,6 +2028,10 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
           }
           return typedRoot
       }
+
+      nonisolated(unsafe) private let \(actorResolverVariableName) = SwiftWebActorResolverRegistry([
+      \(actorResolvers)
+      ])
 
       nonisolated(unsafe) private let \(runtimeVariableName) = ClientBundleRuntimeEntrypoint(
           registrations: [
@@ -2238,6 +2271,7 @@ private struct WasmRuntimeTargetDeclaration: Sendable {
   let targetName: String
   let bundleID: ClientBundleID
   let componentTypeNames: [String]
+  var actorContracts: [ClientActorContractDeclaration] = []
   var bundleArtifacts: [WasmRuntimeBundleArtifactDeclaration] = []
   let linkMode: SwiftWebGeneratedWasmRuntimeLinkMode
 

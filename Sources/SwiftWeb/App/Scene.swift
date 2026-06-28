@@ -1,4 +1,6 @@
 import Vapor
+import SwiftHTML
+import SwiftWebActors
 
 public protocol Scene {
     associatedtype Body: Scene
@@ -37,10 +39,16 @@ package enum _SceneRenderer {
 package struct _SceneContext {
     package let application: Application
     package let routes: any RoutesBuilder
+    package let actorBindings: SwiftWebActorBindingScope
 
-    package init(application: Application, routes: any RoutesBuilder) {
+    package init(
+        application: Application,
+        routes: any RoutesBuilder,
+        actorBindings: SwiftWebActorBindingScope = .empty
+    ) {
         self.application = application
         self.routes = routes
+        self.actorBindings = actorBindings
     }
 
     package static func root(_ application: Application) -> _SceneContext {
@@ -55,6 +63,50 @@ package struct _SceneContext {
         guard !path.components.isEmpty else {
             return self
         }
-        return _SceneContext(application: application, routes: routes.grouped(path.vaporComponents))
+        return _SceneContext(
+            application: application,
+            routes: routes.grouped(path.vaporComponents),
+            actorBindings: actorBindings
+        )
+    }
+
+    package func adding<ActorType: SwiftWebActorExporting>(_ actor: ActorType) -> _SceneContext {
+        _SceneContext(
+            application: application,
+            routes: routes,
+            actorBindings: actorBindings.adding(actor)
+        )
+    }
+}
+
+public enum SwiftWebActorRenderContext {
+    public static var currentScope: SwiftWebActorBindingScope {
+        SwiftWebActorBindingContext.current ?? .empty
+    }
+
+    public static func withValue<Result>(
+        _ value: SwiftWebActorBindingScope,
+        operation: () throws -> Result
+    ) rethrows -> Result {
+        try EnlargedStackContext.withValue(SwiftWebActorRenderContextPropagator(scope: value)) {
+            try SwiftWebActorBindingContext.withValue(value, operation: operation)
+        }
+    }
+
+    public static func withValue<Result: Sendable>(
+        _ value: SwiftWebActorBindingScope,
+        operation: @Sendable () async throws -> Result
+    ) async rethrows -> Result {
+        try await EnlargedStackContext.withValue(SwiftWebActorRenderContextPropagator(scope: value)) {
+            try await SwiftWebActorBindingContext.withValue(value, operation: operation)
+        }
+    }
+}
+
+private struct SwiftWebActorRenderContextPropagator: EnlargedStackContextPropagator {
+    let scope: SwiftWebActorBindingScope
+
+    func apply<Result>(_ operation: () throws -> Result) rethrows -> Result {
+        try SwiftWebActorBindingContext.withValue(scope, operation: operation)
     }
 }

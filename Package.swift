@@ -13,6 +13,7 @@ let swiftHTMLDependency: Target.Dependency = .product(name: "SwiftHTML", package
 
 let swiftWebUIDependencies: [Target.Dependency] = [
     swiftHTMLDependency,
+    "SwiftWebActors",
     "SwiftWebStyle",
     "SwiftWebUITheme",
 ]
@@ -145,6 +146,7 @@ let package = Package(
                 .product(name: "Vapor", package: "vapor"),
                 .product(name: "RoutingKit", package: "routing-kit"),
                 .product(name: "HTTPTypes", package: "swift-http-types"),
+                "SwiftWebActors",
                 "SwiftWebStyle",
             ],
             swiftSettings: swiftWebSwiftSettings
@@ -159,6 +161,7 @@ let package = Package(
                 .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "Logging", package: "swift-log"),
+                "SwiftWebActors",
                 "SwiftWebBrowserRuntime",
                 "SwiftWebStyle",
             ],
@@ -169,6 +172,7 @@ let package = Package(
         .target(
             name: "SwiftWeb",
             dependencies: [
+                "SwiftWebActors",
                 "SwiftWebBrowserRuntime",
                 "SwiftWebCore",
                 "SwiftWebMacros",

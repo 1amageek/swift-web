@@ -2,7 +2,7 @@
 
 SwiftWebMacros contains compile-time code generation for SwiftWeb.
 
-It owns syntax analysis and generated Swift declarations for page types and action references. It does not perform runtime routing, request decoding, rendering, actor resolution, or server execution.
+It owns syntax analysis and generated Swift declarations for page types, action references, and actor export metadata. It does not perform runtime routing, request decoding, rendering, actor resolution, or server execution.
 
 ## Responsibility
 
@@ -14,6 +14,7 @@ It owns syntax analysis and generated Swift declarations for page types and acti
 | Parameter checks | Cross-checks path parameters with `Params` declarations where possible. |
 | Metadata lowering | Generates calls to async page metadata before response encoding. |
 | Server action references | Validates `@ServerAction` HTTP handler methods and generates typed action references, runtime descriptors, and internal invocation bridges. |
+| Actor export metadata | Implements `@ResolvableActor`, which connects a server actor implementation to one Apple `@Resolvable` contract for `.actor(...)` scene export. |
 | Diagnostics | Emits compile-time errors for unsupported or inconsistent page declarations. |
 
 ## Boundary With SwiftWeb
@@ -33,9 +34,12 @@ SwiftWeb has two server interaction methods, and only one of them is owned by Sw
 | Method | Macro owner | Purpose |
 |---|---|---|
 | Server Action | `SwiftWebMacros.@ServerAction` | Generate a typed HTTP endpoint descriptor and an `ActionReference` for page-local HTTP work. |
-| Resolvable RPC | Apple `@Resolvable` | Generate the `$Protocol.resolve(id:using:)` entrypoint for direct typed client-to-service calls. |
+| Resolvable RPC | Apple `@Resolvable`, SwiftWeb `@ResolvableActor`, and runtime `@Actor` | Apple generates the `$Protocol.resolve(id:using:)` entrypoint; SwiftWeb records the scene binding and generated WASM resolver registry. |
 
-`@ServerAction` does not generate `$Protocol` resolvers. Apple's `@Resolvable` does not generate SwiftWeb action references.
+`@ServerAction` does not generate `$Protocol` resolvers. Apple's `@Resolvable` does not generate SwiftWeb action references. SwiftWeb `@Actor` must not create another resolver model; it should only make the resolved `@Resolvable` protocol object available as the property wrapped value.
+
+The target actor injection contract is documented in
+[`../../docs/ActorInjectionDesign.md`](../../docs/ActorInjectionDesign.md).
 
 ## Server Action Lowering
 
@@ -75,6 +79,8 @@ The macro should reject unsupported signatures instead of letting invalid action
 | Request context storage | `SwiftWeb` |
 | HTML rendering | `SwiftHTML` |
 | UI components | `SwiftWebUI` |
+| Runtime actor id lookup and `WebActorSystem` transport setup | `SwiftWeb` / `SwiftWebUIRuntime` / `SwiftWebActors` |
+| Client `@Actor` resolver registry generation | `SwiftWebPackageGeneration` |
 | CLI templates and dev server | `SwiftWebCLI` |
 | Runtime validation that requires a live request | `SwiftWeb` |
 | Handler registration and typed invocation | `SwiftWeb` |
@@ -90,3 +96,5 @@ The macro should reject unsupported signatures instead of letting invalid action
 - Generated descriptors should carry a typed invoker instead of requiring SwiftWeb to synthesize compiler-internal distributed target names.
 - Generated action references should describe HTTP method and path. They should not expose handler names, action names, target identifiers, actor IDs, or RPC metadata.
 - Apple's `@Resolvable` belongs on client-visible distributed actor protocols, not on SwiftWeb `ActionReference`.
+- `@Actor` should expose the resolved service object to component code. It should not expose `WebActorSystem`, actor ids, or `$Protocol.resolve(id:using:)` in the standard component surface.
+- `@ResolvableActor` belongs on server actor implementations that are exported through `.actor(...)`.

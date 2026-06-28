@@ -64,7 +64,8 @@ extension HTML {
                 hydrationIndex: clientHydrationIndex,
                 manifest: manifest,
                 wasm: wasmRuntime,
-                security: request.clientSecurityDescriptor
+                security: request.clientSecurityDescriptor,
+                actorBindings: SwiftWebActorRenderContext.currentScope.records
             )
             let annotatedHTML = developmentHooks.annotateClientRuntimeHTML(
                 renderedHTML,

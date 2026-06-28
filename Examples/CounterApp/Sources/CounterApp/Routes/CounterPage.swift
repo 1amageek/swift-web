@@ -6,9 +6,11 @@ import SwiftWebUI
 
 @Page("/counter")
 struct CounterPage {
-    private let counterService = CounterService(actorSystem: .shared)
+    private let counterService: CounterService
 
-    init() {}
+    init(counterService: CounterService = CounterService(actorSystem: .shared)) {
+        self.counterService = counterService
+    }
 
     var title: String {
         get async { "Counter" }

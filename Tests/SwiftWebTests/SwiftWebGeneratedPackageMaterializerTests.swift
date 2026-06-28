@@ -110,7 +110,13 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       "public struct SampleApp {}",
       to: appPackage.appendingPathComponent("Sources/SampleApp/App.swift"))
     try write(
-      "public struct ClientSample: ClientComponent { public init() {} }",
+      """
+      public struct ClientSample: ClientComponent {
+          @Actor private var service: any SampleServiceProtocol
+
+          public init() {}
+      }
+      """,
       to: appPackage.appendingPathComponent("Sources/SampleApp/ClientSample.swift")
     )
     try write(
@@ -128,7 +134,13 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       to: appPackage.appendingPathComponent("Sources/SampleApp/ClientExtensionBox.swift")
     )
     try write(
-      "protocol SampleServiceProtocol {}",
+      """
+      @Resolvable
+      protocol SampleServiceProtocol: DistributedActor
+      where ActorSystem == WebActorSystem {
+          distributed func ping() async throws -> String
+      }
+      """,
       to: appPackage.appendingPathComponent(
         "Sources/SampleApp/Services/SampleServiceProtocol.swift")
     )
@@ -330,6 +342,17 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     #expect(
       wasmPackageSwift.contains(
         """
+        let swiftWebUITarget = Target.target(
+            name: "SwiftWebUI",
+            dependencies: [
+                "SwiftHTML",
+                "SwiftWebActors",
+                "SwiftWebStyle",
+            ],
+        """))
+    #expect(
+      wasmPackageSwift.contains(
+        """
         let swiftWebUIRuntimeTarget = Target.target(
             name: "SwiftWebUIRuntime",
             dependencies: [
@@ -425,6 +448,12 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     #expect(developmentLauncher.contains("\"app-server\""))
     #expect(!developmentLauncher.contains("\"app-server-dev\""))
     #expect(!developmentLauncher.contains("app-server-dev-dev"))
+    #expect(wasmEntrypoint.contains("import SwiftWebActors"))
+    #expect(wasmEntrypoint.contains("SwiftWebActorResolverRegistry(["))
+    #expect(wasmEntrypoint.contains("SwiftWebActorResolver("))
+    #expect(wasmEntrypoint.contains("SwiftWebActorContractKey(String(reflecting: (any SampleServiceProtocol).self))"))
+    #expect(wasmEntrypoint.contains("actorContract: $SampleServiceProtocol.self"))
+    #expect(wasmEntrypoint.contains("actorResolverRegistry: sampleAppWasmRuntimeActorResolvers"))
     #expect(wasmEntrypoint.contains("import SwiftWebUI"))
     #expect(wasmEntrypoint.contains("import SwiftWebUIRuntime"))
     #expect(wasmEntrypoint.contains("ClientBundleRuntimeEntrypoint"))

@@ -149,7 +149,10 @@ struct SwiftWebClientComponentDiscovery {
         for typeName: String,
         memberBlock: MemberBlockSyntax
     ) -> ClientComponentDeclaration {
-        var declaration = ClientComponentDeclaration(typeName: typeName)
+        var declaration = ClientComponentDeclaration(
+            typeName: typeName,
+            actorContracts: actorContracts(in: memberBlock)
+        )
 
         for member in memberBlock.members {
             guard let variable = member.decl.as(VariableDeclSyntax.self),
@@ -181,6 +184,83 @@ struct SwiftWebClientComponentDiscovery {
         }
 
         return declaration
+    }
+
+    private static func actorContracts(
+        in memberBlock: MemberBlockSyntax
+    ) -> [ClientActorContractDeclaration] {
+        var declarations: [ClientActorContractDeclaration] = []
+
+        for member in memberBlock.members {
+            guard let variable = member.decl.as(VariableDeclSyntax.self),
+                  hasActorAttribute(variable),
+                  !variable.modifiers.contains(where: { $0.name.text == "static" })
+            else {
+                continue
+            }
+
+            for binding in variable.bindings {
+                guard let type = binding.typeAnnotation?.type.trimmedDescription,
+                      let serviceTypeName = actorServiceTypeName(from: type)
+                else {
+                    continue
+                }
+                declarations.append(ClientActorContractDeclaration(serviceTypeName: serviceTypeName))
+            }
+        }
+
+        var seen = Set<String>()
+        var unique: [ClientActorContractDeclaration] = []
+        for declaration in declarations.sorted(by: { $0.serviceTypeName < $1.serviceTypeName })
+        where seen.insert(declaration.serviceTypeName).inserted {
+            unique.append(declaration)
+        }
+        return unique
+    }
+
+    private static func hasActorAttribute(_ variable: VariableDeclSyntax) -> Bool {
+        var found = false
+        visit(Syntax(variable)) { node in
+            guard !found,
+                  let attribute = node.as(AttributeSyntax.self)
+            else {
+                return
+            }
+            if canonicalAttributeName(attribute.attributeName.trimmedDescription) == "Actor" {
+                found = true
+            }
+        }
+        return found
+    }
+
+    private static func canonicalAttributeName(_ source: String) -> String {
+        source.split(separator: ".").last.map(String.init) ?? source
+    }
+
+    private static func actorServiceTypeName(from source: String) -> String? {
+        var value = source.trimmingCharacters(in: .whitespacesAndNewlines)
+        if value.hasPrefix("("), value.hasSuffix(")") {
+            value.removeFirst()
+            value.removeLast()
+            value = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        if value.hasPrefix("any ") {
+            value.removeFirst("any ".count)
+            value = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        guard !value.isEmpty,
+              !value.hasSuffix("?"),
+              !value.hasSuffix("!"),
+              !value.contains("&"),
+              !value.contains("<"),
+              value.range(
+                of: #"^([A-Za-z_][A-Za-z0-9_]*\.)*[A-Za-z_][A-Za-z0-9_]*$"#,
+                options: .regularExpression
+              ) != nil
+        else {
+            return nil
+        }
+        return value
     }
 
     private static func inheritsClientComponent(_ inheritanceClause: InheritanceClauseSyntax?) -> Bool {

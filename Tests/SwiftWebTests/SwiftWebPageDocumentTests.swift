@@ -129,6 +129,34 @@ struct SwiftWebPageDocumentTests {
     }
 
     @Test
+    func wasmPageResponseIncludesActorBindingsFromSceneScope() async throws {
+        try await withApplication { application in
+            application.swiftWebClientRuntime = .wasm(
+                SwiftWebWasmClientRuntime(
+                    manifestPath: "/assets/client.json",
+                    runtimeAssetPath: "/assets/client.wasm"
+                )
+            )
+            let binding = SwiftWebActorBindingRecord(
+                contractKey: "Tests.CounterServiceProtocol",
+                actorID: "counter-1"
+            )
+            let scope = SwiftWebActorBindingScope(records: [binding])
+            let request = Request(application: application)
+            let response = try await SwiftWebActorRenderContext.withValue(scope) {
+                try await PageDocumentRuntimeStaticPage().encodePageResponse(
+                    for: request,
+                    metadata: PageMetadata(title: "Runtime")
+                )
+            }
+            let rendered = try #require(response.body.string)
+            let descriptor = try clientRuntimeDescriptor(in: rendered)
+
+            #expect(descriptor.actorBindings == [binding])
+        }
+    }
+
+    @Test
     func headAssetsEmitBaseBeforeAtomicCSS() {
         let registry = StyleRegistry()
         registry.registerStylesheet(".swui-base-layer { color: var(--swui-text); }")

@@ -65,20 +65,22 @@ CounterApp
    └─ CounterService          server-only distributed actor, typed RPC, and server actions
 ```
 
-`CounterApp` mounts routes only:
-
-```swift
-public var body: some Scene {
-    Redirect("/", to: "/counter")
-    CounterPage()
-}
-```
-
-`CounterPage` owns its server counter service for the route lifetime:
+`CounterApp` provides the server actor to the counter scene:
 
 ```swift
 private let counterService = CounterService(actorSystem: .shared)
 
+public var body: some Scene {
+    Redirect("/", to: "/counter")
+    CounterPage(counterService: counterService)
+        .actor(counterService)
+}
+```
+
+`CounterPage` uses the same server counter service for page loading and server
+actions:
+
+```swift
 func load() async throws -> Int {
     try await counterService.currentValue()
 }
@@ -86,7 +88,10 @@ func load() async throws -> Int {
 Button("Increment", action: counterService.incrementAction)
 ```
 
-`CounterServiceProtocol` is the contract that a future client WASM component resolves through `$CounterServiceProtocol.resolve(id:using:)` when it needs direct, type-safe RPC. The form buttons intentionally use `@ServerAction` instead because their job is to mutate server state and invalidate the current page render.
+`CounterServiceProtocol` is also the contract that `ClientCounter` resolves
+through `@Actor` when it needs direct, type-safe RPC. The server counter buttons
+use `@ServerAction` because their job is to mutate server state and invalidate
+the current page render.
 
 The server counter value lives inside `CounterService`. It is not stored in the URL query and it is not a client-side hidden field.
 

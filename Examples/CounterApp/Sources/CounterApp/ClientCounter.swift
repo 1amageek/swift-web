@@ -2,6 +2,7 @@ import SwiftHTML
 import SwiftWebUI
 
 public struct ClientCounter: ClientComponent, Sendable {
+    @Actor private var counter: any CounterServiceProtocol
     @State private var value = 0
 
     public init() {}

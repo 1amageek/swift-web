@@ -1,5 +1,6 @@
 import Foundation
 import SwiftHTML
+import SwiftWebActors
 import SwiftWebUIRuntime
 import Synchronization
 import Testing
@@ -373,14 +374,21 @@ struct SwiftWebUIRuntimeClientRuntimeBridgeTests {
                 href: "http://127.0.0.1:8080/storyboard/style",
                 search: ""
             ),
-            mode: .navigation
+            mode: .navigation,
+            actorBindings: [
+                SwiftWebActorBindingRecord(contractKey: "CounterService", actorID: "counter-1"),
+            ]
         )
 
         let data = try JSONEncoder().encode(request)
         let decoded = try JSONDecoder().decode(ClientRuntimeBootstrapRequest.self, from: data)
 
         #expect(decoded.mode == .navigation)
+        #expect(decoded.actorBindings == [
+            SwiftWebActorBindingRecord(contractKey: "CounterService", actorID: "counter-1"),
+        ])
         #expect(String(decoding: data, as: UTF8.self).contains("\"mode\":\"navigation\""))
+        #expect(String(decoding: data, as: UTF8.self).contains("\"actorBindings\""))
     }
 
     @Test

@@ -69,6 +69,13 @@ let service = try $CounterServiceProtocol.resolve(id: actorID, using: actorSyste
 let value = try await service.increment()
 ```
 
+SwiftWeb's `@Actor` client component API is a higher-level property wrapper over
+this same operation. It returns the resolved `@Resolvable` protocol object to
+component code and keeps actor ids, `WebActorSystem`, and transport setup in the
+runtime layer. The generated WASM entrypoint registers the matching `$Protocol`
+resolver discovered from client component source. The design contract is tracked in
+[`../../docs/ActorInjectionDesign.md`](../../docs/ActorInjectionDesign.md).
+
 ## Difference From Server Actions
 
 SwiftWeb has two server interaction methods. SwiftWebActors owns only the direct RPC method.
@@ -89,6 +96,8 @@ Server Actions are page-local HTTP handlers backed by SwiftWeb action descriptor
 | Page routing and rendering | `SwiftWeb` and `SwiftHTML` |
 | Component state and DOM patching | `SwiftHTML` / `SwiftWebUIRuntime` |
 | Project templates and generated package materialization | `SwiftWebCLI` and `SwiftWeb` development runtime |
+| Client `@Actor` property wrapper | `SwiftWebActors` |
+| Client resolver registry generation | `SwiftWebPackageGeneration` |
 
 ## Design Notes
 
@@ -98,3 +107,4 @@ Server Actions are page-local HTTP handlers backed by SwiftWeb action descriptor
 - Vapor integration belongs in `SwiftWebVaporWebActors.WebActorGateway`.
 - Browser fetch integration belongs in `SwiftWebUIRuntime.JavaScriptKitWebActorTransport`.
 - `ActionReference` is not this module's responsibility and is not Apple's `@Resolvable` model.
+- `@Actor` must remain a component injection convenience over `$Protocol.resolve(id:using:)`; it must not add a second SwiftWeb-owned RPC protocol.

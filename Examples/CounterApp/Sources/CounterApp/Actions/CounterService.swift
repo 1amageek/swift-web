@@ -1,6 +1,7 @@
 import Distributed
 import SwiftWeb
 
+@ResolvableActor(CounterServiceProtocol.self)
 distributed actor CounterService: CounterServiceProtocol {
     typealias ActorSystem = WebActorSystem
     private var value = 0

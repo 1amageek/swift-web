@@ -702,7 +702,8 @@ package enum SwiftWebWasmRuntimeHostScript {
             href: window.location.href,
             search: window.location.search
           },
-          mode: options.mode || undefined
+          mode: options.mode || undefined,
+          actorBindings: this.descriptor.actorBindings || []
         }, instance);
         if (response && response.commandBatch && response.appliesDOMCommandsInRuntime !== true) {
           applyCommandBatch(response.commandBatch, this);
@@ -1477,7 +1478,8 @@ package enum SwiftWebWasmRuntimeHostScript {
               search: window.location.search
             },
             mode: "hotReload",
-            stateSnapshot
+            stateSnapshot,
+            actorBindings: this.descriptor.actorBindings || []
           }, instance);
           if (response && response.hydrationIndex) {
             this.updateComponentSchemasFromHydrationIndex(response.hydrationIndex, bundleID, update);

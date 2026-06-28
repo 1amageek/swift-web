@@ -1,4 +1,5 @@
 import SwiftHTML
+import SwiftWebActors
 import SwiftWebStyle
 
 public struct ClientRuntimeBootstrapLocation: Sendable, Codable, Equatable {
@@ -16,17 +17,20 @@ public struct ClientRuntimeBootstrapRequest: Sendable, Codable, Equatable {
     public let location: ClientRuntimeBootstrapLocation
     public let mode: ClientRuntimeBootstrapMode?
     public let stateSnapshot: ClientRuntimeStateSnapshot?
+    public let actorBindings: [SwiftWebActorBindingRecord]
 
     public init(
         hydrationIndex: BrowserHydrationIndex,
         location: ClientRuntimeBootstrapLocation,
         mode: ClientRuntimeBootstrapMode? = nil,
-        stateSnapshot: ClientRuntimeStateSnapshot? = nil
+        stateSnapshot: ClientRuntimeStateSnapshot? = nil,
+        actorBindings: [SwiftWebActorBindingRecord] = []
     ) {
         self.hydrationIndex = hydrationIndex
         self.location = location
         self.mode = mode
         self.stateSnapshot = stateSnapshot
+        self.actorBindings = actorBindings
     }
 }
 
@@ -116,21 +120,28 @@ public final class ClientRuntimeBridge<Root: HTML> {
     private let componentMount: ClientComponentMount?
     private let domHost: (any BrowserDOMHost)?
     private let stateStore: StateStore
+    private let actorResolverRegistry: SwiftWebActorResolverRegistry
+    private let actorSystem: WebActorSystem
     private var session: HydrationRuntimeSession<Root>?
     private var mountedHydrationIndex: BrowserHydrationIndex?
     private var mountedNodeMap: [HTMLNodeID: HTMLNodeID] = [:]
+    private var actorBindingScope: SwiftWebActorBindingScope?
 
     public init(
         environmentRegistry: ClientEnvironmentRegistry = .empty,
         componentMount: ClientComponentMount? = nil,
         domHost: (any BrowserDOMHost)? = nil,
         stateStore: StateStore = StateStore(),
+        actorResolverRegistry: SwiftWebActorResolverRegistry = .empty,
+        actorSystem: WebActorSystem? = nil,
         rootFactory: @escaping RootFactory
     ) {
         self.rootFactory = rootFactory
         self.componentMount = componentMount
         self.domHost = domHost
         self.stateStore = stateStore
+        self.actorResolverRegistry = actorResolverRegistry
+        self.actorSystem = actorSystem ?? Self.defaultActorSystem()
         self.environmentFactory = { _ in
             EnvironmentValues()
         }
@@ -143,6 +154,8 @@ public final class ClientRuntimeBridge<Root: HTML> {
         componentMount: ClientComponentMount? = nil,
         domHost: (any BrowserDOMHost)? = nil,
         stateStore: StateStore = StateStore(),
+        actorResolverRegistry: SwiftWebActorResolverRegistry = .empty,
+        actorSystem: WebActorSystem? = nil,
         rootFactory: @escaping RootFactory,
         environmentFactory: @escaping EnvironmentFactory,
         componentEnvironmentFactory: @escaping ComponentEnvironmentFactory = { _, _ in [:] }
@@ -151,11 +164,27 @@ public final class ClientRuntimeBridge<Root: HTML> {
         self.componentMount = componentMount
         self.domHost = domHost
         self.stateStore = stateStore
+        self.actorResolverRegistry = actorResolverRegistry
+        self.actorSystem = actorSystem ?? Self.defaultActorSystem()
         self.environmentFactory = environmentFactory
         self.componentEnvironmentFactory = componentEnvironmentFactory
     }
 
     public func bootstrap(_ request: ClientRuntimeBootstrapRequest) throws -> ClientRuntimeResponse {
+        let actorBindingScope = SwiftWebActorBindingScope(
+            records: request.actorBindings,
+            resolverRegistry: actorResolverRegistry,
+            actorSystem: actorSystem
+        )
+        self.actorBindingScope = actorBindingScope
+        return try SwiftWebActorBindingContext.withValue(actorBindingScope) {
+            try bootstrapWithCurrentActorBindings(request)
+        }
+    }
+
+    private func bootstrapWithCurrentActorBindings(
+        _ request: ClientRuntimeBootstrapRequest
+    ) throws -> ClientRuntimeResponse {
         let root = try rootFactory(request)
         let environment = try environmentFactory(request)
         let componentEnvironmentOverrides = try componentEnvironmentFactory(request, environment)
@@ -250,6 +279,15 @@ public final class ClientRuntimeBridge<Root: HTML> {
     }
 
     public func dispatch(_ request: ClientRuntimeEventRequest) throws -> ClientRuntimeResponse {
+        let actorBindingScope = actorBindingScope ?? .empty
+        return try SwiftWebActorBindingContext.withValue(actorBindingScope) {
+            try dispatchWithCurrentActorBindings(request)
+        }
+    }
+
+    private func dispatchWithCurrentActorBindings(
+        _ request: ClientRuntimeEventRequest
+    ) throws -> ClientRuntimeResponse {
         guard var session else {
             throw ClientRuntimeBridgeError.notBootstrapped
         }
@@ -335,6 +373,14 @@ public final class ClientRuntimeBridge<Root: HTML> {
             hydrationIndex: hydrationIndex,
             appliesDOMCommandsInRuntime: domHost != nil
         )
+    }
+
+    private static func defaultActorSystem() -> WebActorSystem {
+        #if os(WASI)
+        WebActorSystem(transport: JavaScriptKitWebActorTransport())
+        #else
+        WebActorSystem.shared
+        #endif
     }
 
     private func makeSession(

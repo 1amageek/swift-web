@@ -4,6 +4,7 @@ import FoundationEssentials
 import Foundation
 #endif
 import SwiftHTML
+import SwiftWebActors
 
 /// Single-threaded host contract: this type holds unguarded mutable state and is
 /// driven exclusively from the JavaScript host through `@_cdecl` exports, which
@@ -19,12 +20,14 @@ public final class ClientRuntimeEntrypoint<Root: HTML> {
     public init(
         environmentRegistry: ClientEnvironmentRegistry = .empty,
         componentMount: ClientComponentMount? = nil,
+        actorResolverRegistry: SwiftWebActorResolverRegistry = .empty,
         rootFactory: @escaping ClientRuntimeBridge<Root>.RootFactory
     ) {
         self.bridge = ClientRuntimeBridge(
             environmentRegistry: environmentRegistry,
             componentMount: componentMount,
             domHost: Self.browserDOMHost(),
+            actorResolverRegistry: actorResolverRegistry,
             rootFactory: rootFactory
         )
     }

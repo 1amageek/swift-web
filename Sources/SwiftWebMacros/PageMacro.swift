@@ -92,14 +92,17 @@ public struct PageMacro: MemberMacro, ExtensionMacro {
 
             func register(on routes: any SwiftWeb.RoutesBuilder) {
                 let routePage = self
+                let swiftWebActorBindings = SwiftWeb.SwiftWebActorRenderContext.currentScope
                 \(getCall) { req async throws -> SwiftWeb.Response in
-                    let params = try SwiftWeb.RouteParametersDecoder(req).decode(\(model.paramsTypeReference).self)
-                    let searchParams = try req.query.decode(\(model.searchParamsTypeReference).self)
-                    return try await SwiftWeb.RequestContext.withValue(
-                        SwiftWeb.RequestValues(request: req, params: params, searchParams: searchParams)
-                    ) {
-                        let page = routePage
+                    try await SwiftWeb.SwiftWebActorRenderContext.withValue(swiftWebActorBindings) {
+                        let params = try SwiftWeb.RouteParametersDecoder(req).decode(\(model.paramsTypeReference).self)
+                        let searchParams = try req.query.decode(\(model.searchParamsTypeReference).self)
+                        return try await SwiftWeb.RequestContext.withValue(
+                            SwiftWeb.RequestValues(request: req, params: params, searchParams: searchParams)
+                        ) {
+                            let page = routePage
         \(responseExpression)
+                        }
                     }
                 }
             }
