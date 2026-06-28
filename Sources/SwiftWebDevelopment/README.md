@@ -1,22 +1,22 @@
 # SwiftWebDevelopment
 
-SwiftWebDevelopment owns development-only runtime behavior for SwiftWeb.
+SwiftWebDevelopment is the convenience facade for development-only SwiftWeb tooling.
 
-It is intentionally separate from the `SwiftWeb` production runtime. Applications that depend only on `SwiftWeb` do not link the file watcher, HMR event pipeline, generated package materializer, dev browser overlay, or dev child-process supervisor.
+It re-exports the smaller development modules so command-line tools can import one
+product while implementation ownership stays split. Applications that depend only on
+`SwiftWeb` do not link the file watcher, HMR event pipeline, generated package
+materializer, dev browser overlay, or dev child-process supervisor.
 
 ## Responsibility
 
-| Area | Responsibility |
+| Module | Responsibility |
 |---|---|
-| Dev hook installation | Installs development hooks into `SwiftWebDevelopmentSupport` for dev child servers. |
-| Generated packages | Materializes `.swiftweb/generated/server`, `.swiftweb/generated/dev`, and `.swiftweb/generated/wasm`. |
-| Dev server runtime | Builds and launches the generated dev child server product, watches files, and restarts when required. |
-| HMR events | Emits typed style, client component, server restart, page patch, full reload, and error events. |
-| Persistent DevHost | Keeps the public dev port alive, streams HMR events, proxies requests to the active Vapor worker, and swaps workers after server rebuilds. |
-| Browser dev runtime | Injects development-only HMR script and boundary metadata when `SWIFT_WEB_DEV=1`. |
-| Cleanup | Removes generated build caches through `sweb clean`. |
-| WASM tooling | Resolves the configured Swift WASM SDK and builds generated client runtime products. |
-| Host tooling | Resolves the Swift executable used for generated Vapor worker builds independently from the WASM toolchain. |
+| `SwiftWebDevelopment` | Re-exports the development modules and installs development hooks through `SwiftWebDevelopment.install()`. |
+| `SwiftWebDevelopmentHooks` | Worker-side HMR contracts, browser injection hooks, context propagation, and dev event schema. |
+| `SwiftWebPackageGeneration` | Materializes `.swiftweb/generated/server`, `.swiftweb/generated/dev`, and `.swiftweb/generated/wasm`. |
+| `SwiftWebDevServer` | Builds and launches the generated dev child server product, watches files, restarts workers, streams HMR events, and proxies through the persistent DevHost. |
+| `SwiftWebWasmBuild` | Resolves the Swift WASM SDK, processes artifacts, writes size reports, and creates compressed sidecars for production builds. |
+| `SwiftWebStoryboardTooling` | Generates the managed Storyboard package and launches it through the dev runtime. |
 
 Swift 6.3 host compatibility is tracked in
 [`docs/Swift63HostCompatibilityTODO.md`](../../docs/Swift63HostCompatibilityTODO.md). Do not
@@ -33,7 +33,11 @@ Generated browser WASM packages use a runtime-only JavaScriptKit source copy by 
 
 The dev runtime also keeps a bounded content-addressed WASM artifact cache. This is development-only and exists to avoid rebuilding the same generated client runtime after `.swiftweb` or temporary E2E directories are recreated.
 
-Host worker builds are separate from Client WASM builds. `SwiftWebDevServerProcess` never assumes that `swift` on `PATH` is the correct host compiler. It resolves a host Swift executable through `SwiftWebHostSwiftToolchain`, while `SwiftWebDevBuildProcess` resolves the Swift 6.3 WASM toolchain through `SwiftWebWasmToolchain`.
+Host worker builds are separate from Client WASM builds. `SwiftWebDevServerProcess`
+never assumes that `swift` on `PATH` is the correct host compiler. It resolves a
+host Swift executable through `SwiftWebHostSwiftToolchain` in
+`SwiftWebPackageGeneration`, while `SwiftWebDevBuildProcess` resolves the Swift 6.3
+WASM toolchain through `SwiftWebWasmToolchain` in `SwiftWebWasmBuild`.
 
 | Variable | Behavior |
 |---|---|
@@ -51,8 +55,8 @@ flowchart LR
   A["sweb dev / storyboard"] --> B["DevHost"]
   B --> C["host worker build"]
   B --> D["client WASM build"]
-  C --> E["SwiftWebHostSwiftToolchain"]
-  D --> F["SwiftWebWasmToolchain"]
+  C --> E["SwiftWebPackageGeneration"]
+  D --> F["SwiftWebWasmBuild"]
   E --> G["Vapor worker executable"]
   F --> H["Client WASM artifact"]
 ```
@@ -93,23 +97,31 @@ flowchart LR
   A["production app"] --> B["SwiftWeb"]
   B --> C["no-op hooks"]
   D["sweb dev"] --> E["SwiftWebDevelopment"]
-  E --> F["generated/dev app-server-dev"]
-  F --> G["SwiftWebDevelopmentHooksRuntime.install()"]
-  G --> H["HMR routes and browser injection"]
+  E --> F["SwiftWebDevServer"]
+  F --> G["generated/dev app-server-dev"]
+  G --> H["SwiftWebDevelopmentHooksRuntime.install()"]
+  H --> I["HMR routes and browser injection"]
 ```
 
 Production server builds use `.swiftweb/generated/server` and the `app-server` product. Dev runs use `.swiftweb/generated/dev`. The `SwiftWebDevLauncher` target imports `SwiftWebDevelopment`; the `app-server-dev` worker target imports `SwiftWebVapor` plus `SwiftWebDevelopmentHooks`.
 
-The long-lived dev host depends on `SwiftWebDevelopment`. The short-lived Vapor worker imports `SwiftWebVapor` plus `SwiftWebDevelopmentHooks`, which contain the route injection, browser HMR metadata, context propagation, and dev event contracts needed inside the worker. This keeps the worker out of the file watcher, package materializer, SwiftSyntax classifier, HTTP proxy, and child-process supervisor.
+The long-lived dev host depends on `SwiftWebDevServer` through the
+`SwiftWebDevelopment` facade. The short-lived Vapor worker imports `SwiftWebVapor`
+plus `SwiftWebDevelopmentHooks`, which contain the route injection, browser HMR
+metadata, context propagation, and dev event contracts needed inside the worker. This
+keeps the worker out of the file watcher, package materializer, SwiftSyntax
+classifier, HTTP proxy, and child-process supervisor.
 
 ```mermaid
 flowchart LR
   A["SwiftWebDevLauncher"] --> B["SwiftWebDevelopment"]
-  B --> C["DevHost / watcher / classifier / builder"]
-  C --> D["app-server-dev worker"]
-  D --> E["SwiftWebVapor"]
-  D --> F["SwiftWebDevelopmentHooks"]
-  F --> G["SwiftWebDevelopmentSupport hooks"]
+  B --> C["SwiftWebDevServer"]
+  C --> D["SwiftWebPackageGeneration"]
+  C --> E["SwiftWebWasmBuild"]
+  C --> F["app-server-dev worker"]
+  F --> G["SwiftWebVapor"]
+  F --> H["SwiftWebDevelopmentHooks"]
+  H --> I["SwiftWebDevelopmentSupport hooks"]
 ```
 
 Cold worker builds can still compile macro infrastructure because the user app target normally imports the public `SwiftWeb` facade and uses `@Page` / `@ServerAction`. The hooks split, `SwiftWebCore` boundary, and `SwiftWebVapor` host adapter remove macro dependencies from the worker launcher and hooks targets, but they do not remove macro expansion from app compilation. Before claiming dev startup speed is solved, measure the generated `app-server-dev` cold build and record whether `SwiftSyntax` still appears in the build log.
@@ -130,7 +142,7 @@ flowchart LR
 
 ## Not Responsible For
 
-| Not owned by SwiftWebDevelopment | Owner |
+| Not owned by SwiftWebDevelopment facade | Owner |
 |---|---|
 | Page protocols, route lowering, action gateways, and WASM asset hosting | `SwiftWeb` |
 | HTML graph, state, hydration records, and DOM command model | `SwiftHTML` |

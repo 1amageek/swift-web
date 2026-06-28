@@ -44,10 +44,15 @@ flowchart TD
 | Runtime core | `SwiftWebCore` or `SwiftWebRuntime` | Public app model, scene descriptors, page descriptors, host-neutral request/response, session model, action descriptors, worker descriptors, HTML rendering contracts. |
 | Vapor adapter | `SwiftWebVapor` | Vapor `Application`, route registration, middleware, native HTTP server, Cloud Run/container execution, Vapor response conversion, Vapor security integration. |
 | Cloudflare adapter | `SwiftWebCloudflare` | Generated TypeScript entrypoint, `fetch` routing, Durable Object class generation, queue/scheduled binding generation, Swift/Wasm dispatch glue, `wrangler.toml` materialization. |
-| UI | `SwiftWebUI` | SwiftUI-inspired component layer, style values, and reusable server/client component primitives. |
+| UI theme | `SwiftWebUITheme` | Host-neutral theme tokens, style system, root stylesheet, colors, materials, and spacing values. |
+| UI components | `SwiftWebUI` | SwiftUI-inspired component layer and reusable server/client component primitives. |
 | Browser runtime | `SwiftWebUIRuntime` | Browser-side WASM runtime bridge and DOM patching. |
 | Actors | `SwiftWebActors` | Actor invocation envelopes and transport-neutral distributed actor support. |
-| Tooling | `sweb`, `SwiftWebDevelopment` | Project generation, dev server, HMR, Storyboard, WASM builds, deployment package materialization. |
+| Tooling facade | `sweb`, `SwiftWebDevelopment` | Command parsing and development-module re-export. |
+| Package generation | `SwiftWebPackageGeneration` | Generated server/dev/WASM packages and manifest inspection. |
+| Dev server | `SwiftWebDevServer` | Persistent DevHost, HMR, file watching, worker supervision, and development rebuild orchestration. |
+| WASM build tooling | `SwiftWebWasmBuild` | WASM toolchain resolution, artifact processing, size reports, and compression sidecars. |
+| Storyboard tooling | `SwiftWebStoryboardTooling` | Managed Storyboard package scaffold and launch. |
 
 ## Host Model
 
@@ -331,10 +336,13 @@ flowchart LR
   A --> C["SwiftWebMacros"]
   D["SwiftWebVapor"] --> B
   E["SwiftWebCloudflare"] --> B
-  F["SwiftWebDevelopment"] --> B
-  F --> D
-  G["SwiftWebUI"] --> H["SwiftWebStyle"]
-  B --> I["SwiftHTML"]
+  F["SwiftWebDevelopment"] --> G["SwiftWebDevServer"]
+  G --> H["SwiftWebPackageGeneration"]
+  G --> I["SwiftWebWasmBuild"]
+  G --> D
+  J["SwiftWebUI"] --> K["SwiftWebUITheme"]
+  K --> L["SwiftWebStyle"]
+  B --> M["SwiftHTML"]
 ```
 
 | Product | Host-safe for WASM | Notes |
@@ -342,10 +350,58 @@ flowchart LR
 | `SwiftWebCore` target state | Target goal: yes. Current state: no. | Must remove Vapor/NIO request-routing dependencies. |
 | `SwiftWebVapor` | No. | Native/server/container only. |
 | `SwiftWebCloudflare` | Partly. | Generator and host glue are native/tooling; runtime dispatch code is WASM-safe. |
+| `SwiftWebUITheme` | Yes. | Host-neutral style values and generated root stylesheet. |
 | `SwiftWebUI` | Yes. | Should remain host-neutral. |
 | `SwiftWebUIRuntime` | Browser/WASI-specific. | Existing JavaScriptKit path remains browser runtime. |
 | `SwiftWebActors` | Yes if transport-neutral. | Host adapters own concrete transport. |
-| `SwiftWebDevelopment` | No. | Local tooling only. |
+| `SwiftWebDevelopment` | No. | Development facade only. |
+| `SwiftWebPackageGeneration` | No. | Local/tooling package materialization only. |
+| `SwiftWebDevServer` | No. | Local development server only. |
+| `SwiftWebWasmBuild` | No. | Native tooling around SwiftPM and artifact processing. |
+| `SwiftWebStoryboardTooling` | No. | Local Storyboard generation and launch only. |
+
+## Foundation Boundary
+
+Runtime targets should avoid full `Foundation` in browser builds. When a file
+needs `Data`, `Date`, `UUID`, `URL`, `URLComponents`, or JSON coders, it should
+prefer `FoundationEssentials` through `canImport(FoundationEssentials)` and fall
+back to full `Foundation` only where the current host toolchain requires it.
+Host, server, and local tooling targets may import full `Foundation` when they
+need file IO, process execution, regular expressions, or platform services.
+
+| Surface | Foundation policy |
+|---|---|
+| `SwiftWebUI`, `SwiftWebUIRuntime`, `SwiftWebActors` | Prefer `FoundationEssentials` with a host-toolchain fallback to full `Foundation`. |
+| `SwiftWebStyle`, `SwiftWebUITheme` | Prefer no Foundation-family import. |
+| `SwiftWebBrowserRuntime` | Split browser descriptors from server asset routes; descriptor-only files should follow the `FoundationEssentials` preference, while Vapor asset routes may use full `Foundation`. |
+| `SwiftWebDevServer`, `SwiftWebPackageGeneration`, `SwiftWebWasmBuild`, `sweb` | Full `Foundation` is acceptable because these are native tooling targets. |
+| Embedded Swift compiler profile | Not a supported SwiftWeb browser target. Do not add public API or file families for it in this release line. |
+
+This policy also applies to SwiftWeb-owned dependencies. `swift-html` and
+`swift-actor-runtime` should use `FoundationEssentials` for their WASI-facing
+runtime sources before treating the browser WASM graph as fully Foundation
+minimized.
+
+## WASM Support Boundary
+
+SwiftWeb's supported browser compiler profile is standard Swift WASM. Embedded
+Swift WASM is outside the public support boundary because the current browser
+graph depends on `Distributed`, `Codable`, and Foundation-family capabilities
+that the Embedded Swift SDK does not provide.
+
+```mermaid
+flowchart LR
+  A["SwiftWeb browser runtime sources"] --> B["standard WASM SDK"]
+  B --> C["supported .wasm artifact"]
+  A -. unsupported .-> D["Embedded Swift WASM SDK"]
+```
+
+| Boundary | Correct owner |
+|---|---|
+| Runtime bridge, bootstrap request, DOM patching, component registration | Standard browser runtime source. |
+| Foundation/Codable/Distributed availability differences | Keep inside standard WASM-compatible runtime dependencies. |
+| `.wasm` binary inspection, `wasm-opt`, gzip/Brotli sidecars, SDK name resolution | WASM build tooling. |
+| Embedded Swift limitations in dependencies | Documented non-goal, not a public runtime profile. |
 
 ## Build Commands
 

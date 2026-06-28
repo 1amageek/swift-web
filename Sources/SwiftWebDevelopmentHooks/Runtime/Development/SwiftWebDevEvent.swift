@@ -6,7 +6,7 @@ package struct SwiftWebDevEvent: Sendable, Codable, Equatable {
   package let kind: Kind
   package let message: String?
   package let stylePatch: SwiftWebDevStylePatch?
-  package let clientComponentUpdate: ClientWasmHMRManifest?
+  package let clientComponentUpdate: ClientRuntimeHMRManifest?
   package let changedPaths: [String]
 
   package init(
@@ -14,7 +14,7 @@ package struct SwiftWebDevEvent: Sendable, Codable, Equatable {
     kind: Kind,
     message: String? = nil,
     stylePatch: SwiftWebDevStylePatch? = nil,
-    clientComponentUpdate: ClientWasmHMRManifest? = nil,
+    clientComponentUpdate: ClientRuntimeHMRManifest? = nil,
     changedPaths: [String] = []
   ) {
     self.id = id
@@ -48,7 +48,7 @@ package struct SwiftWebDevStylePatch: Sendable, Codable, Equatable {
   }
 }
 
-package struct ClientWasmHMRManifest: Sendable, Codable, Equatable {
+package struct ClientRuntimeHMRManifest: Sendable, Codable, Equatable {
   package let componentTypeName: String
   package let bundleID: ClientBundleID
   package let assetPath: String

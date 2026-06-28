@@ -1,19 +1,20 @@
+import SwiftWebBrowserRuntime
 import Foundation
 import Vapor
 
 public enum ClientRuntimeConfiguration {
     case disabled
-    case wasm(ClientWasmRuntimeConfiguration)
+    case wasm(ClientRuntimeAssetConfiguration)
 
     public static func wasm(
         id: String = "runtime",
         manifestPath: String = "/assets/swift-web-client.json",
         assetPath: String,
         fileURL: URL,
-        additionalBundles: [ClientWasmBundleArtifact] = [],
+        additionalBundles: [ClientRuntimeBundleArtifact] = [],
         metricsMode: SwiftWebWasmMetricsMode = .summary
     ) -> Self {
-        .wasm(ClientWasmRuntimeConfiguration(
+        .wasm(ClientRuntimeAssetConfiguration(
             id: id,
             manifestPath: manifestPath,
             assetPath: assetPath,
@@ -28,10 +29,10 @@ public enum ClientRuntimeConfiguration {
         manifestPath: String = "/assets/swift-web-client.json",
         assetPath: String,
         artifact: SwiftPMWasmArtifactLocation,
-        additionalBundles: [ClientWasmBundleArtifact] = [],
+        additionalBundles: [ClientRuntimeBundleArtifact] = [],
         metricsMode: SwiftWebWasmMetricsMode = .summary
     ) -> Self {
-        .wasm(ClientWasmRuntimeConfiguration(
+        .wasm(ClientRuntimeAssetConfiguration(
             id: id,
             manifestPath: manifestPath,
             assetPath: assetPath,

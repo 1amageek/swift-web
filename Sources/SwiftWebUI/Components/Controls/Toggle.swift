@@ -1,3 +1,4 @@
+import SwiftWebUITheme
 import SwiftHTML
 
 public struct Toggle<Label: HTML>: WebUIAttributeComponent {
@@ -27,14 +28,18 @@ public struct Toggle<Label: HTML>: WebUIAttributeComponent {
             attributes: [.class(controlClassName("swui-toggle", toggleStyle.className, controlSize.className))]
         ) {
             Element("input", attributes: inputAttributes, isVoid: true)
-            // The track composes the shared thin material for its fill, backdrop
-            // blur, and rim; the thumb keeps the track's own `::after` overlay,
-            // which is why the material recipe only ever uses `::before`. The
-            // raised surface tint stays opaque so the recipe owns translucency.
+            // The track composes the shared thin material for its fill and
+            // backdrop blur; the thumb is a real Liquid Glass child so the
+            // per-element refraction script can target it (a `::after` overlay
+            // is unreachable from `querySelectorAll`). The raised surface tint
+            // stays opaque so the recipe owns the track's translucency, while
+            // the thumb refracts the track and backdrop through its rim.
             span(
                 .class("swui-toggle-control \(MaterialClass.material) \(MaterialClass.thin)"),
                 styleAttribute(.custom("--swui-material-tint", "var(--swui-surface-raised)"))
-            ) {}
+            ) {
+                span(.class("swui-toggle-thumb \(MaterialClass.glass)")) {}
+            }
             span(.class("swui-toggle-label")) {
                 label
             }

@@ -1,3 +1,4 @@
+import SwiftWebUITheme
 import SwiftHTML
 
 public enum ButtonProminence: Sendable, Equatable {

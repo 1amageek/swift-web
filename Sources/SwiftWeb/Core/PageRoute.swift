@@ -4,10 +4,15 @@ public protocol PageRoute: Sendable {
     static func register(on routes: any RoutesBuilder)
     func register(on routes: any RoutesBuilder)
     func registerPageOwnedServices(on application: Application) async throws
+    func registerPageOwnedServices(on application: Application, routes: any RoutesBuilder) async throws
 }
 
 public extension PageRoute {
     func registerPageOwnedServices(on application: Application) async throws {}
+
+    func registerPageOwnedServices(on application: Application, routes: any RoutesBuilder) async throws {
+        try await registerPageOwnedServices(on: application)
+    }
 }
 
 public struct NoParams: Codable, Sendable {

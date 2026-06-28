@@ -3,7 +3,10 @@ import Foundation
 import HTTPTypes
 import NIOCore
 @testable import SwiftWeb
+@testable import SwiftWebActors
 @testable import SwiftWebCore
+@testable import SwiftWebVapor
+@testable import SwiftWebVaporWebActors
 import Testing
 import Vapor
 import VaporTesting

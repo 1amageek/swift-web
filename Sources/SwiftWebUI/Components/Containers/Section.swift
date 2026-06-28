@@ -1,3 +1,4 @@
+import SwiftWebUITheme
 import SwiftHTML
 
 public struct Section<Parent: HTML, Content: HTML, Footer: HTML>: WebUIAttributeComponent {

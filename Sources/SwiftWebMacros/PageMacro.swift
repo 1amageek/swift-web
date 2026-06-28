@@ -52,15 +52,36 @@ public struct PageMacro: MemberMacro, ExtensionMacro {
                         return try await page.body().encodePageResponse(for: req, metadata: metadata, cache: cache)
             """
         }
+        let basePathLiteral = model.path.map { #""\#($0)""# } ?? #""/""#
         let pageServiceRegistrations = model.pageStoredProperties
-            .map { "                try await SwiftWeb.PageOwnedServices.register(routePage.\($0), on: application)" }
+            .map { "                try await SwiftWeb.PageOwnedServices.register(routePage.\($0) as Any, on: application, routes: routes, basePath: basePath)" }
             .joined(separator: "\n")
         let pageServiceRegistrationBody =
             pageServiceRegistrations.isEmpty
-            ? ""
+            ? """
+                  let routePage = self
+                  let basePath = SwiftWeb.RoutePath(\(basePathLiteral))
+                  try await SwiftWeb.PageOwnedServices.register(routePage, on: application, routes: routes, basePath: basePath)
+          """
             : """
                   let routePage = self
+                  let basePath = SwiftWeb.RoutePath(\(basePathLiteral))
+                  try await SwiftWeb.PageOwnedServices.register(routePage, on: application, routes: routes, basePath: basePath)
           \(pageServiceRegistrations)
+          """
+        let legacyPageServiceRegistrations = model.pageStoredProperties
+            .map { "                try await SwiftWeb.PageOwnedServices.register(routePage.\($0) as Any, on: application)" }
+            .joined(separator: "\n")
+        let legacyPageServiceRegistrationBody =
+            legacyPageServiceRegistrations.isEmpty
+            ? """
+                  let routePage = self
+                  try await SwiftWeb.PageOwnedServices.register(routePage, on: application)
+          """
+            : """
+                  let routePage = self
+                  try await SwiftWeb.PageOwnedServices.register(routePage, on: application)
+          \(legacyPageServiceRegistrations)
           """
 
         let extensionDecl = DeclSyntax(stringLiteral: """
@@ -84,6 +105,10 @@ public struct PageMacro: MemberMacro, ExtensionMacro {
             }
 
             func registerPageOwnedServices(on application: SwiftWeb.Application) async throws {
+        \(legacyPageServiceRegistrationBody)
+            }
+
+            func registerPageOwnedServices(on application: SwiftWeb.Application, routes: any SwiftWeb.RoutesBuilder) async throws {
         \(pageServiceRegistrationBody)
             }
         }

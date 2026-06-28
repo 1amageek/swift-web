@@ -1,6 +1,10 @@
 @preconcurrency import ActorRuntime
 @preconcurrency import Distributed
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#elseif canImport(Foundation)
 import Foundation
+#endif
 
 public struct WebActorResultHandler: DistributedTargetInvocationResultHandler, Sendable {
     public typealias SerializationRequirement = Codable & Sendable

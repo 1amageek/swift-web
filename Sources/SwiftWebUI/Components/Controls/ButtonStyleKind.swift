@@ -1,3 +1,4 @@
+import SwiftWebUITheme
 public enum ButtonStyleKind: String, Codable, Sendable, Equatable {
     case automatic
     case bordered

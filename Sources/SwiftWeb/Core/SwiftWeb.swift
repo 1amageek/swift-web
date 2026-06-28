@@ -1,5 +1,4 @@
 @_exported import SwiftHTML
-@_exported import SwiftWebActors
 import Vapor
 
 public typealias Environment = SwiftHTML.Environment

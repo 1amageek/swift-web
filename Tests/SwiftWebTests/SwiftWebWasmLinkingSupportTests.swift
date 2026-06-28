@@ -1,4 +1,4 @@
-@testable import SwiftWebDevelopment
+@testable import SwiftWebWasmBuild
 import Testing
 
 @Suite

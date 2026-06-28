@@ -1,16 +1,16 @@
-import Foundation
+import SwiftWebUITheme
 import SwiftHTML
 
 public struct Image: WebUIAttributeComponent {
     private let source: ImageSource
     private let attributes: [HTMLAttribute]
 
-    public init(_ name: String, bundle: Bundle? = nil) {
+    public init(_ name: String) {
         self.source = .named(name)
         self.attributes = []
     }
 
-    public init(decorative name: String, bundle: Bundle? = nil) {
+    public init(decorative name: String) {
         self.source = .decorative(name)
         self.attributes = []
     }

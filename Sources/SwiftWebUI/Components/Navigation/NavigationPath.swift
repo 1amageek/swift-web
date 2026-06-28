@@ -1,3 +1,4 @@
+import SwiftWebUITheme
 public struct NavigationPath: Codable, Sendable, Equatable, ExpressibleByArrayLiteral {
     public var components: [String]
 

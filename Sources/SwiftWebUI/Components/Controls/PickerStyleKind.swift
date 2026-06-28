@@ -1,3 +1,4 @@
+import SwiftWebUITheme
 /// The visual presentation of a `Picker`, mirroring SwiftUI `PickerStyle`.
 ///
 /// Only the styles that map to an honest native HTML control are exposed. Web

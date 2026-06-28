@@ -1,3 +1,4 @@
+import SwiftWebUITheme
 public extension Font {
     enum Weight: String, Sendable, Equatable {
         case ultraLight = "200"

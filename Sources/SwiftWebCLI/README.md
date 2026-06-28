@@ -2,7 +2,9 @@
 
 SwiftWebCLI provides the `sweb` executable.
 
-It owns command parsing and project scaffolding. Generated package materialization and development server orchestration live in `SwiftWebDevelopment`.
+It owns command parsing and project scaffolding. Generated package materialization,
+development server orchestration, Storyboard tooling, and WASM artifact processing
+live in the development modules re-exported by `SwiftWebDevelopment`.
 
 ## Responsibility
 
@@ -12,10 +14,10 @@ It owns command parsing and project scaffolding. Generated package materializati
 | Project creation | Generates minimal named app skeletons through the `new` command. |
 | Prepare command | Materializes generated dev, server, and WASM packages for existing app packages. |
 | Xcode command | Materializes generated packages and opens the generated dev package in Xcode. |
-| Generated package | Delegates `.swiftweb/generated` materialization to `SwiftWebDevelopment`. |
-| Dev command | Parses CLI options and delegates to `SwiftWebDevelopment.SwiftWebDevRuntime`. |
-| Build command | Builds the generated server product or generated WASM runtime product. |
-| Storyboard command | Generates an isolated SwiftWebUI component style board and runs it through the same dev runtime. |
+| Generated package | Delegates `.swiftweb/generated` materialization to `SwiftWebPackageGeneration`. |
+| Dev command | Parses CLI options and delegates to `SwiftWebDevServer.SwiftWebDevRuntime`. |
+| Build command | Builds the generated server product or generated WASM runtime product through `SwiftWebPackageGeneration` and `SwiftWebWasmBuild`. |
+| Storyboard command | Delegates managed Storyboard package generation and launch to `SwiftWebStoryboardTooling`. |
 
 ## New Command
 
@@ -125,13 +127,13 @@ flowchart LR
 
 `SwiftWebDevRuntime` checks the configured host and port before starting the child server. If the port is already occupied, the CLI exits with a clear error before Vapor can fail during bind.
 
-The generated host worker build and the Client WASM build use separate Swift toolchain contracts. Host worker builds use `SwiftWebHostSwiftToolchain`; override it with `SWIFT_WEB_HOST_SWIFT` or `SWIFT_WEB_HOST_TOOLCHAIN_BIN` when a host-only dependency requires a specific Xcode toolchain. Client WASM builds continue to use the Swift 6.3 WASM toolchain through `SWIFT_WEB_WASM_SWIFT`, `SWIFT_WEB_WASM_TOOLCHAIN_BIN`, and `SWIFT_WEB_WASM_SDK`.
+The generated host worker build and the Client WASM build use separate Swift toolchain contracts. Host worker builds use `SwiftWebHostSwiftToolchain` from `SwiftWebPackageGeneration`; override it with `SWIFT_WEB_HOST_SWIFT` or `SWIFT_WEB_HOST_TOOLCHAIN_BIN` when a host-only dependency requires a specific Xcode toolchain. Client WASM builds continue to use the Swift 6.3 WASM toolchain through `SwiftWebWasmBuild` and `SWIFT_WEB_WASM_SWIFT`, `SWIFT_WEB_WASM_TOOLCHAIN_BIN`, and `SWIFT_WEB_WASM_SDK`.
 
 The runtime watches the app package plus local `.package(path:)` dependencies so edits in a checked-out SwiftWeb framework also trigger rebuilds. The dev child server receives `SWIFT_WEB_DEV_PARENT_PID`, imports `SwiftWebDevelopmentHooks`, and installs development hooks before `App.run()`.
 
 Startup, ready, reload, child-exit, and shutdown events are emitted through `swift-log` with `codes.swiftweb.dev` as the logger label.
 
-The CLI does not implement HMR itself. It delegates to `SwiftWebDevRuntime`, which emits typed development events such as `stylePatch`, `clientComponentUpdate`, `serverBuildStarted`, `serverRestarted`, `pagePatch`, `fullReload`, and `error`. The browser runtime connects to `/__swiftweb/dev/events` through the persistent DevHost and uses `/__swiftweb/dev/reload` token waiting only as a compatibility fallback.
+The CLI does not implement HMR itself. It delegates to `SwiftWebDevRuntime` in `SwiftWebDevServer`, which emits typed development events such as `stylePatch`, `clientComponentUpdate`, `serverBuildStarted`, `serverRestarted`, `pagePatch`, `fullReload`, and `error`. The browser runtime connects to `/__swiftweb/dev/events` through the persistent DevHost and uses `/__swiftweb/dev/reload` token waiting only as a compatibility fallback.
 
 The public DevHost is a long-lived development control plane that keeps the configured port stable while worker processes rebuild. Application routes still run in the Vapor worker, but HMR event streaming is served by the DevHost so it does not depend on Vapor response-body streaming support.
 
@@ -156,11 +158,28 @@ flowchart LR
   D --> E["http://127.0.0.1:3001/storyboard"]
   E --> F["design-reference shell"]
   E --> G["documented component catalog"]
+  C --> H["--production"]
+  H --> I["release WASM build"]
+  I --> J[".wasm + .gz + .br"]
+  H --> K["release app-server"]
+  K --> L["production Storyboard server"]
 ```
 
 `sweb storyboard` is a framework inspection tool. It does not edit the user's app source. It generates a managed package under `.swiftweb/storyboard`, mounts `StoryboardPage`, and runs on port `3001` by default so it can stay open beside an app running through `sweb dev` on port `3000`.
 
 The storyboard follows the checked-in design reference and only lists components that are part of the current SwiftWebUI public surface. It documents semantic `Text(as:)`, container and layout primitives, actions, navigation, presentation, selection/input, and status components through stable per-component paths such as `/storyboard/list` and `/storyboard/stacks`.
+
+For production-like transfer behavior, run Storyboard through the production build path:
+
+```bash
+sweb storyboard --production --runtime standard -c release
+```
+
+Production Storyboard builds the generated WASM runtime with the same artifact
+processor used by `sweb build --wasm`: debug custom sections are stripped, `wasm-opt`
+is applied when available, and `.wasm.gz` / `.wasm.br` sidecars are written before
+the production `app-server` is launched. SwiftWeb supports the standard WASM
+profile for production Storyboard validation.
 
 ## Build Command Flow
 
@@ -178,13 +197,17 @@ flowchart LR
 |---|---|---|
 | Server | `app-server` by default | Uses the app library product from the user package. |
 | WASM `standard` | Main generated `*WasmRuntime` plus coalesced policy runtimes when non-eager islands exist | Defaults to release, sets `SWIFTWEB_WASM_BUILD=1`, uses the shell-selected `swift`, and builds the generated client-only package without reading the user app's server dependencies. `SWIFTWEB_WASM_SPLIT_BUILD_STRATEGY=resolved-bundles` forces one physical WASM product per resolved split for diagnostics. |
-| WASM `embedded` | Main generated `*WasmRuntime` backed by `SwiftHTMLEmbedded` | Uses `--runtime embedded`, sets `SWIFTWEB_WASM_RUNTIME_PROFILE=embedded`, enables experimental embedded flags for SwiftHTML and JavaScriptKit, and selects the matching `-embedded` Swift SDK suffix when needed. |
+| Embedded Swift WASM | Not supported | SwiftWeb's public browser boundary is the standard WASM profile. Embedded Swift can be revisited only after the browser runtime can be expressed without `Distributed`, `Codable`, Foundation, or profile-specific source families. |
 
-The `standard` runtime profile is the default because it preserves full `ClientComponent`
-hydration semantics. The `embedded` profile is a size-first production profile. It omits
-the app client target, `SwiftHTML`, `SwiftWebActors`, `SwiftWebUI`, and `SwiftWebUIRuntime`
-from the generated browser package, then generates a small export-compatible runtime shell
-over `SwiftHTMLEmbedded` and JavaScriptKit.
+Host/server builds launch through `SWIFT_WEB_HOST_SWIFT` when that environment
+variable points at a Swift executable. On macOS they otherwise use `xcrun swift`
+so host dependencies that require the Xcode Swift toolchain do not force the
+project's pinned WASM Swift 6.3 toolchain to change. Browser WASM builds remain
+separate and use the resolved `SwiftWebWasmToolchain`.
+
+The standard compiler profile is the supported browser runtime contract because
+it preserves full `ClientComponent` hydration semantics today. Embedded Swift is
+outside the public support boundary for this release line.
 
 After a WASM build, the CLI runs the production artifact processor:
 
@@ -212,7 +235,6 @@ flowchart LR
 | `.swiftweb/generated/dev/Sources/AppDevelopmentServerLauncher/ServerLauncher.swift` | Dev child server entrypoint that installs `SwiftWebDevelopmentHooks` before running the app. |
 | `.swiftweb/generated/wasm/Sources/<AppName>` | Client-only source copy used by standard WASM runtime targets. |
 | `.swiftweb/generated/wasm/Sources/SwiftHTML` | Standard runtime-only SwiftHTML source copy. Preview macros and `swift-syntax` are not included in the WASM package graph. |
-| `.swiftweb/generated/wasm/Sources/SwiftHTMLEmbedded` | Embedded runtime source copy used by `--runtime embedded`. |
 | `.swiftweb/generated/wasm/Sources/SwiftWebActors` | Standard generated copy of the shared distributed actor runtime used by WASM runtime targets. |
 | `.swiftweb/generated/wasm/Sources/SwiftWebUI` | Standard client UI component source copy used by WASM runtime targets. |
 | `.swiftweb/generated/wasm/Sources/SwiftWebUIRuntime` | Standard JavaScriptKit-backed client runtime source copy used by WASM runtime targets. |
@@ -224,7 +246,7 @@ flowchart LR
 
 The JavaScriptKit boundary is an accepted decision in [`docs/BrowserRuntimeJavaScriptKitDecision.md`](../../docs/BrowserRuntimeJavaScriptKitDecision.md). SwiftWebUI features should be modeled as SwiftWebUI primitives first; generated browser WASM packages do not include JavaScriptKit BridgeJS or `swift-syntax` unless a future explicit opt-in mode is added.
 
-Open `.swiftweb/generated/dev` in Xcode to run the generated `<AppName>-dev` scheme. That scheme builds `SwiftWebDevLauncher`, which starts the same `SwiftWebDevRuntime` used by `sweb dev`.
+Open `.swiftweb/generated/dev` in Xcode to run the generated `<AppName>-dev` scheme. That scheme builds `SwiftWebDevLauncher`, which starts the same `SwiftWebDevRuntime` from `SwiftWebDevServer` used by `sweb dev`.
 
 The generated `app-server-dev` worker target intentionally depends on `SwiftWebDevelopmentHooks` rather than full `SwiftWebDevelopment`.
 
@@ -232,11 +254,12 @@ The generated `app-server-dev` worker target intentionally depends on `SwiftWebD
 flowchart LR
   A["<AppName>-dev scheme"] --> B["SwiftWebDevLauncher"]
   B --> C["SwiftWebDevelopment"]
-  C --> D["persistent DevHost"]
-  C --> E["build app-server-dev"]
-  E --> F["AppDevelopmentServerLauncher"]
-  F --> G["SwiftWebVapor"]
-  F --> H["SwiftWebDevelopmentHooks"]
+  C --> D["SwiftWebDevServer"]
+  D --> E["persistent DevHost"]
+  D --> F["build app-server-dev"]
+  F --> G["AppDevelopmentServerLauncher"]
+  G --> H["SwiftWebVapor"]
+  G --> I["SwiftWebDevelopmentHooks"]
 ```
 
 This boundary keeps the worker out of the watcher, proxy, SwiftSyntax classifier, package materializer, and child-process supervisor. The worker launcher imports `SwiftWebVapor` for host execution instead of the public macro facade. It does not by itself remove macro expansion from the app target; apps using `@Page` or `@ServerAction` still need the macro toolchain during app compilation.
@@ -272,8 +295,11 @@ generated packages can reuse the same content-addressed artifact.
 | Not owned by SwiftWebCLI | Owner |
 |---|---|
 | HTTP response rendering | `SwiftWeb` and `SwiftHTML` |
-| Development browser runtime injection | `SwiftWebDevelopment` |
-| Development watch/restart runtime | `SwiftWebDevelopment` |
+| Development browser runtime injection | `SwiftWebDevelopmentHooks` |
+| Development watch/restart runtime | `SwiftWebDevServer` |
+| Generated package materialization | `SwiftWebPackageGeneration` |
+| WASM artifact processing and compression | `SwiftWebWasmBuild` |
+| Storyboard managed package tooling | `SwiftWebStoryboardTooling` |
 | Component layout and style behavior | `SwiftWebUI` |
 | Macro expansion | `SwiftWebMacros` |
 | Vapor server lifecycle and route registration | `SwiftWebVapor` with current route-lowering support still in `SwiftWebCore` |
@@ -281,7 +307,7 @@ generated packages can reuse the same content-addressed artifact.
 
 ## Design Notes
 
-- The CLI should parse commands and delegate development runtime behavior to `SwiftWebDevelopment`.
+- The CLI should parse commands and delegate development runtime behavior to the modules re-exported by `SwiftWebDevelopment`.
 - The dev command delegates browser update behavior to `SwiftWebDevRuntime`. That runtime uses the DevHost EventSource stream for normal HMR and keeps reload-token waiting as a compatibility fallback.
 - Component-level HMR is a SwiftWeb runtime responsibility. The CLI only starts the runtime and materializes the generated package used by server and WASM builds.
 - Client WASM builds should use stable generated package layouts, write-if-changed materialization, dirty bundle rebuilds, and content-addressed caches keyed by sources, dependencies, toolchain, SDK, and build flags.

@@ -1,3 +1,4 @@
+import SwiftWebUITheme
 import SwiftHTML
 
 public struct Slider: WebUIAttributeComponent {
@@ -26,15 +27,46 @@ public struct Slider: WebUIAttributeComponent {
 
     @HTMLBuilder
     public var body: some HTML {
-        Element(
-            "input",
-            attributes: mergedAttributes(
-                class: "swui-slider \(controlSize.className) \(LayoutClass.fillHorizontal)",
-                styles: controlTintStyle(tint),
-                extra: inputAttributes
+        // A transparent native range input on top owns all interaction (drag,
+        // keyboard, step, focus, accessibility); the visible track, fill, and
+        // Liquid Glass thumb are drawn beneath it and positioned from
+        // `--swui-slider-progress`. The client sets that variable live on input;
+        // the server seeds it inline so the first paint is already correct.
+        Element("span", attributes: wrapperAttributes) {
+            span(.class("swui-slider-track")) {
+                span(.class("swui-slider-fill")) {}
+            }
+            Element(
+                "input",
+                attributes: mergedAttributes(class: "swui-slider-input", extra: inputAttributes),
+                isVoid: true
+            )
+            span(.class("swui-slider-thumb \(MaterialClass.glass)")) {}
+        }
+    }
+
+    private var wrapperAttributes: [HTMLAttribute] {
+        var style = controlTintStyle(tint)
+        style.append(.custom("--swui-slider-progress", progressValue))
+        return mergedAttributes(
+            class: controlClassName(
+                "swui-slider",
+                controlSize.className,
+                LayoutClass.fillHorizontal,
+                isEnabled ? nil : "swui-control-disabled"
             ),
-            isVoid: true
+            styles: style,
+            extra: []
         )
+    }
+
+    /// The fraction of the track the value fills, clamped to `0...1`. Drives the
+    /// fill width and thumb offset before the client script takes over.
+    private var progressValue: String {
+        let span = bounds.upperBound - bounds.lowerBound
+        guard span > 0, span.isFinite else { return "0" }
+        let ratio = (value.wrappedValue - bounds.lowerBound) / span
+        return trimmedNumber(Swift.min(1, Swift.max(0, ratio)))
     }
 
     public func addingAttributes(_ attributes: [HTMLAttribute]) -> Self {

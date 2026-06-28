@@ -1,4 +1,3 @@
-import Foundation
 import SwiftHTML
 
 public enum StyleVariant: Sendable, Equatable, Hashable {

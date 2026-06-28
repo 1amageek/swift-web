@@ -1,4 +1,5 @@
-@testable import SwiftWebDevelopment
+@testable import SwiftWebDevServer
+@testable import SwiftWebPackageGeneration
 import Foundation
 import Testing
 

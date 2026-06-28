@@ -1,3 +1,4 @@
+import SwiftWebUITheme
 import SwiftHTML
 
 public enum ToggleStyleKind: String, Codable, Sendable, Equatable {

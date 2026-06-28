@@ -1,3 +1,4 @@
+import SwiftWebUITheme
 import SwiftHTML
 
 /// Publishes a `--swui-animation` custom property over a subtree. Components read

@@ -1,3 +1,4 @@
+import SwiftWebUITheme
 import SwiftHTML
 
 public struct WebStyleModifier<S: ShapeStyle>: ComponentModifier {

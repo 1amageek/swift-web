@@ -14,6 +14,12 @@ let swiftHTMLDependency: Target.Dependency = .product(name: "SwiftHTML", package
 let swiftWebUIDependencies: [Target.Dependency] = [
     swiftHTMLDependency,
     "SwiftWebStyle",
+    "SwiftWebUITheme",
+]
+
+let swiftWebUIThemeDependencies: [Target.Dependency] = [
+    swiftHTMLDependency,
+    "SwiftWebStyle",
 ]
 
 let swiftWebUIRuntimeDependencies: [Target.Dependency] = [
@@ -35,17 +41,25 @@ let package = Package(
     products: swiftWebCoreOnly ? [
         .library(name: "SwiftWebActors", targets: ["SwiftWebActors"]),
         .library(name: "SwiftWebStyle", targets: ["SwiftWebStyle"]),
+        .library(name: "SwiftWebUITheme", targets: ["SwiftWebUITheme"]),
         .library(name: "SwiftWebUI", targets: ["SwiftWebUI"]),
         .library(name: "SwiftWebUIRuntime", targets: ["SwiftWebUIRuntime"]),
     ] : [
         .library(name: "SwiftWebActors", targets: ["SwiftWebActors"]),
         .library(name: "SwiftWebStyle", targets: ["SwiftWebStyle"]),
+        .library(name: "SwiftWebUITheme", targets: ["SwiftWebUITheme"]),
         .library(name: "SwiftWebUI", targets: ["SwiftWebUI"]),
         .library(name: "SwiftWebUIRuntime", targets: ["SwiftWebUIRuntime"]),
+        .library(name: "SwiftWebBrowserRuntime", targets: ["SwiftWebBrowserRuntime"]),
         .library(name: "SwiftWebCore", targets: ["SwiftWebCore"]),
         .library(name: "SwiftWeb", targets: ["SwiftWeb"]),
         .library(name: "SwiftWebVapor", targets: ["SwiftWebVapor"]),
+        .library(name: "SwiftWebVaporWebActors", targets: ["SwiftWebVaporWebActors"]),
         .library(name: "SwiftWebDevelopmentHooks", targets: ["SwiftWebDevelopmentHooks"]),
+        .library(name: "SwiftWebWasmBuild", targets: ["SwiftWebWasmBuild"]),
+        .library(name: "SwiftWebPackageGeneration", targets: ["SwiftWebPackageGeneration"]),
+        .library(name: "SwiftWebDevServer", targets: ["SwiftWebDevServer"]),
+        .library(name: "SwiftWebStoryboardTooling", targets: ["SwiftWebStoryboardTooling"]),
         .library(name: "SwiftWebDevelopment", targets: ["SwiftWebDevelopment"]),
         .library(name: "SwiftWebStoryboard", targets: ["SwiftWebStoryboard"]),
         .executable(name: "sweb", targets: ["SwiftWebCLI"]),
@@ -53,7 +67,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/1amageek/swift-html.git", from: "0.7.1"),
         .package(url: "https://github.com/1amageek/JavaScriptKit.git", from: "0.57.0"),
-        .package(url: "https://github.com/1amageek/swift-actor-runtime.git", exact: "0.5.0"),
+        .package(url: "https://github.com/1amageek/swift-actor-runtime.git", exact: "0.6.0"),
     ] + (swiftWebCoreOnly ? [] : [
         .package(url: "https://github.com/vapor/vapor.git", revision: "fff4892930e69b49ea2612699bed9583721723dc"),
         .package(url: "https://github.com/vapor/routing-kit.git", from: "5.0.0-beta"),
@@ -71,6 +85,11 @@ let package = Package(
         .target(
             name: "SwiftWebStyle",
             dependencies: [swiftHTMLDependency],
+            swiftSettings: swiftWebSwiftSettings
+        ),
+        .target(
+            name: "SwiftWebUITheme",
+            dependencies: swiftWebUIThemeDependencies,
             swiftSettings: swiftWebSwiftSettings
         ),
         .target(
@@ -109,9 +128,25 @@ let package = Package(
             swiftSettings: swiftWebSwiftSettings
         ),
         .target(
+            name: "SwiftWebUITheme",
+            dependencies: swiftWebUIThemeDependencies,
+            swiftSettings: swiftWebSwiftSettings
+        ),
+        .target(
             name: "SwiftWebActors",
             dependencies: swiftWebActorsDependencies,
             exclude: ["README.md"],
+            swiftSettings: swiftWebSwiftSettings
+        ),
+        .target(
+            name: "SwiftWebBrowserRuntime",
+            dependencies: [
+                swiftHTMLDependency,
+                .product(name: "Vapor", package: "vapor"),
+                .product(name: "RoutingKit", package: "routing-kit"),
+                .product(name: "HTTPTypes", package: "swift-http-types"),
+                "SwiftWebStyle",
+            ],
             swiftSettings: swiftWebSwiftSettings
         ),
         .target(
@@ -124,7 +159,7 @@ let package = Package(
                 .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "Logging", package: "swift-log"),
-                "SwiftWebActors",
+                "SwiftWebBrowserRuntime",
                 "SwiftWebStyle",
             ],
             path: "Sources/SwiftWeb",
@@ -134,6 +169,7 @@ let package = Package(
         .target(
             name: "SwiftWeb",
             dependencies: [
+                "SwiftWebBrowserRuntime",
                 "SwiftWebCore",
                 "SwiftWebMacros",
                 "SwiftWebStyle",
@@ -145,8 +181,18 @@ let package = Package(
             name: "SwiftWebVapor",
             dependencies: [
                 .product(name: "Vapor", package: "vapor"),
+                "SwiftWebCore",
+            ],
+            swiftSettings: swiftWebSwiftSettings
+        ),
+        .target(
+            name: "SwiftWebVaporWebActors",
+            dependencies: [
+                .product(name: "ActorRuntime", package: "swift-actor-runtime"),
+                .product(name: "Vapor", package: "vapor"),
                 "SwiftWebActors",
                 "SwiftWebCore",
+                "SwiftWebVapor",
             ],
             swiftSettings: swiftWebSwiftSettings
         ),
@@ -174,23 +220,59 @@ let package = Package(
             swiftSettings: swiftWebSwiftSettings
         ),
         .target(
-            name: "SwiftWebDevelopment",
+            name: "SwiftWebWasmBuild",
+            dependencies: [
+            ],
+            swiftSettings: swiftWebSwiftSettings
+        ),
+        .target(
+            name: "SwiftWebPackageGeneration",
+            dependencies: [
+                swiftHTMLDependency,
+                .product(name: "SwiftParser", package: "swift-syntax"),
+                .product(name: "SwiftSyntax", package: "swift-syntax"),
+                "SwiftWebDevelopmentHooks",
+                "SwiftWebWasmBuild",
+            ],
+            swiftSettings: swiftWebSwiftSettings
+        ),
+        .target(
+            name: "SwiftWebDevServer",
             dependencies: [
                 swiftHTMLDependency,
                 .product(name: "AsyncHTTPClient", package: "async-http-client"),
-                .product(name: "Vapor", package: "vapor"),
                 .product(name: "HTTPAPIs", package: "swift-http-api-proposal"),
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "Logging", package: "swift-log"),
                 .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "NIOHTTP1", package: "swift-nio"),
                 .product(name: "NIOHTTPServer", package: "swift-http-server"),
-                .product(name: "ServiceContextModule", package: "swift-service-context"),
-                .product(name: "SwiftParser", package: "swift-syntax"),
-                .product(name: "SwiftSyntax", package: "swift-syntax"),
                 "SwiftWebCore",
                 "SwiftWebDevelopmentHooks",
+                "SwiftWebPackageGeneration",
+                "SwiftWebWasmBuild",
             ],
+            swiftSettings: swiftWebSwiftSettings
+        ),
+        .target(
+            name: "SwiftWebStoryboardTooling",
+            dependencies: [
+                "SwiftWebDevelopmentHooks",
+                "SwiftWebDevServer",
+                "SwiftWebPackageGeneration",
+            ],
+            swiftSettings: swiftWebSwiftSettings
+        ),
+        .target(
+            name: "SwiftWebDevelopment",
+            dependencies: [
+                "SwiftWebDevelopmentHooks",
+                "SwiftWebDevServer",
+                "SwiftWebPackageGeneration",
+                "SwiftWebStoryboardTooling",
+                "SwiftWebWasmBuild",
+            ],
+            exclude: ["README.md"],
             swiftSettings: swiftWebSwiftSettings
         ),
         .target(
@@ -202,6 +284,7 @@ let package = Package(
                 "SwiftWebUI",
                 "SwiftWebUIRuntime",
             ],
+            exclude: ["INFORMATION_ARCHITECTURE.md"],
             swiftSettings: swiftWebSwiftSettings
         ),
         .executableTarget(
@@ -212,6 +295,7 @@ let package = Package(
                 "SwiftWebUI",
                 "SwiftWebDevelopment",
             ],
+            exclude: ["README.md"],
             swiftSettings: swiftWebSwiftSettings
         ),
         .testTarget(
@@ -234,13 +318,27 @@ let package = Package(
             swiftSettings: swiftWebSwiftSettings
         ),
         .testTarget(
+            name: "SwiftWebMacroTests",
+            dependencies: [
+                "SwiftWebMacros",
+                .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
+            ],
+            swiftSettings: swiftWebSwiftSettings
+        ),
+        .testTarget(
             name: "SwiftWebTests",
             dependencies: [
                 "SwiftWeb",
+                "SwiftWebBrowserRuntime",
+                "SwiftWebDevServer",
                 "SwiftWebVapor",
+                "SwiftWebVaporWebActors",
                 "SwiftWebUI",
                 "SwiftWebDevelopmentHooks",
                 "SwiftWebDevelopment",
+                "SwiftWebPackageGeneration",
+                "SwiftWebStoryboardTooling",
+                "SwiftWebWasmBuild",
                 .product(name: "VaporTesting", package: "vapor"),
             ],
             swiftSettings: swiftWebSwiftSettings

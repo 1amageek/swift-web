@@ -12,7 +12,7 @@ struct StoryboardPage {
 
     var description: String? {
         get async {
-            "A design-system catalog of every SwiftWebUI component."
+            "A theme catalog of every SwiftWebUI component."
         }
     }
 

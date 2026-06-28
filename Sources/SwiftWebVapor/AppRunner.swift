@@ -1,17 +1,23 @@
 @_exported import SwiftWebCore
-import SwiftWebActors
 import Vapor
 
 public struct AppRunnerInstallation: Sendable {
     private let developmentParentMonitor: Task<Void, Never>?
+    private let shutdownHandlers: [@Sendable () -> Void]
 
-    init(developmentParentMonitor: Task<Void, Never>?) {
+    init(
+        developmentParentMonitor: Task<Void, Never>?,
+        shutdownHandlers: [@Sendable () -> Void]
+    ) {
         self.developmentParentMonitor = developmentParentMonitor
+        self.shutdownHandlers = shutdownHandlers
     }
 
     public func shutdown() {
         developmentParentMonitor?.cancel()
-        WebActorSystem.shared.shutdown()
+        for handler in shutdownHandlers {
+            handler()
+        }
     }
 
     public func shutdown(_ application: Application) async throws {
@@ -23,10 +29,19 @@ public struct AppRunnerInstallation: Sendable {
 public struct AppRunner<Definition: App> {
     private let definition: Definition
     private let clientRuntime: ClientRuntimeConfiguration?
+    private let routeInstallers: [(Application) async throws -> Void]
+    private let shutdownHandlers: [@Sendable () -> Void]
 
-    public init(_ definition: Definition, clientRuntime: ClientRuntimeConfiguration? = nil) {
+    public init(
+        _ definition: Definition,
+        clientRuntime: ClientRuntimeConfiguration? = nil,
+        routeInstallers: [(Application) async throws -> Void] = [],
+        shutdownHandlers: [@Sendable () -> Void] = []
+    ) {
         self.definition = definition
         self.clientRuntime = clientRuntime
+        self.routeInstallers = routeInstallers
+        self.shutdownHandlers = shutdownHandlers
     }
 
     public func run() async throws {
@@ -35,7 +50,6 @@ public struct AppRunner<Definition: App> {
         do {
             installation = try await configure(application)
         } catch {
-            WebActorSystem.shared.shutdown()
             try await application.shutdown()
             throw error
         }
@@ -53,27 +67,33 @@ public struct AppRunner<Definition: App> {
     public func configure(_ application: Application) async throws -> AppRunnerInstallation {
         let developmentHooks = await SwiftWebDevelopmentSupport.shared.currentHooks()
         let devParentMonitor = developmentHooks.startParentMonitor(application.logger)
+        let installation = AppRunnerInstallation(
+            developmentParentMonitor: devParentMonitor,
+            shutdownHandlers: shutdownHandlers
+        )
 
-        let security = developmentHooks.configureSecurity(definition.security)
-        application.securityConfiguration = security
-        application.sessions.configuration = .swiftWeb
-        var middlewares = Middlewares()
-        middlewares.use(application.sessions.middleware)
-        security.installMiddleware(on: &middlewares)
-        developmentHooks.installMiddlewares(&middlewares)
-        middlewares.use(ErrorMiddleware.default(environment: application.environment))
-        application.middleware = middlewares
-
-        developmentHooks.registerRoutes(application)
-        ActionGateway.register(on: application)
-        WebActorGateway.register(on: application)
         do {
+            let security = developmentHooks.configureSecurity(definition.security)
+            application.securityConfiguration = security
+            application.sessions.configuration = .swiftWeb
+            var middlewares = Middlewares()
+            middlewares.use(application.sessions.middleware)
+            security.installMiddleware(on: &middlewares)
+            developmentHooks.installMiddlewares(&middlewares)
+            middlewares.use(ErrorMiddleware.default(environment: application.environment))
+            application.middleware = middlewares
+
+            developmentHooks.registerRoutes(application)
+            ActionGateway.register(on: application)
+            for installer in routeInstallers {
+                try await installer(application)
+            }
             try await (clientRuntime ?? definition.clientRuntime).install(on: application)
             try await definition.services.register(on: application)
             try await _SceneRenderer.make(definition.body, in: .root(application))
-            return AppRunnerInstallation(developmentParentMonitor: devParentMonitor)
+            return installation
         } catch {
-            AppRunnerInstallation(developmentParentMonitor: devParentMonitor).shutdown()
+            installation.shutdown()
             throw error
         }
     }

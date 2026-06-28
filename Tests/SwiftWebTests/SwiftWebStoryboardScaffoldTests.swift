@@ -1,4 +1,4 @@
-@testable import SwiftWebDevelopment
+@testable import SwiftWebStoryboardTooling
 import Foundation
 import Testing
 

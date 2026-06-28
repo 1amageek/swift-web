@@ -1,4 +1,5 @@
 import HTTPTypes
+import Synchronization
 import SwiftHTML
 import Testing
 import Vapor
@@ -115,6 +116,34 @@ struct SwiftWebSceneTests {
             #expect(response.status == .seeOther)
             #expect(response.headers[HTTPField.Name("Location")!] == "/new")
         }
+    }
+
+    @Test
+    func appRunnerRunsShutdownHandlersOnceWhenConfigureFails() async throws {
+        let shutdownCount = Mutex(0)
+
+        do {
+            try await AppRunner(
+                SceneFixtureApp(),
+                routeInstallers: [
+                    { _ in
+                        throw Abort(.internalServerError, reason: "Route installer failed")
+                    },
+                ],
+                shutdownHandlers: [
+                    {
+                        shutdownCount.withLock { count in
+                            count += 1
+                        }
+                    },
+                ]
+            ).run()
+            Issue.record("AppRunner should fail when a route installer fails")
+        } catch let abort as Abort {
+            #expect(abort.status == .internalServerError)
+        }
+
+        #expect(shutdownCount.withLock { $0 } == 1)
     }
 
     private func withApplication(

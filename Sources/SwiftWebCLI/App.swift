@@ -52,7 +52,7 @@ struct SwiftWebCLI {
             return true
         case .packageManifestNotFound, .processFailed, .executableNotFound, .hostReadinessTimeout,
              .workerPortAllocationFailed, .workerReadinessTimeout, .hostSwiftToolchainNotFound,
-             .wasmToolchainNotFound, .initialWasmBuildFailed:
+             .wasmToolchainNotFound, .unsupportedWasmSDK, .initialWasmBuildFailed:
             return false
         }
     }
@@ -97,10 +97,10 @@ struct CommandLineInterface {
               sweb new <AppName> [--output <directory>] [--force]
               sweb prepare [--package-path <directory>] [--product <name>]
               sweb xcode [--package-path <directory>] [--product <name>] [--no-open]
-              sweb build [--package-path <directory>] [--product <name>] [--wasm] [--runtime standard|embedded] [--swift-sdk <sdk>] [-c debug|release]
+              sweb build [--package-path <directory>] [--product <name>] [--wasm] [--runtime standard] [--swift-sdk <sdk>] [-c debug|release]
               sweb clean [--package-path <directory>] [--storyboard] [--swiftpm] [--all]
               sweb dev [--package-path <directory>] [--product <name>] [--host <host>] [--port <port>]
-              sweb storyboard [--package-path <directory>] [--output <directory>] [--host <host>] [--port <port>] [--no-run] [--force]
+              sweb storyboard [--package-path <directory>] [--output <directory>] [--host <host>] [--port <port>] [--no-run] [--force] [--production] [--runtime standard] [--swift-sdk <sdk>] [-c debug|release]
 
             Commands:
               new         Create a minimal SwiftWeb app skeleton.

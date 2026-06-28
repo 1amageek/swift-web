@@ -1,8 +1,8 @@
 import HTTPTypes
 import Vapor
 
-enum SecurityRequestValidator {
-    static func validateStateChangingRequest(
+public enum SecurityRequestValidator {
+    public static func validateStateChangingRequest(
         _ request: Request,
         suppliedCSRFToken: String? = nil
     ) throws {

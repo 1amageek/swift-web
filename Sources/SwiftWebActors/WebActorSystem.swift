@@ -1,6 +1,10 @@
 @preconcurrency import ActorRuntime
 @preconcurrency import Distributed
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#elseif canImport(Foundation)
 import Foundation
+#endif
 
 public final class WebActorSystem: DistributedActorSystem, Sendable {
     public typealias ActorID = String

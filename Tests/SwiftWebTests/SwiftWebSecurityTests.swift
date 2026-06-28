@@ -1,6 +1,7 @@
 import HTTPTypes
 import NIOCore
 @testable import SwiftWeb
+@testable import SwiftWebBrowserRuntime
 @testable import SwiftWebCore
 import Testing
 import Vapor
@@ -185,14 +186,66 @@ struct SecurityTests {
     @Test
     func actionGatewayRejectsCrossOriginBeforeDecodingBody() async throws {
         try await withSecurityApplication { application in
-            ActionGateway.register(on: application)
+            let handler = SecurityServerActionHandler()
+            let descriptor = ServerActionDescriptor(
+                handlerType: SecurityServerActionHandler.self,
+                method: .post,
+                path: "/secure",
+                inputType: NoActionInput.self,
+                outputType: ActionResult.self
+            ) { handler, input, context in
+                try await handler.submit(input, context: context)
+            }
+            try ActionGateway.register(
+                handler: handler,
+                descriptor: descriptor,
+                path: RoutePath("/secure"),
+                on: application,
+                application: application
+            )
 
             var headers: HTTPFields = [:]
             headers[.origin] = "https://evil.example"
             headers[.contentType] = "application/json"
             let response = try await application.testing().sendRequest(
                 .post,
-                "/_swiftweb/actions/CounterService/increment",
+                "/secure",
+                hostname: "example.com",
+                headers: headers,
+                body: buffer("{")
+            )
+
+            #expect(response.status == .forbidden)
+        }
+    }
+
+    @Test
+    func actionGatewayMethodOverrideRejectsCrossOriginBeforeDecodingBody() async throws {
+        try await withSecurityApplication { application in
+            let handler = SecurityServerActionHandler()
+            let descriptor = ServerActionDescriptor(
+                handlerType: SecurityServerActionHandler.self,
+                method: .put,
+                path: "/secure",
+                inputType: NoActionInput.self,
+                outputType: ActionResult.self
+            ) { handler, input, context in
+                try await handler.submit(input, context: context)
+            }
+            try ActionGateway.register(
+                handler: handler,
+                descriptor: descriptor,
+                path: RoutePath("/secure"),
+                on: application,
+                application: application
+            )
+
+            var headers: HTTPFields = [:]
+            headers[.origin] = "https://evil.example"
+            headers[.contentType] = "application/json"
+            let response = try await application.testing().sendRequest(
+                .post,
+                "/secure",
                 hostname: "example.com",
                 headers: headers,
                 body: buffer("{")
@@ -352,13 +405,10 @@ struct SecurityTests {
                 security: context
             )
             let reference = ActionReference<NoActionInput, ActionResult>(
-                actorID: "CounterService",
-                actorName: "CounterService",
-                methodName: "increment",
-                targetIdentifier: "increment(_:context:)",
+                path: "/counter/increment",
+                httpMethod: .post,
                 inputType: "SwiftWeb.NoActionInput",
-                outputType: "SwiftWeb.ActionResult",
-                capabilityToken: "capability"
+                outputType: "SwiftWeb.ActionResult"
             )
 
             let rendered = await RequestContext.withValue(values) {
@@ -433,6 +483,12 @@ private struct SecurityUploadAction: UploadAction {
 
     func upload(_ context: UploadContext<NoParams, Input>) async throws -> ActionResult {
         .text(context.input.value)
+    }
+}
+
+private struct SecurityServerActionHandler: Sendable {
+    func submit(_ input: NoActionInput, context: ActionInvocationContext) async throws -> ActionResult {
+        .text("ok")
     }
 }
 

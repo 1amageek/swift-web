@@ -18,7 +18,7 @@ Client WASM loading is documented in [`docs/ClientBundleLoadingDesign.md`](../..
 | UI controls | Provides `Button`, server action reference buttons, `SubmitButton`, `TextField`, `SecureField`, `Toggle`, and links. |
 | Text components | Provides `Text`, semantic `TextElement` switching via `as`, `Heading`, and text tones. |
 | Containers | Provides `GroupBox`, `Section`, `List`, `ListRow`, and `Toolbar`. |
-| Color scheme | Provides `ColorScheme` light/dark palette values, `StyleSystem` component design values, `RootStylesheet`, and environment integration. |
+| Color scheme | Provides component-facing environment integration for color scheme and style system values. Host-neutral style values live in `SwiftWebUITheme`. |
 | Modifiers | Provides SwiftUI-like modifier graph wrappers for styles, attributes, frame, padding, alignment, accessibility, and events. |
 | Navigation | Provides `NavigationStack`, `NavigationLink`, `NavigationPath`, and `navigationTitle` metadata hooks. |
 
@@ -26,14 +26,14 @@ Client WASM loading is documented in [`docs/ClientBundleLoadingDesign.md`](../..
 
 | Directory | Responsibility |
 |---|---|
-| `Core/` | Shared primitives used by components, including axes, edges, spacing tokens, attributes, and modifiers. |
+| `Core/` | Shared primitives used by components, including axes, edges, UI-specific geometry, attributes, modifiers, and theme environment glue. |
 | `Components/Layout/` | Layout containers and sizing primitives such as `GridSystem`, `Pane`, stacks, grids, lazy stacks, `Spacer`, and `ScrollView`. |
 | `Components/Text/` | Text rendering, semantic tag switching through `as`, headings, and text block helpers. |
 | `Components/Controls/` | Interactive controls such as `Button`, forms, links, text fields, toggles, and submit controls. |
 | `Components/Navigation/` | Navigation containers, navigation links, paths, and title metadata hooks. |
 | `Components/Containers/` | Structural UI components such as group boxes, sections, lists, toolbars, and badges. |
 | `Components/Media/` | Media-oriented components such as `Image`. |
-| `Theming/` | Color scheme palettes, `StyleSystem` values, typed stylesheet defaults, environment integration, and scoped overrides. |
+| `SwiftWebUITheme` target | Color values, materials, `StyleSystem` values, root stylesheet defaults, utility classes, and host-neutral style primitives. |
 
 ## Boundaries
 
@@ -54,12 +54,12 @@ flowchart LR
 |---|---|
 | Lowercase raw HTML tags | `SwiftHTML` |
 | HTML graph construction and diffing | `SwiftHTML` |
-| Browser-independent WASM contracts | `SwiftHTML` |
+| Browser runtime descriptors and WASM asset routes | `SwiftWebBrowserRuntime` |
 | JavaScriptKit browser runtime adapter | `SwiftWebUIRuntime` |
 | Page metadata and document shell | `SwiftWeb` |
 | Route registration | `SwiftWeb` |
 | `@Page` expansion | `SwiftWebMacros` |
-| File watching and app generation | `SwiftWebCLI` |
+| File watching and app generation | `SwiftWebDevServer`, `SwiftWebPackageGeneration`, and `SwiftWebCLI` |
 
 ## Design Notes
 
@@ -135,7 +135,7 @@ flowchart LR
   A["Button"] --> B["ActionRepresentable"]
   B --> C["form-compatible transport"]
   D["SwiftWeb ActionReference"] --> B
-  C --> E["Route or SwiftWeb ActionGateway"]
+  C --> E["HTTP method + path"]
 ```
 
 This keeps visual components independent from Vapor and Distributed Actor runtime details.
@@ -148,7 +148,7 @@ This keeps visual components independent from Vapor and Distributed Actor runtim
 flowchart LR
   A["Button closure"] --> B["Client WASM handler"]
   C["Button ActionRepresentable"] --> D["form-compatible action transport"]
-  D --> E["SwiftWeb ActionGateway"]
+  D --> E["SwiftWeb page-local HTTP route"]
   F["SubmitButton in Form"] --> G["user-owned form submission"]
 ```
 

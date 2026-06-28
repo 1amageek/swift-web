@@ -1,36 +1,34 @@
-import Distributed
 import Foundation
 import Vapor
 
 public struct ServerActionDescriptor: Sendable {
-    public let actorName: String
-    public let methodName: String
-    public let targetIdentifier: String
+    public let method: ServerActionMethod
+    public let path: String
     public let inputType: String
     public let outputType: String
-    public let capabilityToken: String
     private let encodeInputData: @Sendable (Request) async throws -> Data
     private let encodeResponse: @Sendable (Data, Request) async throws -> Response
     private let invokeAction: @Sendable (any Sendable, Data, Data) async throws -> Data
 
-    public init<Act, Input, Output>(
-        actorType: Act.Type,
-        actorName: String,
-        methodName: String,
-        targetIdentifier: String? = nil,
+    public init<Handler, Input, Output>(
+        handlerType: Handler.Type,
+        method: ServerActionMethod,
+        path: String,
         inputType: Input.Type,
         outputType: Output.Type,
-        capabilityToken: String = "",
-        invoke: @Sendable @escaping (Act, Input, ActionInvocationContext) async throws -> Output
-    ) where Act: DistributedActor & Sendable, Input: Codable & Sendable, Output: Codable & Sendable {
-        self.actorName = actorName
-        self.methodName = methodName
-        self.targetIdentifier = targetIdentifier ?? methodName
+        invoke: @Sendable @escaping (Handler, Input, ActionInvocationContext) async throws -> Output
+    ) where Handler: Sendable, Input: Codable & Sendable, Output: Codable & Sendable {
+        self.method = method
+        self.path = path
         self.inputType = String(reflecting: Input.self)
         self.outputType = String(reflecting: Output.self)
-        self.capabilityToken = capabilityToken
         self.encodeInputData = { request in
-            let input = try await request.content.decode(Input.self)
+            let input: Input
+            if method == .get {
+                input = try request.query.decode(Input.self)
+            } else {
+                input = try await request.content.decode(Input.self)
+            }
             return try JSONEncoder().encode(input)
         }
         self.encodeResponse = { data, request in
@@ -45,13 +43,13 @@ public struct ServerActionDescriptor: Sendable {
                 body: .init(data: data)
             )
         }
-        self.invokeAction = { actor, inputData, contextData in
-            guard let typedActor = actor as? Act else {
-                throw Abort(.internalServerError, reason: "Server action actor type mismatch")
+        self.invokeAction = { handler, inputData, contextData in
+            guard let typedHandler = handler as? Handler else {
+                throw Abort(.internalServerError, reason: "Server action handler type mismatch")
             }
             let input = try JSONDecoder().decode(Input.self, from: inputData)
             let context = try JSONDecoder().decode(ActionInvocationContext.self, from: contextData)
-            let output = try await invoke(typedActor, input, context)
+            let output = try await invoke(typedHandler, input, context)
             return try JSONEncoder().encode(output)
         }
     }
@@ -60,8 +58,8 @@ public struct ServerActionDescriptor: Sendable {
         try await encodeInputData(request)
     }
 
-    func invoke(on actor: any Sendable, inputData: Data, contextData: Data) async throws -> Data {
-        try await invokeAction(actor, inputData, contextData)
+    func invoke(on handler: any Sendable, inputData: Data, contextData: Data) async throws -> Data {
+        try await invokeAction(handler, inputData, contextData)
     }
 
     func response(from data: Data, request: Request) async throws -> Response {

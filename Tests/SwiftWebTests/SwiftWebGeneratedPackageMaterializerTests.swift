@@ -2,7 +2,8 @@ import Foundation
 import Synchronization
 import Testing
 
-@testable import SwiftWebDevelopment
+@testable import SwiftWebPackageGeneration
+@testable import SwiftWebWasmBuild
 
 @Suite
 struct SwiftWebGeneratedPackageMaterializerTests {
@@ -426,13 +427,13 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     #expect(!developmentLauncher.contains("app-server-dev-dev"))
     #expect(wasmEntrypoint.contains("import SwiftWebUI"))
     #expect(wasmEntrypoint.contains("import SwiftWebUIRuntime"))
-    #expect(wasmEntrypoint.contains("ClientWasmBundleRuntimeEntrypoint"))
-    #expect(wasmEntrypoint.contains("ClientWasmComponentRegistration("))
+    #expect(wasmEntrypoint.contains("ClientBundleRuntimeEntrypoint"))
+    #expect(wasmEntrypoint.contains("ClientComponentRegistration("))
     #expect(wasmEntrypoint.contains("ClientSample.self"))
     #expect(wasmEntrypoint.contains("ClientBadge.self"))
     #expect(wasmEntrypoint.contains("ClientExtensionBox.self"))
     #expect(wasmEntrypoint.contains("makeSwiftWebWasmRoot"))
-    #expect(wasmEntrypoint.contains("ClientWasmBootstrapInitializable.Type"))
+    #expect(wasmEntrypoint.contains("ClientRuntimeBootstrapInitializable.Type"))
     #expect(wasmEntrypoint.contains("let root = try bootstrapType.init(bootstrap: request)"))
     #expect(
       FileManager.default.fileExists(
@@ -532,18 +533,18 @@ struct SwiftWebGeneratedPackageMaterializerTests {
           name: "swift-html",
           products: [
               .library(name: "SwiftHTML", targets: ["SwiftHTML"]),
-              .library(name: "SwiftHTMLEmbedded", targets: ["SwiftHTMLEmbedded"]),
+              .library(name: "SwiftHTMLClientRuntime", targets: ["SwiftHTMLClientRuntime"]),
           ],
           targets: [
               .target(name: "SwiftHTML"),
-              .target(name: "SwiftHTMLEmbedded"),
+              .target(name: "SwiftHTMLClientRuntime"),
           ]
       )
       """,
       to: swiftHTMLPackage.appendingPathComponent("Package.swift")
     )
     try writeSwiftHTMLRuntimeSources(in: swiftHTMLPackage)
-    try writeSwiftHTMLEmbeddedRuntimeSources(in: swiftHTMLPackage)
+    try writeSwiftHTMLClientRuntimeSources(in: swiftHTMLPackage)
     try write(
       """
       // swift-tools-version: 6.3
@@ -636,9 +637,9 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       encoding: .utf8
     )
 
-    #expect(wasmPackageSwift.contains("let swiftHTMLEmbeddedTarget = Target.target("))
-    #expect(wasmPackageSwift.contains("path: \"Sources/SwiftHTMLEmbedded\""))
-    #expect(wasmPackageSwift.contains("\"SwiftHTMLEmbedded\""))
+    #expect(wasmPackageSwift.contains("let swiftHTMLClientRuntimeTarget = Target.target("))
+    #expect(wasmPackageSwift.contains("path: \"Sources/SwiftHTMLClientRuntime\""))
+    #expect(wasmPackageSwift.contains("\"SwiftHTMLClientRuntime\""))
     #expect(wasmPackageSwift.contains("\"JavaScriptKit\""))
     #expect(!wasmPackageSwift.contains("let swiftHTMLTarget = Target.target("))
     #expect(!wasmPackageSwift.contains("let swiftWebUITarget = Target.target("))
@@ -648,7 +649,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     #expect(
       FileManager.default.fileExists(
         atPath: wasmSources.appendingPathComponent(
-          "SwiftHTMLEmbedded/EmbeddedHTMLDocument.swift"
+          "SwiftHTMLClientRuntime/ClientHTMLDocument.swift"
         ).path
       ))
     #expect(
@@ -674,11 +675,11 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         atPath: wasmSources.appendingPathComponent("SampleApp/ClientSample.swift").path
       ))
     #expect(wasmEntrypoint.contains("import JavaScriptKit"))
-    #expect(wasmEntrypoint.contains("import SwiftHTMLEmbedded"))
-    #expect(wasmEntrypoint.contains("SwiftWebEmbeddedRuntime"))
+    #expect(wasmEntrypoint.contains("import SwiftHTMLClientRuntime"))
+    #expect(wasmEntrypoint.contains("SwiftWebClientRuntime"))
     #expect(wasmEntrypoint.contains("data-swiftweb-runtime"))
     #expect(!wasmEntrypoint.split(separator: "\n").contains("import SwiftHTML"))
-    #expect(!wasmEntrypoint.contains("ClientWasmBundleRuntimeEntrypoint"))
+    #expect(!wasmEntrypoint.contains("ClientBundleRuntimeEntrypoint"))
   }
 
   @Test
@@ -773,7 +774,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
             "location" : "https://github.com/1amageek/swift-actor-runtime.git",
             "state" : {
               "revision" : "actor-runtime-revision",
-              "version" : "0.5.0"
+              "version" : "0.6.0"
             }
           }
         ],
@@ -855,7 +856,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     #expect(!wasmPackageResolved.contains("\"identity\" : \"vapor\""))
     #expect(
       wasmPackageSwift.contains(
-        ".package(url: \"https://github.com/1amageek/swift-actor-runtime.git\", exact: \"0.5.0\")"))
+        ".package(url: \"https://github.com/1amageek/swift-actor-runtime.git\", exact: \"0.6.0\")"))
   }
 
   @Test
@@ -1685,18 +1686,18 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     )
   }
 
-  private func writeSwiftHTMLEmbeddedRuntimeSources(in swiftHTMLPackage: URL) throws {
+  private func writeSwiftHTMLClientRuntimeSources(in swiftHTMLPackage: URL) throws {
     let sourceRoot = swiftHTMLPackage.appendingPathComponent(
-      "Sources/SwiftHTMLEmbedded",
+      "Sources/SwiftHTMLClientRuntime",
       isDirectory: true
     )
     try write(
-      "public protocol EmbeddedDOMHost {}",
-      to: sourceRoot.appendingPathComponent("EmbeddedDOMHost.swift")
+      "public protocol ClientDOMHost {}",
+      to: sourceRoot.appendingPathComponent("ClientDOMHost.swift")
     )
     try write(
-      "public struct EmbeddedHTMLDocument {}",
-      to: sourceRoot.appendingPathComponent("EmbeddedHTMLDocument.swift")
+      "public struct ClientHTMLDocument {}",
+      to: sourceRoot.appendingPathComponent("ClientHTMLDocument.swift")
     )
   }
 }

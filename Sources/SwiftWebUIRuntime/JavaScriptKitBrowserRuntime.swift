@@ -1,5 +1,9 @@
 #if os(WASI)
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#elseif canImport(Foundation)
 import Foundation
+#endif
 import JavaScriptKit
 import SwiftHTML
 import Synchronization

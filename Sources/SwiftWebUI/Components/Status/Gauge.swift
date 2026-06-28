@@ -1,3 +1,4 @@
+import SwiftWebUITheme
 import SwiftHTML
 
 /// A view that shows a value within a range, mirroring SwiftUI `Gauge`.

@@ -1,3 +1,4 @@
+import SwiftWebBrowserRuntime
 import Foundation
 import HTTPTypes
 import SwiftWebStyle

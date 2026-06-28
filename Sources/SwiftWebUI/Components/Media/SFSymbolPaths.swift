@@ -1,4 +1,4 @@
-import Foundation
+import SwiftWebUITheme
 
 /// Inline SVG markup for the SF Symbol identifiers SwiftWebUI can render on the
 /// web. The web has no access to the SF Symbols font, so `Image(systemName:)`

@@ -1,3 +1,4 @@
+import SwiftWebUITheme
 import SwiftHTML
 
 /// A control for selecting a color, mirroring SwiftUI `ColorPicker`.

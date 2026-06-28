@@ -84,7 +84,7 @@ public let catalogCategories: [CatalogCategory] = [
         CatalogItem(id: "securefield", name: "SecureField", code: "SecureField(text:) { }", summary: "Masked entry for secrets with autofill content-type semantics."),
         CatalogItem(id: "texteditor", name: "TextEditor", code: "TextEditor(text:)", summary: "Multi-line text entry that composes the thin material."),
         CatalogItem(id: "form", name: "Form", code: "Form(action:method:)", summary: "A Form posts to an action; SubmitButtons carry name and value."),
-        CatalogItem(id: "toggle", name: "Toggle", code: "Toggle(_:isOn:)", summary: "A boolean switch; the track composes the unified material."),
+        CatalogItem(id: "toggle", name: "Toggle", code: "Toggle(_:isOn:)", summary: "A boolean switch whose thumb is a Liquid Glass knob that refracts the track."),
         CatalogItem(id: "slider", name: "Slider", code: "Slider(value:in:step:)", summary: "A continuous value across a range with an optional step."),
         CatalogItem(id: "stepper", name: "Stepper", code: "Stepper(_:value:in:)", summary: "Increment or decrement a discrete value within bounds."),
         CatalogItem(id: "picker", name: "Picker", code: "Picker(selection:) { } label: { }", summary: "pickerStyle(_:) chooses dropdown, segmented, inline, or menu without changing the binding."),

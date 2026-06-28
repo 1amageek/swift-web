@@ -186,8 +186,8 @@ public struct StoryboardDetailIsland: ClientComponent, Sendable {
 }
 
 #if canImport(SwiftWebUIRuntime)
-extension StoryboardDetailIsland: ClientWasmBootstrapInitializable {
-    public init(bootstrap request: ClientWasmBootstrapRequest) throws {
+extension StoryboardDetailIsland: ClientRuntimeBootstrapInitializable {
+    public init(bootstrap request: ClientRuntimeBootstrapRequest) throws {
         self.init(initialSelection: Self.selection(from: request.location.href))
     }
 }

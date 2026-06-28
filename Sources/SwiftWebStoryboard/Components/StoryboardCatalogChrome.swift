@@ -184,6 +184,32 @@ struct CatalogInspector: Component {
                     inspectorLink("Related", anchor: "related")
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                VStack(alignment: .leading, spacing: .xsmall) {
+                    Text("Runtime Log")
+                        .font(Font(size: .px(11), weight: .bold))
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                        .kerning(0.5)
+                    Element(
+                        "pre",
+                        attributes: [
+                            .class("swui-storyboard-runtime-summary"),
+                            HTMLAttribute("data-swiftweb-runtime-summary", "true"),
+                        ]
+                    ) {
+                        "Runtime pending"
+                    }
+                    Element(
+                        "pre",
+                        attributes: [
+                            .class("swui-storyboard-runtime-log"),
+                            HTMLAttribute("data-swiftweb-runtime-log", "true"),
+                        ]
+                    ) {
+                        "Waiting for runtime events"
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(.horizontal, 18)
             .padding(.vertical, 22)

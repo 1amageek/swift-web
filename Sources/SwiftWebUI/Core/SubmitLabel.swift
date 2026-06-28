@@ -1,3 +1,4 @@
+import SwiftWebUITheme
 import SwiftHTML
 
 /// A semantic label for the keyboard submit/return key, mirroring SwiftUI

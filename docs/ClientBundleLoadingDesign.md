@@ -168,7 +168,9 @@ The resolver is intentionally smaller than a planner. It walks the rendered comp
 | `SwiftHTML` | Component graph, island metadata, state/environment schema hashes, diff and hydration primitives. | Deciding app-level WASM product layout. |
 | `SwiftWebUI` | SwiftUI-like `ClientComponent` authoring API, loading modifiers, and style/color-scheme environment values. | Serving assets or registering Vapor routes. |
 | `SwiftWeb` | Build a client manifest from rendered islands, host content-hashed WASM assets, and inject the browser loader. | Inferring arbitrary split points from usage frequency or bundle size. |
-| `SwiftWebDevelopment` | Materialize generated packages, build dirty WASM products, cache build stamps, and emit HMR events. | Owning the public component API. |
+| `SwiftWebPackageGeneration` | Materialize generated server/dev/WASM packages and inspect manifests. | Owning the public component API or serving browser assets. |
+| `SwiftWebWasmBuild` | Resolve WASM toolchains, process artifacts, cache compression metadata, and emit size reports. | Watching files or supervising dev workers. |
+| `SwiftWebDevServer` | Build dirty WASM products during development, cache build stamps, and emit HMR events. | Owning production artifact policy or public component APIs. |
 | `SwiftWebCLI` | Start dev/storyboard/build commands and delegate generation/build work to the runtime layers. | Implementing browser hydration or framework-specific component behavior. |
 
 This split keeps the app-facing API small while still allowing the build system to evolve. A future optimizer can read the same manifest and suggest policy changes, but it should not silently change bundle boundaries.
@@ -424,7 +426,7 @@ flowchart LR
   C -->|yes| D["reuse artifact"]
   C -->|no| E["swift build --product"]
   E --> F["write stamp"]
-  D --> G["ClientWasmHMRManifest"]
+  D --> G["ClientRuntimeHMRManifest"]
   F --> G
 ```
 

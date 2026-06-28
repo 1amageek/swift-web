@@ -1,3 +1,4 @@
+import SwiftWebUITheme
 struct ButtonStyleConfiguration: Sendable, Equatable {
     let prominence: ButtonProminence
     let controlSize: ControlSize

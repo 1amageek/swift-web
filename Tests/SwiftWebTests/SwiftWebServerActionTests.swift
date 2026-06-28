@@ -1,4 +1,3 @@
-import Distributed
 import Foundation
 import SwiftHTML
 @testable import SwiftWeb
@@ -9,29 +8,20 @@ import Vapor
 @Suite
 struct SwiftWebServerActionTests {
     @Test
-    func serverActionDescriptorInvokesTypedActorFunction() async throws {
+    func serverActionDescriptorInvokesTypedActorHandler() async throws {
         try await withApplication { application in
-            let service = RuntimeCounterService(actorSystem: .shared)
-            let reference = service.incrementAction
+            let service = RuntimeCounterService()
             try await PageOwnedServices.register(service, on: application)
             let action = try application.swiftWebServerActions.action(
-                actorName: reference.actorName,
-                methodName: reference.methodName,
-                metadata: ActionRequestMetadata(
-                    actorID: reference.actorID,
-                    actionName: reference.methodName,
-                    targetIdentifier: reference.targetIdentifier
-                )
+                method: .post,
+                path: "increment"
             )
             let context = ActionInvocationContext(
-                requestPath: reference.path,
-                method: "POST",
-                actorID: reference.actorID,
-                actionName: reference.methodName,
-                targetIdentifier: reference.targetIdentifier
+                requestPath: "/counter/increment",
+                method: "POST"
             )
             let data = try await action.descriptor.invoke(
-                on: action.actor,
+                on: action.handler,
                 inputData: try JSONEncoder().encode(NoActionInput()),
                 contextData: try JSONEncoder().encode(context)
             )
@@ -42,39 +32,79 @@ struct SwiftWebServerActionTests {
                 return
             }
 
+            #expect(action.path == "increment")
+            #expect(action.method == .post)
             #expect(scope == .page)
             #expect(status == .ok)
-            #expect(try await service.currentValue() == 1)
+            #expect(await service.currentValue() == 1)
         }
     }
 
     @Test
-    func actionReferenceCarriesStableInvocationIdentity() throws {
+    func serverActionDescriptorInvokesTypedClassHandler() async throws {
+        try await withApplication { application in
+            let handler = RuntimeClassActionHandler()
+            try await PageOwnedServices.register(handler, on: application)
+            let action = try application.swiftWebServerActions.action(
+                method: .put,
+                path: "submit"
+            )
+            let context = ActionInvocationContext(
+                requestPath: "/class/submit",
+                method: "PUT"
+            )
+            let data = try await action.descriptor.invoke(
+                on: action.handler,
+                inputData: try JSONEncoder().encode(TextActionInput(value: "saved")),
+                contextData: try JSONEncoder().encode(context)
+            )
+
+            let result = try JSONDecoder().decode(ActionResult.self, from: data)
+            guard case .redirect(let location, let status) = result else {
+                Issue.record("Server action invocation should redirect")
+                return
+            }
+
+            #expect(action.path == "submit")
+            #expect(action.method == .put)
+            #expect(location == "/class/saved")
+            #expect(status == .seeOther)
+        }
+    }
+
+    @Test
+    func actionReferenceCarriesHTTPContract() throws {
         let reference = ActionReference<NoActionInput, ActionResult>(
-            actorID: "CounterService",
-            actorName: "CounterService",
-            methodName: "increment",
-            targetIdentifier: "increment(_:context:)",
+            path: "/counter/increment",
+            httpMethod: .post,
             inputType: "SwiftWeb.NoActionInput",
-            outputType: "SwiftWeb.ActionResult",
-            capabilityToken: "token"
+            outputType: "SwiftWeb.ActionResult"
         )
 
         let data = try JSONEncoder().encode(reference)
         let decoded = try JSONDecoder().decode(ActionReference<NoActionInput, ActionResult>.self, from: data)
 
-        #expect(decoded.actorID == "CounterService")
-        #expect(decoded.actorName == "CounterService")
-        #expect(decoded.methodName == "increment")
-        #expect(decoded.targetIdentifier == "increment(_:context:)")
+        #expect(decoded.path == "/counter/increment")
+        #expect(decoded.httpMethod == .post)
+        #expect(decoded.method == .post)
         #expect(decoded.inputType == "SwiftWeb.NoActionInput")
         #expect(decoded.outputType == "SwiftWeb.ActionResult")
-        #expect(decoded.capabilityToken == "token")
-        #expect(decoded.path == "/_swiftweb/actions/CounterService/increment")
+        #expect(decoded.fields.isEmpty)
     }
 
     @Test
-    func actionResultIsCodableForDistributedActorTransport() throws {
+    func deleteActionReferenceRendersMethodOverrideFieldForForms() {
+        let reference = ActionReference<NoActionInput, ActionResult>(
+            path: "/counter/increment",
+            httpMethod: .delete
+        )
+
+        #expect(reference.method == .post)
+        #expect(reference.fields == [ActionField("__swiftweb_method", "DELETE")])
+    }
+
+    @Test
+    func actionResultIsCodableForServerActionTransport() throws {
         let result = ActionResult.redirect("/counter")
         let data = try JSONEncoder().encode(result)
         let decoded = try JSONDecoder().decode(ActionResult.self, from: data)
@@ -99,11 +129,8 @@ struct SwiftWebServerActionTests {
     @Test
     func invocationContextIsCodableAndDoesNotExposeRawRequest() throws {
         let context = ActionInvocationContext(
-            requestPath: "/_swiftweb/actions/CounterService/increment",
+            requestPath: "/counter/increment",
             method: "POST",
-            actorID: "CounterService",
-            actionName: "increment",
-            targetIdentifier: "increment(_:context:)",
             idempotencyKey: "request-key"
         )
 
@@ -112,30 +139,19 @@ struct SwiftWebServerActionTests {
 
         #expect(decoded.requestPath == context.requestPath)
         #expect(decoded.method == "POST")
-        #expect(decoded.actorID == "CounterService")
-        #expect(decoded.actionName == "increment")
-        #expect(decoded.targetIdentifier == "increment(_:context:)")
         #expect(decoded.idempotencyKey == "request-key")
     }
 
     @Test
-    func actionMetadataFieldsRenderRequiredGatewayMetadata() {
+    func actionMetadataFieldsRenderMethodOverrideOnlyWhenRequired() {
         let reference = ActionReference<NoActionInput, ActionResult>(
-            actorID: "CounterService",
-            actorName: "CounterService",
-            methodName: "increment",
-            targetIdentifier: "increment(_:context:)",
-            inputType: "SwiftWeb.NoActionInput",
-            outputType: "SwiftWeb.ActionResult",
-            capabilityToken: "token"
+            path: "/counter/increment",
+            httpMethod: .put
         )
 
         let rendered = ActionMetadataFields(reference).render()
 
-        #expect(rendered.contains("<input type=\"hidden\" name=\"__swiftweb_actor_id\" value=\"CounterService\">"))
-        #expect(rendered.contains("<input type=\"hidden\" name=\"__swiftweb_action\" value=\"increment\">"))
-        #expect(rendered.contains("<input type=\"hidden\" name=\"__swiftweb_target\" value=\"increment(_:context:)\">"))
-        #expect(rendered.contains("<input type=\"hidden\" name=\"__swiftweb_action_token\" value=\"token\">"))
+        #expect(rendered.contains("<input type=\"hidden\" name=\"__swiftweb_method\" value=\"PUT\">"))
     }
 
     private func withApplication(
@@ -152,17 +168,27 @@ struct SwiftWebServerActionTests {
     }
 }
 
-private distributed actor RuntimeCounterService {
-    typealias ActorSystem = WebActorSystem
+private actor RuntimeCounterService {
     private var value = 0
 
-    distributed func currentValue() async throws -> Int {
+    func currentValue() -> Int {
         value
     }
 
-    @ServerAction
+    @ServerAction(.post, "increment")
     func increment(_ input: NoActionInput, context: ActionInvocationContext) async throws -> ActionResult {
         value += 1
         return .invalidate(.page)
+    }
+}
+
+private struct TextActionInput: Codable, Sendable {
+    let value: String
+}
+
+private final class RuntimeClassActionHandler: Sendable {
+    @ServerAction(.put, "submit")
+    func submit(_ input: TextActionInput, context: ActionInvocationContext) throws -> ActionResult {
+        .redirect("/class/\(input.value)")
     }
 }

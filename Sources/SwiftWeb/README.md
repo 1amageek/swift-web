@@ -1,6 +1,6 @@
 # SwiftWebCore
 
-SwiftWebCore is the current page/runtime target for SwiftHTML. It still owns Vapor-backed route lowering, request context, route actions, streaming, uploads, WebSocket/SSE registration, HTML responses, production runtime hooks, and hosted WASM runtime assets while the host adapter split is underway. It does not own the visual component library, the HTML graph engine, or the development watch/HMR implementation.
+SwiftWebCore is the current page/runtime target for SwiftHTML. It owns Vapor-backed route lowering, request context, route actions, streaming, uploads, WebSocket/SSE registration, HTML responses, production runtime hooks, and the app-facing browser runtime configuration surface. Browser runtime descriptors, rendered HTML injection, and hosted WASM runtime assets live in `SwiftWebBrowserRuntime`. SwiftWebCore does not own the visual component library, the HTML graph engine, or the development watch/HMR implementation.
 
 This README describes the current Vapor-backed runtime target. The target architecture separates the host-neutral app/runtime model from host adapters such as Vapor and Cloudflare; see [`../../docs/PlatformHostArchitecture.md`](../../docs/PlatformHostArchitecture.md).
 
@@ -15,11 +15,11 @@ This README describes the current Vapor-backed runtime target. The target archit
 | Request context | Provides request-scoped values, params, search params, route environment, and session access. |
 | Responses | Wraps page bodies in `PageDocument` and converts rendered SwiftHTML artifacts into Vapor `Response` values. |
 | Actions | Provides route actions, form/button server action gateway contracts, `ClientAction`, `ActionResult`, `ActionReference`, and action contexts. |
-| Actor gateway | Hosts the Vapor gateway for ActorRuntime invocation envelopes. The shared distributed actor system lives in `SwiftWebActors`. |
+| Action gateway contract | Server Action contracts live in SwiftWebCore. The ActorRuntime gateway for `@Resolvable` RPC lives in `SwiftWebVaporWebActors` and uses `SwiftWebActors`. |
 | Streaming | Defines `StreamingPage`, `StreamWriter`, `SSERoute`, and SSE event types. End-to-end delivery depends on Vapor HTTP response streaming support. |
 | Uploads | Provides upload route registration and upload context types. |
 | WebSockets | Provides WebSocket route registration and context wrappers. |
-| WASM hosting | Serves runtime host scripts, JavaScriptKit runtime support, manifests, and WASM assets. |
+| Browser runtime configuration | Defines app-facing client runtime configuration and delegates browser descriptors, HTML injection, and WASM hosting to `SwiftWebBrowserRuntime`. |
 | Development hook boundary | Provides no-op production hooks that `SwiftWebDevelopment` can install during `sweb dev`. |
 
 ## Directory Layout
@@ -29,12 +29,10 @@ This README describes the current Vapor-backed runtime target. The target archit
 | `App/` | Declarative application composition, redirects, page/action registration, route endpoints, optional `AppServices`, and WASM bundle mounting. |
 | `Core/` | Public page protocols, page metadata, cache policy, query defaults, and macro exports. |
 | `Routing/` | Vapor route lowering, request context, route environment, parameter decoding, and HTML response conversion. |
-| `Actions/` | Form actions, upload actions, typed server action references, Vapor actor gateway invocation, and action results. |
+| `Actions/` | Form actions, upload actions, typed server action references, action gateway contracts, and action results. |
 | `Streaming/` | Streaming pages, stream writer, SSE route registration, and SSE event/context types. |
 | `Realtime/` | WebSocket route registration and socket context wrappers. |
-| `Runtime/Client/` | Client runtime descriptors, render options, and rendered HTML runtime injection. |
 | `Runtime/DevelopmentSupport/` | No-op production hook registry used by `SwiftWebDevelopment` when a dev child server is launched. |
-| `Runtime/Wasm/` | Hosted WASM runtime routes, host script, JavaScriptKit runtime support, and asset serving. |
 | `Runtime/Diagnostics/` | Debug diagnostics emitted during rendering and hydration setup. |
 
 ## Route Lowering Model
@@ -70,7 +68,7 @@ flowchart TD
   A -. optional .-> S["AppServiceBuilder"]
   S -.-> G["AppServices.register(on:)"]
   G -.-> D
-  D --> F["ActionGateway / WebActorGateway"]
+  D --> F["ActionGateway"]
 ```
 
 `body`, `services`, and `clientRuntime` are intentionally separate. Routes describe the HTTP surface, optional app services describe shared application-level capabilities, and client runtime describes how browser-side WASM is hosted. Page-specific services should normally be stored on the page that uses them.
@@ -223,7 +221,7 @@ route-specific checks belong in request-time surfaces that can read `@Session`.
 
 ## Development Boundary
 
-The application runtime model lives in `SwiftWebCore`. The public `SwiftWeb` product is a thin facade that re-exports `SwiftWebCore` and exposes source macros such as `@Page` and `@ServerAction`. Vapor server execution lives in `SwiftWebVapor`, which provides `App.run()` and the Vapor `Application` lifecycle. The long-lived dev host uses `SwiftWebDevelopment`; the short-lived Vapor worker imports `SwiftWebVapor` and installs the smaller `SwiftWebDevelopmentHooks` runtime before `App.run()`.
+The application runtime model lives in `SwiftWebCore`. The public `SwiftWeb` product is a thin facade that re-exports `SwiftWebCore` and exposes source macros such as `@Page` and `@ServerAction`. Browser runtime descriptors and WASM asset routes live in `SwiftWebBrowserRuntime`. Vapor server execution lives in `SwiftWebVapor`, which provides `App.run()` and the Vapor `Application` lifecycle. The long-lived dev host uses `SwiftWebDevServer` through the `SwiftWebDevelopment` facade; the short-lived Vapor worker imports `SwiftWebVapor` and installs the smaller `SwiftWebDevelopmentHooks` runtime before `App.run()`.
 
 Custom Vapor embedders that call `AppRunner.configure(_:)` directly must keep the returned `AppRunnerInstallation` and call `shutdown()` when the host application stops. `shutdown()` cancels development parent monitoring and clears the shared web actor registry; `shutdown(_:)` also shuts down the provided Vapor application.
 
@@ -231,28 +229,34 @@ Custom Vapor embedders that call `AppRunner.configure(_:)` directly must keep th
 flowchart LR
   A["user app source"] --> B["SwiftWeb facade"]
   B --> C["SwiftWebCore runtime"]
-  C --> D["host-neutral app model"]
-  D --> E["SwiftWebVapor"]
-  F["SwiftWebDevLauncher"] --> G["SwiftWebDevelopment"]
-  G --> H["DevHost / watcher / builder"]
-  H --> I["app-server-dev worker"]
-  I --> J["SwiftWebDevelopmentHooksRuntime.install()"]
-  J --> K["HMR routes / HTML injection / worker monitor"]
+  C --> D["SwiftWebBrowserRuntime"]
+  C --> E["host-neutral app model"]
+  E --> F["SwiftWebVapor"]
+  G["SwiftWebDevLauncher"] --> H["SwiftWebDevelopment facade"]
+  H --> I["SwiftWebDevServer"]
+  I --> J["app-server-dev worker"]
+  J --> K["SwiftWebDevelopmentHooksRuntime.install()"]
+  K --> L["HMR routes / HTML injection / worker monitor"]
 ```
 
 | Mechanism | Responsibility |
 |---|---|
-| `SwiftWebCore` product | Contains route/action/page/WASM hosting runtime and no source macro dependency. |
+| `SwiftWebCore` product | Contains route/action/page runtime contracts and no source macro dependency. |
+| `SwiftWebBrowserRuntime` product | Contains browser runtime descriptors, WASM asset route helpers, and HTML runtime injection. |
 | `SwiftWeb` product | Public facade for app source that re-exports `SwiftWebCore` and provides macros. |
 | `SwiftWebVapor` product | Provides Vapor host execution, `App.run()`, middleware installation, and native/container server lifecycle. |
-| `SwiftWebDevelopment` product | Contains generated package materialization, FSEvents watching, HMR events, reload fallback, artifact cleanup, and dev process supervision. |
+| `SwiftWebDevelopment` product | Re-exports development modules for CLI/generated launcher convenience. |
 | `SwiftWebDevelopmentHooks` product | Contains only worker-side development hooks and typed HMR contracts needed inside the Vapor worker. |
+| `SwiftWebPackageGeneration` product | Contains generated package materialization and package manifest inspection. |
+| `SwiftWebDevServer` product | Contains FSEvents watching, HMR events, reload fallback, DevHost proxying, artifact cleanup, and dev process supervision. |
+| `SwiftWebWasmBuild` product | Contains WASM toolchain resolution, artifact processing, size reports, and compression sidecars. |
+| `SwiftWebStoryboardTooling` product | Contains managed Storyboard package scaffold and launch tooling. |
 | Generated server package | Builds the production `app-server` product without linking `SwiftWebDevelopment`. |
 | Generated dev package | Builds the dev launcher and the dev child server product that installs `SwiftWebDevelopmentHooks`. |
 
 ### Streaming Runtime Boundary
 
-`StreamingPage` and `SSERoute` lower to Vapor streaming responses, so application-level SSE delivery depends on Vapor's HTTP response-body streaming implementation. The development HMR EventSource endpoint is different: it is served by `SwiftWebDevelopment`'s persistent DevHost, which uses a streaming-capable HTTP server and proxies to the current Vapor worker.
+`StreamingPage` and `SSERoute` lower to Vapor streaming responses, so application-level SSE delivery depends on Vapor's HTTP response-body streaming implementation. The development HMR EventSource endpoint is different: it is served by `SwiftWebDevServer`'s persistent DevHost, which uses a streaming-capable HTTP server and proxies to the current Vapor worker.
 
 ```mermaid
 flowchart LR
@@ -260,7 +264,7 @@ flowchart LR
   B --> C{"Vapor writes streaming body?"}
   C -->|supported| D["application EventSource delivery"]
   C -->|not supported| E["API complete, delivery blocked"]
-  F["Development HMR"] --> G["SwiftWebDevelopment DevHost"]
+  F["Development HMR"] --> G["SwiftWebDevServer DevHost"]
   G --> H["typed EventSource events"]
 ```
 
@@ -270,7 +274,7 @@ WASM builds use the same generated package boundary but switch to a client-only 
 
 Client bundle loading is contract-first and documented in [`docs/ClientBundleLoadingDesign.md`](../../docs/ClientBundleLoadingDesign.md). `SwiftWeb` hosts resolved manifests and content-hashed WASM assets; `ClientComponent` contracts and modifiers decide bundle/load policy, while the runtime validates those contracts and serves the resulting assets. Same-origin browser navigation for WASM pages is defined in [`docs/ClientNavigationDesign.md`](../../docs/ClientNavigationDesign.md).
 
-WASM asset routes are sidecar-aware. If a built artifact has `.wasm.br` or `.wasm.gz` siblings, `SwiftWeb` selects the best accepted variant from `Accept-Encoding` and sets `Content-Encoding` plus `Vary: Accept-Encoding`. The production artifact processor that creates those sidecars lives in `SwiftWebDevelopment` / `sweb build --wasm`; `SwiftWeb` only owns HTTP serving.
+WASM asset routes are sidecar-aware. If a built artifact has `.wasm.br` or `.wasm.gz` siblings, `SwiftWeb` selects the best accepted variant from `Accept-Encoding` and sets `Content-Encoding` plus `Vary: Accept-Encoding`. The production artifact processor that creates those sidecars lives in `SwiftWebWasmBuild` and is invoked by `sweb build --wasm`; `SwiftWeb` only owns HTTP serving.
 
 ## Server Interaction Methods
 
@@ -279,54 +283,49 @@ SwiftWeb intentionally supports two server interaction methods. They are related
 ```mermaid
 flowchart TD
   A["UI event from rendered page"] --> B["Server Action"]
-  B --> C["ActionReference"]
-  C --> D["ActionGateway"]
+  B --> C["ActionReference method + path"]
+  C --> D["page-local HTTP route"]
   D --> E["ActionResult invalidate / redirect / response"]
 
   F["Client WASM service call"] --> G["@Resolvable protocol"]
   G --> H["$Protocol.resolve(id:using:)"]
-  H --> I["WebActorGateway"]
+  H --> I["WebActorGateway from SwiftWebVaporWebActors"]
   I --> J["typed distributed actor result"]
 ```
 
 | Method | Use when | Developer-facing API | Runtime path | Result model |
 |---|---|---|---|---|
-| Server Action | A button/form intentionally mutates server state and the page should refresh, redirect, or return a command result. | `@ServerAction` + generated `ActionReference` consumed by `Button`/`Form`. | HTML form/action metadata -> `ActionGateway` -> registered server action invoker. | `ActionResult` or another typed codable output. |
+| Server Action | A button/form intentionally mutates server state and the page should refresh, redirect, or return a command result. | `@ServerAction` + generated `ActionReference` consumed by `Button`/`Form`. | HTTP method + path -> page-local Vapor route -> generated action bridge. | `ActionResult` or another typed codable output. |
 | Resolvable RPC | Client WASM needs to talk to a typed service directly, especially for stateful sessions or repeated service calls. | Apple `@Resolvable protocol` + `$Protocol.resolve(id:using:)`. | ActorRuntime envelope -> `WebActorGateway` -> `WebActorSystem`. | Direct typed `distributed func` return value. |
 
 `ActionReference` is a form/action handle. It is not Apple's `@Resolvable` model. Client-visible typed service APIs should use an `@Resolvable` protocol. Conversely, a `@Resolvable` protocol is not a replacement for a page mutation action when the intended result is page invalidation.
 
 | Question | Prefer |
 |---|---|
-| Does this start from a rendered button or form and should refresh server-rendered UI? | Server Action |
+| Does this start from a rendered button or form and submit ordinary HTTP? | Server Action |
 | Does this need direct typed calls from a ClientComponent running in WASM? | Resolvable RPC |
 | Does this need long-lived conversational/session state such as chat, terminal, game room, or collaborative document state? | Resolvable RPC |
-| Does this mutate server data and then re-render the current page while preserving client state? | Server Action |
+| Does this mutate server data through a page-local HTTP endpoint? | Server Action |
 
 ### Server Action Flow
 
-Server Action is the typed command boundary from SwiftWeb UI into server-side code. It is not a hand-written Vapor request handler, not a render-time closure registry, and not the `@Resolvable` RPC path.
+Server Action is the typed HTTP boundary from a SwiftWeb page into server-side code. It is not the `@Resolvable` RPC path and it does not expose an actor method. A server action is a page-local HTTP endpoint with a method and path.
 
 ```mermaid
 flowchart TD
-  A["Button / Form"] --> B["ActionReference"]
-  B --> C["Vapor ActionGateway"]
-  C --> D["auth / csrf / rate limit / decode"]
-  D --> E["ServerActionRegistry"]
-  E --> F["typed descriptor invoker"]
-  F --> G["generated action bridge"]
-  G --> H["normal actor method"]
-  H --> I["DB / queue / LLM / external API"]
-  I --> J["ActionResult"]
+  A["@Page('/reservations')"] --> B["@ServerAction(.post, 'reserve')"]
+  C["Button / Form"] --> D["POST /reservations/reserve"]
+  D --> E["auth / csrf / rate limit / decode"]
+  E --> F["typed handler"]
+  F --> G["ActionResult / Codable output"]
 ```
 
-In the current implementation, `@ServerAction` is attached to a normal method on a `distributed actor` because the registry uses actor identity and the generated descriptor stores an actor-bound invoker. The macro generates an internal invocation bridge for the runtime. The action method itself is not distributed; Server Action is a page command model, not the `@Resolvable` RPC model.
+`@ServerAction` is attached to an instance method on a page or page-owned server handler. The action has an HTTP method and a path. Relative paths are resolved under the owning page path; absolute paths are registered as written.
 
 ```swift
-distributed actor ReservationService {
-    typealias ActorSystem = WebActorSystem
-
-    @ServerAction
+@Page("/reservations")
+struct ReservationsPage {
+    @ServerAction(.post, "reserve")
     func reserve(
         _ input: ReservationInput,
         context: ActionInvocationContext
@@ -336,25 +335,25 @@ distributed actor ReservationService {
 }
 ```
 
-`@ServerAction` generates a runtime descriptor and an instance-owned action reference. Page-owned services are registered by `@Page` when the stored service uses `WebActorSystem`, so `Scene` does not need per-method route declarations.
+The generated action reference is a typed HTTP endpoint. It carries the resolved path and HTTP method, not a handler name, action identity, target identifier, or actor metadata.
 
-The UI consumes the generated action reference. It should not hold a server closure.
+The UI consumes the generated action reference. It should not hold a server closure or remote actor stub.
 
 ```swift
-Button("Reserve", action: reservationService.reserveAction)
+Button("Reserve", action: reserveAction)
 ```
 
-The UI should pass the generated `ActionReference` directly. An extra server-specific button wrapper is intentionally not part of the public API because the function annotation already declares the server boundary.
+HTML forms can submit `GET` and `POST` directly. `PUT` and `DELETE` actions are still first-class HTTP server actions for client runtimes and can be submitted from plain forms through method override when rendered as a form.
 
-Server Action should be the default for page-driven mutation:
+Server Action should be the default for page-local HTTP work:
 
 | Trait | Server Action behavior |
 |---|---|
-| Transport | HTTP POST through Vapor action routes. |
-| Security | Same-origin, CSRF, capability token, auth middleware, and rate limiting happen before invocation. |
-| State ownership | Server service owns the mutation; client state is not the source of truth. |
+| Transport | HTTP `GET`, `POST`, `PUT`, or `DELETE` through Vapor routes. |
+| Security | Same-origin, CSRF, auth middleware, and rate limiting happen before invocation. |
+| State ownership | The page or page-owned service owns the HTTP handler; client state is not the source of truth. |
 | UI update | `ActionResult.invalidate(.page)` refreshes server-rendered DOM while preserving compatible ClientComponent state. |
-| API shape | The UI receives an `ActionReference`, not a remote actor stub. |
+| API shape | The UI receives an `ActionReference` with method and path, not a remote actor stub. |
 
 ### Resolvable Distributed Services
 
@@ -396,13 +395,13 @@ flowchart LR
   A["Client WASM"] --> B["$ServiceProtocol.resolve"]
   B --> C["WebActorSystem remote stub"]
   C --> D["JavaScriptKitWebActorTransport"]
-  D --> E["Vapor WebActorGateway"]
+  D --> E["SwiftWebVaporWebActors WebActorGateway"]
   E --> F["WebActorSystem.shared.invoke"]
   F --> G["distributed actor service"]
   G --> H["ResponseEnvelope"]
 ```
 
-`WebActorGateway` is mounted at `/_swiftweb/actors/invoke`. It validates state-changing request security, decodes the raw ActorRuntime `InvocationEnvelope`, dispatches through `WebActorSystem.shared`, and returns a `ResponseEnvelope`. Browser WASM clients use `SwiftWebUIRuntime.JavaScriptKitWebActorTransport` to post the envelope with same-origin credentials and the active CSRF header from the runtime security descriptor.
+`WebActorGateway` is provided by `SwiftWebVaporWebActors` and is mounted at `/_swiftweb/actors/invoke` only when that adapter is imported and registered. It validates state-changing request security, decodes the raw ActorRuntime `InvocationEnvelope`, dispatches through `WebActorSystem.shared`, and returns a `ResponseEnvelope`. Browser WASM clients use `SwiftWebUIRuntime.JavaScriptKitWebActorTransport` to post the envelope with same-origin credentials and the active CSRF header from the runtime security descriptor.
 
 Resolvable RPC should be the default for client-owned interaction loops:
 
@@ -443,28 +442,24 @@ active client islands.
 
 ### Vapor Architecture
 
-Vapor hosts the transport and security boundary. The service execution boundary remains a typed actor method on a registered distributed actor service, reached through the macro-generated action bridge. SwiftWeb does not reconstruct compiler-internal mangled distributed targets from form metadata.
+Vapor hosts the transport and security boundary. For Server Action, the service execution boundary is a typed method on a registered handler, reached through the macro-generated action bridge. SwiftWeb does not reconstruct compiler-internal distributed targets from form metadata. Direct `@Resolvable` RPC remains a separate WebActor path.
 
 | Layer | Responsibility |
 |---|---|
-| `SwiftWebActors.WebActorSystem` | Provides the local Distributed Actor system and ActorRuntime-backed registry primitives. |
-| `Application.swiftWebServerActions` | Holds generated action descriptors, actor identities, and typed invokers exposed to the gateway. |
+| `Application.swiftWebServerActions` | Holds generated action descriptors keyed by HTTP method and path. |
 | Vapor middleware | Provides session, authentication, CSRF, rate limiting, tracing, and request IDs. |
-| `ActionGateway` | Decodes input, builds `ActionInvocationContext`, resolves the registered action, invokes the generated action bridge, maps errors, and encodes `ActionResult`. |
-| `WebActorGateway` | Receives raw ActorRuntime invocation envelopes for `@Resolvable` distributed service calls. |
-| Distributed Actor service | Owns server state, domain mutation, external side effects, and session-scoped behavior. |
+| `ActionGateway` | Registers page-local action routes, decodes input, builds `ActionInvocationContext`, invokes the generated action bridge, maps errors, and encodes `ActionResult`. |
+| `SwiftWebVaporWebActors.WebActorGateway` | Receives raw ActorRuntime invocation envelopes for `@Resolvable` distributed service calls. |
+| Page or service handler | Owns server state, domain mutation, external side effects, and session-scoped behavior. |
 
 ```mermaid
 sequenceDiagram
-  participant C as Client Runtime
-  participant G as Vapor ActionGateway
-  participant R as ServerActionRegistry
-  participant A as Service Actor
+  participant C as Browser
+  participant G as Vapor route
+  participant A as Page action
 
-  C->>G: ActionReference + Input
-  G->>G: auth / csrf / decode / validate
-  G->>R: resolve actor identity + descriptor
-  R-->>G: typed invoker
+  C->>G: HTTP method + path + input
+  G->>G: auth / csrf / decode
   G->>A: generated action bridge
   A-->>G: ActionResult
   G-->>C: reload / redirect / patch / validation error
@@ -472,38 +467,32 @@ sequenceDiagram
 
 ### Action Reference Metadata
 
-Generated server actions should export stable action metadata into the rendered form/hydration surface. The metadata identifies the actor instance, method, target identifier, input/output type names, and optional capability token. It does not resolve to a remote actor proxy by itself.
+Generated server actions export HTTP metadata into the rendered form or hydration surface. The metadata identifies the endpoint path and method. It does not resolve to a remote actor proxy by itself.
 
 ```swift
 public struct ActionReference<Input, Output>: Sendable, Codable
 where Input: Codable & Sendable, Output: Sendable {
-    public let actorID: String
-    public let actorName: String
-    public let methodName: String
-    public let targetIdentifier: String
-    public let inputType: String
-    public let outputType: String
-    public let capabilityToken: String
+    public let path: String
+    public let httpMethod: ServerActionMethod
 }
 ```
 
-Service actors can be singleton services or session services.
+Server action methods may live directly on a page or on a page-owned service.
 
-| Service type | Actor identity | Use cases |
+| Location | Path behavior | Use cases |
 |---|---|---|
-| Singleton service | Fixed application actor ID | Reservation, billing, publishing, cache invalidation, background job enqueue. |
-| Session service | User, chat, document, game, or terminal actor ID | AI chat sessions, collaborative editing, terminal sessions, game rooms, workflow state. |
+| Page method | Relative action paths are resolved under the page path. | One-page forms, settings, login, contact, reservation. |
+| Page-owned service | Relative action paths are resolved under the owning page path when the stored service conforms to `PageOwnedServerActions`. | Shared page-local domain handlers and dependency-injected services. |
 
-`ActionInvocationContext` should be a normalized, sendable context. It must not expose raw `Vapor.Request` to the actor method.
+Stored page properties are not scanned as implicit server handlers. A stored service opts into page-local route registration by conforming to `PageOwnedServerActions`; ordinary stored values are ignored by the action registrar.
+
+`ActionInvocationContext` should be a normalized, sendable context. It must not expose raw `Vapor.Request` to the action handler.
 
 ```swift
 public struct ActionInvocationContext: Sendable, Codable {
     public let id: UUID
     public let requestPath: String
     public let method: String
-    public let actorID: String?
-    public let actionName: String?
-    public let targetIdentifier: String?
     public let idempotencyKey: String?
 }
 ```
@@ -527,7 +516,7 @@ public struct ActionInvocationContext: Sendable, Codable {
 - Page `body` returns page content only; `PageDocument` owns `html`, `head`, `title`, metadata, and `body`.
 - `title`, `description`, and `language` are async page properties so they may read request context or server-side stores.
 - Server Action represents explicit intent to mutate server-side state or call a server-side service.
-- The current Server Action implementation uses distributed actor backing for identity and typed invocation, but Server Action remains a page command model, not the `@Resolvable` RPC model.
+- Server Action uses an HTTP method and path plus typed handler invocation, and remains a page command model, not the `@Resolvable` RPC model.
 - Server Action references are form/action metadata; client-side typed service calls use Apple `@Resolvable` protocols and `WebActorSystem`.
 - Render-time anonymous server closures are not the canonical Server Action model and must not be used for distributed or production service boundaries.
 - Server-only values are explicit and must not leak into client components.

@@ -1,3 +1,4 @@
+import SwiftWebBrowserRuntime
 import HTTPTypes
 import Vapor
 

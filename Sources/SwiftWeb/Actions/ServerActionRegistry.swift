@@ -1,6 +1,4 @@
-import Distributed
 import Foundation
-import SwiftWebActors
 import Synchronization
 import Vapor
 
@@ -13,72 +11,51 @@ public final class ServerActionRegistry: Sendable {
 
     public init() {}
 
-    public func register<Act>(
-        actor: Act,
-        descriptor: ServerActionDescriptor
-    ) where Act: DistributedActor & Sendable, Act.ID == WebActorSystem.ActorID, Act.ActorSystem == WebActorSystem {
+    public func register<Handler>(
+        handler: Handler,
+        descriptor: ServerActionDescriptor,
+        path: String? = nil
+    ) throws where Handler: Sendable {
         let action = RegisteredServerAction(
-            actorID: actor.id,
-            actor: actor,
-            actorName: descriptor.actorName,
-            methodName: descriptor.methodName,
-            targetIdentifier: descriptor.targetIdentifier,
-            capabilityToken: descriptor.capabilityToken,
+            path: path ?? descriptor.path,
+            method: descriptor.method,
+            handler: handler,
             descriptor: descriptor
         )
-        state.withLock { state in
+        try state.withLock { state in
+            if state.actions[action.key] != nil {
+                throw Abort(.conflict, reason: "Server action route is already registered")
+            }
             state.actions[action.key] = action
         }
     }
 
     func action(
-        actorName: String,
-        methodName: String,
-        metadata: ActionRequestMetadata
+        method: ServerActionMethod,
+        path: String
     ) throws -> RegisteredServerAction {
-        guard let actorID = metadata.actorID else {
-            throw Abort(.forbidden, reason: "Server action actor identity is missing")
-        }
-        guard metadata.actionName == nil || metadata.actionName == methodName else {
-            throw Abort(.forbidden, reason: "Server action name mismatch")
-        }
-
-        let key = ServerActionKey(actorID: actorID, methodName: methodName)
+        let key = ServerActionKey(method: method, path: path)
         guard let action = state.withLock({ $0.actions[key] }) else {
-            throw Abort(.notFound, reason: "Server action is not registered")
-        }
-        guard action.actorName == actorName else {
-            throw Abort(.forbidden, reason: "Server action actor type mismatch")
-        }
-        guard metadata.targetIdentifier == nil || metadata.targetIdentifier == action.targetIdentifier else {
-            throw Abort(.forbidden, reason: "Server action target mismatch")
-        }
-        if !action.capabilityToken.isEmpty {
-            guard metadata.capabilityToken == action.capabilityToken else {
-                throw Abort(.forbidden, reason: "Server action capability token mismatch")
-            }
+            throw Abort(.notFound, reason: "Server action route is not registered")
         }
         return action
     }
 }
 
 struct RegisteredServerAction: Sendable {
-    let actorID: String
-    let actor: any Sendable
-    let actorName: String
-    let methodName: String
-    let targetIdentifier: String
-    let capabilityToken: String
+    let path: String
+    let method: ServerActionMethod
+    let handler: any Sendable
     let descriptor: ServerActionDescriptor
 
     var key: ServerActionKey {
-        ServerActionKey(actorID: actorID, methodName: methodName)
+        ServerActionKey(method: method, path: path)
     }
 }
 
 struct ServerActionKey: Hashable, Sendable {
-    let actorID: String
-    let methodName: String
+    let method: ServerActionMethod
+    let path: String
 }
 
 private struct ServerActionRegistryStorageKey: StorageKey {

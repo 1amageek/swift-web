@@ -1,4 +1,9 @@
+import SwiftWebUITheme
+#if os(WASI)
+import WASILibc
+#else
 import Foundation
+#endif
 
 /// A linear gradient style that lowers to a CSS `linear-gradient()`, mirroring
 /// SwiftUI's `LinearGradient(colors:startPoint:endPoint:)`. Usable anywhere a

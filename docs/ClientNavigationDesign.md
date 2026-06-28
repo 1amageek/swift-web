@@ -154,6 +154,7 @@ body DOM; executable script handling remains owned by the already loaded runtime
 |---|---|
 | Runtime metrics | Record navigation start, complete, fallback, and failure events. |
 | Storyboard E2E | Sidebar clicks must update the selected page, keep exactly one current sidebar link, and avoid a full WASM runtime restart. |
+| Storyboard runtime log | Storyboard must show the active runtime phase, WASM summary, and recent navigation events in the browser UI. |
 | Asset reuse | Repeated Storyboard navigation must not transfer the 57 MB WASM body after cache validation. |
 | Console | Same-origin navigation must not emit runtime errors. |
 | History | Back and forward must restore route content and selected navigation state. |
@@ -166,4 +167,5 @@ body DOM; executable script handling remains owned by the already loaded runtime
 | `SwiftWebUI` | Render semantic anchors and optional navigation metadata. |
 | `SwiftWeb` WASM host | Intercept eligible anchors, fetch SSR documents, merge, rebootstrap, and manage history. |
 | `SwiftWebUIRuntime` | Rebuild client component sessions from the new bootstrap request and compatible state store. |
-| `SwiftWebDevelopment` | Verify Storyboard and HMR behavior against the same runtime contract. |
+| `SwiftWebDevServer` | Verify HMR and same-origin navigation behavior against the same runtime contract. |
+| `SwiftWebStoryboardTooling` | Run Storyboard against the dev runtime so catalog navigation exercises the production browser contract. |

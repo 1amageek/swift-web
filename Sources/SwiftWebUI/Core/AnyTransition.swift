@@ -1,4 +1,4 @@
-import Foundation
+import SwiftWebUITheme
 import SwiftHTML
 
 /// A transition for a view's insertion and removal.

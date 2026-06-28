@@ -1,3 +1,4 @@
+import SwiftWebBrowserRuntime
 import NIOCore
 import SwiftWebStyle
 import Vapor

@@ -25,11 +25,19 @@ flowchart LR
 | Product | Purpose |
 |---|---|
 | `SwiftWeb` | Public app facade, page routing, server actions, and source macros. |
+| `SwiftWebCore` | Route/action/page runtime contracts and server-rendering core used by host adapters. |
+| `SwiftWebBrowserRuntime` | Browser runtime descriptors, WASM asset routes, and HTML runtime injection. |
 | `SwiftWebVapor` | Vapor host adapter for local development workers, Cloud Run, and native/container server builds. |
 | `SwiftWebUI` | SwiftUI-inspired component layer built on top of SwiftHTML. |
+| `SwiftWebUITheme` | Host-neutral theme tokens, style system, root stylesheet, colors, materials, and spacing values. |
 | `SwiftWebUIRuntime` | Browser-side WASM runtime bridge for SwiftWebUI client components. |
 | `SwiftWebActors` | Shared distributed actor runtime support for server/client actor calls. |
-| `SwiftWebDevelopment` | Development server, generated packages, HMR, Storyboard, and WASM build tooling. |
+| `SwiftWebDevelopmentHooks` | Worker-side development hooks and typed HMR contracts. |
+| `SwiftWebWasmBuild` | Toolchain resolution, WASM artifact processing, compression, and build profiles. |
+| `SwiftWebPackageGeneration` | Generated server/dev/WASM package materialization and manifest inspection. |
+| `SwiftWebDevServer` | Persistent dev host, watcher, HMR event stream, worker supervision, and rebuild orchestration. |
+| `SwiftWebStoryboardTooling` | Storyboard scaffold/materialization and dev runtime launch. |
+| `SwiftWebDevelopment` | Convenience facade that re-exports development modules. |
 | `sweb` | CLI for new projects, dev server, Storyboard, and production builds. |
 
 ## Architecture Direction
@@ -42,7 +50,8 @@ entrypoints and Swift/Wasm artifacts.
 
 See [Platform Host Architecture](docs/PlatformHostArchitecture.md) for the target
 responsibility split, `Worker` model, `@Session` API, Cloudflare placement, and Vapor
-extraction plan.
+extraction plan. See [Directory And File Structure Design](docs/DirectoryFileStructureDesign.md)
+for the source layout and file placement rules.
 
 ## Requirements
 
@@ -373,6 +382,19 @@ http://127.0.0.1:3001/storyboard
 Storyboard generates an isolated package under `.swiftweb/storyboard`; it does not edit
 your app package.
 
+Run Storyboard with production WASM artifacts and compression sidecars:
+
+```bash
+xcrun swift run sweb storyboard \
+  --production \
+  --runtime standard \
+  -c release
+```
+
+This path builds the generated Storyboard WASM runtime through the production artifact
+processor, writes `.wasm.gz` and `.wasm.br`, then starts the production `app-server`.
+SwiftWeb supports the standard WASM profile for Storyboard production validation.
+
 ### 9. Build For Production
 
 Build the generated server package:
@@ -393,21 +415,12 @@ sweb build \
   -c release
 ```
 
-Build the experimental Embedded Swift runtime profile:
+SwiftWeb's browser support boundary is the standard Swift WASM SDK:
 
-```bash
-sweb build \
-  --wasm \
-  --runtime embedded \
-  -c release
-```
-
-Use the embedded profile for production pages whose browser behavior is server-driven:
-
-| Runtime profile | Production use | Browser artifact shape |
+| Runtime profile | Support | Browser artifact shape |
 |---|---|---|
-| `standard` | Full `ClientComponent` hydration, client state, browser events, and SwiftWebUI runtime behavior. | App client source, `SwiftHTML`, `SwiftWebUI`, `SwiftWebUIRuntime`, `SwiftWebActors`, JavaScriptKit. |
-| `embedded` | Server-rendered / server-action pages that only need the small browser host ABI and can avoid full client island hydration. | `SwiftHTMLEmbedded`, JavaScriptKit, `_CJavaScriptKit`, generated runtime entrypoint. |
+| `standard` | Supported. Full `ClientComponent` hydration, client state, browser events, and SwiftWebUI runtime behavior. | App client source, `SwiftHTML`, `SwiftWebUI`, `SwiftWebUIRuntime`, `SwiftWebActors`, JavaScriptKit. |
+| Embedded Swift WASM | Not supported. Current Swift SDK and runtime dependencies do not provide the required `Distributed`, `Codable`, and Foundation capabilities for SwiftWeb's browser graph. | No public artifact contract. |
 
 Production WASM builds strip debug/producers sections, optionally run `wasm-opt -Oz`,
 write `<artifact>.wasm.size.json`, and create cached `.gz` / `.br` sidecars.
@@ -531,28 +544,24 @@ SwiftWeb browser runtime packages copy runtime-only sources into generated WASM 
 | JavaScriptKit | Runtime-only copy; BridgeJS macros are not included by default. |
 | SwiftSyntax | Not included in generated browser runtime packages. |
 
-`sweb build --wasm` defaults to the `standard` runtime profile. `--runtime embedded`
-switches the generated package to the experimental Embedded Swift profile, uses
-`SwiftHTMLEmbedded`, omits the app client target and full SwiftWebUI runtime graph, and
-selects the matching `-embedded` Swift SDK suffix when the base SDK name does not already
-include it. This profile is for size-sensitive production paths that can run without full
-client island hydration parity.
+`sweb build --wasm` uses the standard Swift WASM compiler profile. SwiftWeb does
+not expose Embedded Swift WASM as a supported runtime profile. Embedded Swift can
+be revisited only if the browser runtime can be expressed without `Distributed`,
+`Codable`, Foundation, or profile-specific source families.
 
 The intended production split is:
 
 ```mermaid
 flowchart LR
   A["Production page"] --> B{"Browser behavior"}
-  B -->|"server-rendered / server actions"| C["--runtime embedded"]
-  B -->|"client state / client events"| D["standard runtime"]
-  C --> E["small .wasm + .gz + .br sidecars"]
-  D --> F["full client runtime .wasm + sidecars"]
+  B -->|"client state / client events"| C["standard WASM runtime"]
+  B -->|"server-rendered / server actions"| D["HTML + HTTP actions"]
+  C --> E[".wasm + .gz + .br sidecars"]
+  D --> F["no separate Embedded Swift profile"]
 ```
 
-The measured Distributed chat app created with `sweb new` produced a post-processed
-embedded runtime of 77,836 bytes, 28,459 bytes gzip, and 23,617 bytes Brotli. See
-[Embedded WASM Runtime Report](docs/EmbeddedWasmRuntimeReport.md) for the full command
-log and standard-vs-embedded comparison.
+Historical Embedded Swift measurements are research notes only and are not part of
+the public support contract.
 
 ### Client Bundles
 

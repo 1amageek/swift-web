@@ -1,5 +1,5 @@
 {
-  "originHash" : "45d0032ac01ac40abfb3250b23ac43cb63f3911e1b2714f97910e277fb5f0e53",
+  "originHash" : "03e5524d35e7b67144aaefa2d8530267f29f28581710c86a574a8527a1475321",
   "pins" : [
     {
       "identity" : "async-http-client",
@@ -50,8 +50,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/1amageek/swift-actor-runtime.git",
       "state" : {
-        "revision" : "fe922e1ce3240c9abf346600908a1c1490541219",
-        "version" : "0.5.0"
+        "revision" : "d066afe8dcbaaf22fac454f24300a2751acffe8f",
+        "version" : "0.6.0"
       }
     },
     {

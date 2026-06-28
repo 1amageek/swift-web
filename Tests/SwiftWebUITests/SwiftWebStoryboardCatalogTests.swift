@@ -194,6 +194,16 @@ struct SwiftWebStoryboardCatalogTests {
     }
 
     @Test
+    func runtimeLogPanelRendersForBrowserDiagnostics() {
+        let rendered = StoryboardCatalog(initialSelection: "list").render()
+
+        #expect(rendered.contains("Runtime Log"))
+        #expect(rendered.contains("data-swiftweb-runtime-summary=\"true\""))
+        #expect(rendered.contains("data-swiftweb-runtime-log=\"true\""))
+        #expect(rendered.contains("Waiting for runtime events"))
+    }
+
+    @Test
     func invalidInitialSelectionFallsBackToDefaultSelection() {
         let rendered = StoryboardCatalog(initialSelection: "missing-component").render()
 
@@ -217,9 +227,9 @@ struct SwiftWebStoryboardCatalogTests {
     @Test
     func bootstrapInitialSelectionFollowsStoryboardPath() throws {
         let island = try StoryboardDetailIsland(
-            bootstrap: ClientWasmBootstrapRequest(
+            bootstrap: ClientRuntimeBootstrapRequest(
                 hydrationIndex: .empty,
-                location: ClientWasmBootstrapLocation(
+                location: ClientRuntimeBootstrapLocation(
                     href: "http://127.0.0.1:3001/storyboard/stepper",
                     search: ""
                 )

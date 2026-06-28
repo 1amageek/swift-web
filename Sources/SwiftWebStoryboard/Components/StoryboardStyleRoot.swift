@@ -142,6 +142,36 @@ private enum StoryboardStylesheet {
             rule(cls("swui-storyboard-swatch-purple")) {
                 .backgroundColor("#af52de")
             }
+            rule(cls("swui-storyboard-runtime-summary")) {
+                .boxSizing("border-box")
+                  .width("100%")
+                  .margin("0")
+                  .padding("8px 9px")
+                  .border("1px solid var(--swui-border)")
+                  .borderRadius("7px")
+                  .backgroundColor("var(--swui-surface-raised)")
+                  .color("var(--swui-text)")
+                  .fontFamily("ui-monospace, SFMono-Regular, Menlo, monospace")
+                  .fontSize("11px")
+                  .lineHeight("1.35")
+                  .whiteSpace("pre-wrap")
+            }
+            rule(cls("swui-storyboard-runtime-log")) {
+                .boxSizing("border-box")
+                  .width("100%")
+                  .maxHeight("260px")
+                  .margin("0")
+                  .padding("8px 9px")
+                  .border("1px solid var(--swui-border)")
+                  .borderRadius("7px")
+                  .backgroundColor("var(--swui-surface)")
+                  .color("var(--swui-text-muted)")
+                  .fontFamily("ui-monospace, SFMono-Regular, Menlo, monospace")
+                  .fontSize("11px")
+                  .lineHeight("1.35")
+                  .overflow("auto")
+                  .whiteSpace("pre-wrap")
+            }
             rule(cls("swui-storyboard-alignment-frame")) {
                 .width("420px")
                   .maxWidth("80vw")

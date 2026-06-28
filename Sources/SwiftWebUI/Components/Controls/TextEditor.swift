@@ -1,3 +1,4 @@
+import SwiftWebUITheme
 import SwiftHTML
 
 /// A control for editing multi-line text, mirroring SwiftUI `TextEditor`.

@@ -132,7 +132,7 @@ pass:
 | Macro-free generated worker source | Determine whether dev can generate route/action registration source and avoid compiling macro plugins for worker rebuilds. |
 | Persistent build service | Determine whether a resident build coordinator can avoid repeated SwiftPM planning and process startup. |
 | Prebuilt framework binaries | Determine which SwiftWeb runtime products can be distributed as binary artifacts without hurting local framework development. |
-| Package graph split | Determine whether `SwiftWebCore`, `SwiftWeb`, `SwiftWebDevelopment`, and Storyboard can reduce dependency graph breadth further. |
+| Package graph split | Measure the separated `SwiftWebPackageGeneration`, `SwiftWebDevServer`, `SwiftWebWasmBuild`, and `SwiftWebStoryboardTooling` targets and decide whether any remaining dependency breadth is accidental. |
 | Vapor stack revision | Measure the locked Vapor HTTP stack separately and avoid accidental `swift-http-server` branch drift during generated package builds. |
 | Brotli policy | Decide whether local `sweb build --wasm` should default to q11 or require an explicit production compression mode. |
 

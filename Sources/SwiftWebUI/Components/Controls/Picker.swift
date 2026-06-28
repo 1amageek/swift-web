@@ -1,3 +1,4 @@
+import SwiftWebUITheme
 import SwiftHTML
 
 public struct Picker<Label: HTML, Content: HTML>: WebUIAttributeComponent {

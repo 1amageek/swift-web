@@ -6,66 +6,84 @@ public struct ActionInvocationContext: Sendable, Codable {
     public let id: UUID
     public let requestPath: String
     public let method: String
-    public let actorID: String?
-    public let actionName: String?
-    public let targetIdentifier: String?
     public let idempotencyKey: String?
 
     public init(
         id: UUID = UUID(),
         requestPath: String,
         method: String,
-        actorID: String? = nil,
-        actionName: String? = nil,
-        targetIdentifier: String? = nil,
         idempotencyKey: String? = nil
     ) {
         self.id = id
         self.requestPath = requestPath
         self.method = method
-        self.actorID = actorID
-        self.actionName = actionName
-        self.targetIdentifier = targetIdentifier
         self.idempotencyKey = idempotencyKey
     }
 
-    public init(request: Request, metadata: ActionRequestMetadata = ActionRequestMetadata()) {
+    public init(
+        request: Request,
+        method: ServerActionMethod? = nil
+    ) {
         self.id = UUID()
         self.requestPath = request.url.path
-        self.method = request.method.rawValue
-        self.actorID = metadata.actorID
-        self.actionName = metadata.actionName
-        self.targetIdentifier = metadata.targetIdentifier
+        self.method = method?.rawValue ?? request.method.rawValue
         self.idempotencyKey = request.headers[HTTPField.Name("Idempotency-Key")!]
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case requestPath
+        case method
+        case idempotencyKey
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            id: try container.decode(UUID.self, forKey: .id),
+            requestPath: try container.decode(String.self, forKey: .requestPath),
+            method: try container.decode(String.self, forKey: .method),
+            idempotencyKey: try container.decodeIfPresent(String.self, forKey: .idempotencyKey)
+        )
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(requestPath, forKey: .requestPath)
+        try container.encode(method, forKey: .method)
+        try container.encodeIfPresent(idempotencyKey, forKey: .idempotencyKey)
     }
 }
 
 public struct ActionRequestMetadata: Sendable, Codable {
-    public let actorID: String?
-    public let actionName: String?
-    public let targetIdentifier: String?
-    public let capabilityToken: String?
+    public let methodOverride: String?
     public let csrfToken: String?
 
     public init(
-        actorID: String? = nil,
-        actionName: String? = nil,
-        targetIdentifier: String? = nil,
-        capabilityToken: String? = nil,
+        methodOverride: String? = nil,
         csrfToken: String? = nil
     ) {
-        self.actorID = actorID
-        self.actionName = actionName
-        self.targetIdentifier = targetIdentifier
-        self.capabilityToken = capabilityToken
+        self.methodOverride = methodOverride
         self.csrfToken = csrfToken
     }
 
     enum CodingKeys: String, CodingKey {
-        case actorID = "__swiftweb_actor_id"
-        case actionName = "__swiftweb_action"
-        case targetIdentifier = "__swiftweb_target"
-        case capabilityToken = "__swiftweb_action_token"
+        case methodOverride = "__swiftweb_method"
         case csrfToken = "_csrf"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            methodOverride: try container.decodeIfPresent(String.self, forKey: .methodOverride),
+            csrfToken: try container.decodeIfPresent(String.self, forKey: .csrfToken)
+        )
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(methodOverride, forKey: .methodOverride)
+        try container.encodeIfPresent(csrfToken, forKey: .csrfToken)
     }
 }

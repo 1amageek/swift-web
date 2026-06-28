@@ -4,33 +4,92 @@ import Vapor
 public enum ActionGateway {
     @discardableResult
     public static func register(on application: Application) -> Route {
-        application.post("_swiftweb", "actions", ":actorName", ":methodName") { req async throws -> Response in
-            let actorName = try req.parameters.require("actorName")
-            let methodName = try req.parameters.require("methodName")
-            try SecurityRequestValidator.validateOrigin(req)
-            let metadata = try await req.content.decode(ActionRequestMetadata.self)
-            try SecurityRequestValidator.validateCSRF(
-                req,
-                suppliedCSRFToken: metadata.csrfToken
-            )
-            let action = try application.swiftWebServerActions.action(
-                actorName: actorName,
-                methodName: methodName,
-                metadata: metadata
-            )
-            let context = ActionInvocationContext(request: req, metadata: metadata)
-            let inputData = try await action.descriptor.encodedInputData(from: req)
-            let contextData = try JSONEncoder().encode(context)
-            let requestValues = RequestValues(request: req, params: NoParams(), searchParams: NoSearchParams())
+        application.post("_swiftweb", "actions") { _ async throws -> Response in
+            throw Abort(.gone, reason: "Global server action gateway has been replaced by page-local HTTP action routes")
+        }
+    }
 
-            return try await RequestContext.withValue(requestValues) {
-                let outputData = try await action.descriptor.invoke(
-                    on: action.actor,
-                    inputData: inputData,
-                    contextData: contextData
+    @discardableResult
+    static func register<Handler>(
+        handler: Handler,
+        descriptor: ServerActionDescriptor,
+        path: RoutePath,
+        on routes: any RoutesBuilder,
+        application: Application
+    ) throws -> Route where Handler: Sendable {
+        let publicPath = path.string
+        try application.swiftWebServerActions.register(
+            handler: handler,
+            descriptor: descriptor,
+            path: publicPath
+        )
+
+        let route = routes.on(descriptor.method.vaporMethod, path.vaporComponents) { request async throws -> Response in
+            try await invoke(
+                handler: handler,
+                descriptor: descriptor,
+                request: request,
+                effectiveMethod: descriptor.method,
+                metadata: nil
+            )
+        }
+
+        if descriptor.method.requiresFormMethodOverride {
+            routes.on(.post, path.vaporComponents) { request async throws -> Response in
+                try SecurityRequestValidator.validateOrigin(request)
+                let metadata = try await request.content.decode(ActionRequestMetadata.self)
+                guard metadata.methodOverride == descriptor.method.rawValue else {
+                    throw Abort(.methodNotAllowed, reason: "Server action method override is invalid")
+                }
+                return try await invoke(
+                    handler: handler,
+                    descriptor: descriptor,
+                    request: request,
+                    effectiveMethod: descriptor.method,
+                    metadata: metadata
                 )
-                return try await action.descriptor.response(from: outputData, request: req)
             }
         }
+
+        return route
+    }
+
+    private static func invoke(
+        handler: any Sendable,
+        descriptor: ServerActionDescriptor,
+        request: Request,
+        effectiveMethod: ServerActionMethod,
+        metadata: ActionRequestMetadata?
+    ) async throws -> Response {
+        try SecurityRequestValidator.validateOrigin(request)
+        let csrfToken = try await csrfToken(from: request, metadata: metadata)
+        try SecurityRequestValidator.validateCSRF(request, suppliedCSRFToken: csrfToken)
+
+        let context = ActionInvocationContext(request: request, method: effectiveMethod)
+        let inputData = try await descriptor.encodedInputData(from: request)
+        let contextData = try JSONEncoder().encode(context)
+        let requestValues = RequestValues(request: request, params: NoParams(), searchParams: NoSearchParams())
+
+        return try await RequestContext.withValue(requestValues) {
+            let outputData = try await descriptor.invoke(
+                on: handler,
+                inputData: inputData,
+                contextData: contextData
+            )
+            return try await descriptor.response(from: outputData, request: request)
+        }
+    }
+
+    private static func csrfToken(
+        from request: Request,
+        metadata: ActionRequestMetadata?
+    ) async throws -> String? {
+        if let csrfToken = metadata?.csrfToken {
+            return csrfToken
+        }
+        return try await SecurityRequestValidator.csrfToken(
+            from: request,
+            source: request.application.securityConfiguration.csrf.formTokenSource
+        )
     }
 }

@@ -9,6 +9,10 @@ struct StoryboardCommand {
     let port: Int
     let runsServer: Bool
     let force: Bool
+    let mode: StoryboardCommandMode
+    let configuration: String?
+    let swiftSDK: String?
+    let wasmRuntimeProfile: SwiftWebWasmRuntimeProfile
 
     static func parse(_ parser: ArgumentParser) throws -> StoryboardCommand {
         var parser = parser
@@ -19,6 +23,10 @@ struct StoryboardCommand {
         var port = 3001
         var runsServer = true
         var force = false
+        var mode = StoryboardCommandMode.development
+        var configuration: String?
+        var swiftSDK: String?
+        var wasmRuntimeProfile = SwiftWebWasmRuntimeProfile.defaultValue()
 
         while let option = parser.next() {
             switch option {
@@ -36,9 +44,40 @@ struct StoryboardCommand {
                 runsServer = false
             case "--force":
                 force = true
+            case "--production", "--compress":
+                mode = .production
+            case "--embedded":
+                throw CLIError(
+                    message:
+                        "unsupported WASM runtime profile: embedded. SwiftWeb supports the standard WASM profile only.",
+                    exitCode: 64
+                )
+            case "--runtime", "--wasm-runtime":
+                let rawValue = try parser.requireValue(after: option)
+                guard rawValue == SwiftWebWasmRuntimeProfile.standard.rawValue else {
+                    throw CLIError(
+                        message:
+                            "unsupported WASM runtime profile: \(rawValue). SwiftWeb supports the standard WASM profile only.",
+                        exitCode: 64
+                    )
+                }
+                mode = .production
+                wasmRuntimeProfile = .standard
+            case "--swift-sdk":
+                swiftSDK = try parser.requireValue(after: option)
+            case "-c", "--configuration":
+                configuration = try parser.requireValue(after: option)
             default:
                 throw CLIError(message: "unknown option: \(option)", exitCode: 64)
             }
+        }
+
+        if mode == .production, wasmRuntimeProfile != .standard {
+            throw CLIError(
+                message:
+                    "unsupported WASM runtime profile: \(wasmRuntimeProfile.rawValue). SwiftWeb supports the standard WASM profile only.",
+                exitCode: 64
+            )
         }
 
         return StoryboardCommand(
@@ -48,18 +87,27 @@ struct StoryboardCommand {
             host: host,
             port: port,
             runsServer: runsServer,
-            force: force
+            force: force,
+            mode: mode,
+            configuration: configuration,
+            swiftSDK: swiftSDK,
+            wasmRuntimeProfile: wasmRuntimeProfile
         )
     }
 
     func run() async throws {
+        let resolvedStoryboardDirectory = storyboardDirectory
+            ?? packageDirectory
+                .appendingPathComponent(".swiftweb", isDirectory: true)
+                .appendingPathComponent("storyboard", isDirectory: true)
+                .standardizedFileURL
         let configuration = SwiftWebStoryboardRuntimeConfiguration(
             packageDirectory: packageDirectory,
-            storyboardDirectory: storyboardDirectory,
+            storyboardDirectory: resolvedStoryboardDirectory,
             scratchDirectory: scratchDirectory,
             host: host,
             port: port,
-            runsServer: runsServer,
+            runsServer: mode == .development ? runsServer : false,
             force: force
         )
         let observer = SwiftWebStoryboardRuntimeObserver(
@@ -67,12 +115,34 @@ struct StoryboardCommand {
                 print("SwiftWeb storyboard generated at \(directory.path)")
             },
             didSkipServer: { packageDirectory in
-                print("Run: sweb storyboard --package-path \(packageDirectory.path)")
+                if mode == .development {
+                    print("Run: sweb storyboard --package-path \(packageDirectory.path)")
+                }
             },
             willStartServer: { host, port in
                 print("SwiftWeb storyboard starting at http://\(host):\(port)")
             }
         )
         try await SwiftWebStoryboardRuntime(configuration: configuration, observer: observer).run()
+        guard mode == .production else {
+            return
+        }
+
+        let productionServer = StoryboardProductionServer(
+            packageDirectory: resolvedStoryboardDirectory,
+            scratchDirectory: scratchDirectory,
+            host: host,
+            port: port,
+            runsServer: runsServer,
+            configuration: self.configuration ?? "release",
+            swiftSDK: swiftSDK,
+            wasmRuntimeProfile: wasmRuntimeProfile
+        )
+        try productionServer.run()
     }
+}
+
+enum StoryboardCommandMode {
+    case development
+    case production
 }

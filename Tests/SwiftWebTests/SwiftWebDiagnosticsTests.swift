@@ -3,8 +3,9 @@ import SwiftHTML
 import Testing
 
 @testable import SwiftWeb
+@testable import SwiftWebBrowserRuntime
 @testable import SwiftWebCore
-@testable import SwiftWebDevelopment
+@testable import SwiftWebDevelopmentHooks
 
 @Suite
 struct SwiftWebDiagnosticsTests {
@@ -139,7 +140,9 @@ struct SwiftWebDiagnosticsTests {
     #expect(source.contains("\"pointerdown\""))
     #expect(source.contains("\"dragover\""))
     #expect(source.contains("coalescedInputEvents"))
-    #expect(source.contains("isRangeInputEvent(eventName, event.target)"))
+    #expect(source.contains("isCoalescableInputEvent(eventName, event.target)"))
+    #expect(source.contains("target instanceof HTMLInputElement"))
+    #expect(source.contains("target instanceof HTMLTextAreaElement"))
     #expect(source.contains("requestAnimationFrame"))
     #expect(source.contains("__swiftWebWasmRuntimeStatus"))
     #expect(source.contains("wasmStatus"))
@@ -167,6 +170,12 @@ struct SwiftWebDiagnosticsTests {
     #expect(source.contains("mode: options.mode || undefined"))
     #expect(source.contains("replaceServerDocumentBody(nextDocument)"))
     #expect(source.contains("strategy: \"body\""))
+    #expect(source.contains("navigation.fetch.complete"))
+    #expect(source.contains("navigation.history.updated"))
+    #expect(source.contains("navigation.rebootstrap.complete"))
+    #expect(source.contains("serverDocument.body.replace"))
+    #expect(source.contains("publishRuntimeLogPanels()"))
+    #expect(source.contains("data-swiftweb-runtime-log"))
     #expect(source.contains("form[data-server-action=\\\"true\\\"]"))
     #expect(source.contains("data-server-action-button"))
     #expect(source.contains("findServerActionSubmitter(event)"))

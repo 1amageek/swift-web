@@ -128,6 +128,7 @@ public enum StylePseudoElement: String, Sendable, Equatable, Hashable {
     case mozColorSwatch = "-moz-color-swatch"
     case mozMeterBar = "-moz-meter-bar"
     case mozProgressBar = "-moz-progress-bar"
+    case mozRangeThumb = "-moz-range-thumb"
     case placeholder
     case selection
     case webkitColorSwatch = "-webkit-color-swatch"
@@ -140,6 +141,7 @@ public enum StylePseudoElement: String, Sendable, Equatable, Hashable {
     case webkitProgressBar = "-webkit-progress-bar"
     case webkitProgressValue = "-webkit-progress-value"
     case webkitScrollbar = "-webkit-scrollbar"
+    case webkitSliderThumb = "-webkit-slider-thumb"
 }
 
 public func rule(_ selector: StyleSelector, @StyleBuilder _ style: () -> Style) -> CSSRule {

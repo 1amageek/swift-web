@@ -1,3 +1,4 @@
+import SwiftWebUITheme
 import SwiftHTML
 import SwiftWebStyle
 
@@ -24,7 +25,7 @@ public struct LazyVGrid<Content: HTML>: WebUIAttributeComponent {
         self.content = content()
     }
 
-    /// Token-named spacing convenience over the design-system spacing scale.
+    /// Token-named spacing convenience over the theme spacing scale.
     public init(
         columns: [GridItem],
         alignment: HorizontalAlignment = .center,

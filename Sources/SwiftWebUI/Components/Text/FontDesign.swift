@@ -1,3 +1,4 @@
+import SwiftWebUITheme
 public extension Font {
     enum Design: Sendable, Equatable {
         case `default`

@@ -1,3 +1,4 @@
+import SwiftWebUITheme
 /// The visibility of a UI element, mirroring SwiftUI `Visibility`.
 ///
 /// Used by presentation modifiers such as `confirmationDialog(titleVisibility:)`

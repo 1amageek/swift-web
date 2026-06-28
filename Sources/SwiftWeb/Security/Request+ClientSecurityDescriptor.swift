@@ -1,3 +1,4 @@
+import SwiftWebBrowserRuntime
 import Vapor
 
 extension Request {

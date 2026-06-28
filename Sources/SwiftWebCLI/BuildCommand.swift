@@ -33,13 +33,14 @@ struct BuildCommand {
         buildsWasmRuntime = true
       case "--runtime", "--wasm-runtime":
         let rawValue = try parser.requireValue(after: option)
-        guard let profile = SwiftWebWasmRuntimeProfile(rawValue: rawValue) else {
+        guard rawValue == SwiftWebWasmRuntimeProfile.standard.rawValue else {
           throw CLIError(
-            message: "unknown WASM runtime profile: \(rawValue). Expected standard or embedded",
+            message:
+              "unsupported WASM runtime profile: \(rawValue). SwiftWeb supports the standard WASM profile only.",
             exitCode: 64
           )
         }
-        wasmRuntimeProfile = profile
+        wasmRuntimeProfile = .standard
       case "--swift-sdk":
         swiftSDK = try parser.requireValue(after: option)
       case "-c", "--configuration":
@@ -61,16 +62,17 @@ struct BuildCommand {
   }
 
   func run() throws {
+    try validateSupportedWasmRuntimeProfile()
+    let resolvedSwiftSDK = try resolvedSwiftSDKName()
+    let wasmToolchain = try resolvedWasmToolchain(swiftSDK: resolvedSwiftSDK)
     let generatedPackage = try SwiftWebGeneratedPackageMaterializer(
       appPackageDirectory: packageDirectory,
       serverProductName: product ?? "app-server",
-      wasmRuntimeProfile: buildsWasmRuntime ? wasmRuntimeProfile : .standard
+      wasmRuntimeProfile: wasmRuntimeProfile
     )
     .materialize()
     let productName = try resolvedProductName(from: generatedPackage)
     let wasmRuntime = try resolvedWasmRuntime(productName: productName, from: generatedPackage)
-    let resolvedSwiftSDK = resolvedSwiftSDKName
-    let wasmToolchain = try resolvedWasmToolchain(swiftSDK: resolvedSwiftSDK)
     let buildPackageDirectory =
       buildsWasmRuntime
       ? generatedPackage.wasmPackageDirectory
@@ -78,23 +80,13 @@ struct BuildCommand {
     let resolvedScratchDirectory =
       scratchDirectory ?? defaultScratchDirectory(from: generatedPackage)
     let resolvedConfiguration = configuration ?? (buildsWasmRuntime ? "release" : nil)
-    var arguments =
-      buildsWasmRuntime
-      ? [
-        "build",
-        "--package-path",
-        buildPackageDirectory.path,
-        "--product",
-        productName,
-      ]
-      : [
-        "swift",
-        "build",
-        "--package-path",
-        buildPackageDirectory.path,
-        "--product",
-        productName,
-      ]
+    var arguments = [
+      "build",
+      "--package-path",
+      buildPackageDirectory.path,
+      "--product",
+      productName,
+    ]
 
     if let resolvedScratchDirectory {
       arguments.append("--scratch-path")
@@ -114,21 +106,32 @@ struct BuildCommand {
       environment["SWIFTWEB_WASM_BUILD"] = "1"
       environment["SWIFTWEB_CORE_ONLY"] = "1"
       environment["SWIFTWEB_WASM_RUNTIME_PROFILE"] = wasmRuntimeProfile.rawValue
-      if wasmRuntimeProfile == .embedded {
-        environment["SWIFTHTML_EXPERIMENTAL_EMBEDDED_WASM"] = "1"
-        environment["JAVASCRIPTKIT_EXPERIMENTAL_EMBEDDED_WASM"] = "1"
-      }
       if let wasmToolchain {
         environment = wasmToolchain.applying(to: environment)
       }
     }
 
-    try runProcess(arguments: arguments, environment: environment, wasmToolchain: wasmToolchain)
+    let invocation = wasmToolchain.map(SwiftBuildInvocation.wasm(toolchain:)) ?? .host()
+    try runProcess(
+      arguments: invocation.arguments(for: arguments),
+      executableURL: invocation.executableURL,
+      environment: environment
+    )
     if let wasmRuntime {
       try processWasmArtifact(
         runtime: wasmRuntime,
         scratchDirectory: resolvedScratchDirectory,
         configuration: resolvedConfiguration ?? "debug"
+      )
+    }
+  }
+
+  private func validateSupportedWasmRuntimeProfile() throws {
+    guard !buildsWasmRuntime || wasmRuntimeProfile == .standard else {
+      throw CLIError(
+        message:
+          "unsupported WASM runtime profile: \(wasmRuntimeProfile.rawValue). SwiftWeb supports the standard WASM profile only.",
+        exitCode: 64
       )
     }
   }
@@ -171,14 +174,18 @@ struct BuildCommand {
       .standardizedFileURL
   }
 
-  private var resolvedSwiftSDKName: String? {
+  private func resolvedSwiftSDKName() throws -> String? {
     if buildsWasmRuntime {
       let baseSDK =
         swiftSDK
         ?? ProcessInfo.processInfo.environment["SWIFT_WEB_WASM_SDK"]
         ?? SwiftWebWasmToolchain.defaultSwiftSDKName
-      if wasmRuntimeProfile == .embedded, !baseSDK.hasSuffix("-embedded") {
-        return "\(baseSDK)-embedded"
+      if baseSDK.contains("embedded") {
+        throw CLIError(
+          message:
+            "unsupported Swift SDK for SwiftWeb WASM: \(baseSDK). SwiftWeb supports the standard WASM SDK only.",
+          exitCode: 64
+        )
       }
       return baseSDK
     }
@@ -196,11 +203,11 @@ struct BuildCommand {
 
   private func runProcess(
     arguments: [String],
-    environment: [String: String],
-    wasmToolchain: SwiftWebWasmToolchain?
+    executableURL: URL,
+    environment: [String: String]
   ) throws {
     let process = Process()
-    process.executableURL = processExecutableURL(wasmToolchain: wasmToolchain)
+    process.executableURL = executableURL
     process.arguments = arguments
     process.currentDirectoryURL = packageDirectory
     process.environment = environment
@@ -213,7 +220,7 @@ struct BuildCommand {
     guard process.terminationStatus == 0 else {
       throw CLIError(
         message:
-          "build failed with status \(process.terminationStatus): \(commandDescription(arguments, executableURL: process.executableURL))",
+          "build failed with status \(process.terminationStatus): \(commandDescription(arguments, executableURL: executableURL))",
         exitCode: 70
       )
     }
@@ -251,13 +258,6 @@ struct BuildCommand {
     for warning in result.warnings {
       print("SwiftWeb WASM warning: \(warning)")
     }
-  }
-
-  private func processExecutableURL(wasmToolchain: SwiftWebWasmToolchain?) -> URL {
-    if let wasmToolchain {
-      return wasmToolchain.swiftExecutableURL
-    }
-    return URL(fileURLWithPath: "/usr/bin/env")
   }
 
   private func commandDescription(_ arguments: [String], executableURL: URL?) -> String {

@@ -418,6 +418,8 @@ async function runtimeState(page) {
       instantiateCount: events.filter((event) => event.name === "bundle.instantiate.start").length,
       navigationEvents,
       lastNavigationEvents: navigationEvents.slice(-4),
+      runtimeSummaryText: document.querySelector("[data-swiftweb-runtime-summary]")?.textContent || "",
+      runtimeLogText: document.querySelector("[data-swiftweb-runtime-log]")?.textContent || "",
       marker: globalThis.__swiftWebE2EMarker || null,
     };
   });
@@ -452,6 +454,12 @@ async function assertRouteState(page, expected) {
     throw new Error(`Selected sidebar link did not match ${selectedHref}: ${JSON.stringify({
       selectedLinks: state.selectedLinks,
       allCurrentPageLinks: state.allCurrentPageLinks,
+    })}`);
+  }
+  if (!state.runtimeSummaryText.includes("phase=ready") || state.runtimeLogText.length === 0) {
+    throw new Error(`Storyboard runtime log panel did not publish ready diagnostics: ${JSON.stringify({
+      runtimeSummaryText: state.runtimeSummaryText,
+      runtimeLogText: state.runtimeLogText,
     })}`);
   }
   return state;
@@ -512,6 +520,9 @@ async function clickSidebarRoute(page, route) {
   const newNavigationEvents = after.navigationEvents.slice(navigationCount);
   if (!newNavigationEvents.some((event) => event.name === "navigation.complete" && event.href.endsWith(route.path))) {
     throw new Error(`Client navigation completion was not recorded for ${route.path}: ${JSON.stringify(newNavigationEvents)}`);
+  }
+  if (!after.runtimeLogText.includes("navigation.complete") || !after.runtimeLogText.includes(route.path)) {
+    throw new Error(`Storyboard runtime log panel did not show navigation completion for ${route.path}: ${after.runtimeLogText}`);
   }
   if (report.wasmResponses.length !== wasmResponseCount) {
     throw new Error(`Client navigation fetched WASM again for ${route.path}: ${JSON.stringify(report.wasmResponses.slice(wasmResponseCount))}`);

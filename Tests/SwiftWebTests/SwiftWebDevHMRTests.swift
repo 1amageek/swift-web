@@ -10,8 +10,10 @@ import SwiftHTML
 import Synchronization
 import Testing
 
-@testable import SwiftWebDevelopment
 @testable import SwiftWebDevelopmentHooks
+@testable import SwiftWebDevServer
+@testable import SwiftWebPackageGeneration
+@testable import SwiftWebWasmBuild
 
 @Suite
 struct SwiftWebDevHMRTests {
@@ -334,17 +336,26 @@ struct SwiftWebDevHMRTests {
     let second = root.appendingPathComponent("Sources/App/Counter.css")
     let watcher = SwiftWebDevFileChangeWatcher(
       roots: [root],
-      coalescingInterval: 0.08,
+      coalescingInterval: 0.25,
       usesFileEvents: false
     )
     try write("public struct ClientCounter: ClientComponent {}", to: first)
-    let writer = Task {
-      try await Task.sleep(nanoseconds: 30_000_000)
-      try write(".counter { color: green; }", to: second)
+    let writerCompletion = SwiftWebDevTestThreadCompletion()
+    let writer = Thread {
+      Thread.sleep(forTimeInterval: 0.02)
+      do {
+        try write(".counter { color: green; }", to: second)
+        writerCompletion.complete()
+      } catch {
+        writerCompletion.complete(error: String(describing: error))
+      }
     }
+    writer.start()
 
     let changes = watcher.waitForChangeSet(timeout: 0)
-    try await writer.value
+    if let writerError = writerCompletion.wait(timeout: 2) {
+      Issue.record("SwiftWeb watcher coalescing writer failed: \(writerError)")
+    }
 
     #expect(Set(changes.map(\.path)) == [
       "Sources/App/ClientCounter.swift",
@@ -1311,6 +1322,34 @@ private func write(_ contents: String, to url: URL) throws {
     withIntermediateDirectories: true
   )
   try contents.write(to: url, atomically: true, encoding: .utf8)
+}
+
+private final class SwiftWebDevTestThreadCompletion: Sendable {
+  private struct State: Sendable {
+    var isDone = false
+    var error: String?
+  }
+
+  private let state = Mutex(State())
+
+  func complete(error: String? = nil) {
+    state.withLock {
+      $0.isDone = true
+      $0.error = error
+    }
+  }
+
+  func wait(timeout: TimeInterval) -> String? {
+    let deadline = Date().addingTimeInterval(timeout)
+    while Date() < deadline {
+      let snapshot = state.withLock { $0 }
+      if snapshot.isDone {
+        return snapshot.error
+      }
+      Thread.sleep(forTimeInterval: 0.005)
+    }
+    return "timed out waiting for writer thread"
+  }
 }
 
 private func fetch(_ urlString: String) async throws -> Data {

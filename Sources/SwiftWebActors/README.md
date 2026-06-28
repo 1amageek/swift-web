@@ -75,17 +75,17 @@ SwiftWeb has two server interaction methods. SwiftWebActors owns only the direct
 
 | Method | Owned here? | Caller shape | Runtime shape |
 |---|---|---|---|
-| Server Action | No | `Button("Save", action: service.saveAction)` | SwiftWeb `ActionReference` through `ActionGateway`, usually returning `ActionResult`. |
+| Server Action | No | `Button("Save", action: service.saveAction)` | SwiftWeb `ActionReference` with HTTP method and path, usually returning `ActionResult`. |
 | Resolvable RPC | Yes | `try await service.increment()` after `$Protocol.resolve(id:using:)` | ActorRuntime invocation envelope through `WebActorTransport`. |
 
-Server Actions can be backed by distributed actor services in the current SwiftWeb implementation, but they are still page command handles, not remote actor stubs. A client that needs direct typed calls should resolve an `@Resolvable` protocol instead of using `ActionReference`.
+Server Actions are page-local HTTP handlers backed by SwiftWeb action descriptors. They are not distributed actor stubs and do not depend on `WebActorSystem`. A client that needs direct typed calls should resolve an `@Resolvable` protocol instead of using `ActionReference`.
 
 ## Not Responsible For
 
 | Not owned by SwiftWebActors | Owner |
 |---|---|
 | HTTP route registration and CSRF checks | `SwiftWeb` |
-| Server action form handling | `SwiftWeb.ActionGateway` |
+| Server action method/path handling | `SwiftWeb` action routes |
 | Page routing and rendering | `SwiftWeb` and `SwiftHTML` |
 | Component state and DOM patching | `SwiftHTML` / `SwiftWebUIRuntime` |
 | Project templates and generated package materialization | `SwiftWebCLI` and `SwiftWeb` development runtime |
@@ -95,6 +95,6 @@ Server Actions can be backed by distributed actor services in the current SwiftW
 - `WebActorSystem.resolve(id:as:)` returns a local actor only when the ID exists in the local registry.
 - Missing local actors are treated as remote, allowing Swift's distributed actor machinery to create stubs for `@Resolvable` protocols.
 - `WebActorTransport` moves raw ActorRuntime envelopes; it must not depend on Vapor types.
-- Vapor integration belongs in `SwiftWeb.WebActorGateway`.
+- Vapor integration belongs in `SwiftWebVaporWebActors.WebActorGateway`.
 - Browser fetch integration belongs in `SwiftWebUIRuntime.JavaScriptKitWebActorTransport`.
 - `ActionReference` is not this module's responsibility and is not Apple's `@Resolvable` model.

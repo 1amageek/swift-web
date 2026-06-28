@@ -1,4 +1,9 @@
+import SwiftWebUITheme
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#elseif canImport(Foundation)
 import Foundation
+#endif
 import SwiftHTML
 
 /// A control for selecting a date and/or time, mirroring SwiftUI `DatePicker`.

@@ -1,3 +1,4 @@
+import SwiftWebUITheme
 import SwiftHTML
 
 public struct Label<Title: HTML, Icon: HTML>: WebUIAttributeComponent {

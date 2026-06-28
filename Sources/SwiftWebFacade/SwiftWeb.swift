@@ -1,3 +1,4 @@
+@_exported import SwiftWebBrowserRuntime
 @_exported import SwiftWebCore
 
 @attached(member, names: named(params), named(searchParams))
@@ -5,4 +6,7 @@
 public macro Page(_ path: String) = #externalMacro(module: "SwiftWebMacros", type: "PageMacro")
 
 @attached(peer, names: arbitrary)
-public macro ServerAction(capabilityToken: String = "") = #externalMacro(module: "SwiftWebMacros", type: "ServerActionMacro")
+public macro ServerAction(_ path: String) = #externalMacro(module: "SwiftWebMacros", type: "ServerActionMacro")
+
+@attached(peer, names: arbitrary)
+public macro ServerAction(_ method: ServerActionMethod, _ path: String) = #externalMacro(module: "SwiftWebMacros", type: "ServerActionMacro")

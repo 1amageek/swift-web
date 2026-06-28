@@ -1,3 +1,4 @@
+import SwiftWebUITheme
 import SwiftHTML
 
 /// How a text input automatically capitalizes content, mirroring SwiftUI
