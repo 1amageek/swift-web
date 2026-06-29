@@ -698,6 +698,7 @@ package enum SwiftWebWasmRuntimeHostScript {
         const startedAt = this.now();
         const response = this.callRuntime("swiftweb_bootstrap", {
           hydrationIndex: this.hydrationIndex,
+          documentNodeIDUpperBound: this.descriptor.documentNodeIDUpperBound ?? null,
           location: {
             href: window.location.href,
             search: window.location.search
@@ -756,7 +757,11 @@ package enum SwiftWebWasmRuntimeHostScript {
       }
 
       enqueueRuntimeEvent(payload) {
-        this.eventQueue = this.eventQueue.then(() => this.dispatchEvent(payload)).catch((error) => {
+        this.coalescedInputFlushScheduled = false;
+        this.eventQueue = this.eventQueue.then(async () => {
+          await this.dispatchPendingCoalescedInputEvents();
+          await this.dispatchEvent(payload);
+        }).catch((error) => {
           console.error("SwiftWeb WASM event dispatch failed", error);
         });
       }
@@ -777,13 +782,9 @@ package enum SwiftWebWasmRuntimeHostScript {
         if (this.coalescedInputFlushActive || this.coalescedInputEvents.size === 0) {
           return;
         }
-        const payloads = Array.from(this.coalescedInputEvents.values());
-        this.coalescedInputEvents.clear();
         this.coalescedInputFlushActive = true;
         this.eventQueue = this.eventQueue.then(async () => {
-          for (const payload of payloads) {
-            await this.dispatchEvent(payload);
-          }
+          await this.dispatchPendingCoalescedInputEvents();
         }).catch((error) => {
           console.error("SwiftWeb WASM coalesced input dispatch failed", error);
         }).finally(() => {
@@ -793,6 +794,17 @@ package enum SwiftWebWasmRuntimeHostScript {
             scheduleAnimationFrame(() => this.flushCoalescedInputEvents());
           }
         });
+      }
+
+      async dispatchPendingCoalescedInputEvents() {
+        if (this.coalescedInputEvents.size === 0) {
+          return;
+        }
+        const payloads = Array.from(this.coalescedInputEvents.values());
+        this.coalescedInputEvents.clear();
+        for (const payload of payloads) {
+          await this.dispatchEvent(payload);
+        }
       }
 
       installServerActionListeners() {
@@ -1473,6 +1485,7 @@ package enum SwiftWebWasmRuntimeHostScript {
           const instance = await this.loadBundle(bundleID);
           const response = this.callRuntime("swiftweb_bootstrap", {
             hydrationIndex: this.hydrationIndex,
+            documentNodeIDUpperBound: this.descriptor.documentNodeIDUpperBound ?? null,
             location: {
               href: window.location.href,
               search: window.location.search
@@ -2132,9 +2145,64 @@ package enum SwiftWebWasmRuntimeHostScript {
       if (!batch || !Array.isArray(batch.commands)) {
         return;
       }
-      for (const command of batch.commands) {
+      for (const command of orderedCommandsForDOMApplication(batch.commands)) {
         applyCommand(command, runtime);
       }
+    }
+
+    function orderedCommandsForDOMApplication(commands) {
+      const ordered = [];
+      let insertRun = [];
+      let insertRunParent = null;
+
+      const flushInsertRun = () => {
+        insertRun
+          .sort((left, right) => {
+            if (left.index !== right.index) {
+              return left.index - right.index;
+            }
+            return left.offset - right.offset;
+          })
+          .forEach((entry) => ordered.push(entry.command));
+        insertRun = [];
+        insertRunParent = null;
+      };
+
+      commands.forEach((command, offset) => {
+        const insertion = insertionTarget(command);
+        if (!insertion) {
+          flushInsertRun();
+          ordered.push(command);
+          return;
+        }
+
+        if (insertRunParent !== null && insertRunParent !== insertion.parent) {
+          flushInsertRun();
+        }
+
+        insertRunParent = insertion.parent;
+        insertRun.push({
+          offset,
+          parent: insertion.parent,
+          index: insertion.index,
+          command
+        });
+      });
+
+      flushInsertRun();
+      return ordered;
+    }
+
+    function insertionTarget(command) {
+      const name = Object.keys(command)[0];
+      const payload = command[name];
+      if (name === "insertNode" || name === "insertHTML") {
+        return {
+          parent: rawValue(payload.parent),
+          index: payload.index || 0
+        };
+      }
+      return null;
     }
 
     function applyCommand(command, runtime) {

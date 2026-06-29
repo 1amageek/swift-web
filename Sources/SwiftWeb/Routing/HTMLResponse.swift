@@ -62,6 +62,7 @@ extension HTML {
             let descriptor = SwiftWebClientRuntimeDescriptor(
                 mode: .wasm,
                 hydrationIndex: clientHydrationIndex,
+                documentNodeIDUpperBound: fullHydrationIndex.nodes.map(\.id.rawValue).max(),
                 manifest: manifest,
                 wasm: wasmRuntime,
                 security: request.clientSecurityDescriptor,

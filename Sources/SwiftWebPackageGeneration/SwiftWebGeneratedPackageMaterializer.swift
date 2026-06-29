@@ -996,7 +996,13 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
   private func copyClientRuntimeSources(
     from swiftWebPackageDirectory: URL, to packageDirectory: URL
   ) throws {
-    for targetName in ["SwiftWebStyle", "SwiftWebActors", "SwiftWebUI", "SwiftWebUIRuntime"] {
+    for targetName in [
+      "SwiftWebStyle",
+      "SwiftWebActors",
+      "SwiftWebUITheme",
+      "SwiftWebUI",
+      "SwiftWebUIRuntime",
+    ] {
       let sourceDirectory =
         swiftWebPackageDirectory
         .appendingPathComponent("Sources", isDirectory: true)
@@ -1610,12 +1616,24 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
         )
         """,
         """
+        let swiftWebUIThemeTarget = Target.target(
+            name: "SwiftWebUITheme",
+            dependencies: [
+                "SwiftHTML",
+                "SwiftWebStyle",
+            ],
+            path: "Sources/SwiftWebUITheme",
+            swiftSettings: swiftSettings
+        )
+        """,
+        """
         let swiftWebUITarget = Target.target(
             name: "SwiftWebUI",
             dependencies: [
                 "SwiftHTML",
                 "SwiftWebActors",
                 "SwiftWebStyle",
+                "SwiftWebUITheme",
             ],
             path: "Sources/SwiftWebUI",
             swiftSettings: swiftSettings
@@ -1642,6 +1660,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
         "swiftHTMLTarget",
         "swiftWebActorsTarget",
         "swiftWebStyleTarget",
+        "swiftWebUIThemeTarget",
         "swiftWebUITarget",
         "swiftWebUIRuntimeTarget",
         "appClientTarget",
@@ -2254,6 +2273,7 @@ private extension SwiftWebWasmRuntimeProfile {
         "SwiftHTML",
         "SwiftWebActors",
         "SwiftWebStyle",
+        "SwiftWebUITheme",
         "SwiftWebUI",
         "SwiftWebUIRuntime",
       ]

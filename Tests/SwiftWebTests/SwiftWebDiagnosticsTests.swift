@@ -47,6 +47,7 @@ struct SwiftWebDiagnosticsTests {
     let descriptor = SwiftWebClientRuntimeDescriptor(
       mode: .wasm,
       hydrationIndex: .empty,
+      documentNodeIDUpperBound: 42,
       wasm: runtime
     )
 
@@ -64,6 +65,7 @@ struct SwiftWebDiagnosticsTests {
         "<link rel=\"preload\" href=\"/assets/swift-web-client.json\" as=\"fetch\" type=\"application/json\" crossorigin=\"anonymous\">"
       ))
     #expect(html.contains("\"mode\":\"wasm\""))
+    #expect(html.contains("\"documentNodeIDUpperBound\":42"))
     // Build expectations from the route constants, not literal versions: the
     // host script's cache-bust token is a content hash that changes on every
     // script edit, so a pinned literal would force a rewrite each time.
@@ -124,6 +126,7 @@ struct SwiftWebDiagnosticsTests {
     let source = SwiftWebWasmRuntimeHostScript.source
 
     #expect(source.contains("swiftweb_bootstrap"))
+    #expect(source.contains("documentNodeIDUpperBound: this.descriptor.documentNodeIDUpperBound ?? null"))
     #expect(source.contains("swiftweb_dispatch_event"))
     #expect(source.contains("swiftweb_snapshot_state"))
     #expect(source.contains("applyHotUpdate"))
@@ -141,6 +144,8 @@ struct SwiftWebDiagnosticsTests {
     #expect(source.contains("\"dragover\""))
     #expect(source.contains("coalescedInputEvents"))
     #expect(source.contains("isCoalescableInputEvent(eventName, event.target)"))
+    #expect(source.contains("await this.dispatchPendingCoalescedInputEvents();"))
+    #expect(source.contains("async dispatchPendingCoalescedInputEvents()"))
     #expect(source.contains("target instanceof HTMLInputElement"))
     #expect(source.contains("target instanceof HTMLTextAreaElement"))
     #expect(source.contains("requestAnimationFrame"))

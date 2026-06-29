@@ -81,6 +81,34 @@ private struct WasmBridgeAppendList: ClientComponent, Sendable {
     }
 }
 
+private struct WasmBridgeAppendPairList: ClientComponent, Sendable {
+    @State private var entries = ["a0", "u1", "a2"]
+
+    var body: some HTML {
+        button(.type(ButtonType.button), .onClick {
+            let nextIndex = entries.count
+            entries = entries + [
+                "u\(nextIndex)",
+                "a\(nextIndex + 1)",
+            ]
+        }) {
+            "Append pair"
+        }
+        div {
+            ForEach(entries, id: { entry in entry }) { entry in
+                HStack(alignment: .bottom, spacing: .small) {
+                    VStack(
+                        alignment: entry.first == "a" ? .leading : .trailing,
+                        spacing: 0
+                    ) {
+                        Text(entry)
+                    }
+                }
+            }
+        }
+    }
+}
+
 private struct WasmBridgeProperty: Identifiable, Sendable {
     let id: String
     let name: String
@@ -270,6 +298,27 @@ private struct WasmBridgeSelectionOwner: ClientComponent, Sendable {
     }
 }
 
+private struct WasmBridgeTextareaComposer: ClientComponent, Sendable {
+    @State private var draft = ""
+    @State private var submitted = ""
+
+    @HTMLBuilder
+    var body: some HTML {
+        if !submitted.isEmpty {
+            p {
+                submitted
+            }
+        }
+        TextEditor(text: $draft)
+        button(.type(ButtonType.button), .onClick {
+            submitted = draft
+            draft = ""
+        }) {
+            "Send"
+        }
+    }
+}
+
 private struct WasmBridgeSelectionChild: Component, Sendable {
     let selection: String
 
@@ -331,6 +380,32 @@ private struct WasmBridgeMountedSelectionRoot: Component, Sendable {
     }
 }
 
+private struct WasmBridgeMountedTextareaRoot: Component, Sendable {
+    var body: some HTML {
+        div {
+            span {
+                "server prefix"
+            }
+            WasmBridgeTextareaComposer()
+        }
+    }
+}
+
+private struct WasmBridgeMountedTextareaRootWithTrailingDocumentNodes: Component, Sendable {
+    var body: some HTML {
+        div {
+            WasmBridgeTextareaComposer()
+            div {
+                ForEach(Array(0..<64), id: { value in value }) { value in
+                    span {
+                        "outside \(value)"
+                    }
+                }
+            }
+        }
+    }
+}
+
 private struct WasmBridgeMountedRootWithEarlierHandler: Component, Sendable {
     var body: some HTML {
         div {
@@ -353,6 +428,17 @@ private struct WasmBridgeMountedListRoot: Component, Sendable {
     }
 }
 
+private struct WasmBridgeMountedAppendPairListRoot: Component, Sendable {
+    var body: some HTML {
+        div {
+            span {
+                "server prefix"
+            }
+            WasmBridgeAppendPairList()
+        }
+    }
+}
+
 private struct WasmBridgeMountedPropertySelectionRoot: Component, Sendable {
     var body: some HTML {
         div {
@@ -370,6 +456,7 @@ struct SwiftWebUIRuntimeClientRuntimeBridgeTests {
     func bootstrapRequestCodableSupportsNavigationMode() throws {
         let request = ClientRuntimeBootstrapRequest(
             hydrationIndex: .empty,
+            documentNodeIDUpperBound: 128,
             location: ClientRuntimeBootstrapLocation(
                 href: "http://127.0.0.1:8080/storyboard/style",
                 search: ""
@@ -384,10 +471,12 @@ struct SwiftWebUIRuntimeClientRuntimeBridgeTests {
         let decoded = try JSONDecoder().decode(ClientRuntimeBootstrapRequest.self, from: data)
 
         #expect(decoded.mode == .navigation)
+        #expect(decoded.documentNodeIDUpperBound == 128)
         #expect(decoded.actorBindings == [
             SwiftWebActorBindingRecord(contractKey: "CounterService", actorID: "counter-1"),
         ])
         #expect(String(decoding: data, as: UTF8.self).contains("\"mode\":\"navigation\""))
+        #expect(String(decoding: data, as: UTF8.self).contains("\"documentNodeIDUpperBound\":128"))
         #expect(String(decoding: data, as: UTF8.self).contains("\"actorBindings\""))
     }
 
@@ -656,6 +745,148 @@ struct SwiftWebUIRuntimeClientRuntimeBridgeTests {
         #expect(replacementHTML.contains("Accent"))
         #expect(replacementHTML.contains("Danger"))
         try assertCommandTargetsResolve(update, currentIndex: serverIndex)
+    }
+
+    @Test
+    func bridgeKeepsPropertyBoundTextareaTargetsStableAfterInsertedContent() throws {
+        let serverArtifact = WasmBridgeMountedTextareaRoot().renderArtifact()
+        let serverIndex = serverArtifact.browserHydrationIndex()
+        let inputHandler = try #require(serverIndex.handlers.first { binding in
+            binding.eventName == "input"
+                && serverIndex.node(binding.nodeID)?.name == "textarea"
+        })
+        let clickHandler = try #require(serverIndex.handlers.first { binding in
+            binding.eventName == "click"
+                && serverIndex.node(binding.nodeID)?.name == "button"
+        })
+        let bridge = ClientRuntimeBridge<WasmBridgeTextareaComposer>(
+            environmentRegistry: .swiftWebUI,
+            componentMount: ClientComponentMount(WasmBridgeTextareaComposer.self)
+        ) { _ in
+            WasmBridgeTextareaComposer()
+        }
+
+        _ = try bridge.bootstrap(
+            ClientRuntimeBootstrapRequest(
+                hydrationIndex: serverIndex,
+                location: ClientRuntimeBootstrapLocation(
+                    href: "http://127.0.0.1:8080/textarea",
+                    search: ""
+                )
+            )
+        )
+        let firstInput = try bridge.dispatch(
+            ClientRuntimeEventRequest(
+                handlerID: inputHandler.handlerID,
+                event: DOMEvent(value: "First")
+            )
+        )
+        let afterFirstInputIndex = try #require(firstInput.hydrationIndex)
+        let firstSend = try bridge.dispatch(
+            ClientRuntimeEventRequest(
+                handlerID: clickHandler.handlerID,
+                event: DOMEvent()
+            )
+        )
+        let afterFirstSendIndex = try #require(firstSend.hydrationIndex)
+        let secondInput = try bridge.dispatch(
+            ClientRuntimeEventRequest(
+                handlerID: inputHandler.handlerID,
+                event: DOMEvent(value: "Second")
+            )
+        )
+        let afterSecondInputIndex = try #require(secondInput.hydrationIndex)
+        let secondSend = try bridge.dispatch(
+            ClientRuntimeEventRequest(
+                handlerID: clickHandler.handlerID,
+                event: DOMEvent()
+            )
+        )
+        let afterSecondSendIndex = try #require(secondSend.hydrationIndex)
+
+        try assertCommandTargetsResolve(firstInput, currentIndex: serverIndex)
+        try assertCommandTargetsResolve(firstSend, currentIndex: afterFirstInputIndex)
+        try assertCommandTargetsResolve(secondInput, currentIndex: afterFirstSendIndex)
+        try assertCommandTargetsResolve(secondSend, currentIndex: afterSecondInputIndex)
+        #expect(afterFirstSendIndex.node(inputHandler.nodeID)?.name == "textarea")
+        #expect(secondInput.commandBatch?.commands.contains {
+            if case .setProperty(let node, "value", "Second") = $0 {
+                return node == inputHandler.nodeID
+            }
+            return false
+        } == true)
+        #expect(
+            afterSecondSendIndex.node(inputHandler.nodeID)?.name == "textarea",
+            "commands: \(String(describing: secondSend.commandBatch?.commands))"
+        )
+        #expect(afterSecondSendIndex.nodes.contains { node in
+            node.role == .text && node.text == "Second"
+        })
+        #expect(secondSend.commandBatch?.commands.contains {
+            if case .setProperty(let node, "value", "") = $0 {
+                return node == inputHandler.nodeID
+            }
+            return false
+        } == true)
+    }
+
+    @Test
+    func bridgeAllocatesInsertedMountedNodesAboveDocumentReservationWhenBootstrapIndexIsPruned() throws {
+        let fullArtifact = WasmBridgeMountedTextareaRootWithTrailingDocumentNodes().renderArtifact()
+        let fullIndex = fullArtifact.browserHydrationIndex()
+        let component = try #require(fullIndex.components.first { component in
+            component.typeName == String(reflecting: WasmBridgeTextareaComposer.self)
+        })
+        let prunedIndex = prunedIndex(fullIndex, rootedAt: component.nodeID)
+        let documentNodeIDUpperBound = try #require(fullIndex.nodes.map(\.id.rawValue).max())
+        let outsideNodeIDs = Set(fullIndex.nodes.map(\.id)).subtracting(prunedIndex.nodes.map(\.id))
+        let inputHandler = try #require(prunedIndex.handlers.first { binding in
+            binding.eventName == "input"
+                && prunedIndex.node(binding.nodeID)?.name == "textarea"
+        })
+        let clickHandler = try #require(prunedIndex.handlers.first { binding in
+            binding.eventName == "click"
+                && prunedIndex.node(binding.nodeID)?.name == "button"
+        })
+        let bridge = ClientRuntimeBridge<WasmBridgeTextareaComposer>(
+            environmentRegistry: .swiftWebUI,
+            componentMount: ClientComponentMount(WasmBridgeTextareaComposer.self)
+        ) { _ in
+            WasmBridgeTextareaComposer()
+        }
+
+        _ = try bridge.bootstrap(
+            ClientRuntimeBootstrapRequest(
+                hydrationIndex: prunedIndex,
+                documentNodeIDUpperBound: documentNodeIDUpperBound,
+                location: ClientRuntimeBootstrapLocation(
+                    href: "http://127.0.0.1:8080/textarea",
+                    search: ""
+                )
+            )
+        )
+        let firstInput = try bridge.dispatch(
+            ClientRuntimeEventRequest(
+                handlerID: inputHandler.handlerID,
+                event: DOMEvent(value: "First")
+            )
+        )
+        let firstSend = try bridge.dispatch(
+            ClientRuntimeEventRequest(
+                handlerID: clickHandler.handlerID,
+                event: DOMEvent()
+            )
+        )
+        let insertedNodeIDs = (firstSend.commandBatch?.commands ?? [])
+            .compactMap(insertedHTML)
+            .flatMap(dataNodeIDs)
+
+        #expect(!outsideNodeIDs.isEmpty)
+        #expect(!insertedNodeIDs.isEmpty)
+        #expect(insertedNodeIDs.allSatisfy { $0.rawValue > documentNodeIDUpperBound })
+        #expect(insertedNodeIDs.allSatisfy { !outsideNodeIDs.contains($0) })
+        try assertCommandTargetsResolve(firstInput, currentIndex: prunedIndex)
+        try assertCommandTargetsResolve(firstSend, currentIndex: firstInput.hydrationIndex)
     }
 
     @Test
@@ -970,6 +1201,52 @@ struct SwiftWebUIRuntimeClientRuntimeBridgeTests {
     }
 
     @Test
+    func bridgePreservesMountedForEachAppendPairOrder() throws {
+        let serverArtifact = WasmBridgeMountedAppendPairListRoot().renderArtifact()
+        let serverIndex = serverArtifact.browserHydrationIndex()
+        let bridge = ClientRuntimeBridge<WasmBridgeAppendPairList>(
+            componentMount: ClientComponentMount(WasmBridgeAppendPairList.self)
+        ) { _ in
+            WasmBridgeAppendPairList()
+        }
+
+        _ = try bridge.bootstrap(
+            ClientRuntimeBootstrapRequest(
+                hydrationIndex: serverIndex,
+                location: ClientRuntimeBootstrapLocation(
+                    href: "http://127.0.0.1:8080/list",
+                    search: ""
+                )
+            )
+        )
+        let handler = try #require(serverIndex.handlers.first)
+
+        let firstUpdate = try bridge.dispatch(
+            ClientRuntimeEventRequest(
+                handlerID: handler.handlerID,
+                event: DOMEvent()
+            )
+        )
+        let firstIndex = try #require(firstUpdate.hydrationIndex)
+
+        #expect(messageTextOrder(in: firstIndex) == ["a0", "u1", "a2", "u3", "a4"])
+        #expect(insertedTextOrder(in: firstUpdate.commandBatch?.commands ?? []) == ["u3", "a4"])
+        try assertCommandTargetsResolve(firstUpdate)
+
+        let secondUpdate = try bridge.dispatch(
+            ClientRuntimeEventRequest(
+                handlerID: handler.handlerID,
+                event: DOMEvent()
+            )
+        )
+        let secondIndex = try #require(secondUpdate.hydrationIndex)
+
+        #expect(messageTextOrder(in: secondIndex) == ["a0", "u1", "a2", "u3", "a4", "u5", "a6"])
+        #expect(insertedTextOrder(in: secondUpdate.commandBatch?.commands ?? []) == ["u5", "a6"])
+        try assertCommandTargetsResolve(secondUpdate)
+    }
+
+    @Test
     func bridgeRebasesKeyedForEachComponentRowsAcrossDisjointKeys() throws {
         let serverArtifact = WasmBridgeMountedPropertySelectionRoot().renderArtifact()
         let serverIndex = serverArtifact.browserHydrationIndex()
@@ -1135,6 +1412,53 @@ struct SwiftWebUIRuntimeClientRuntimeBridgeTests {
         }
     }
 
+    private func messageTextOrder(in index: BrowserHydrationIndex) -> [String] {
+        let nodesByID = Dictionary(uniqueKeysWithValues: index.nodes.map { ($0.id, $0) })
+        var values: [String] = []
+
+        func visit(_ nodeID: HTMLNodeID) {
+            guard let node = nodesByID[nodeID] else {
+                return
+            }
+            if node.role == .text,
+               let text = node.text,
+               isMessageText(text) {
+                values.append(text)
+            }
+            for childID in node.childIDs {
+                visit(childID)
+            }
+        }
+
+        visit(index.rootID)
+        return values
+    }
+
+    private func insertedTextOrder(in commands: [BrowserDOMCommand]) -> [String] {
+        commands
+            .compactMap(insertedHTML)
+            .flatMap(messageTextOrder(inHTML:))
+    }
+
+    private func messageTextOrder(inHTML html: String) -> [String] {
+        ["a0", "u1", "a2", "u3", "a4", "u5", "a6"]
+            .compactMap { value -> (String.Index, String)? in
+                guard let range = html.range(of: value) else {
+                    return nil
+                }
+                return (range.lowerBound, value)
+            }
+            .sorted { left, right in left.0 < right.0 }
+            .map(\.1)
+    }
+
+    private func isMessageText(_ text: String) -> Bool {
+        guard let first = text.first, first == "a" || first == "u" else {
+            return false
+        }
+        return text.dropFirst().allSatisfy(\.isNumber)
+    }
+
     private func textUpdateNode(_ command: BrowserDOMCommand) -> HTMLNodeID? {
         if case .updateText(let node, _) = command {
             return node
@@ -1147,5 +1471,82 @@ struct SwiftWebUIRuntimeClientRuntimeBridgeTests {
             return (node, html)
         }
         return nil
+    }
+
+    private func insertedHTML(_ command: BrowserDOMCommand) -> String? {
+        if case .insertHTML(_, _, let html) = command {
+            return html
+        }
+        return nil
+    }
+
+    private func dataNodeIDs(in html: String) -> [HTMLNodeID] {
+        let marker = "data-node=\""
+        var ids: [HTMLNodeID] = []
+        var cursor = html.startIndex
+
+        while let range = html[cursor...].range(of: marker) {
+            var numberEnd = range.upperBound
+            while numberEnd < html.endIndex, html[numberEnd].isNumber {
+                numberEnd = html.index(after: numberEnd)
+            }
+            if numberEnd < html.endIndex,
+               html[numberEnd] == "\"",
+               let value = Int(html[range.upperBound..<numberEnd]) {
+                ids.append(HTMLNodeID(value))
+            }
+            cursor = numberEnd
+        }
+
+        return ids
+    }
+
+    private func prunedIndex(
+        _ index: BrowserHydrationIndex,
+        rootedAt rootNodeID: HTMLNodeID
+    ) -> BrowserHydrationIndex {
+        let nodesByID = Dictionary(uniqueKeysWithValues: index.nodes.map { ($0.id, $0) })
+        var keptNodeIDs: Set<HTMLNodeID> = []
+
+        func keepSubtree(_ nodeID: HTMLNodeID) {
+            guard keptNodeIDs.insert(nodeID).inserted,
+                  let node = nodesByID[nodeID]
+            else {
+                return
+            }
+            for childID in node.childIDs {
+                keepSubtree(childID)
+            }
+        }
+        keepSubtree(rootNodeID)
+
+        let components = index.components.filter { keptNodeIDs.contains($0.nodeID) }
+        let componentIDs = Set(components.map(\.id))
+        return BrowserHydrationIndex(
+            rootID: rootNodeID,
+            nodes: index.nodes
+                .filter { keptNodeIDs.contains($0.id) }
+                .map { node in
+                    BrowserHydrationNodeRecord(
+                        id: node.id,
+                        parentID: node.parentID.flatMap { keptNodeIDs.contains($0) ? $0 : nil },
+                        childIDs: node.childIDs.filter { keptNodeIDs.contains($0) },
+                        role: node.role,
+                        name: node.name,
+                        text: node.text,
+                        componentID: node.componentID,
+                        serverSlotID: node.serverSlotID,
+                        attributes: node.attributes,
+                        eventBindings: node.eventBindings.filter { keptNodeIDs.contains($0.nodeID) },
+                        key: node.key,
+                        fingerprint: node.fingerprint
+                    )
+                },
+            components: components,
+            serverSlots: index.serverSlots.filter { slot in
+                componentIDs.contains(slot.ownerComponentID) || keptNodeIDs.contains(slot.nodeID)
+            },
+            handlers: index.handlers.filter { keptNodeIDs.contains($0.nodeID) }
+        )
     }
 }

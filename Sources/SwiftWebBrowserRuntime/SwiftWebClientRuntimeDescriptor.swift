@@ -4,6 +4,7 @@ import SwiftWebActors
 public struct SwiftWebClientRuntimeDescriptor: Sendable, Codable, Equatable {
     public let mode: SwiftWebClientRuntimeDescriptorMode
     public let hydrationIndex: BrowserHydrationIndex
+    public let documentNodeIDUpperBound: Int?
     public let manifest: ClientBundleManifest?
     public let wasm: SwiftWebWasmClientRuntime?
     public let security: ClientSecurityDescriptor?
@@ -12,6 +13,7 @@ public struct SwiftWebClientRuntimeDescriptor: Sendable, Codable, Equatable {
     public init(
         mode: SwiftWebClientRuntimeDescriptorMode,
         hydrationIndex: BrowserHydrationIndex,
+        documentNodeIDUpperBound: Int? = nil,
         manifest: ClientBundleManifest? = nil,
         wasm: SwiftWebWasmClientRuntime? = nil,
         security: ClientSecurityDescriptor? = nil,
@@ -19,6 +21,7 @@ public struct SwiftWebClientRuntimeDescriptor: Sendable, Codable, Equatable {
     ) {
         self.mode = mode
         self.hydrationIndex = hydrationIndex
+        self.documentNodeIDUpperBound = documentNodeIDUpperBound
         self.manifest = manifest
         self.wasm = wasm
         self.security = security

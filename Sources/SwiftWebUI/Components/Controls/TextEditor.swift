@@ -25,9 +25,8 @@ public struct TextEditor: WebUIAttributeComponent {
     @HTMLBuilder
     public var body: some HTML {
         let text = self.text
-        // `<textarea>` carries its value as text content, not an attribute, so
-        // the bound value is server-rendered as the element's content and kept
-        // in sync through `onInput`.
+        // SwiftHTML renders a textarea value binding as text content for SSR,
+        // while keeping it as a property binding for client-side patching.
         Element(
             "textarea",
             attributes: mergedAttributes(
@@ -39,15 +38,14 @@ public struct TextEditor: WebUIAttributeComponent {
                 ),
                 styles: .custom("--swui-material-tint", "var(--swui-field-background)"),
                 extra: [
+                    .value(text),
                     .onInput { event in
                         text.wrappedValue = event.value ?? ""
                     },
                 ] + disabledAttributes + attributes
             ),
             isVoid: false
-        ) {
-            text.wrappedValue
-        }
+        )
     }
 
     public func addingAttributes(_ attributes: [HTMLAttribute]) -> Self {

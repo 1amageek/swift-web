@@ -72,6 +72,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       to: swiftWebPackage.appendingPathComponent("Package.swift")
     )
     try writeSwiftWebStyleRuntimeSources(in: swiftWebPackage)
+    try writeSwiftWebUIThemeRuntimeSources(in: swiftWebPackage)
     try write(
       "import SwiftHTML\npublic struct Text {}",
       to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Text.swift")
@@ -320,9 +321,11 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       wasmPackageSwift.contains(
         ".product(name: \"ActorRuntime\", package: \"swift-actor-runtime\")"))
     #expect(wasmPackageSwift.contains("let swiftWebUITarget = Target.target("))
+    #expect(wasmPackageSwift.contains("let swiftWebUIThemeTarget = Target.target("))
     #expect(wasmPackageSwift.contains("let cJavaScriptKitTarget = Target.target("))
     #expect(wasmPackageSwift.contains("let javaScriptKitTarget = Target.target("))
     #expect(wasmPackageSwift.contains("let swiftWebUIRuntimeTarget = Target.target("))
+    #expect(wasmPackageSwift.contains("path: \"Sources/SwiftWebUITheme\""))
     #expect(wasmPackageSwift.contains("path: \"Sources/SwiftWebUIRuntime\""))
     #expect(wasmPackageSwift.contains("path: \"Sources/JavaScriptKit\""))
     #expect(wasmPackageSwift.contains("path: \"Sources/_CJavaScriptKit\""))
@@ -342,12 +345,23 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     #expect(
       wasmPackageSwift.contains(
         """
+        let swiftWebUIThemeTarget = Target.target(
+            name: "SwiftWebUITheme",
+            dependencies: [
+                "SwiftHTML",
+                "SwiftWebStyle",
+            ],
+        """))
+    #expect(
+      wasmPackageSwift.contains(
+        """
         let swiftWebUITarget = Target.target(
             name: "SwiftWebUI",
             dependencies: [
                 "SwiftHTML",
                 "SwiftWebActors",
                 "SwiftWebStyle",
+                "SwiftWebUITheme",
             ],
         """))
     #expect(
@@ -486,6 +500,10 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       ))
     #expect(
       FileManager.default.fileExists(
+        atPath: wasmSources.appendingPathComponent("SwiftWebUITheme/ThemeToken.swift").path
+      ))
+    #expect(
+      FileManager.default.fileExists(
         atPath: wasmSources.appendingPathComponent("SwiftWebUIRuntime/RuntimeEntrypoint.swift").path
       ))
     #expect(
@@ -607,6 +625,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       to: swiftWebPackage.appendingPathComponent("Package.swift")
     )
     try writeSwiftWebStyleRuntimeSources(in: swiftWebPackage)
+    try writeSwiftWebUIThemeRuntimeSources(in: swiftWebPackage)
     try write(
       "import SwiftHTML\npublic struct Text {}",
       to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Text.swift")
@@ -776,6 +795,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       to: swiftWebPackage.appendingPathComponent("Package.swift")
     )
     try writeSwiftWebStyleRuntimeSources(in: swiftWebPackage)
+    try writeSwiftWebUIThemeRuntimeSources(in: swiftWebPackage)
     try write(
       """
       {
@@ -953,6 +973,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       to: swiftWebPackage.appendingPathComponent("Package.swift")
     )
     try writeSwiftWebStyleRuntimeSources(in: swiftWebPackage)
+    try writeSwiftWebUIThemeRuntimeSources(in: swiftWebPackage)
     try write(
       "import SwiftHTML\npublic struct Text {}",
       to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Text.swift")
@@ -1127,6 +1148,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       to: swiftWebPackage.appendingPathComponent("Package.swift")
     )
     try writeSwiftWebStyleRuntimeSources(in: swiftWebPackage)
+    try writeSwiftWebUIThemeRuntimeSources(in: swiftWebPackage)
     try write(
       "import SwiftHTML\npublic struct Text {}",
       to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Text.swift")
@@ -1316,6 +1338,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       to: swiftWebPackage.appendingPathComponent("Package.swift")
     )
     try writeSwiftWebStyleRuntimeSources(in: swiftWebPackage)
+    try writeSwiftWebUIThemeRuntimeSources(in: swiftWebPackage)
     try write(
       "import SwiftHTML\npublic struct Text {}",
       to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Text.swift")
@@ -1585,6 +1608,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       to: swiftWebPackage.appendingPathComponent("Package.swift")
     )
     try writeSwiftWebStyleRuntimeSources(in: swiftWebPackage)
+    try writeSwiftWebUIThemeRuntimeSources(in: swiftWebPackage)
     try write(
       "import SwiftHTML\npublic struct Text {}",
       to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Text.swift")
@@ -1712,6 +1736,13 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     try write(
       "import SwiftHTML\npublic struct StyleRegistry { public init() {} }",
       to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebStyle/StyleRegistry.swift")
+    )
+  }
+
+  private func writeSwiftWebUIThemeRuntimeSources(in swiftWebPackage: URL) throws {
+    try write(
+      "import SwiftHTML\nimport SwiftWebStyle\npublic struct ThemeToken { public init() {} }",
+      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUITheme/ThemeToken.swift")
     )
   }
 

@@ -14,6 +14,7 @@ public struct ClientRuntimeBootstrapLocation: Sendable, Codable, Equatable {
 
 public struct ClientRuntimeBootstrapRequest: Sendable, Codable, Equatable {
     public let hydrationIndex: BrowserHydrationIndex
+    public let documentNodeIDUpperBound: Int?
     public let location: ClientRuntimeBootstrapLocation
     public let mode: ClientRuntimeBootstrapMode?
     public let stateSnapshot: ClientRuntimeStateSnapshot?
@@ -21,12 +22,14 @@ public struct ClientRuntimeBootstrapRequest: Sendable, Codable, Equatable {
 
     public init(
         hydrationIndex: BrowserHydrationIndex,
+        documentNodeIDUpperBound: Int? = nil,
         location: ClientRuntimeBootstrapLocation,
         mode: ClientRuntimeBootstrapMode? = nil,
         stateSnapshot: ClientRuntimeStateSnapshot? = nil,
         actorBindings: [SwiftWebActorBindingRecord] = []
     ) {
         self.hydrationIndex = hydrationIndex
+        self.documentNodeIDUpperBound = documentNodeIDUpperBound
         self.location = location
         self.mode = mode
         self.stateSnapshot = stateSnapshot
@@ -125,6 +128,7 @@ public final class ClientRuntimeBridge<Root: HTML> {
     private var session: HydrationRuntimeSession<Root>?
     private var mountedHydrationIndex: BrowserHydrationIndex?
     private var mountedNodeMap: [HTMLNodeID: HTMLNodeID] = [:]
+    private var documentNodeIDUpperBound: Int?
     private var actorBindingScope: SwiftWebActorBindingScope?
 
     public init(
@@ -185,6 +189,7 @@ public final class ClientRuntimeBridge<Root: HTML> {
     private func bootstrapWithCurrentActorBindings(
         _ request: ClientRuntimeBootstrapRequest
     ) throws -> ClientRuntimeResponse {
+        documentNodeIDUpperBound = request.documentNodeIDUpperBound
         let root = try rootFactory(request)
         let environment = try environmentFactory(request)
         let componentEnvironmentOverrides = try componentEnvironmentFactory(request, environment)
@@ -220,7 +225,8 @@ public final class ClientRuntimeBridge<Root: HTML> {
                 let nextNodeMap = Self.structuralNodeMap(
                     localIndex: localIndex,
                     mountedIndex: request.hydrationIndex,
-                    mount: componentMount
+                    mount: componentMount,
+                    documentNodeIDUpperBound: documentNodeIDUpperBound
                 )
                 let previousNodeMap = Self.boundaryNodeMap(
                     mountedIndex: request.hydrationIndex,
@@ -237,7 +243,8 @@ public final class ClientRuntimeBridge<Root: HTML> {
                     localIndex,
                     mountedIndex: request.hydrationIndex,
                     previousNodeMap: previousNodeMap,
-                    nodeMap: nextNodeMap
+                    nodeMap: nextNodeMap,
+                    mount: componentMount
                 )
                 mountedHydrationIndex = nextHydrationIndex
                 mountedNodeMap = nextNodeMap
@@ -321,13 +328,15 @@ public final class ClientRuntimeBridge<Root: HTML> {
             let nextNodeMap = Self.structuralNodeMap(
                 localIndex: update.hydrationIndex,
                 mountedIndex: mountedIndex,
-                mount: componentMount
+                mount: componentMount,
+                documentNodeIDUpperBound: documentNodeIDUpperBound
             )
             let nextHydrationIndex = Self.rebased(
                 update.hydrationIndex,
                 mountedIndex: mountedIndex,
                 previousNodeMap: previousNodeMap,
-                nodeMap: nextNodeMap
+                nodeMap: nextNodeMap,
+                mount: componentMount
             )
             let mountedComponentsByNodeID = Dictionary(uniqueKeysWithValues: mountedIndex.components.map {
                 ($0.nodeID, $0)
@@ -879,7 +888,8 @@ public final class ClientRuntimeBridge<Root: HTML> {
     private static func structuralNodeMap(
         localIndex: BrowserHydrationIndex,
         mountedIndex: BrowserHydrationIndex,
-        mount: ClientComponentMount
+        mount: ClientComponentMount,
+        documentNodeIDUpperBound: Int?
     ) -> [HTMLNodeID: HTMLNodeID] {
         guard let localComponent = localIndex.components.first(where: { $0.typeName == mount.typeName }),
               let mountedComponent = mountedIndex.components.first(where: { $0.typeName == mount.typeName }) else {
@@ -888,7 +898,10 @@ public final class ClientRuntimeBridge<Root: HTML> {
 
         var map: [HTMLNodeID: HTMLNodeID] = [:]
         var allocatedMountedIDs = Set(mountedIndex.nodes.map(\.id))
-        var nextNodeID = (mountedIndex.nodes.map(\.id.rawValue).max() ?? -1) + 1
+        var nextNodeID = max(
+            mountedIndex.nodes.map(\.id.rawValue).max() ?? -1,
+            documentNodeIDUpperBound ?? -1
+        ) + 1
 
         func allocateMountedID() -> HTMLNodeID {
             while allocatedMountedIDs.contains(HTMLNodeID(nextNodeID)) {
@@ -974,6 +987,33 @@ public final class ClientRuntimeBridge<Root: HTML> {
             }
         }
 
+        let localStableSignatures = stableDOMSignatures(
+            for: localChildren,
+            in: localIndex,
+            excluding: Set(matches.keys)
+        )
+        let mountedStableSignatures = stableDOMSignatures(
+            for: mountedChildren,
+            in: mountedIndex,
+            excluding: usedMountedIDs
+        )
+        let mountedStableNodes = Dictionary(uniqueKeysWithValues: mountedStableSignatures.map { nodeID, signature in
+            (signature, nodeID)
+        })
+        for localID in localChildren where matches[localID] == nil {
+            guard let signature = localStableSignatures[localID],
+                  let mountedID = mountedStableNodes[signature],
+                  !usedMountedIDs.contains(mountedID),
+                  let localNode = localIndex.node(localID),
+                  let mountedNode = mountedIndex.node(mountedID),
+                  nodesAreCompatible(localNode, mountedNode)
+            else {
+                continue
+            }
+            matches[localID] = mountedID
+            usedMountedIDs.insert(mountedID)
+        }
+
         var mountedCursor = 0
         for localID in localChildren where matches[localID] == nil {
             guard let localNode = localIndex.node(localID), localNode.key == nil else {
@@ -997,6 +1037,54 @@ public final class ClientRuntimeBridge<Root: HTML> {
         return matches
     }
 
+    private static func stableDOMSignatures(
+        for childIDs: [HTMLNodeID],
+        in index: BrowserHydrationIndex,
+        excluding excludedIDs: Set<HTMLNodeID>
+    ) -> [HTMLNodeID: String] {
+        var signatureByNode: [HTMLNodeID: String] = [:]
+        var counts: [String: Int] = [:]
+
+        for childID in childIDs where !excludedIDs.contains(childID) {
+            guard let node = index.node(childID),
+                  let signature = stableDOMSignature(for: node)
+            else {
+                continue
+            }
+            signatureByNode[childID] = signature
+            counts[signature, default: 0] += 1
+        }
+
+        return signatureByNode.filter { _, signature in
+            counts[signature] == 1
+        }
+    }
+
+    private static func stableDOMSignature(for node: BrowserHydrationNodeRecord) -> String? {
+        guard node.role == .element,
+              let name = node.name
+        else {
+            return nil
+        }
+
+        let eventNames = node.eventBindings
+            .map(\.eventName)
+            .sorted()
+        let propertyNames = node.attributes
+            .filter { $0.kind == .propertyBinding }
+            .map(\.name)
+            .sorted()
+        guard !eventNames.isEmpty || !propertyNames.isEmpty else {
+            return nil
+        }
+
+        return [
+            name,
+            eventNames.joined(separator: ","),
+            propertyNames.joined(separator: ","),
+        ].joined(separator: "|")
+    }
+
     private static func nodesAreCompatible(
         _ localNode: BrowserHydrationNodeRecord,
         _ mountedNode: BrowserHydrationNodeRecord
@@ -1011,9 +1099,15 @@ public final class ClientRuntimeBridge<Root: HTML> {
         _ localIndex: BrowserHydrationIndex,
         mountedIndex: BrowserHydrationIndex,
         previousNodeMap: [HTMLNodeID: HTMLNodeID],
-        nodeMap: [HTMLNodeID: HTMLNodeID]
+        nodeMap: [HTMLNodeID: HTMLNodeID],
+        mount: ClientComponentMount
     ) -> BrowserHydrationIndex {
-        let previousMountedNodes = Set(previousNodeMap.values)
+        let previousMountedNodes = previousMountedSubtreeNodeIDs(
+            localIndex: localIndex,
+            mountedIndex: mountedIndex,
+            previousNodeMap: previousNodeMap,
+            mount: mount
+        )
         let mountedNodesByID = Dictionary(uniqueKeysWithValues: mountedIndex.nodes.map { ($0.id, $0) })
         let mountedComponentsByNodeID = Dictionary(uniqueKeysWithValues: mountedIndex.components.map {
             ($0.nodeID, $0)
@@ -1071,6 +1165,33 @@ public final class ClientRuntimeBridge<Root: HTML> {
             serverSlots: (outsideServerSlots + rebasedServerSlots).sorted { $0.id.rawValue < $1.id.rawValue },
             handlers: (outsideHandlers + rebasedHandlers).sorted { $0.handlerID.rawValue < $1.handlerID.rawValue }
         )
+    }
+
+    private static func previousMountedSubtreeNodeIDs(
+        localIndex: BrowserHydrationIndex,
+        mountedIndex: BrowserHydrationIndex,
+        previousNodeMap: [HTMLNodeID: HTMLNodeID],
+        mount: ClientComponentMount
+    ) -> Set<HTMLNodeID> {
+        guard let localComponent = component(in: localIndex, matching: mount),
+              let mountedComponentNodeID = previousNodeMap[localComponent.nodeID]
+        else {
+            return Set(previousNodeMap.values)
+        }
+
+        var ids = Set<HTMLNodeID>()
+        func walk(_ nodeID: HTMLNodeID) {
+            guard ids.insert(nodeID).inserted,
+                  let node = mountedIndex.node(nodeID)
+            else {
+                return
+            }
+            for childID in node.childIDs {
+                walk(childID)
+            }
+        }
+        walk(mountedComponentNodeID)
+        return ids
     }
 
     private static func componentIDMap(

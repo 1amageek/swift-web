@@ -21,14 +21,33 @@ live in the development modules re-exported by `SwiftWebDevelopment`.
 
 ## New Command
 
-`sweb new <AppName>` creates the smallest runnable SwiftWeb package. It gives the package, library product, target, source directory, and `SwiftWeb.App` type the provided app name.
+`sweb new <AppName>` creates a runnable SwiftWeb package. It gives the package,
+library product, target, and source directory the provided app name. The generated
+`SwiftWeb.App` type is derived as a Swift type identifier.
+
+Pass `--ai` to create a chat-first SwiftWebUI app shell for AI interfaces.
+Pass `--platform <preset|owner/repo[/template]>` to resolve and apply a deployment
+adapter template without adding that adapter to the app package dependency graph. Presets
+are intentionally small aliases; for example `cloudflare` resolves to
+`1amageek/swift-web-cloudflare`. A path after the repository, such as
+`1amageek/swift-web-cloudflare/chat`, selects a named template inside the adapter
+repository.
 
 ```mermaid
 flowchart LR
   A["sweb new MyApp"] --> B["Package.swift"]
   A --> C["Sources/MyApp/App.swift"]
   A --> D["Sources/MyApp/Routes/HomePage.swift"]
+  F["sweb new Chat --ai"] --> G["Sources/Chat/Routes/ChatPage.swift"]
+  F --> H["Sources/Chat/Components/ChatPanel.swift"]
+  I["--platform cloudflare"] --> J[".swiftweb/platform.json"]
+  K["--platform owner/repo"] --> J
+  L["--platform owner/repo/chat"] --> J
+  I --> M["adapter template files"]
+  K --> M
+  L --> M
   A --> E["materialize .swiftweb/generated"]
+  F --> E
 ```
 
 | Generated file | Responsibility |
@@ -36,7 +55,14 @@ flowchart LR
 | `Package.swift` | Declares the app library and depends on `SwiftWeb` plus `SwiftHTML`. |
 | `Sources/<AppName>/App.swift` | Mounts the app routes through `SwiftWeb.App`. |
 | `Sources/<AppName>/Routes/HomePage.swift` | Defines a single `@Page("/")` route that renders `Hello World`. |
+| `Sources/<AppName>/Routes/ChatPage.swift` | `--ai` only. Defines a chat-first `@Page("/")` route. |
+| `Sources/<AppName>/Components/ChatPanel.swift` | `--ai` only. Defines a client-side composer and local message list ready for a server action or actor-backed AI service. |
+| `.swiftweb/platform.json` | `--platform` only. Records the GitHub-backed platform adapter reference such as `1amageek/swift-web-cloudflare` and optional template path such as `chat`. |
+| Adapter template files | `--platform` only. Copied from the selected adapter repository template into the app package root with `{{app.*}}` placeholders rendered. |
 | `.swiftweb/generated` | Generated launcher and WASM packages created through the same prepare path used for existing apps. |
+
+The platform adapter repository contract is documented in
+[`docs/PlatformAdapterTemplateContract.md`](../../docs/PlatformAdapterTemplateContract.md).
 
 ## Prepare Command
 

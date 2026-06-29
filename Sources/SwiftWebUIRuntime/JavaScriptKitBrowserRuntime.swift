@@ -71,8 +71,65 @@ public enum JavaScriptKitBrowserRuntime {
         _ batch: BrowserDOMCommandBatch,
         hydrationIndex: BrowserHydrationIndex
     ) {
-        for command in batch.commands {
+        for command in orderedCommandsForDOMApplication(batch.commands) {
             apply(command, hydrationIndex: hydrationIndex)
+        }
+    }
+
+    private static func orderedCommandsForDOMApplication(
+        _ commands: [BrowserDOMCommand]
+    ) -> [BrowserDOMCommand] {
+        var ordered: [BrowserDOMCommand] = []
+        var insertRun: [(offset: Int, parent: HTMLNodeID, index: Int, command: BrowserDOMCommand)] = []
+        var insertRunParent: HTMLNodeID?
+
+        func flushInsertRun() {
+            ordered.append(contentsOf: insertRun
+                .sorted { left, right in
+                    if left.index != right.index {
+                        return left.index < right.index
+                    }
+                    return left.offset < right.offset
+                }
+                .map(\.command))
+            insertRun.removeAll()
+            insertRunParent = nil
+        }
+
+        for (offset, command) in commands.enumerated() {
+            guard let insertion = insertionTarget(for: command) else {
+                flushInsertRun()
+                ordered.append(command)
+                continue
+            }
+
+            if let parent = insertRunParent, parent != insertion.parent {
+                flushInsertRun()
+            }
+
+            insertRunParent = insertion.parent
+            insertRun.append((
+                offset: offset,
+                parent: insertion.parent,
+                index: insertion.index,
+                command: command
+            ))
+        }
+
+        flushInsertRun()
+        return ordered
+    }
+
+    private static func insertionTarget(
+        for command: BrowserDOMCommand
+    ) -> (parent: HTMLNodeID, index: Int)? {
+        switch command {
+        case .insertNode(let parent, let index, _):
+            (parent, index)
+        case .insertHTML(let parent, let index, _):
+            (parent, index)
+        default:
+            nil
         }
     }
 

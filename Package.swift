@@ -330,6 +330,13 @@ let package = Package(
             swiftSettings: swiftWebSwiftSettings
         ),
         .testTarget(
+            name: "SwiftWebCLITests",
+            dependencies: [
+                "SwiftWebCLI",
+            ],
+            swiftSettings: swiftWebSwiftSettings
+        ),
+        .testTarget(
             name: "SwiftWebTests",
             dependencies: [
                 "SwiftWeb",

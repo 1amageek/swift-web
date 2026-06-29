@@ -54,6 +54,12 @@ flowchart TD
 | WASM build tooling | `SwiftWebWasmBuild` | WASM toolchain resolution, artifact processing, size reports, and compression sidecars. |
 | Storyboard tooling | `SwiftWebStoryboardTooling` | Managed Storyboard package scaffold and launch. |
 
+Platform-specific scaffolding can live outside this repository. `sweb` owns only
+the adapter reference contract and preset mapping; adapter repositories own files
+such as `Dockerfile`, `wrangler.toml`, generated TypeScript hosts, and deployment
+documentation. The template repository contract is defined in
+[`PlatformAdapterTemplateContract.md`](PlatformAdapterTemplateContract.md).
+
 ## Host Model
 
 SwiftWeb should use one public app model and multiple host lowerings.

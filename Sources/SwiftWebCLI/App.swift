@@ -94,7 +94,7 @@ struct CommandLineInterface {
         print(
             """
             Usage:
-              sweb new <AppName> [--output <directory>] [--force]
+              sweb new <AppName> [--output <directory>] [--force] [--ai] [--platform <preset|owner/repo[/template]>]
               sweb prepare [--package-path <directory>] [--product <name>]
               sweb xcode [--package-path <directory>] [--product <name>] [--no-open]
               sweb build [--package-path <directory>] [--product <name>] [--wasm] [--runtime standard] [--swift-sdk <sdk>] [-c debug|release]
@@ -103,7 +103,7 @@ struct CommandLineInterface {
               sweb storyboard [--package-path <directory>] [--output <directory>] [--host <host>] [--port <port>] [--no-run] [--force] [--production] [--runtime standard] [--swift-sdk <sdk>] [-c debug|release]
 
             Commands:
-              new         Create a minimal SwiftWeb app skeleton.
+              new         Create a SwiftWeb app skeleton. Pass --ai for a chat-first template, and --platform to apply a deployment adapter.
               prepare     Materialize generated dev, server, and WASM packages for an existing app.
               xcode       Materialize generated packages and open the dev package in Xcode.
               build       Build the generated server or WASM runtime package.

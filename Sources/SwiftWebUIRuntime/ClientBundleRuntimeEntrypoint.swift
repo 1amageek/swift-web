@@ -175,6 +175,7 @@ public final class ClientBundleRuntimeEntrypoint {
 
             let componentRequest = ClientRuntimeBootstrapRequest(
                 hydrationIndex: currentIndex,
+                documentNodeIDUpperBound: request.documentNodeIDUpperBound,
                 location: request.location,
                 mode: request.mode,
                 stateSnapshot: request.stateSnapshot,

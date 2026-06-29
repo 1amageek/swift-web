@@ -161,7 +161,7 @@ Generate a new app package next to the SwiftWeb checkout:
 xcrun swift run sweb new MyApp --output ../MyApp
 ```
 
-The generated app has this shape:
+The default app has this shape:
 
 ```text
 MyApp
@@ -174,11 +174,49 @@ MyApp
    └─ wasm
 ```
 
-The app package depends on the local SwiftWeb checkout and released `swift-html 0.7.1`.
+Generate a chat-first app shell for AI work:
+
+```bash
+xcrun swift run sweb new Chat --ai --output ../Chat
+```
+
+The AI template adds a SwiftWebUI chat surface:
+
+```text
+Chat
+├─ Package.swift
+├─ Sources/Chat/App.swift
+├─ Sources/Chat/Routes/ChatPage.swift
+├─ Sources/Chat/Components/ChatPanel.swift
+└─ .swiftweb/generated
+   ├─ server
+   ├─ dev
+   └─ wasm
+```
+
+The app package depends on the SwiftWeb `main` branch and released `swift-html 0.7.1`.
 `sweb new` also materializes the generated launchers, dev packages, server packages,
 and WASM packages under `.swiftweb/generated`. Use `sweb prepare` only when you want
 to refresh generated packages for an existing SwiftWeb app without building or
 running it:
+
+Apply a deployment platform adapter by preset or GitHub repository slug:
+
+```bash
+xcrun swift run sweb new Chat --ai --platform cloudflare --output ../Chat
+xcrun swift run sweb new Chat --ai --platform 1amageek/swift-web-cloudflare --output ../Chat
+xcrun swift run sweb new Chat --ai --platform 1amageek/swift-web-cloudflare/chat --output ../Chat
+```
+
+`cloudflare` resolves to `1amageek/swift-web-cloudflare`. `sweb new` clones the
+adapter repository, validates `sweb.json`, copies the selected template
+files into the app package, renders `{{app.*}}` placeholders, and records the source
+in `.swiftweb/platform.json`. Custom platform template repositories can be referenced
+as `owner/repo` when they implement the platform adapter template contract. Add a
+path after the repository, such as `owner/repo/chat`, to select a named template
+inside that adapter repository.
+The contract is documented in
+[`docs/PlatformAdapterTemplateContract.md`](docs/PlatformAdapterTemplateContract.md).
 
 ```bash
 cd ../MyApp
@@ -465,6 +503,10 @@ http://127.0.0.1:3000/counter
 | Command | Purpose |
 |---|---|
 | `sweb new <AppName>` | Generate a minimal SwiftWeb app package. |
+| `sweb new <AppName> --ai` | Generate a chat-first SwiftWebUI app shell for AI interfaces. |
+| `sweb new <AppName> --platform cloudflare` | Apply a preset deployment adapter template. |
+| `sweb new <AppName> --platform owner/repo` | Apply a GitHub-backed custom platform adapter template. |
+| `sweb new <AppName> --platform owner/repo/template` | Apply a custom platform adapter and named template path. |
 | `sweb prepare` | Materialize generated server, dev, and WASM packages for an existing app. |
 | `sweb xcode` | Materialize generated packages and open the dev package in Xcode. |
 | `sweb dev` | Run the development server with generated packages and HMR. |
@@ -499,6 +541,10 @@ flowchart LR
 | Step | Command | When to use it |
 |---|---|---|
 | Create an app | `sweb new MyApp --output ../MyApp` | Start a new SwiftWeb package and materialize `.swiftweb/generated`. |
+| Create an AI chat app | `sweb new Chat --ai --output ../Chat` | Start with a SwiftWebUI chat page and client-side composer. |
+| Apply a Cloudflare adapter | `sweb new Chat --ai --platform cloudflare --output ../Chat` | Copy the selected template and record `1amageek/swift-web-cloudflare` in `.swiftweb/platform.json`. |
+| Apply a custom adapter | `sweb new App --platform owner/repo --output ../App` | Use any GitHub repository that implements the platform adapter template contract. |
+| Apply an adapter template | `sweb new Chat --platform 1amageek/swift-web-cloudflare/chat --output ../Chat` | Use the `chat` template from that platform adapter repository. |
 | Refresh generated packages | `sweb prepare` | Refresh `.swiftweb/generated` for an existing app without starting the server. |
 | Open the generated dev package | `sweb xcode` | Inspect or debug the generated development package in Xcode. |
 | Run the dev loop | `sweb dev` | Start the server, watcher, rebuild loop, and browser updates. |
