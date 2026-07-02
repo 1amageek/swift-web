@@ -14,12 +14,14 @@ struct SwiftWebStoryboardCatalogTests {
         html.contains(value) || html.contains(escapedHTML(value))
     }
 
+    // Mirrors HTMLWriter.escapeText exactly: text nodes escape only & < >,
+    // never quotes. Escaping quotes here breaks matching for copy that mixes
+    // angle brackets and quoted attributes (e.g. `<select>` + `role="..."`).
     private func escapedHTML(_ value: String) -> String {
         value
             .replacingOccurrences(of: "&", with: "&amp;")
             .replacingOccurrences(of: "<", with: "&lt;")
             .replacingOccurrences(of: ">", with: "&gt;")
-            .replacingOccurrences(of: "\"", with: "&quot;")
     }
 
     private func occurrences(of needle: String, in haystack: String) -> Int {
@@ -72,7 +74,7 @@ struct SwiftWebStoryboardCatalogTests {
         #expect(rendered.contains("Storyboard"))
         #expect(rendered.contains("Search components"))
         #expect(rendered.contains("Text"))
-        #expect(rendered.contains("Preview"))
+        #expect(rendered.contains("Playground"))
         #expect(rendered.contains("Usage"))
         #expect(rendered.contains("DOM Contract"))
         #expect(rendered.contains("Properties"))
@@ -197,7 +199,7 @@ struct SwiftWebStoryboardCatalogTests {
     func runtimeLogPanelRendersForBrowserDiagnostics() {
         let rendered = StoryboardCatalog(initialSelection: "list").render()
 
-        #expect(rendered.contains("Runtime Log"))
+        #expect(rendered.contains("Runtime log"))
         #expect(rendered.contains("data-swiftweb-runtime-summary=\"true\""))
         #expect(rendered.contains("data-swiftweb-runtime-log=\"true\""))
         #expect(rendered.contains("Waiting for runtime events"))
@@ -238,7 +240,7 @@ struct SwiftWebStoryboardCatalogTests {
         let rendered = island.render()
 
         #expect(rendered.contains("Stepper"))
-        #expect(rendered.contains("Preview"))
+        #expect(rendered.contains("Playground"))
         #expect(rendered.contains("Usage"))
         #expect(rendered.contains("swui-stepper"))
     }
@@ -250,7 +252,12 @@ struct SwiftWebStoryboardCatalogTests {
             let spec = catalogDetailSpec(for: item)
 
             #expect(self.rendered(rendered, contains: item.name), "Missing selected component title for \(item.id)")
-            #expect(self.rendered(rendered, contains: spec.overview), "Missing overview copy for \(item.id)")
+            // Pages with authored discussion render it in place of the
+            // registry one-liner; pages without fall back to the overview.
+            #expect(
+                self.rendered(rendered, contains: spec.discussion.first ?? spec.overview),
+                "Missing lede copy for \(item.id)"
+            )
             #expect(rendered.contains("Properties"), "Missing property section for \(item.id)")
             #expect(rendered.contains("Usage"), "Missing usage section for \(item.id)")
 
@@ -313,7 +320,7 @@ struct SwiftWebStoryboardCatalogTests {
         )
         let rendered = StoryboardCatalog(initialSelection: "badge").render()
 
-        #expect(snippet == "Badge(\"Ready\")\n    .tint(.danger)")
+        #expect(snippet == "Text(\"Wi-Fi\")\n    .badge(\"Ready\")\n    .tint(.danger)")
         #expect(rendered.contains("--swui-control-tint: var(--swui-accent)"))
     }
 

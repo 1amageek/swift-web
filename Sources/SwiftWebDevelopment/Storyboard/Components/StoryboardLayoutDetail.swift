@@ -83,8 +83,10 @@ struct LayoutDetail: Component {
 
     @HTMLBuilder
     private func hugFillDemo(_ align: String) -> some HTML {
+        // The fixed control hugs its content (its visible boundary makes the
+        // intrinsic width evaluable); the flexible one fills the row.
         VStack(alignment: .leading, spacing: .small) {
-            Badge("Fixed")
+            Button("Fixed").buttonStyle(.bordered)
             Button("Flexible").buttonStyle(.borderedProminent)
                 .frame(maxWidth: .infinity, alignment: hugAlignment(align))
         }

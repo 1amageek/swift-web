@@ -10,7 +10,7 @@ public struct Button<Label: HTML>: WebUIAttributeComponent {
     @Environment(\.layoutDirection) private var layoutDirection: LayoutDirection
     @Environment(\.controlSize) private var controlSize: ControlSize
     @Environment(\.isEnabled) private var isEnabled: Bool
-    @Environment(\.tint) private var tint: String?
+    @Environment(\.tint) private var tint: Color?
     @Environment(\.buttonStyle) private var buttonStyle: ButtonStyleKind
     @Environment(\.isInsideForm) private var isInsideForm: Bool
 
@@ -99,7 +99,7 @@ public struct Button<Label: HTML>: WebUIAttributeComponent {
             prominence: .secondary,
             controlSize: controlSize,
             isEnabled: isEnabled,
-            tint: tint
+            tint: tint?.cssValue
         )
     }
 

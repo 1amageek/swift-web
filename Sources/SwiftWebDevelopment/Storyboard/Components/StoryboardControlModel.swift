@@ -192,7 +192,9 @@ func storyboardControls(for id: String) -> [StoryboardControl] {
     case "hug-fill":
         return [.segmented(label: "fill alignment", key: "align", options: alignmentOptions)]
     case "style":
-        return [.segmented(label: "context", key: "ctx", options: [.init("standalone", "Standalone"), .init("list", "In List"), .init("toolbar", "In Toolbar")])]
+        // The toolbar context is produced by the .toolbar modifier, not a
+        // component, so the option describes the place rather than a type.
+        return [.segmented(label: "context", key: "ctx", options: [.init("standalone", "Standalone"), .init("list", "In List"), .init("toolbar", "In a toolbar")])]
     case "responsive":
         return [.segmented(label: "size class", key: "bp", options: [.init("compact", "Compact"), .init("regular", "Regular"), .init("large", "Large")])]
     case "safearea":

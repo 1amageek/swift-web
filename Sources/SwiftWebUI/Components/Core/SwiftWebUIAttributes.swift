@@ -16,6 +16,12 @@ func mergedAttributes(
     styles: Style = Style(),
     extra attributes: [HTMLAttribute]
 ) -> [HTMLAttribute] {
+    // Every SwiftWebUI component and style modifier funnels through here, so
+    // this is where a render declares that the response document needs the
+    // SwiftWebUI bootstrap (root stylesheet, scripts, root attributes).
+    SwiftWebUIDocumentStyle.installIfNeeded()
+    DocumentStyle.current?.requireBootstrap()
+
     var classTokens: [String] = []
     if let baseClass, !baseClass.isEmpty {
         classTokens.append(baseClass)

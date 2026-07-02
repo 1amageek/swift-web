@@ -2,7 +2,6 @@ import { createRequire } from "node:module";
 import { execFile, spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -393,6 +392,7 @@ async function launchDevServer(appRoot, scratchRoot, port) {
       cwd: swiftWebRoot,
       env: {
         ...process.env,
+        SWIFT_WEB_PACKAGE_PATH: swiftWebRoot,
         SWIFT_WEB_WASM_SDK: wasmSwiftSDK,
       },
       detached: true,
@@ -1253,7 +1253,9 @@ try {
   if (!existsSync(swiftHTMLRoot)) {
     throw new Error(`Local swift-html package was not found: ${swiftHTMLRoot}`);
   }
-  tempRoot = await mkdtemp(path.join(tmpdir(), "swiftweb-counter-e2e-"));
+  const tempParent = path.join(swiftWebRoot, ".swiftweb", "browser-e2e");
+  await mkdir(tempParent, { recursive: true });
+  tempRoot = await mkdtemp(path.join(tempParent, "counter-"));
   const appRoot = await prepareAppCopy(tempRoot);
   const scratchRoot = path.join(tempRoot, "scratch");
   await mkdir(scratchRoot, { recursive: true });

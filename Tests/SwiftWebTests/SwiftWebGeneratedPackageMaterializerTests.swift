@@ -414,6 +414,17 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       FileManager.default.fileExists(
         atPath: wasmSources.appendingPathComponent("SampleApp/ClientSample.swift").path
       ))
+    let copiedClientSample = try String(
+      contentsOf: wasmSources.appendingPathComponent("SampleApp/ClientSample.swift"),
+      encoding: .utf8
+    )
+    #expect(!copiedClientSample.contains("@Actor"))
+    #expect(copiedClientSample.contains("private var service: any SampleServiceProtocol {"))
+    #expect(copiedClientSample.contains("SwiftWebActorBinding.resolve("))
+    #expect(
+      copiedClientSample.contains(
+        "SwiftWebActorContractKey(String(reflecting: (any SampleServiceProtocol).self))"
+      ))
     #expect(
       FileManager.default.fileExists(
         atPath: wasmSources.appendingPathComponent("SampleApp/ClientBadge.swift").path

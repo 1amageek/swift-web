@@ -236,23 +236,6 @@ public enum SwiftWebActorBinding {
     }
 }
 
-@propertyWrapper
-public struct Actor<Service: Sendable>: Sendable {
-    private let contract: SwiftWebActorContractKey
-
-    public init() {
-        self.contract = SwiftWebActorContractKey(String(reflecting: Service.self))
-    }
-
-    public init(_ contract: SwiftWebActorContractKey) {
-        self.contract = contract
-    }
-
-    public var wrappedValue: Service {
-        SwiftWebActorBinding.resolve(Service.self, contract: contract)
-    }
-}
-
 public enum SwiftWebActorBindingError: Error, Sendable, CustomStringConvertible, Equatable {
     case missingBinding(contract: String)
     case missingResolver(contract: String)

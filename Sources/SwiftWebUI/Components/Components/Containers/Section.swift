@@ -112,22 +112,22 @@ public extension Section where Parent == EmptyHTML {
     }
 }
 
-public extension Section where Parent == Heading, Footer == EmptyHTML {
+public extension Section where Parent == Text, Footer == EmptyHTML {
     init(_ title: String, @HTMLBuilder content: () -> Content) {
         self.init(content: content) {
-            Heading(title, level: .subsection)
+            Text(title, as: .h3)
         }
     }
 }
 
-public extension Section where Parent == Heading, Footer == Text {
+public extension Section where Parent == Text, Footer == Text {
     init(
         _ title: String,
         footer: String,
         @HTMLBuilder content: () -> Content
     ) {
         self.init(content: content) {
-            Heading(title, level: .subsection)
+            Text(title, as: .h3)
         } footer: {
             Text(footer)
         }

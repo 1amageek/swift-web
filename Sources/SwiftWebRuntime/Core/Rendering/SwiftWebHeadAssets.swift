@@ -1,6 +1,74 @@
 import SwiftWebStyle
 
 enum SwiftWebHeadAssets {
+    /// Applies the document style bootstrap to a rendered page: registers the
+    /// provider's stylesheet and scripts so the head markers pick them up, and
+    /// stamps the root attributes onto the document `<body>` tag.
+    static func applyDocumentStyle(
+        to html: String,
+        registry: StyleRegistry,
+        document: DocumentStyle
+    ) -> String {
+        guard document.bootstrapRequired,
+            let provider = DocumentStyleBootstrap.installed
+        else {
+            return html
+        }
+        registry.registerStylesheet(provider.stylesheet)
+        for script in provider.scripts {
+            registry.registerScript(id: script.id, body: script.body)
+        }
+
+        guard let bodyStart = html.range(of: "<body"),
+            let tagEnd = html.range(of: ">", range: bodyStart.upperBound..<html.endIndex)
+        else {
+            return html
+        }
+
+        var openTag = String(html[bodyStart.lowerBound..<tagEnd.lowerBound])
+        let rootClass = escapedAttribute(provider.rootClass)
+        if let classRange = openTag.range(of: " class=\"") {
+            openTag.replaceSubrange(classRange, with: " class=\"\(rootClass) ")
+        } else {
+            openTag += " class=\"\(rootClass)\""
+        }
+        if let scheme = document.preferredColorScheme?.rawValue {
+            openTag += " data-color-scheme=\"\(escapedAttribute(scheme))\""
+        }
+        openTag += " data-style-system=\"\(escapedAttribute(provider.styleSystemID))\""
+        return html.replacingCharacters(
+            in: bodyStart.lowerBound..<tagEnd.lowerBound,
+            with: openTag
+        )
+    }
+
+    /// Applies the document style bootstrap to one streamed chunk: registers
+    /// the provider's assets so the chunk's inline styles carry them, and wraps
+    /// the fragment in a scoped root so palette variables resolve. Streamed
+    /// fragments are not full documents, so the root is a wrapper element
+    /// rather than `<body>` attributes.
+    static func applyStreamedDocumentStyle(
+        to html: String,
+        registry: StyleRegistry,
+        document: DocumentStyle
+    ) -> String {
+        guard document.bootstrapRequired,
+            let provider = DocumentStyleBootstrap.installed
+        else {
+            return html
+        }
+        registry.registerStylesheet(provider.stylesheet)
+        for script in provider.scripts {
+            registry.registerScript(id: script.id, body: script.body)
+        }
+        var attributes = " class=\"\(escapedAttribute(provider.rootClass))\""
+        if let scheme = document.preferredColorScheme?.rawValue {
+            attributes += " data-color-scheme=\"\(escapedAttribute(scheme))\""
+        }
+        attributes += " data-style-system=\"\(escapedAttribute(provider.styleSystemID))\""
+        return "<div\(attributes)>\(html)</div>"
+    }
+
     static func assets(from registry: StyleRegistry, nonce: String?) -> String {
         baseStyle(from: registry, nonce: nonce)
             + atomicStyle(from: registry, nonce: nonce)

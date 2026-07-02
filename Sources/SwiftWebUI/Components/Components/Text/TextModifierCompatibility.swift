@@ -85,7 +85,9 @@ public enum TextAlignment: Sendable, Equatable {
     }
 }
 
-public enum TextSelection: Sendable, Equatable {
+/// Whether text can be selected, mirroring SwiftUI's `TextSelectability`.
+/// (`TextSelection` is left free for the iOS 18 selection-range type.)
+public enum TextSelectability: Sendable, Equatable {
     case enabled
     case disabled
 
@@ -98,6 +100,9 @@ public enum TextSelection: Sendable, Equatable {
         }
     }
 }
+
+@available(*, deprecated, renamed: "TextSelectability")
+public typealias TextSelection = TextSelectability
 
 public extension HTML {
     func lineLimit(_ number: Int?) -> ModifiedContent<Self, HTMLAttributeModifier> {
@@ -203,13 +208,13 @@ public extension HTML {
     func underline(
         _ isActive: Bool = true,
         pattern: Text.LineStyle.Pattern = .solid,
-        color: String? = nil
+        color: Color? = nil
     ) -> ModifiedContent<Self, HTMLAttributeModifier> {
         var style = Style.textDecorationLine(isActive ? "underline" : "none")
         if isActive {
             style.append(.textDecorationStyle(pattern.cssValue))
             if let color {
-                style.append(.textDecorationColor(color))
+                style.append(.textDecorationColor(color.cssValue))
             }
         }
         return modifier(HTMLAttributeModifier([
@@ -220,13 +225,13 @@ public extension HTML {
     func strikethrough(
         _ isActive: Bool = true,
         pattern: Text.LineStyle.Pattern = .solid,
-        color: String? = nil
+        color: Color? = nil
     ) -> ModifiedContent<Self, HTMLAttributeModifier> {
         var style = Style.textDecorationLine(isActive ? "line-through" : "none")
         if isActive {
             style.append(.textDecorationStyle(pattern.cssValue))
             if let color {
-                style.append(.textDecorationColor(color))
+                style.append(.textDecorationColor(color.cssValue))
             }
         }
         return modifier(HTMLAttributeModifier([
@@ -234,7 +239,7 @@ public extension HTML {
         ], role: .textStyle))
     }
 
-    func textSelection(_ selectability: TextSelection) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func textSelection(_ selectability: TextSelectability) -> ModifiedContent<Self, HTMLAttributeModifier> {
         modifier(HTMLAttributeModifier([
             styleAttribute(.userSelect(selectability.cssValue))
         ], role: .textStyle))

@@ -9,7 +9,22 @@ public struct GridItem: Sendable, Equatable {
     }
 
     public var size: Size
+
+    /// The spacing to the next item, mirroring SwiftUI's `GridItem.spacing`.
+    ///
+    /// Web contract: CSS Grid has no per-track gap, so a per-item spacing is
+    /// not supported on the web and this value is not lowered into CSS. Use
+    /// the grid's `spacing:` parameter for the (uniform) gap between tracks.
     public var spacing: Double?
+
+    /// The alignment of views within this item's track, mirroring SwiftUI's
+    /// `GridItem.alignment`.
+    ///
+    /// Web contract: CSS Grid cannot align a single track independently, so
+    /// the alignment is lowered onto the grid container (`justify-items` +
+    /// `align-items`, overriding the grid's own `alignment:` parameter, as in
+    /// SwiftUI) only when every item requests the same alignment. Mixed
+    /// per-track alignments are not supported on the web and are not lowered.
     public var alignment: Alignment?
 
     public init(
@@ -21,6 +36,19 @@ public struct GridItem: Sendable, Equatable {
         self.spacing = spacing
         self.alignment = alignment
     }
+}
+
+/// The container-level lowering of `GridItem.alignment`: the shared alignment
+/// when every item requests the same one, or `nil` when items disagree or do
+/// not specify an alignment (see the `GridItem.alignment` web contract).
+func uniformGridItemAlignment(_ items: [GridItem]) -> Alignment? {
+    guard let first = items.first, let alignment = first.alignment else {
+        return nil
+    }
+    guard items.allSatisfy({ $0.alignment == alignment }) else {
+        return nil
+    }
+    return alignment
 }
 
 func gridTemplateTracks(_ items: [GridItem]) -> String {

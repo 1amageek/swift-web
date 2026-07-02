@@ -126,8 +126,14 @@ public extension HTML {
         ]))
     }
 
+    /// Hides this view while preserving its layout space, matching SwiftUI's
+    /// `hidden()` (which keeps the view in the layout, unlike removing it).
+    /// The `condition` parameter is a web extension over SwiftUI's
+    /// argument-less `hidden()`.
     func hidden(_ condition: Bool = true) -> ModifiedContent<Self, HTMLAttributeModifier> {
-        condition ? modifier(HTMLAttributeModifier([.hidden])) : modifier(HTMLAttributeModifier([]))
+        condition
+            ? modifier(HTMLAttributeModifier([styleAttribute(.visibility("hidden"))]))
+            : modifier(HTMLAttributeModifier([]))
     }
 
     func padding(_ length: Space = .medium) -> ModifiedContent<Self, HTMLAttributeModifier> {
@@ -161,12 +167,21 @@ public extension HTML {
         modifier(HTMLAttributeModifier([styleAttribute(.padding(insets.cssValue))]))
     }
 
+    @available(*, deprecated, message: "Use clipShape(.rect(cornerRadius:))")
     func cornerRadius(_ value: Length) -> ModifiedContent<Self, HTMLAttributeModifier> {
-        modifier(HTMLAttributeModifier([styleAttribute(.borderRadius(value.cssValue))]))
+        clipShape(.rect(cornerRadius: value))
     }
 
+    /// Clips this view to `shape`. The shape resolves to a `border-radius`,
+    /// and `overflow: hidden` cuts descendants to that rounded box, matching
+    /// SwiftUI's clipping semantics rather than only rounding the backdrop.
     func clipShape(_ shape: Shape) -> ModifiedContent<Self, HTMLAttributeModifier> {
-        modifier(HTMLAttributeModifier([styleAttribute(.borderRadius(shape.cornerRadiusValue))]))
+        modifier(HTMLAttributeModifier([
+            styleAttribute(Style {
+                .borderRadius(shape.cornerRadiusValue)
+                .overflow("hidden")
+            })
+        ]))
     }
 
     func opacity(_ value: Double) -> ModifiedContent<Self, HTMLAttributeModifier> {
@@ -174,13 +189,13 @@ public extension HTML {
     }
 
     func shadow(
-        color: String = "rgba(0, 0, 0, 0.33)",
+        color: Color = Color(cssValue: "rgba(0, 0, 0, 0.33)"),
         radius: Length,
         x: Length = 0,
         y: Length = 0
     ) -> ModifiedContent<Self, HTMLAttributeModifier> {
         modifier(HTMLAttributeModifier([
-            styleAttribute(.boxShadow("\(x.cssValue) \(y.cssValue) \(radius.cssValue) \(color)"))
+            styleAttribute(.boxShadow("\(x.cssValue) \(y.cssValue) \(radius.cssValue) \(color.cssValue)"))
         ]))
     }
 
@@ -202,8 +217,18 @@ public extension HTML {
         return modifier(HTMLAttributeModifier([.class(tokens.joined(separator: " "))]))
     }
 
+    /// Web approximation of SwiftUI's `layoutPriority(_:)`. SwiftUI uses the
+    /// priority to order space negotiation, not to make a view greedy; the
+    /// closest flexbox analogue is compression resistance, so a positive
+    /// priority emits `flex-shrink: 0` (lower-priority siblings shrink first).
+    /// The default priority (`0`) and negative priorities emit nothing — a
+    /// static stylesheet cannot express relative shrink ordering below the
+    /// default.
     func layoutPriority(_ value: Double) -> ModifiedContent<Self, HTMLAttributeModifier> {
-        modifier(HTMLAttributeModifier([styleAttribute(.flexGrow(trimmedNumber(value)))]))
+        guard value > 0 else {
+            return modifier(HTMLAttributeModifier([]))
+        }
+        return modifier(HTMLAttributeModifier([styleAttribute(.flexShrink("0"))]))
     }
 }
 

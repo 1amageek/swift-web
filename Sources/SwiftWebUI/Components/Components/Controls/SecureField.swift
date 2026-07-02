@@ -41,10 +41,12 @@ public extension SecureField where Label == text {
         prompt: Text? = nil,
         _ attributes: HTMLAttribute...
     ) {
+        // The title renders only as the visible label; without a `prompt`
+        // the input carries no placeholder, so the title never shows twice.
         self.init(
             field: TextField(
                 label: SwiftHTML.text(title),
-                placeholder: prompt?.plainValue ?? title,
+                placeholder: prompt?.plainValue,
                 type: .password,
                 attributes: [.value(text), .onInput { event in
                     text.wrappedValue = event.value ?? ""

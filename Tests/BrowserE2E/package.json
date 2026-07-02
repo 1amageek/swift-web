@@ -5,7 +5,9 @@
     "install-webkit": "playwright install webkit",
     "counter-wasm": "SWIFTWEB_BROWSER_E2E=1 node counter-wasm-runtime-e2e.mjs",
     "counter-wasm:webkit": "SWIFTWEB_BROWSER_E2E=1 SWIFTWEB_E2E_REQUIRE_WEBKIT=1 node counter-wasm-runtime-e2e.mjs",
-    "storyboard-navigation": "SWIFTWEB_BROWSER_E2E=1 node storyboard-client-navigation-e2e.mjs"
+    "storyboard-navigation": "SWIFTWEB_BROWSER_E2E=1 node storyboard-client-navigation-e2e.mjs",
+    "page-access:perf": "SWIFTWEB_BROWSER_E2E=1 SWIFTWEB_PAGE_ACCESS_PROFILE=performance node page-access-stress-e2e.mjs",
+    "page-access:stress": "SWIFTWEB_BROWSER_E2E=1 SWIFTWEB_PAGE_ACCESS_PROFILE=stress node page-access-stress-e2e.mjs"
   },
   "devDependencies": {
     "playwright": "^1.56.1"

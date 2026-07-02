@@ -79,9 +79,12 @@ public struct StoryboardDetailIsland: ClientComponent, Sendable {
     @HTMLBuilder
     private func previewSection() -> some HTML {
         VStack(alignment: .leading, spacing: .small) {
-            sectionTitle("Preview", anchor: "preview")
+            sectionTitle("Playground", anchor: "preview")
+            Text("Drive the live component; the usage snippet follows every knob.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
             PreviewFrame {
-                PreviewCanvas {
+                PreviewCanvas(scene: StoryboardScene.scene(forItem: selection)) {
                     detailDemo()
                 }
                 StoryboardControlPanel(id: selection, ui: $ui)
@@ -108,13 +111,24 @@ public struct StoryboardDetailIsland: ClientComponent, Sendable {
     @HTMLBuilder
     private func domContractSection() -> some HTML {
         VStack(alignment: .leading, spacing: .small) {
-            sectionTitle("DOM Contract", anchor: "dom-contract")
-            Text("Stable semantic and utility classes emitted by the preview. Internal generated atom classes and runtime attributes are omitted.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-            Code(language: "html", showsLineNumbers: false) { domContractHTML() }
+            div(.class("swui-storyboard-section-rule")) { EmptyHTML() }
+            DisclosureGroup {
+                VStack(alignment: .leading, spacing: .small) {
+                    Text("Stable semantic and utility classes emitted by the preview. Internal generated atom classes and runtime attributes are omitted.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Code(language: "html", showsLineNumbers: false) { domContractHTML() }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
                 .frame(maxWidth: .infinity, alignment: .leading)
+            } label: {
+                Text("DOM Contract", as: .span, .id("dom-contract"))
+                    .font(.headline)
+                    .fontWeight(.semibold)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func domContractHTML() -> String {
@@ -127,7 +141,7 @@ public struct StoryboardDetailIsland: ClientComponent, Sendable {
                 detailDemo().render()
             }
         }
-        return storyboardDOMContractHTML(from: html)
+        return storyboardPrettyPrintedHTML(storyboardDOMContractHTML(from: html))
     }
 
     private func codeSample(_ language: String) -> String {

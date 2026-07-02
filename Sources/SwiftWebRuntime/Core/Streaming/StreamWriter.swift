@@ -39,11 +39,19 @@ public struct StreamWriter: Sendable {
 
     public func write(_ html: some HTML) async throws {
         let styleRegistry = StyleRegistry()
+        let documentStyle = DocumentStyle()
         let artifact = StyleRegistry.withCurrent(styleRegistry) {
-            html.renderArtifact(environment: environment, options: SwiftWebRenderOptions.current)
+            DocumentStyle.withCurrent(documentStyle) {
+                html.renderArtifact(environment: environment, options: SwiftWebRenderOptions.current)
+            }
         }
         SwiftWebDiagnostics.emit(artifact.diagnostics)
-        try await write(SwiftWebHeadAssets.assets(from: styleRegistry, nonce: environment.cspNonce) + artifact.html)
+        let chunkHTML = SwiftWebHeadAssets.applyStreamedDocumentStyle(
+            to: artifact.html,
+            registry: styleRegistry,
+            document: documentStyle
+        )
+        try await write(SwiftWebHeadAssets.assets(from: styleRegistry, nonce: environment.cspNonce) + chunkHTML)
     }
 }
 

@@ -67,7 +67,7 @@ public let catalogCategories: [CatalogCategory] = [
         CatalogItem(id: "button-states", name: "Tint & disabled", code: ".tint(.accent) · .disabled()", summary: "tint(_:) recolors an enabled control; disabled() dims it and blocks interaction."),
         CatalogItem(id: "links", name: "Links", code: "Link(_:destination:)", summary: "Link is a semantic anchor for navigation and can be restyled as a button."),
         CatalogItem(id: "menu", name: "Menu", code: "Menu { } label: { }", summary: "A pull-down list of actions disclosed on demand."),
-        CatalogItem(id: "toolbar", name: "Toolbar", code: "Toolbar { }", summary: "A horizontal command surface that composes the bar material and fills its container."),
+        CatalogItem(id: "toolbar", name: "Toolbar", code: ".toolbar { ToolbarItem { } }", summary: "A modifier that attaches a command bar to its content; placed items route into the bar regions and the bar composes the bar material."),
     ]),
     CatalogCategory(id: "navigation", title: "Navigation & search", items: [
         CatalogItem(id: "navigationstack", name: "NavigationStack", code: "NavigationStack { NavigationLink }", summary: "A single-column navigation container that renders a semantic nav."),
@@ -95,7 +95,7 @@ public let catalogCategories: [CatalogCategory] = [
     CatalogCategory(id: "status", title: "Status", items: [
         CatalogItem(id: "progressview", name: "ProgressView", code: "ProgressView(value:) { }", summary: "A determinate bar with a value, or an indeterminate spinner without one."),
         CatalogItem(id: "gauge", name: "Gauge", code: "Gauge(value:in:label:)", summary: "A compact readout of a value within a range."),
-        CatalogItem(id: "badge", name: "Badge", code: "Badge(_:)", summary: "A compact status pill that hugs its label."),
+        CatalogItem(id: "badge", name: "Badge", code: ".badge(_:)", summary: "A modifier that attaches a compact trailing status pill to the labeled view; nil, empty, or zero hides it."),
     ]),
     CatalogCategory(id: "animation", title: "Animation", items: [
         CatalogItem(id: "animation", name: "Animation", code: ".animation(_:value:)", summary: "Interpolates a subtree's changes when a value changes. The browser performs the animation; there is no Swift-side engine."),

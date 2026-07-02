@@ -1,40 +1,27 @@
 import SwiftWebUITheme
+import SwiftWebStyle
 import SwiftHTML
 
-struct PreferredColorSchemeEnvironmentKey: ClientEnvironmentKey {
-    static let defaultValue: ColorScheme? = nil
-}
-
-extension EnvironmentValues {
-    var preferredColorScheme: ColorScheme? {
-        get { self[PreferredColorSchemeEnvironmentKey.self] }
-        set { self[PreferredColorSchemeEnvironmentKey.self] = newValue }
-    }
-}
-
 public extension HTML {
-    /// Sets the color scheme for this view and its children, establishing a
-    /// styled SwiftWebUI root that switches the rendered palette in step. `nil`
-    /// clears the explicit preference and lets the stylesheet follow the user
-    /// agent's color-scheme preference.
+    /// Sets the color scheme for the rendered document.
     ///
-    /// An explicit scheme drives both Swift-side color resolution (`\.colorScheme`,
-    /// read by style modifiers) and rendered appearance (`data-color-scheme` on the
-    /// root). Passing `nil` clears the explicit root palette; server-side style
-    /// resolution then falls back to `EnvironmentValues.colorScheme`'s default.
+    /// This matches SwiftUI's presentation semantics: the preference applies to
+    /// the whole document no matter where in the tree it is declared, and the
+    /// last writer during a render wins. The page response encoder applies the
+    /// recorded scheme to the document root, so the palette switches for the
+    /// entire page. Passing `nil` explicitly follows the user agent preference.
+    ///
+    /// To scope Swift-side color resolution to a subtree, use
+    /// `.environment(\.colorScheme, ...)` instead; this modifier also applies
+    /// that environment to its own subtree so reads below it stay consistent
+    /// with the document.
     @HTMLBuilder
     func preferredColorScheme(_ colorScheme: ColorScheme?) -> some HTML {
+        let _ = DocumentStyle.current?.recordPreferredColorScheme(colorScheme?.rawValue)
         if let colorScheme {
-            StyleRoot {
-                self
-            }
-            .environment(\.preferredColorScheme, colorScheme)
-            .environment(\.colorScheme, colorScheme)
+            environment(\.colorScheme, colorScheme)
         } else {
-            StyleRoot {
-                self
-            }
-            .environment(\.preferredColorScheme, nil)
+            self
         }
     }
 }

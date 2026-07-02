@@ -92,7 +92,7 @@ knobs. (Derived from the design.) `seg` = segmented, `txt` = text,
 | spacing | seg spacing [.small/.medium/.large] |
 | alignment | seg alignment [Leading/Center/Trailing] |
 | hug-fill | seg fill alignment [Leading/Center/Trailing] |
-| style | seg context [Standalone/In List/In Toolbar] |
+| style | seg context [Standalone/In List/In a toolbar] |
 | responsive | seg size class [Compact/Regular/Large] |
 | safearea | seg context [Notch/Browser/Desktop] |
 

@@ -18,12 +18,12 @@ public struct TintModifier<S: ShapeStyle>: ComponentModifier {
         content.environment(\.tint, resolvedTint)
     }
 
-    private var resolvedTint: String {
-        style.resolve(in: StyleResolutionContext(
+    private var resolvedTint: Color {
+        Color(cssValue: style.resolve(in: StyleResolutionContext(
             styleSystem: styleSystem,
             colorScheme: colorScheme,
             layoutDirection: layoutDirection,
             controlState: controlState
-        )).cssValue
+        )).cssValue)
     }
 }

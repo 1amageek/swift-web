@@ -14,31 +14,47 @@ struct ContainersDetail: Component {
     var body: some HTML {
         switch selection {
         case "badge":
-            // A row of badges: the first reflects the Label + Tint controls, the
-            // others are fixed references (default surface, danger) so the tint is
+            // A settings-style list showing the standard badge(_:) usage: the
+            // first row reflects the Label + Tint controls, the following rows
+            // are fixed references (default surface, danger) so the tint is
             // evaluable against neighbours.
             let badgeLabel = value("badge", "label", "Ready")
             let selectedBadgeTint = state.control("badge", "tint")
-            HStack(spacing: .small) {
-                Badge(badgeLabel)
-                    .tint(badgeTintColor(selectedBadgeTint))
-                Badge("Default")
-                Badge("Beta")
-                    .tint(.danger)
+            List {
+                ListRow {
+                    Text("Wi-Fi")
+                        .badge(badgeLabel)
+                        .tint(badgeTintColor(selectedBadgeTint))
+                }
+                ListRow {
+                    Text("Notifications").badge("Default")
+                }
+                ListRow {
+                    Text("Updates")
+                        .badge("Beta")
+                        .tint(.danger)
+                }
             }
         case "toolbar":
-            // The Primary control drives the leading-trailing primary action; the
-            // Back button is a fixed secondary reference, matching the design.
-            Toolbar {
-                Button("Back").buttonStyle(.bordered).controlSize(.small)
-                Spacer()
-                Button(value("toolbar", "label", "Save")).buttonStyle(.borderedProminent).controlSize(.small)
-            }
+            // The Primary control drives the trailing primary action; the Back
+            // button is a fixed navigation-placement reference. The bar attaches
+            // above the content through the toolbar modifier.
+            Text("Content area")
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity)
+                .toolbar {
+                    ToolbarItem(placement: .navigation) {
+                        Button("Back").buttonStyle(.bordered).controlSize(.small)
+                    }
+                    ToolbarItem {
+                        Button(value("toolbar", "label", "Save")).buttonStyle(.borderedProminent).controlSize(.small)
+                    }
+                }
         case "list":
             List {
-                ListRow { Text("Wi-Fi"); Spacer(); Badge("On") }
+                ListRow { Text("Wi-Fi").badge("On") }
                 ListRow { Text("Bluetooth"); Spacer(); Text("Off").foregroundStyle(.secondary) }
-                ListRow { Text("Updates"); Spacer(); Badge("3") }
+                ListRow { Text("Updates").badge(3) }
             }
             .listStyle(listStyleKind(state.control("list", "style")))
         case "section":
@@ -54,7 +70,7 @@ struct ContainersDetail: Component {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 } header: {
-                    Heading(value("section", "title", "Account"), level: .subsection)
+                    Text(value("section", "title", "Account"), as: .h3)
                 } footer: {
                     Text(footerText).foregroundStyle(.secondary)
                 }
@@ -65,7 +81,7 @@ struct ContainersDetail: Component {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 } header: {
-                    Heading("Devices", level: .subsection)
+                    Text("Devices", as: .h3)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -108,7 +124,7 @@ struct ContainersDetail: Component {
             }
             .frame(width: 280, height: 160)
             .background(.surfaceRaised)
-            .cornerRadius(12)
+            .clipShape(.rect(cornerRadius: 12))
             .border(.border)
         } else {
             ScrollView(.vertical) {
@@ -122,7 +138,7 @@ struct ContainersDetail: Component {
             }
             .frame(width: 280, height: 160)
             .background(.surfaceRaised)
-            .cornerRadius(12)
+            .clipShape(.rect(cornerRadius: 12))
             .border(.border)
         }
     }
@@ -152,7 +168,7 @@ struct ContainersDetail: Component {
         }
         .frame(maxWidth: .infinity, height: height)
         .background(.surfaceRaised)
-        .cornerRadius(12)
+        .clipShape(.rect(cornerRadius: 12))
         .border(.border)
     }
 

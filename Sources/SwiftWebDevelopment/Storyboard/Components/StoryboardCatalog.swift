@@ -14,21 +14,23 @@ public struct StoryboardCatalog: Component, Sendable {
     }
 
     public var body: some HTML {
+        // Layout geometry lives in the storyboard stylesheet (frame/shell/rail
+        // rules) rather than .frame modifiers: attribute wrappers are
+        // display:contents and box wrappers are real divs, so classes must sit
+        // on the real flex items for the app-frame height chain to hold.
         StoryboardStyleRoot {
-            VStack(spacing: Space.none) {
-                CatalogTopBar()
-                Divider()
-                HStack(alignment: .top, spacing: Space.none) {
-                    CatalogSidebar(selection: selection)
-                    Divider()
-                    CatalogDetail(selection: selection)
-                    Divider()
-                    CatalogInspector(selection: selection)
+            div(.class("swui-storyboard-app")) {
+                VStack(spacing: Space.none) {
+                    CatalogTopBar()
+                    HStack(alignment: .top, spacing: .medium) {
+                        CatalogSidebar(selection: selection)
+                        CatalogDetail(selection: selection)
+                        CatalogInspector(selection: selection)
+                    }
+                    .class("swui-storyboard-shell")
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .class("swui-storyboard-frame")
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .preferredColorScheme(.light)
         }
     }
 }

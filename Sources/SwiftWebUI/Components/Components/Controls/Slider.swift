@@ -1,5 +1,35 @@
 import SwiftWebUITheme
 import SwiftHTML
+import Synchronization
+
+/// Tracks whether a drag is in progress so `onEditingChanged` fires exactly
+/// once per transition: `true` on the first `input` of a drag and `false` on
+/// the native `change` event that a range input emits on release.
+private final class SliderEditingRuntimeState: Sendable {
+    private let isEditing = Mutex(false)
+
+    /// Returns `true` only on the idle-to-editing transition.
+    func beginEditing() -> Bool {
+        isEditing.withLock { isEditing in
+            guard !isEditing else {
+                return false
+            }
+            isEditing = true
+            return true
+        }
+    }
+
+    /// Returns `true` only when an editing session was active.
+    func endEditing() -> Bool {
+        isEditing.withLock { isEditing in
+            guard isEditing else {
+                return false
+            }
+            isEditing = false
+            return true
+        }
+    }
+}
 
 public struct Slider: WebUIAttributeComponent {
     private let value: Binding<Double>
@@ -7,9 +37,10 @@ public struct Slider: WebUIAttributeComponent {
     private let step: Double?
     private let onEditingChanged: @Sendable (Bool) -> Void
     private let attributes: [HTMLAttribute]
+    private let runtimeState = SliderEditingRuntimeState()
     @Environment(\.controlSize) private var controlSize: ControlSize
     @Environment(\.isEnabled) private var isEnabled: Bool
-    @Environment(\.tint) private var tint: String?
+    @Environment(\.tint) private var tint: Color?
 
     public init(
         value: Binding<Double>,
@@ -46,7 +77,7 @@ public struct Slider: WebUIAttributeComponent {
     }
 
     private var wrapperAttributes: [HTMLAttribute] {
-        var style = controlTintStyle(tint)
+        var style = controlTintStyle(tint?.cssValue)
         style.append(.custom("--swui-slider-progress", progressValue))
         return mergedAttributes(
             class: controlClassName(
@@ -95,19 +126,33 @@ public struct Slider: WebUIAttributeComponent {
 
     private var inputAttributes: [HTMLAttribute] {
         let value = self.value
+        let onEditingChanged = self.onEditingChanged
+        let runtimeState = self.runtimeState
         var result: [HTMLAttribute] = [
             .type(.range),
             .value(value.wrappedValue),
             .min(bounds.lowerBound),
             .max(bounds.upperBound),
+            // `input` fires continuously while the thumb moves, so only the
+            // first event of a drag reports the editing start. The native
+            // `change` event fires once when the user releases the thumb (a
+            // trusted end-of-interaction signal on range inputs) and reports
+            // the editing end.
             .onInput { event in
                 guard let rawValue = event.value,
                       let doubleValue = Double(rawValue)
                 else {
                     return
                 }
-                onEditingChanged(true)
+                if runtimeState.beginEditing() {
+                    onEditingChanged(true)
+                }
                 value.wrappedValue = doubleValue
+            },
+            .onChange { _ in
+                if runtimeState.endEditing() {
+                    onEditingChanged(false)
+                }
             },
         ]
         if let step {

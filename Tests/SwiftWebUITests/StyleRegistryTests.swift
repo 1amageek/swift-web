@@ -232,7 +232,7 @@ import SwiftWebStyle
             Spacer(minLength: 12).render()
         }
         #expect(!rendered.contains("style=\""))
-        #expect(rendered.contains("class=\"swui-spacer swui-minw-12px-"))
-        #expect(registry.rules().contains { $0.body == "min-width: 12px" })
+        #expect(rendered.contains("class=\"swui-spacer swui-"))
+        #expect(registry.rules().contains { $0.body == "--swui-spacer-min-length: 12px" })
     }
 }

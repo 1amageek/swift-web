@@ -11,7 +11,7 @@ public struct Gauge<Label: HTML>: WebUIAttributeComponent {
     private let label: Label
     private let attributes: [HTMLAttribute]
     @Environment(\.gaugeStyle) private var gaugeStyle: GaugeStyleKind
-    @Environment(\.tint) private var tint: String?
+    @Environment(\.tint) private var tint: Color?
 
     public init(
         value: Double,
@@ -39,7 +39,7 @@ public struct Gauge<Label: HTML>: WebUIAttributeComponent {
             "div",
             attributes: mergedAttributes(
                 class: controlClassName("swui-gauge", gaugeStyle.className),
-                styles: controlTintStyle(tint),
+                styles: controlTintStyle(tint?.cssValue),
                 extra: attributes
             )
         ) {

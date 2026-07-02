@@ -98,7 +98,7 @@ func catalogSnippet(for id: String, state: [String: String] = [:]) -> String {
   case "hug-fill":
     let align = state.control(id, "align")
     return "VStack(alignment: .leading, spacing: .small) {\n"
-      + "    Badge(\"Fixed\")\n"
+      + "    Button(\"Fixed\").buttonStyle(.bordered)\n"
       + "    Button(\"Flexible\").buttonStyle(.borderedProminent)\n"
       + "        .frame(maxWidth: .infinity, alignment: .\(align))\n}"
 
@@ -106,12 +106,15 @@ func catalogSnippet(for id: String, state: [String: String] = [:]) -> String {
     let context = state.control(id, "ctx")
     switch context {
     case "toolbar":
-      return "Toolbar {\n"
-        + "    Text(\"Settings\").fontWeight(.semibold)\n"
-        + "    Spacer()\n"
-        + "    Button(\"Done\").buttonStyle(.borderedProminent).controlSize(.small)\n"
-        + "}\n"
-        + ".class(\"swui-toolbar\")"
+      return "Text(\"Content\").foregroundStyle(.secondary)\n"
+        + "    .toolbar {\n"
+        + "        ToolbarItemGroup {\n"
+        + "            Text(\"Settings\").fontWeight(.semibold)\n"
+        + "            Spacer()\n"
+        + "            Button(\"Done\").buttonStyle(.borderedProminent).controlSize(.small)\n"
+        + "        }\n"
+        + "    }\n"
+        + "// the bar exposes .class(\"swui-toolbar\")"
     case "list":
       return "List {\n"
         + "    ListRow { Text(\"Wi-Fi\"); Spacer(); Text(\"On\").foregroundStyle(.secondary) }\n"
@@ -199,9 +202,9 @@ func catalogSnippet(for id: String, state: [String: String] = [:]) -> String {
   case "list":
     let style = state.control(id, "style")
     return "List {\n"
-      + "    ListRow { Text(\"Wi-Fi\"); Spacer(); Badge(\"On\") }\n"
+      + "    ListRow { Text(\"Wi-Fi\").badge(\"On\") }\n"
       + "    ListRow { Text(\"Bluetooth\"); Spacer(); Text(\"Off\").foregroundStyle(.secondary) }\n"
-      + "    ListRow { Text(\"Updates\"); Spacer(); Badge(\"3\") }\n}\n"
+      + "    ListRow { Text(\"Updates\").badge(3) }\n}\n"
       + ".listStyle(.\(style))"
 
   case "section":
@@ -211,11 +214,11 @@ func catalogSnippet(for id: String, state: [String: String] = [:]) -> String {
     return "VStack(alignment: .leading, spacing: .medium) {\n"
       + "    Section {\n"
       + "        Text(\"Profile\")\n        Text(\"Security\")\n        Text(\"Notifications\")\n"
-      + "    } header: {\n        Heading(\(q(title)), level: .subsection)"
+      + "    } header: {\n        Text(\(q(title)), as: .h3)"
       + footerBlock.replacingOccurrences(of: "\n", with: "\n    ") + "\n    }\n"
       + "    Section {\n"
       + "        Text(\"iPhone\")\n        Text(\"iPad\")\n"
-      + "    } header: {\n        Heading(\"Devices\", level: .subsection)\n    }\n}"
+      + "    } header: {\n        Text(\"Devices\", as: .h3)\n    }\n}"
 
   case "disclosuregroup":
     let open = state.controlFlag(id, "open")
@@ -304,7 +307,11 @@ func catalogSnippet(for id: String, state: [String: String] = [:]) -> String {
 
   case "toolbar":
     let label = state.control(id, "label")
-    return "Toolbar {\n    Button(\"Back\")\n    Spacer()\n    Button(\(q(label))).buttonStyle(.borderedProminent)\n}"
+    return "Text(\"Content area\")\n"
+      + "    .toolbar {\n"
+      + "        ToolbarItem(placement: .navigation) { Button(\"Back\") }\n"
+      + "        ToolbarItem { Button(\(q(label))).buttonStyle(.borderedProminent) }\n"
+      + "    }"
 
   // MARK: Menus & actions
   case "button":
@@ -434,7 +441,7 @@ func catalogSnippet(for id: String, state: [String: String] = [:]) -> String {
   case "badge":
     let label = state.control(id, "label")
     let tint = state.control(id, "tint")
-    return "Badge(\(q(label)))\n    .tint(\(tintStyle(tint)))"
+    return "Text(\"Wi-Fi\")\n    .badge(\(q(label)))\n    .tint(\(tintStyle(tint)))"
 
   case "tabview":
     let tab = state.control(id, "tab")

@@ -64,6 +64,8 @@ package enum RootStylesheet {
   // spacing, and typography tokens are scheme-independent.
   private static var lightPalette: Style {
     Style {
+      // Drives CSS light-dark() color resolution (standard palette colors).
+      .custom("color-scheme", "light")
       .custom("--swui-background", "#f7f8fa")
       .custom("--swui-surface", "#ffffff")
       .custom("--swui-surface-raised", "#ffffff")
@@ -79,6 +81,8 @@ package enum RootStylesheet {
 
   private static var darkPalette: Style {
     Style {
+      // Drives CSS light-dark() color resolution (standard palette colors).
+      .custom("color-scheme", "dark")
       .custom("--swui-background", "#111318")
       .custom("--swui-surface", "#181b22")
       .custom("--swui-surface-raised", "#20242d")
@@ -263,6 +267,23 @@ package enum RootStylesheet {
       rule(cls("swui-spacer")) {
         .flex("1 1 auto")
       }
+      // Spacer's minLength applies along the parent stack's axis. The spacer
+      // publishes `--swui-spacer-min-length`; these parent-axis rules lower it
+      // onto the matching min dimension. The `0px` fallback keeps the rules
+      // inert when no minimum length was requested.
+      rule(list(
+        cls("swui-vstack").child(cls("swui-spacer")),
+        cls("swui-lazy-vstack").child(cls("swui-spacer"))
+      )) {
+        .minHeight("var(--swui-spacer-min-length, 0px)")
+      }
+      rule(list(
+        cls("swui-hstack").child(cls("swui-spacer")),
+        cls("swui-lazy-hstack").child(cls("swui-spacer")),
+        cls("swui-toolbar").child(cls("swui-spacer"))
+      )) {
+        .minWidth("var(--swui-spacer-min-length, 0px)")
+      }
       rule(cls("swui-grid")) {
         .display("grid")
           .width("fit-content")
@@ -309,11 +330,60 @@ package enum RootStylesheet {
         .margin("0 0 var(--swui-space-sm) 0")
       }
       // The toolbar reads as a floating glass bar: its fill + backdrop come
-      // from the shared `bar` material (composed in `Toolbar`); this rule
-      // adds the padding and radius that give the bar its shape.
+      // from the shared `bar` material (composed in the toolbar layout); this
+      // rule adds the padding and radius that give the bar its shape.
       rule(cls("swui-toolbar")) {
         .padding(.space(.small), .space(.medium))
           .borderRadius("var(--swui-radius-large)")
+      }
+      // `.toolbar { ToolbarItem(placement:) }` layout: bars above and below the
+      // content, three placement zones in the top bar. Empty zones collapse and
+      // a bar with no items hides entirely.
+      rule(cls("swui-toolbar-layout")) {
+        .display("flex")
+          .flexDirection("column")
+          .custom("gap", "var(--swui-space-sm)")
+      }
+      rule(cls("swui-toolbar-zone")) {
+        .display("flex")
+          .alignItems("center")
+          .custom("gap", "var(--swui-space-sm)")
+      }
+      rule(cls("swui-toolbar-zone").pseudo(.empty)) {
+        .display("none")
+      }
+      // A populated principal zone centers itself between the side zones; an
+      // empty principal zone hands the remaining space to the trailing zone.
+      rule(cls("swui-toolbar-principal")) {
+        .marginInline("auto")
+      }
+      rule(cls("swui-toolbar-principal").pseudo(.empty).adjacentSibling(cls("swui-toolbar-trailing"))) {
+        .marginInlineStart("auto")
+      }
+      rule(list(
+        cls("swui-toolbar-top").not(StyleSelector.universal.has(cls("swui-toolbar-item"))),
+        cls("swui-toolbar-bottom").not(StyleSelector.universal.has(cls("swui-toolbar-item")))
+      )) {
+        .display("none")
+      }
+      rule(cls("swui-toolbar-item")) {
+        .display("flex")
+          .alignItems("center")
+          .custom("gap", "var(--swui-space-sm)")
+      }
+      // A URL-backed NavigationStack keeps the covered root in the document
+      // (state preserved, like SwiftUI's covered root) while the destination
+      // for the top path segment renders.
+      rule(StyleSelector.attribute("data-navigation-origin")) {
+        .display("none")
+      }
+      // `badge(_:)` wraps content transparently (`display: contents`) so the
+      // pill participates in the surrounding row and sits at the trailing edge.
+      rule(cls("swui-badged")) {
+        .display("contents")
+      }
+      rule(cls("swui-badged").child(cls("swui-badge"))) {
+        .marginInlineStart("auto")
       }
       rule(cls("swui-mapkit-map")) {
         .position("relative")
@@ -882,6 +952,33 @@ package enum RootStylesheet {
       rule(cls("swui-section-footer")) {
         .fontSize("13px")
           .color("var(--swui-text-muted)")
+      }
+      // Lazy stacks/grids with `pinnedViews` mark themselves with data
+      // attributes; section headers/footers inside them stick to the scroll
+      // edges. The header keeps its muted tint but mixes it over the page
+      // background (instead of transparent) so scrolled content cannot show
+      // through the pinned bar.
+      rule(
+        StyleSelector
+          .attribute("data-pinned-headers", equals: "true")
+          .child(cls("swui-section"))
+          .child(cls("swui-section-header"))
+      ) {
+        .position("sticky")
+          .top(.zero)
+          .zIndex("1")
+          .background("color-mix(in srgb, var(--swui-text-muted) 7%, var(--swui-background))")
+      }
+      rule(
+        StyleSelector
+          .attribute("data-pinned-footers", equals: "true")
+          .child(cls("swui-section"))
+          .child(cls("swui-section-footer"))
+      ) {
+        .position("sticky")
+          .bottom("0")
+          .zIndex("1")
+          .background("var(--swui-background)")
       }
       rule(cls("swui-list")) {
         .display("grid")
@@ -1684,21 +1781,6 @@ package enum RootStylesheet {
           .fontWeight("500")
           .lineHeight("1")
           .cursor("pointer")
-      }
-      rule(list(
-        cls("swui-stepper-value"),
-        cls("swui-stepper").descendant(cls("val"))
-      )) {
-        .display("flex")
-          .alignItems("center")
-          .justifyContent("center")
-          .minWidth("42px")
-          .height("31px")
-          .borderLeft("1px solid var(--swui-border)")
-          .borderRight("1px solid var(--swui-border)")
-          .color("var(--swui-text)")
-          .fontVariantNumeric("tabular-nums")
-          .textAlign("center")
       }
     }
   }

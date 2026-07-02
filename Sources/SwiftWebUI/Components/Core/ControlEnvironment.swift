@@ -24,6 +24,15 @@ public struct TintEnvironmentKey: ClientEnvironmentKey {
     // control's CSS fall back to its style-system token
     // (`var(--swui-control-tint, var(--swui-button-primary-background))`, etc.)
     // instead of an environment default silently overriding those tokens.
+    public static let defaultValue: Color? = nil
+
+    public init() {}
+}
+
+public struct BackgroundStyleEnvironmentKey: ClientEnvironmentKey {
+    // Absent until a `.backgroundStyle(...)` is applied: the resolved CSS value
+    // of the nearest background style, which `background(in:)` fills with.
+    // When `nil`, `background(in:)` falls back to the root background token.
     public static let defaultValue: String? = nil
 
     public init() {}
@@ -115,9 +124,14 @@ extension EnvironmentValues {
         set { self[ControlStateEnvironmentKey.self] = newValue }
     }
 
-    public var tint: String? {
+    public var tint: Color? {
         get { self[TintEnvironmentKey.self] }
         set { self[TintEnvironmentKey.self] = newValue }
+    }
+
+    public var backgroundStyle: String? {
+        get { self[BackgroundStyleEnvironmentKey.self] }
+        set { self[BackgroundStyleEnvironmentKey.self] = newValue }
     }
 
     public var buttonStyle: ButtonStyleKind {

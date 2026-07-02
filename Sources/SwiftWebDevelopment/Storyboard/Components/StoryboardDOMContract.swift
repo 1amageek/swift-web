@@ -1,6 +1,50 @@
 import Foundation
 import SwiftHTML
 
+/// Indents contract markup one element per line so the DOM contract reads as a
+/// tree instead of a single overflowing string.
+func storyboardPrettyPrintedHTML(_ html: String) -> String {
+    let voidElements: Set<String> = [
+        "area", "base", "br", "col", "embed", "hr", "img", "input",
+        "link", "meta", "source", "track", "wbr",
+    ]
+    var lines: [String] = []
+    var depth = 0
+    var remainder = html[...]
+
+    func append(_ text: Substring, at depth: Int) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        lines.append(String(repeating: "  ", count: max(0, depth)) + trimmed)
+    }
+
+    while let tagStart = remainder.firstIndex(of: "<") {
+        append(remainder[..<tagStart], at: depth)
+        guard let tagEnd = remainder[tagStart...].firstIndex(of: ">") else {
+            append(remainder[tagStart...], at: depth)
+            remainder = remainder[remainder.endIndex...]
+            break
+        }
+        let tag = remainder[tagStart...tagEnd]
+        let isClosing = tag.hasPrefix("</")
+        let name = tag.dropFirst(isClosing ? 2 : 1)
+            .prefix { $0.isLetter || $0.isNumber || $0 == "-" }
+            .lowercased()
+        if isClosing {
+            depth -= 1
+            append(tag, at: depth)
+        } else {
+            append(tag, at: depth)
+            if !tag.hasSuffix("/>") && !voidElements.contains(name) {
+                depth += 1
+            }
+        }
+        remainder = remainder[remainder.index(after: tagEnd)...]
+    }
+    append(remainder, at: depth)
+    return lines.joined(separator: "\n")
+}
+
 func storyboardDOMContractHTML(from html: String) -> String {
     var sanitizedHTML = html
     sanitizedHTML = sanitizedHTML.replacingOccurrences(

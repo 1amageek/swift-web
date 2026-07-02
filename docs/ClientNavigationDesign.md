@@ -160,12 +160,52 @@ body DOM; executable script handling remains owned by the already loaded runtime
 | History | Back and forward must restore route content and selected navigation state. |
 | Fallback | Disallowed anchors must keep native behavior. |
 
+## URL-Backed NavigationStack
+
+`NavigationStack(path:)` is URL-backed: `NavigationPath` is the ordered list of
+URL path segments below the stack's base route. Programmatic path mutation is a
+same-origin document transition through the runtime algorithm above — never a
+separate client-side view stack.
+
+| Contract | Required behavior |
+|---|---|
+| Path model | `NavigationPath.components` are URL path segments. A component must be a non-empty segment without `/`, `?`, or `#`; violations are programmer errors. |
+| Base derivation | The runtime derives the stack's base once per mounted element: the document path with the SSR-rendered `data-navigation-path` suffix removed. |
+| Path writes | A client-side write to the bound path re-renders `data-navigation-path`; the runtime observes the attribute and performs the enhanced same-origin transition to `base/…segments`, pushing history. |
+| No-op writes | Writing a path whose URL equals the current document URL performs no navigation. |
+| Back/forward | `popstate` replays the target document; the page re-derives its path from the URL at render time. The runtime never rewrites the binding. |
+| Destination | `navigationDestination(for:destination:)` renders the pushed leaf: when the stack's path is non-empty and the top segment losslessly converts to the destination's value type, the destination view renders and the stack root content hides. |
+| Route pairing | The page's `@Page` route must match the deeper URLs (a parameter or `**` catch-all segment); the stack does not invent server routes. |
+| Value types | Destination value types convert via `LosslessStringConvertible`, keeping segments honest as URL text. |
+
+```swift
+@Page("/files/**")
+struct FilesPage {
+    func body() -> some HTML {
+        FilesBrowser()
+    }
+}
+
+public struct FilesBrowser: ClientComponent {
+    @State private var path = NavigationPath()
+
+    public var body: some HTML {
+        NavigationStack(path: $path) {
+            FileList(onOpen: { name in path.append(name) })
+        }
+        .navigationDestination(for: String.self) { name in
+            FileDetail(name: name)
+        }
+    }
+}
+```
+
 ## Implementation Placement
 
 | Layer | Responsibility |
 |---|---|
-| `SwiftWebUI` | Render semantic anchors and optional navigation metadata. |
-| `SwiftWeb` WASM host | Intercept eligible anchors, fetch SSR documents, merge, rebootstrap, and manage history. |
+| `SwiftWebUI` | Render semantic anchors and optional navigation metadata; render `data-navigation-stack`/`data-navigation-path` and the destination switch. |
+| `SwiftWeb` WASM host | Intercept eligible anchors, observe `data-navigation-path` writes, fetch SSR documents, merge, rebootstrap, and manage history. |
 | `SwiftWebUIRuntime` | Rebuild client component sessions from the new bootstrap request and compatible state store. |
 | `SwiftWebDevServer` | Verify HMR and same-origin navigation behavior against the same runtime contract. |
 | `SwiftWebStoryboardTooling` | Run Storyboard against the dev runtime so catalog navigation exercises the production browser contract. |

@@ -31,16 +31,24 @@ extension HTML {
             .withClientHandlerClosures(runtime.capturesClientHandlerClosures)
             .withBrowserHydrationMarkers(runtime.emitsBrowserHydrationMarkers)
         let styleRegistry = StyleRegistry()
+        let documentStyle = DocumentStyle()
         let artifact = StyleRegistry.withCurrent(styleRegistry) {
-            renderArtifact(
-                environment: .swiftWebCurrent,
-                stateStore: stateStore,
-                options: options
-            )
+            DocumentStyle.withCurrent(documentStyle) {
+                renderArtifact(
+                    environment: .swiftWebCurrent,
+                    stateStore: stateStore,
+                    options: options
+                )
+            }
         }
         SwiftWebDiagnostics.emit(artifact.diagnostics)
         let nonce = securityContext?.cspNonce
-        let renderedHTML = artifact.html
+        let documentHTML = SwiftWebHeadAssets.applyDocumentStyle(
+            to: artifact.html,
+            registry: styleRegistry,
+            document: documentStyle
+        )
+        let renderedHTML = documentHTML
             .replacingOccurrences(of: "<!--swui-base-->", with: SwiftWebHeadAssets.baseStyle(from: styleRegistry, nonce: nonce))
             .replacingOccurrences(of: "<!--swui-atomic-->", with: SwiftWebHeadAssets.atomicStyle(from: styleRegistry, nonce: nonce))
             .replacingOccurrences(of: "<!--swui-head-scripts-->", with: SwiftWebHeadAssets.scripts(from: styleRegistry, nonce: nonce))

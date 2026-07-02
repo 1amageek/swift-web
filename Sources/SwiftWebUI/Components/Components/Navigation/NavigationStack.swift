@@ -1,6 +1,17 @@
 import SwiftWebUITheme
 import SwiftHTML
 
+struct NavigationPathSegmentsEnvironmentKey: ClientEnvironmentKey {
+    static let defaultValue: [String]? = nil
+}
+
+extension EnvironmentValues {
+    var navigationPathSegments: [String]? {
+        get { self[NavigationPathSegmentsEnvironmentKey.self] }
+        set { self[NavigationPathSegmentsEnvironmentKey.self] = newValue }
+    }
+}
+
 public struct NavigationStack<Content: HTML>: WebUIAttributeComponent {
     private let path: Binding<NavigationPath>?
     private let content: Content
@@ -26,6 +37,7 @@ public struct NavigationStack<Content: HTML>: WebUIAttributeComponent {
             )
         ) {
             content
+                .environment(\.navigationPathSegments, path?.wrappedValue.components)
         }
     }
 
@@ -43,9 +55,13 @@ public struct NavigationStack<Content: HTML>: WebUIAttributeComponent {
         guard let path else {
             return [HTMLAttribute("data-navigation-stack", "true")]
         }
-        return [
+        var attributes = [
             HTMLAttribute("data-navigation-stack", "true"),
             HTMLAttribute("data-navigation-path", path.wrappedValue.components.joined(separator: "/")),
         ]
+        if !path.wrappedValue.isEmpty {
+            attributes.append(HTMLAttribute("data-navigation-pushed", "true"))
+        }
+        return attributes
     }
 }

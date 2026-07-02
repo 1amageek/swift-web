@@ -20,6 +20,13 @@ struct CatalogProperty: Identifiable, Sendable {
 
 struct CatalogDetailSpec: Sendable {
     let overview: String
+    /// Longer discussion paragraphs: what the component is for, when to reach
+    /// for it, and how it behaves on the web. Empty falls back to `overview`.
+    let discussion: [String]
+    /// The SwiftUI-parity note — the framework's core promise, stated per page.
+    let swiftUIParity: String?
+    /// Curated static configurations shown before the playground.
+    let variants: [CatalogVariant]
     let properties: [CatalogProperty]
     let snippet: String
 }
@@ -27,6 +34,9 @@ struct CatalogDetailSpec: Sendable {
 func catalogDetailSpec(for item: CatalogItem) -> CatalogDetailSpec {
     CatalogDetailSpec(
         overview: catalogOverview(for: item),
+        discussion: catalogDiscussion(for: item.id),
+        swiftUIParity: catalogSwiftUIParity(for: item.id),
+        variants: catalogVariants(for: item.id),
         properties: catalogProperties(for: item.id),
         snippet: catalogSnippet(for: item.id)
     )
@@ -204,15 +214,15 @@ private func catalogProperties(for id: String) -> [CatalogProperty] {
         ]
     case "toolbar":
         return [
-            CatalogProperty("content", values: "Button / Link / Spacer / custom views", summary: "Commands arranged in one horizontal chrome region."),
-            CatalogProperty("material", values: ".bar", summary: "Uses the bar material recipe from the active StyleSystem."),
-            CatalogProperty("frame", values: "maxWidth / alignment", summary: "Toolbars fill horizontally by default and can be constrained by their parent."),
+            CatalogProperty("ToolbarItem(placement:)", values: ".automatic / .navigation / .principal / .primaryAction / .bottomBar", summary: "Routes each item into the leading, principal, trailing, or bottom bar region."),
+            CatalogProperty("ToolbarItemGroup(placement:)", values: "shared placement", summary: "Groups several views under one placement."),
+            CatalogProperty("material", values: ".bar", summary: "The bar uses the bar material recipe from the active StyleSystem and fills horizontally."),
         ]
     case "badge":
         return [
-            CatalogProperty("label", values: "String", summary: "Compact status text."),
+            CatalogProperty(".badge(_:)", values: "String? / Int", summary: "Attaches a trailing status pill; nil, an empty string, or 0 shows no badge."),
             CatalogProperty("tint", values: "semantic or CSS color", summary: "Communicates category or severity."),
-            CatalogProperty("fixedSize", values: "modifier", summary: "Keeps the badge hugging its content."),
+            CatalogProperty("placement", values: "trailing", summary: "The pill sits at the trailing edge of the labeled view or list row."),
         ]
     case "list":
         return [

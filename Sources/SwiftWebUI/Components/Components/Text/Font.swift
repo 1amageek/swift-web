@@ -27,6 +27,16 @@ public struct Font: Sendable {
         self.style = style
     }
 
+    /// A font with the given size, weight, and design, mirroring SwiftUI's
+    /// `Font.system(size:weight:design:)`.
+    public static func system(
+        size: Length,
+        weight: Font.Weight? = nil,
+        design: Font.Design = .default
+    ) -> Font {
+        Font(size: size, weight: weight, design: design)
+    }
+
     public static let largeTitle = Font(size: .rem(3), lineHeight: "1.05", weight: .bold)
     public static let title = Font(size: .rem(2), lineHeight: "1.15", weight: .semibold)
     public static let title2 = Font(size: .rem(1.5), lineHeight: "1.2", weight: .semibold)

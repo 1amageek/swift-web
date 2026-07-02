@@ -30,9 +30,17 @@ let swiftWebUIRuntimeDependencies: [Target.Dependency] = [
     "SwiftWebStyle",
 ]
 
-let swiftWebActorsDependencies: [Target.Dependency] = [
-    .product(name: "ActorRuntime", package: "swift-actor-runtime"),
-]
+let swiftWebActorsDependencies: [Target.Dependency] =
+    [
+        .product(name: "ActorRuntime", package: "swift-actor-runtime")
+    ] + (swiftWebCoreOnly ? [] : ["SwiftWebMacros"])
+
+// The @Actor accessor macro declaration is gated behind SWIFTWEB_MACROS so that
+// core-only and generated browser WASM builds compile SwiftWebActors without the
+// SwiftWebMacros plugin or swift-syntax. Generated WASM packages receive client
+// sources with @Actor already expanded by SwiftWebPackageGeneration.
+let swiftWebActorsSwiftSettings: [SwiftSetting] =
+    swiftWebSwiftSettings + (swiftWebCoreOnly ? [] : [.define("SWIFTWEB_MACROS")])
 
 let package = Package(
     name: "swift-web",
@@ -100,7 +108,7 @@ let package = Package(
             dependencies: swiftWebActorsDependencies,
             path: "Sources/SwiftWebRuntime/Actors",
             exclude: ["README.md"],
-            swiftSettings: swiftWebSwiftSettings
+            swiftSettings: swiftWebActorsSwiftSettings
         ),
         .target(
             name: "SwiftWebUI",
@@ -145,7 +153,7 @@ let package = Package(
             dependencies: swiftWebActorsDependencies,
             path: "Sources/SwiftWebRuntime/Actors",
             exclude: ["README.md"],
-            swiftSettings: swiftWebSwiftSettings
+            swiftSettings: swiftWebActorsSwiftSettings
         ),
         .target(
             name: "SwiftWebBrowserRuntime",

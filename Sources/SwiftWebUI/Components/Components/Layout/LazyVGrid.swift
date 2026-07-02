@@ -26,6 +26,9 @@ public struct LazyVGrid<Content: HTML>: WebUIAttributeComponent {
     }
 
     /// Token-named spacing convenience over the theme spacing scale.
+    /// Disfavored so `spacing: .none` resolves to `Double?.none` (the default
+    /// system spacing, matching SwiftUI's `nil`) instead of `Space.none`.
+    @_disfavoredOverload
     public init(
         columns: [GridItem],
         alignment: HorizontalAlignment = .center,
@@ -56,6 +59,13 @@ public struct LazyVGrid<Content: HTML>: WebUIAttributeComponent {
                     .gridTemplateColumns(gridTemplateTracks(columns))
                     if let value = gap.cssValue {
                         .gap(value)
+                    }
+                    // Uniform GridItem.alignment lowers onto the container and
+                    // overrides the grid's own alignment classes (the atomic
+                    // declarations are emitted after the base stylesheet).
+                    if let itemAlignment = uniformGridItemAlignment(columns) {
+                        .justifyItems(itemAlignment.horizontal.rawValue)
+                        .alignItems(itemAlignment.vertical.rawValue)
                     }
                 },
                 extra: lazyAttributes(axis: "vertical-grid", pinnedViews: pinnedViews) + attributes

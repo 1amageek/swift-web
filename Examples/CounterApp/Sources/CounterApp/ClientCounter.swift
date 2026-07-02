@@ -10,7 +10,7 @@ public struct ClientCounter: ClientComponent, Sendable {
     public var body: some HTML {
         GroupBox {
             VStack(spacing: .large) {
-                Heading("Client Counter")
+                Text("Client Counter", as: .h2)
                 Text(
                     "This state is owned by a ClientComponent running in WASM."
                 )

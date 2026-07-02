@@ -33,6 +33,57 @@ private struct PageDocumentRuntimeStaticPage: Component {
 @Suite
 struct SwiftWebPageDocumentTests {
     @Test
+    func pageResponseAppliesDocumentStyleRootToBody() async throws {
+        try await withApplication { application in
+            let request = Request(application: application)
+            let response = try await VStack { Text("Styled") }
+                .preferredColorScheme(.dark)
+                .encodePageResponse(
+                    for: request,
+                    metadata: PageMetadata(title: "Styled")
+                )
+            let rendered = try #require(response.body.string)
+
+            #expect(rendered.contains("<body class=\"swui-root\""))
+            #expect(rendered.contains("data-color-scheme=\"dark\""))
+            #expect(rendered.contains("data-style-system=\""))
+            #expect(rendered.contains("<style id=\"swui-base\">"))
+            #expect(rendered.contains(".swui-root"))
+            #expect(rendered.contains("<script id=\"swui-glass-refraction\""))
+        }
+    }
+
+    @Test
+    func pageResponseWithoutSchemeFollowsUserAgent() async throws {
+        try await withApplication { application in
+            let request = Request(application: application)
+            let response = try await Text("Styled").encodePageResponse(
+                for: request,
+                metadata: PageMetadata(title: "Styled")
+            )
+            let rendered = try #require(response.body.string)
+
+            #expect(rendered.contains("<body class=\"swui-root\" data-style-system=\""))
+            #expect(!rendered.contains("<body class=\"swui-root\" data-color-scheme"))
+        }
+    }
+
+    @Test
+    func rawHTMLPageResponseSkipsDocumentStyleRoot() async throws {
+        try await withApplication { application in
+            let request = Request(application: application)
+            let response = try await main { h1 { "Plain" } }.encodePageResponse(
+                for: request,
+                metadata: PageMetadata(title: "Plain")
+            )
+            let rendered = try #require(response.body.string)
+
+            #expect(!rendered.contains("swui-root"))
+            #expect(!rendered.contains("<script id=\"swui-glass-refraction\""))
+        }
+    }
+
+    @Test
     func resolvesAsyncPageMetadata() async throws {
         let metadata = try await AsyncMetadataPage().metadata()
 
@@ -73,8 +124,9 @@ struct SwiftWebPageDocumentTests {
             )
             let rendered = try #require(response.body.string)
 
-            #expect(rendered.contains("<style id=\"swui-atomic\">.swui-minw-12px-"))
-            #expect(rendered.contains("<div class=\"swui-spacer swui-minw-12px-"))
+            #expect(rendered.contains("<style id=\"swui-atomic\">.swui-"))
+            #expect(rendered.contains("<div class=\"swui-spacer swui-"))
+            #expect(rendered.contains("--swui-spacer-min-length: 12px"))
             #expect(!rendered.contains("style=\""))
             #expect(!rendered.contains("<!--swui-atomic-->"))
         }

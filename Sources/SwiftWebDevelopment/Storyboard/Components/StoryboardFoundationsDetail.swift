@@ -63,8 +63,9 @@ struct FoundationsDetail: Component {
             }
         case "style":
             // The same Text renders differently by context: bare, inside a List
-            // row, or inside a Toolbar. The selected context drives both the demo
-            // and the CSS note beneath it.
+            // row, or inside a toolbar attached through the toolbar modifier.
+            // The selected context drives both the demo and the CSS note
+            // beneath it.
             styleDemo(state.control("style", "ctx"))
         case "responsive":
             // The size-class control (key "bp") drives column count, span, and
@@ -327,11 +328,15 @@ struct FoundationsDetail: Component {
         switch context {
         case "toolbar":
             VStack(spacing: .medium) {
-                Toolbar {
-                    Text("Settings").fontWeight(.semibold)
-                    Spacer()
-                    Button("Done").buttonStyle(.borderedProminent).controlSize(.small)
-                }
+                Text("Content")
+                    .foregroundStyle(.secondary)
+                    .toolbar {
+                        ToolbarItemGroup {
+                            Text("Settings").fontWeight(.semibold)
+                            Spacer()
+                            Button("Done").buttonStyle(.borderedProminent).controlSize(.small)
+                        }
+                    }
                 Text(".swui-toolbar .swui-text { font-weight: 600; }", as: .code)
             }
         case "list":

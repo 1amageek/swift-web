@@ -92,7 +92,7 @@ struct SwiftWebActorSystemTests {
     }
 
     @Test
-    func actorPropertyWrapperResolvesScopedResolvableProtocol() async throws {
+    func actorMacroResolvesScopedResolvableProtocol() async throws {
         let serverSystem = WebActorSystem()
         let service = TestCounterService(actorSystem: serverSystem)
         let clientSystem = WebActorSystem(transport: LoopbackWebActorTransport(system: serverSystem))

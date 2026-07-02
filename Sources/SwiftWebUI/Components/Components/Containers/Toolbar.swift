@@ -2,6 +2,7 @@ import SwiftWebUITheme
 import SwiftHTML
 import SwiftWebStyle
 
+@available(*, deprecated, message: "Use the toolbar { ToolbarItem(placement:) { ... } } modifier, matching SwiftUI")
 public struct Toolbar<Content: HTML>: WebUIAttributeComponent {
     private let attributes: [HTMLAttribute]
     private let content: Content

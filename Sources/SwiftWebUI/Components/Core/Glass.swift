@@ -30,11 +30,11 @@ public struct Glass: Sendable, Equatable {
     public static let clear = Glass(variant: .clear)
     public static let identity = Glass(variant: .identity)
 
-    /// Wash the glass with a tint color (a CSS color or `var(--swui-…)` token).
-    /// Pass `nil` to clear a previously applied tint.
-    public func tint(_ color: String?) -> Glass {
+    /// Wash the glass with a tint color. Pass `nil` to clear a previously
+    /// applied tint.
+    public func tint(_ color: Color?) -> Glass {
         var copy = self
-        copy.tintColor = color
+        copy.tintColor = color?.cssValue
         return copy
     }
 

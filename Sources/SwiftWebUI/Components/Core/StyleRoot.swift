@@ -2,18 +2,27 @@ import SwiftHTML
 import SwiftWebUITheme
 import SwiftWebStyle
 
-struct StyleRoot<Content: HTML>: Component {
-    @Environment(\.preferredColorScheme) private var preferredColorScheme: ColorScheme?
+/// An explicitly scoped SwiftWebUI style root.
+///
+/// Page documents receive the SwiftWebUI bootstrap automatically at response
+/// encoding (see `SwiftWebUIDocumentStyle`), so ordinary pages never create a
+/// root themselves. This component exists for explicitly scoped roots: nested
+/// preview surfaces that pin a palette independently of the document (the
+/// `.swui-root .swui-root` stylesheet scope), and isolated `render()` output in
+/// tests, where there is no response encoder to assemble a document.
+package struct StyleRoot<Content: HTML>: Component {
     @Environment(\.styleSystem) private var styleSystem: StyleSystem
 
+    private let colorScheme: ColorScheme?
     private let content: Content
 
-    init(@HTMLBuilder _ content: () -> Content) {
+    package init(colorScheme: ColorScheme? = nil, @HTMLBuilder _ content: () -> Content) {
+        self.colorScheme = colorScheme
         self.content = content()
     }
 
     @HTMLBuilder
-    var body: some HTML {
+    package var body: some HTML {
         if let registry = StyleRegistry.current {
             let css = RootStylesheet.css(for: styleSystem)
             let _ = registry.registerStylesheet(css)
@@ -27,16 +36,24 @@ struct StyleRoot<Content: HTML>: Component {
             rawHTML(StyleRootAssets.refractionScriptTag)
             rawHTML(StyleRootAssets.sliderScriptTag)
         }
-        div {
-            content
+        if let colorScheme {
+            div {
+                content
+                    .environment(\.colorScheme, colorScheme)
+            }
+            .attributes(rootAttributes)
+        } else {
+            div {
+                content
+            }
+            .attributes(rootAttributes)
         }
-        .attributes(rootAttributes)
     }
 
     private var rootAttributes: [HTMLAttribute] {
         var attributes: [HTMLAttribute] = []
-        if let preferredColorScheme {
-            attributes.append(.data("color-scheme", preferredColorScheme.rawValue))
+        if let colorScheme {
+            attributes.append(.data("color-scheme", colorScheme.rawValue))
         }
         attributes.append(.data("style-system", styleSystem.id))
         attributes.append(.class("swui-root"))
@@ -44,7 +61,7 @@ struct StyleRoot<Content: HTML>: Component {
     }
 }
 
-private enum StyleRootAssets {
+enum StyleRootAssets {
     static var refractionScriptTag: String {
         "<script>\(refractionScript)</script>"
     }

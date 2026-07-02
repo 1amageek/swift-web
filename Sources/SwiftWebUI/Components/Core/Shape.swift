@@ -26,8 +26,15 @@ public struct Shape: Sendable, Equatable {
     /// A circle. Maps to `border-radius: 50%`.
     public static let circle = Shape(kind: .circle)
 
-    /// A rectangle using the root medium corner radius.
-    public static let rect = Shape(kind: .rect(cornerRadius: .custom("var(--swui-radius-medium)")))
+    /// A rectangle with square corners, matching SwiftUI's `.rect`.
+    public static let rect = Shape(kind: .rect(cornerRadius: 0))
+
+    /// A rounded rectangle using the root medium corner radius.
+    ///
+    /// Web-intentional: SwiftUI has no theme-driven radius shorthand. Use this
+    /// where a surface should follow the root `--swui-radius-medium` token
+    /// instead of an explicit `rect(cornerRadius:)`.
+    public static let containerRect = Shape(kind: .rect(cornerRadius: .custom("var(--swui-radius-medium)")))
 
     /// A rounded rectangle with an explicit corner radius.
     public static func rect(cornerRadius: Length) -> Shape {

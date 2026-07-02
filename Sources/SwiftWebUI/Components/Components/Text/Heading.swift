@@ -1,24 +1,12 @@
 import SwiftWebUITheme
 import SwiftHTML
 
+@available(*, deprecated, message: "Use Text(_:as:) with .h1–.h6; Text emits the same heading classes")
 public enum HeadingLevel: Sendable {
     case page
     case section
     case subsection
     case level(Int)
-
-    var tagClass: String {
-        switch self {
-        case .page:
-            "swui-heading swui-heading-page"
-        case .section:
-            "swui-heading swui-heading-section"
-        case .subsection:
-            "swui-heading swui-heading-subsection"
-        case .level:
-            "swui-heading"
-        }
-    }
 
     var htmlLevel: Int {
         switch self {
@@ -51,6 +39,7 @@ public enum HeadingLevel: Sendable {
     }
 }
 
+@available(*, deprecated, message: "Use Text(_:as:) with .h1–.h6; Text emits the same heading classes")
 public struct Heading: WebUIAttributeComponent {
     private let text: String
     private let level: HeadingLevel
@@ -69,7 +58,6 @@ public struct Heading: WebUIAttributeComponent {
     @HTMLBuilder
     public var body: some HTML {
         Text(text, as: level.textElement)
-            .class(level.tagClass)
             .addingAttributes(attributes)
     }
 

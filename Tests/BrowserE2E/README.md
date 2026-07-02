@@ -7,6 +7,8 @@ cd Tests/BrowserE2E
 npm install
 npm run counter-wasm
 npm run storyboard-navigation
+npm run page-access:perf
+npm run page-access:stress
 ```
 
 For the stronger local stability gate, install WebKit and require the smoke pass:
@@ -31,6 +33,7 @@ The test copies `Examples/CounterApp` into a temporary directory, rewrites its d
 - ClientComponent HMR patching while preserving state
 - ClientComponent HMR build failure rollback without replacing the old UI
 - Server worker restart HMR followed by page patch without losing compatible client state
+- repeated page access liveness under direct HTTP and browser reload pressure
 - dev process shutdown cleanup
 - optional WebKit smoke when Playwright WebKit is installed, or required with `counter-wasm:webkit`
 
@@ -65,7 +68,35 @@ Environment variables:
 |---|---|---|
 | Default browser E2E | `npm run counter-wasm` | Chromium-compatible browser plus optional WebKit smoke. |
 | Storyboard navigation E2E | `npm run storyboard-navigation` | Chromium-compatible browser, same-origin client navigation, singular current sidebar link, back/forward, native hash/external fallback. |
+| Page access performance | `npm run page-access:perf` | Opt-in local latency gate for repeated test-page HTTP requests plus same-page browser reloads. |
+| Page access stress | `npm run page-access:stress` | Opt-in liveness gate for repeated test-page direct HTTP and browser access with per-request timeouts. |
 | Full local browser E2E | `npm run counter-wasm:webkit` | Chromium-compatible browser and required WebKit smoke. |
+
+The page access performance and stress gates are special tests and should not be part of
+the default fast test loop. They exist to detect the dev host becoming unresponsive during
+continued page access:
+
+```mermaid
+flowchart LR
+  A["sweb dev"] --> B["wait for test page"]
+  B --> C["HTTP loop"]
+  C --> D["browser reload loop"]
+  D --> E["diagnostic check"]
+  C --> F["timeout = failure"]
+  D --> F
+```
+
+Useful tuning variables:
+
+| Name | Purpose |
+|---|---|
+| `SWIFTWEB_PAGE_ACCESS_HTTP_ITERATIONS` | Number of direct test-page requests. |
+| `SWIFTWEB_PAGE_ACCESS_HTTP_CONCURRENCY` | Direct HTTP request concurrency. |
+| `SWIFTWEB_PAGE_ACCESS_BROWSER_ITERATIONS` | Number of browser page access iterations. |
+| `SWIFTWEB_PAGE_ACCESS_REQUEST_TIMEOUT_MS` | Per direct HTTP request timeout. |
+| `SWIFTWEB_PAGE_ACCESS_BROWSER_TIMEOUT_MS` | Per browser navigation/readiness timeout. |
+| `SWIFTWEB_PAGE_ACCESS_MAX_HTTP_P95_MS` | Optional p95 threshold; enabled by default for `page-access:perf`. |
+| `SWIFTWEB_PAGE_ACCESS_REUSE_BROWSER_PAGE` | Override browser mode; `page-access:perf` reuses one page, `page-access:stress` opens fresh pages by default. |
 
 The full gate is intended to prove the browser-visible dev loop, not just unit-level runtime helpers:
 

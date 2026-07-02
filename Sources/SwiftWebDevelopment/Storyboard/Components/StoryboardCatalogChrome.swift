@@ -13,63 +13,57 @@ enum CatalogChromeMetrics {
 
 struct CatalogTopBar: Component {
     var body: some HTML {
-        HStack(spacing: .medium) {
-            HStack(spacing: .small) {
-                Text("S")
-                    .font(Font(size: .px(14), weight: .bold))
-                    .foregroundStyle(.white)
-                    .frame(width: 26, height: 26)
-                    .background(
-                        LinearGradient(
-                            colors: [Color(hex: 0x65A8FF), Color(hex: 0x1769E0)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        in: .rect(cornerRadius: 7)
-                    )
-                Text("SwiftWebUI")
-                    .font(Font(size: .px(15), weight: .semibold))
-                Text("Storyboard")
-                    .font(Font(size: .px(11)))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 5)
-                    .padding(.vertical, 1)
-                    .border(.border, width: 1)
-                    .cornerRadius(5)
-            }
-
-            // A non-functional visual affordance (no search is wired). Hidden from
-            // assistive tech so it is not announced as an operable search.
-            HStack(spacing: .small) {
-                Text("⌕").foregroundStyle(.secondary)
-                Text("Search components").foregroundStyle(.secondary)
-                Spacer()
-                Text("⌘K")
-                    .font(Font(size: .px(11)))
-                    .foregroundStyle(.secondary)
-            }
-            .font(Font(size: .px(13)))
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
-            .frame(maxWidth: .infinity)
-            .background(.surfaceRaised, in: .rect(cornerRadius: 9))
-            .accessibilityHidden(true)
-
-            HStack(spacing: .large) {
-                topBarLink("Docs", "https://github.com/1amageek/swift-web#readme", muted: true)
-                topBarLink("GitHub ↗", "https://github.com/1amageek/swift-web", muted: false)
-                HStack(spacing: .xsmall) {
-                    colorSchemeChip("Light", selected: true)
-                    colorSchemeChip("Dark", selected: false)
+        // The bar composes the same `bar` material recipe as `.toolbar` chrome,
+        // floating over the atmosphere as an inset glass strip.
+        div(
+            .class(
+                "swui-storyboard-topbar swui-toolbar swui-fill-h swui-material swui-material-bar"
+            )
+        ) {
+            HStack(spacing: .medium) {
+                HStack(spacing: .small) {
+                    Text("S")
+                        .font(Font(size: .px(14), weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 26, height: 26)
+                        .background(
+                            LinearGradient(
+                                colors: [Color(hex: 0x65A8FF), Color(hex: 0x1769E0)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            in: .rect(cornerRadius: 7)
+                        )
+                    Text("SwiftWebUI")
+                        .font(Font(size: .px(15), weight: .semibold))
+                    Text("Storyboard")
+                        .font(Font(size: .px(11)))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
+                        .border(.border, width: 1)
+                        .clipShape(.rect(cornerRadius: 5))
                 }
-                .padding(3)
-                // Filled track only — no hard outline (matches a native segmented control).
-                .background(Color.secondary.opacity(0.1), in: .rect(cornerRadius: 8))
-                .cornerRadius(8)
+
+                StoryboardQuickOpen()
+
+                HStack(spacing: .large) {
+                    topBarLink("Docs", "https://github.com/1amageek/swift-web#readme", muted: true)
+                    topBarLink("GitHub ↗", "https://github.com/1amageek/swift-web", muted: false)
+                    HStack(spacing: .xsmall) {
+                        colorSchemeChip("Light", value: "light")
+                        colorSchemeChip("Dark", value: "dark")
+                        colorSchemeChip("Auto", value: "auto", selected: true)
+                    }
+                    .padding(3)
+                    // Filled track only — no hard outline (matches a native segmented control).
+                    .background(Color.secondary.opacity(0.1), in: .rect(cornerRadius: 8))
+                    .clipShape(.rect(cornerRadius: 8))
+                }
             }
+            .frame(maxWidth: .infinity, height: CatalogChromeMetrics.topBarHeight)
+            .padding(.horizontal, 18)
         }
-        .frame(maxWidth: .infinity, height: CatalogChromeMetrics.topBarHeight)
-        .padding(.horizontal, 18)
         .accessibilityRole("banner")
     }
 
@@ -81,16 +75,21 @@ struct CatalogTopBar: Component {
         .foregroundStyle(muted ? Color.secondary : Color.primary)
     }
 
-    private func colorSchemeChip(_ title: String, selected: Bool) -> some HTML {
-        Text(title, as: .span)
-            .font(Font(size: .px(13), weight: .medium))
-            .foregroundStyle(.primary)
-            .padding(.horizontal, 11)
-            .frame(height: 30)
-            .background(
-                Color.surfaceRaised.opacity(selected ? 1 : 0),
-                in: .rect(cornerRadius: 6)
-            )
+    // A real switcher: the registered scheme script drives the document's
+    // `data-color-scheme` from these chips and keeps the choice in
+    // localStorage. "Auto" clears the attribute and follows the user agent.
+    private func colorSchemeChip(_ title: String, value: String, selected: Bool = false) -> some HTML {
+        Element(
+            "button",
+            attributes: [
+                .type(ButtonType.button),
+                .class("swui-storyboard-chip\(selected ? " swui-storyboard-chip-selected" : "")"),
+                HTMLAttribute("data-scheme-chip", value),
+                .aria("label", "Switch to \(title.lowercased()) appearance"),
+            ]
+        ) {
+            title
+        }
     }
 }
 
@@ -128,7 +127,7 @@ struct CatalogSidebar: Component {
             .padding(.vertical, 14)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(width: CatalogChromeMetrics.sidebarWidth, maxHeight: .infinity, alignment: .topLeading)
+        .class("swui-storyboard-rail swui-storyboard-rail-sidebar swui-material swui-material-thin")
         .accessibilityRole("navigation")
         .accessibilityLabel("Components")
     }
@@ -165,6 +164,10 @@ struct CatalogInspector: Component {
         true
     }
 
+    private var hasVariants: Bool {
+        !catalogVariants(for: selection).isEmpty
+    }
+
     var body: some HTML {
         ScrollView(.vertical) {
             VStack(alignment: .leading, spacing: .medium) {
@@ -175,7 +178,10 @@ struct CatalogInspector: Component {
                     .textCase(.uppercase)
                     .kerning(0.5)
                 VStack(alignment: .leading, spacing: .small) {
-                    inspectorLink("Preview", anchor: "preview", selected: true)
+                    if hasVariants {
+                        inspectorLink("Variants", anchor: "variants")
+                    }
+                    inspectorLink("Playground", anchor: "preview", selected: true)
                     inspectorLink("Usage", anchor: "usage")
                     if showsDOMContract {
                         inspectorLink("DOM Contract", anchor: "dom-contract")
@@ -184,30 +190,30 @@ struct CatalogInspector: Component {
                     inspectorLink("Related", anchor: "related")
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                VStack(alignment: .leading, spacing: .xsmall) {
-                    Text("Runtime Log")
-                        .font(Font(size: .px(11), weight: .bold))
-                        .foregroundStyle(.secondary)
-                        .textCase(.uppercase)
-                        .kerning(0.5)
-                    Element(
-                        "pre",
-                        attributes: [
-                            .class("swui-storyboard-runtime-summary"),
-                            HTMLAttribute("data-swiftweb-runtime-summary", "true"),
-                        ]
-                    ) {
-                        "Runtime pending"
+                // Runtime telemetry is developer plumbing, not page content:
+                // collapsed by default so the rail stays a reading aid.
+                DisclosureGroup("Runtime log") {
+                    VStack(alignment: .leading, spacing: .xsmall) {
+                        Element(
+                            "pre",
+                            attributes: [
+                                .class("swui-storyboard-runtime-summary"),
+                                HTMLAttribute("data-swiftweb-runtime-summary", "true"),
+                            ]
+                        ) {
+                            "Runtime pending"
+                        }
+                        Element(
+                            "pre",
+                            attributes: [
+                                .class("swui-storyboard-runtime-log"),
+                                HTMLAttribute("data-swiftweb-runtime-log", "true"),
+                            ]
+                        ) {
+                            "Waiting for runtime events"
+                        }
                     }
-                    Element(
-                        "pre",
-                        attributes: [
-                            .class("swui-storyboard-runtime-log"),
-                            HTMLAttribute("data-swiftweb-runtime-log", "true"),
-                        ]
-                    ) {
-                        "Waiting for runtime events"
-                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -215,7 +221,7 @@ struct CatalogInspector: Component {
             .padding(.vertical, 22)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(width: CatalogChromeMetrics.inspectorWidth, maxHeight: .infinity, alignment: .topLeading)
+        .class("swui-storyboard-rail swui-storyboard-rail-inspector swui-material swui-material-thin")
         .accessibilityRole("complementary")
         .accessibilityLabel("On This Page")
     }

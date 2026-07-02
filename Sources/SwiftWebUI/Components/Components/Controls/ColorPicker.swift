@@ -9,6 +9,14 @@ import SwiftHTML
 public struct ColorPicker<Label: HTML>: WebUIAttributeComponent {
     private let label: Label
     private let selection: Binding<String>
+    /// Whether the picker should allow adjusting the selected color's opacity.
+    ///
+    /// The web `<input type="color">` cannot represent an alpha component, so
+    /// the selected value is always fully opaque regardless of this flag. The
+    /// value is retained for canonical call-site compatibility and will be
+    /// wired to the input once browsers support alpha in the native color
+    /// control.
+    private let supportsOpacity: Bool
     private let attributes: [HTMLAttribute]
     @Environment(\.isEnabled) private var isEnabled: Bool
 
@@ -20,12 +28,19 @@ public struct ColorPicker<Label: HTML>: WebUIAttributeComponent {
     ) {
         self.label = label()
         self.selection = selection
+        self.supportsOpacity = supportsOpacity
         self.attributes = attributes
     }
 
-    private init(label: Label, selection: Binding<String>, attributes: [HTMLAttribute]) {
+    private init(
+        label: Label,
+        selection: Binding<String>,
+        supportsOpacity: Bool,
+        attributes: [HTMLAttribute]
+    ) {
         self.label = label
         self.selection = selection
+        self.supportsOpacity = supportsOpacity
         self.attributes = attributes
     }
 
@@ -54,7 +69,12 @@ public struct ColorPicker<Label: HTML>: WebUIAttributeComponent {
     }
 
     public func addingAttributes(_ attributes: [HTMLAttribute]) -> Self {
-        Self(label: label, selection: selection, attributes: self.attributes + attributes)
+        Self(
+            label: label,
+            selection: selection,
+            supportsOpacity: supportsOpacity,
+            attributes: self.attributes + attributes
+        )
     }
 
     private var disabledAttributes: [HTMLAttribute] {
@@ -69,6 +89,11 @@ public extension ColorPicker where Label == text {
         supportsOpacity: Bool = true,
         _ attributes: HTMLAttribute...
     ) {
-        self.init(label: text(title), selection: selection, attributes: attributes)
+        self.init(
+            label: text(title),
+            selection: selection,
+            supportsOpacity: supportsOpacity,
+            attributes: attributes
+        )
     }
 }

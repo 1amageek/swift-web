@@ -69,7 +69,7 @@ let service = try $CounterServiceProtocol.resolve(id: actorID, using: actorSyste
 let value = try await service.increment()
 ```
 
-SwiftWeb's `@Actor` client component API is a higher-level property wrapper over
+SwiftWeb's `@Actor` client component API is a higher-level accessor macro over
 this same operation. It returns the resolved `@Resolvable` protocol object to
 component code and keeps actor ids, `WebActorSystem`, and transport setup in the
 runtime layer. The generated WASM entrypoint registers the matching `$Protocol`
@@ -96,7 +96,7 @@ Server Actions are page-local HTTP handlers backed by SwiftWeb action descriptor
 | Page routing and rendering | `SwiftWeb` and `SwiftHTML` |
 | Component state and DOM patching | `SwiftHTML` / `SwiftWebUIRuntime` |
 | Project templates and generated package materialization | `SwiftWebCLI` and `SwiftWeb` development runtime |
-| Client `@Actor` property wrapper | `SwiftWebActors` |
+| Client `@Actor` macro expansion | `SwiftWebMacros` (declaration lives in `SwiftWebActors`) |
 | Client resolver registry generation | `SwiftWebPackageGeneration` |
 
 ## Design Notes

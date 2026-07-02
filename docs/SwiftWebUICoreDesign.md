@@ -219,15 +219,27 @@ styling goal state and raw-CSS ban are defined in
 
 ## Environment, ColorScheme, And StyleSystem
 
-ColorScheme is an environment value. Public UI code should use SwiftUI-shaped
-key-path environment writes, or `.preferredColorScheme(_:)` when it wants a
-styled root that also controls the emitted palette:
+ColorScheme is an environment value. `.preferredColorScheme(_:)` follows
+SwiftUI's presentation semantics: the preference applies to the whole rendered
+document no matter where in the tree it is declared, and the last writer during
+a render wins. The page response encoder stamps the recorded scheme onto the
+document root. Scoping a *subtree* to a scheme is the separate, SwiftUI-shaped
+environment write:
 
 ```swift
 content.environment(\.colorScheme, .dark)
 ```
 
-StyleSystem is also an environment value:
+The document style bootstrap is automatic. Whenever a render uses any
+SwiftWebUI component or style modifier, the response encoder registers the root
+stylesheet and runtime scripts and applies the root attributes
+(`class="swui-root"`, `data-style-system`, and the recorded
+`data-color-scheme`) to the document `<body>`. Pages are styled without calling
+any modifier; `.preferredColorScheme(_:)` only chooses the scheme. Passing
+`nil` explicitly records "follow the user agent preference".
+
+StyleSystem is an environment value for component-level resolution. The
+document stylesheet uses the process-installed style system:
 
 ```swift
 let style = StyleSystem(id: "brand") {
@@ -240,17 +252,18 @@ let style = StyleSystem(id: "brand") {
     }
 }
 
-content
-    .preferredColorScheme(.dark)
-    .environment(\.styleSystem, style)
+// Before serving the first page; the first installation wins.
+SwiftWebUIDocumentStyle.install(styleSystem: style)
 ```
 
-There should be no separate color-scheme provider, `StyleSystemProvider`, or separate context modifier. Environment is the single propagation mechanism for values used by both server rendering and client hydration.
+There should be no separate color-scheme provider or context modifier beyond
+these two surfaces. Environment remains the propagation mechanism for values
+used by both server rendering and client hydration.
 
 | Value | Responsibility | Defaulting model |
 |---|---|---|
-| `ColorScheme` | Light/dark color resolution for Swift-side style values | `\.colorScheme` defaults to `.light`; `.preferredColorScheme(nil)` removes the explicit root palette and lets CSS follow the user agent preference |
-| `StyleSystem` | Component-wide shape, spacing, material, control, and motion values | Complete `.default`; third-party styles override only changed token groups |
+| `ColorScheme` | Light/dark color resolution for Swift-side style values | `\.colorScheme` defaults to `.light`; a document without a recorded preference lets CSS follow the user agent preference |
+| `StyleSystem` | Component-wide shape, spacing, material, control, and motion values | Document style system installs once per process (default `.liquidGlass`); third-party styles override only changed token groups |
 
 `ColorScheme` and `StyleSystem` are intentionally separate. Dark and light mode change color roles. StyleSystem changes component language, such as Material-like controls or glass-like surfaces. A custom StyleSystem must be built by overriding `StyleSystem.default`, so every component keeps a defined fallback token.
 
@@ -263,15 +276,9 @@ flowchart LR
     E --> F["SwiftWebUI component classes"]
 ```
 
-When both values are set through modifiers, place `styleSystem` outside the root created by `preferredColorScheme`:
-
-```swift
-content
-    .preferredColorScheme(.dark)
-    .environment(\.styleSystem, .liquidGlass)
-```
-
-Modifier order is semantic. The style root created by `preferredColorScheme` reads outer environment values, then renders the scoped content.
+`.preferredColorScheme(_:)` does not create a root element and is not order
+sensitive: it records the document preference and applies `\.colorScheme` to
+its own subtree so Swift-side reads below it agree with the document.
 
 | Visibility | Use |
 |---|---|

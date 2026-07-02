@@ -444,6 +444,7 @@ struct SwiftWebDevHMRTests {
     #expect(
       try log.events(after: nil).map(\.kind) == [.connected, .stylePatch, .clientBuildStarted])
     #expect(try log.events(after: connected.id).map(\.kind) == [.stylePatch, .clientBuildStarted])
+    #expect(try log.events(after: "missing-event-id").isEmpty)
   }
 
   @Test
@@ -1117,7 +1118,7 @@ struct SwiftWebDevHMRTests {
   }
 
   @Test(.timeLimit(.minutes(1)))
-  func devHostStreamsMultipleHotReloadEventsOnOneConnection() async throws {
+  func devHostStreamsHotReloadEventsAfterLastEventIDOnOneConnection() async throws {
     let publicPort = try SwiftWebDevPortAllocator.allocateLoopbackPort()
     let root = FileManager.default.temporaryDirectory
       .appendingPathComponent(
@@ -1134,12 +1135,12 @@ struct SwiftWebDevHMRTests {
 
     let eventLog = SwiftWebDevEventLog(fileURL: root.appendingPathComponent("events.jsonl"))
     try eventLog.reset()
-    try eventLog.append(
-      SwiftWebDevEvent(
-        kind: .stylePatch,
-        stylePatch: SwiftWebDevStylePatch(css: ".counter { color: green; }"),
-        changedPaths: ["Sources/App/Counter.css"]
-      ))
+    let styleEvent = SwiftWebDevEvent(
+      kind: .stylePatch,
+      stylePatch: SwiftWebDevStylePatch(css: ".counter { color: green; }"),
+      changedPaths: ["Sources/App/Counter.css"]
+    )
+    try eventLog.append(styleEvent)
     try eventLog.append(
       SwiftWebDevEvent(
         kind: .clientBuildStarted,
@@ -1169,13 +1170,11 @@ struct SwiftWebDevHMRTests {
       try await host.start()
 
       let events = try await fetchServerSentEvents(
-        "http://127.0.0.1:\(publicPort)/__swiftweb/dev/events?token=test-token",
-        count: 4
+        "http://127.0.0.1:\(publicPort)/__swiftweb/dev/events?token=test-token&lastEventID=\(styleEvent.id)",
+        count: 2
       )
-      #expect(events[0].contains("event: connected"))
-      #expect(events[1].contains("event: stylePatch"))
-      #expect(events[2].contains("event: clientBuildStarted"))
-      #expect(events[3].contains("event: serverBuildStarted"))
+      #expect(events[0].contains("event: clientBuildStarted"))
+      #expect(events[1].contains("event: serverBuildStarted"))
     } catch {
       await host.stop()
       throw error

@@ -53,13 +53,13 @@ public extension GroupBox where Label == EmptyHTML {
     }
 }
 
-public extension GroupBox where Label == Heading {
+public extension GroupBox where Label == Text {
     init(
         _ title: String,
         @HTMLBuilder content: () -> Content
     ) {
         self.init(content: content) {
-            Heading(title, level: .subsection)
+            Text(title, as: .h3)
         }
     }
 }

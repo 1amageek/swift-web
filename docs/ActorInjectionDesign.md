@@ -12,7 +12,7 @@ flowchart TD
   A["Scene / PageGroup .actor(counter)"] --> B["scope stores actor id by contract"]
   B --> C["client bootstrap actor bindings"]
   C --> D["SwiftWebActorResolverRegistry"]
-  D --> E["@Actor property wrapper"]
+  D --> E["@Actor accessor macro"]
   E --> F["$CounterServiceProtocol.resolve(id:using:)"]
   F --> G["counter: any CounterServiceProtocol"]
   G --> H["try await counter.increment()"]
@@ -82,7 +82,7 @@ public struct CounterClient: ClientComponent {
 
 | Area | Required behavior |
 |---|---|
-| Wrapped value | `@Actor` exposes the resolved `@Resolvable` protocol object, not an actor id, resolver, or transport handle. |
+| Property value | `@Actor` exposes the resolved `@Resolvable` protocol object, not an actor id, resolver, or transport handle. |
 | Resolver | Resolution uses Apple's generated `$Protocol.resolve(id:using:)` entrypoint. |
 | Contract key | Actor bindings are keyed by the `@Resolvable` contract generated for the declared property type. String keys are not part of the standard API. |
 | Scene export | `.actor(actor)` exports a server-side distributed actor id into the current scene scope. |
@@ -125,22 +125,45 @@ private var counter: any CounterServiceProtocol
 |---|---|
 | `@Resolvable` | Generates the concrete `$Protocol` distributed actor stub and typed `resolve(id:using:)` entrypoint. |
 | `SwiftWebMacros.@ResolvableActor` | Adds `SwiftWebActorExporting` conformance to a server actor implementation and records the exported `@Resolvable` contract. |
-| `SwiftWebPackageGeneration` | Reads `@Actor` property declarations in copied client component source and emits a WASM resolver registry using the generated `$Protocol` stub type. |
+| `SwiftWebMacros.ActorMacro` | Expands an `@Actor` property into an accessor that resolves the service through `SwiftWebActorBinding.resolve`. |
+| `SwiftWebPackageGeneration` | Reads `@Actor` property declarations in client component source, emits a WASM resolver registry using the generated `$Protocol` stub type, and pre-expands `@Actor` in copied client sources so generated WASM packages compile without SwiftWebMacros. |
 | `SwiftWeb` scene model | Records `.actor(actor)` exports as scene metadata and includes matching actor ids in client bootstrap data. |
-| `SwiftWebActors` | Provides `WebActorSystem`, invocation envelope encoding/decoding, local actor registry, `WebActorTransport`, `@Actor`, and actor binding resolution. |
+| `SwiftWebActors` | Provides `WebActorSystem`, invocation envelope encoding/decoding, local actor registry, `WebActorTransport`, the gated `@Actor` macro declaration, and actor binding resolution. |
 | `SwiftWebUIRuntime` | Provides the browser-side `WebActorTransport` and installs bootstrap actor bindings around client render and event dispatch. |
 | Host adapter | Mounts the actor gateway, validates requests, and dispatches envelopes into `WebActorSystem.shared`. |
 
 ## Expansion Model
 
-`@Actor` is a runtime property wrapper. It derives its binding key from the
-declared wrapped value type. The generated WASM entrypoint separately registers
-the matching resolver for the same contract:
+`@Actor` is an attached accessor macro, not a property wrapper type. Because a
+macro never enters the type namespace, the name `Actor` cannot shadow the
+standard library `Swift.Actor` protocol in importing code. The macro derives
+its binding key from the declared property type and expands into a resolve
+accessor:
 
 ```swift
 @Actor
 private var counter: any CounterServiceProtocol
 ```
+
+```swift
+private var counter: any CounterServiceProtocol {
+    get {
+        SwiftWebActorBinding.resolve(
+            (any CounterServiceProtocol).self,
+            contract: SwiftWebActorContractKey(String(reflecting: (any CounterServiceProtocol).self))
+        )
+    }
+}
+```
+
+Generated browser WASM packages compile without the SwiftWebMacros plugin or
+swift-syntax: `SwiftWebPackageGeneration` performs the same expansion while
+copying client component sources, and the `@Actor` declaration in
+`SwiftWebActors` is compiled out because generated manifests do not define
+`SWIFTWEB_MACROS`.
+
+The generated WASM entrypoint separately registers the matching resolver for
+the same contract:
 
 ```swift
 private let actorResolvers = SwiftWebActorResolverRegistry([

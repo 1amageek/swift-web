@@ -111,6 +111,7 @@ async function launchStoryboardServer(port) {
       cwd: swiftWebRoot,
       env: {
         ...process.env,
+        SWIFT_WEB_PACKAGE_PATH: swiftWebRoot,
         SWIFT_WEB_WASM_SDK: wasmSwiftSDK,
       },
       detached: true,

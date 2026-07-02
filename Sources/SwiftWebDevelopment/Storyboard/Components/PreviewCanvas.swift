@@ -2,17 +2,14 @@ import Foundation
 import SwiftHTML
 import SwiftWebUI
 
-/// The Storyboard's preview backdrop: a dot-grid canvas with the demo centered
-/// on it, matching the design's preview stage.
-///
-/// The dot color is a `ShapeStyle` (`Color`, defaulting to `.border`), so the
-/// grid follows the active color scheme through the Storyboard stylesheet, while
-/// the component body exposes only stable class hooks.
+/// The Storyboard's preview stage: the demo centered on a curated gradient
+/// scene, so glass and materials always have depth to refract.
 struct PreviewCanvas<Content: HTML>: Component {
+    var scene: StoryboardScene
     var content: Content
 
-    init(dotColor: Color = .border, @HTMLBuilder content: () -> Content) {
-        _ = dotColor
+    init(scene: StoryboardScene = .mist, @HTMLBuilder content: () -> Content) {
+        self.scene = scene
         self.content = content()
     }
 
@@ -22,7 +19,7 @@ struct PreviewCanvas<Content: HTML>: Component {
         // horizontally. The `swui-vstack` class opts the canvas into the
         // framework's fill rules, so a demo with `.frame(maxWidth: .infinity)`
         // (e.g. GridSystem) stretches to full width instead of staying centered.
-        div(.class("swui-vstack swui-storyboard-preview-canvas")) {
+        div(.class("swui-vstack swui-storyboard-preview-canvas \(scene.className)")) {
             // Wrap the demo in an animation scope so that any attribute a control
             // panel changes (color, frost, layout, …) is interpolated in place by
             // the browser, rather than snapping. The `display: contents` scope adds

@@ -177,6 +177,17 @@ public extension HTML {
     func onChange<Value>(
         of value: Value,
         initial: Bool = false,
+        _ action: @escaping @Sendable () -> Void
+    ) -> ModifiedContent<Self, OnChangeModifier<Value>> where Value: Equatable & Codable & Sendable {
+        onChange(of: value, initial: initial) { _, _ in
+            action()
+        }
+    }
+
+    @available(*, deprecated, message: "Use onChange with a two-parameter or zero-parameter action closure instead.")
+    func onChange<Value>(
+        of value: Value,
+        initial: Bool = false,
         _ action: @escaping @Sendable (Value) -> Void
     ) -> ModifiedContent<Self, OnChangeModifier<Value>> where Value: Equatable & Codable & Sendable {
         onChange(of: value, initial: initial) { _, newValue in

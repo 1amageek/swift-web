@@ -814,8 +814,27 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
       from: sourceDirectory,
       to: destinationDirectory,
       relativePath: "",
-      shouldSkip: isServerOnly(relativePath:)
+      shouldSkip: isServerOnly(relativePath:),
+      transform: expandClientSource(relativePath:data:)
     )
+  }
+
+  // Generated WASM packages compile without the SwiftWebMacros plugin, so the
+  // @Actor accessor macro must be expanded while client sources are copied.
+  private func expandClientSource(relativePath: String, data: Data) throws -> Data {
+    guard relativePath.hasSuffix(".swift"),
+      let source = String(data: data, encoding: .utf8)
+    else {
+      return data
+    }
+    let expanded = try SwiftWebClientActorPropertyExpander.expandActorProperties(
+      inSource: source,
+      filePath: relativePath
+    )
+    guard expanded != source else {
+      return data
+    }
+    return Data(expanded.utf8)
   }
 
   private func copySwiftHTMLRuntimeSources(
@@ -1145,7 +1164,8 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
     from sourceDirectory: URL,
     to destinationDirectory: URL,
     relativePath: String,
-    shouldSkip: (String) -> Bool
+    shouldSkip: (String) -> Bool,
+    transform: ((_ relativePath: String, _ data: Data) throws -> Data)? = nil
   ) throws {
     let children = try FileManager.default.contentsOfDirectory(
       at: sourceDirectory,
@@ -1175,8 +1195,12 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
           from: child,
           to: destination,
           relativePath: relativeChildPath,
-          shouldSkip: shouldSkip
+          shouldSkip: shouldSkip,
+          transform: transform
         )
+      } else if let transform {
+        let data = try Data(contentsOf: child)
+        try writeDataIfChanged(try transform(relativeChildPath, data), to: destination)
       } else {
         try copyFileIfChanged(from: child, to: destination)
       }

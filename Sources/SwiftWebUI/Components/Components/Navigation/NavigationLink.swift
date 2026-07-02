@@ -15,7 +15,7 @@ public struct NavigationLink<Label: HTML>: WebUIAttributeComponent {
     @Environment(\.layoutDirection) private var layoutDirection: LayoutDirection
     @Environment(\.controlSize) private var controlSize: ControlSize
     @Environment(\.isEnabled) private var isEnabled: Bool
-    @Environment(\.tint) private var tint: String?
+    @Environment(\.tint) private var tint: Color?
     @Environment(\.buttonStyle) private var buttonStyle: ButtonStyleKind
 
     public init(
@@ -72,7 +72,7 @@ public struct NavigationLink<Label: HTML>: WebUIAttributeComponent {
                 prominence: .secondary,
                 controlSize: controlSize,
                 isEnabled: isEnabled,
-                tint: tint
+                tint: tint?.cssValue
             ),
             context: StyleResolutionContext(
                 styleSystem: styleSystem,

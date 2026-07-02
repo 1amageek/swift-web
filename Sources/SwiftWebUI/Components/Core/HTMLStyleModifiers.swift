@@ -59,7 +59,16 @@ public struct ForegroundStylesModifier: ComponentModifier {
         // descendant content can opt into the hierarchy (mirroring how SwiftUI's
         // hierarchical foreground styles propagate through the environment).
         for (index, resolvedStyle) in resolved.enumerated() where !resolvedStyle.cssValue.isEmpty {
-            style.append(.custom("--swui-foreground-\(foregroundStyleName(at: index))", resolvedStyle.cssValue))
+            let name = "--swui-foreground-\(foregroundStyleName(at: index))"
+            // A hierarchical style at its own level (e.g. `.secondary` in the
+            // second slot) resolves to `var(<name>, …)`. Redeclaring the
+            // property in terms of itself is a custom-property cycle in CSS
+            // (the declaration becomes invalid); omitting it keeps the
+            // inherited level, which is what the identity mapping means.
+            if resolvedStyle.cssValue.contains("var(\(name)") {
+                continue
+            }
+            style.append(.custom(name, resolvedStyle.cssValue))
         }
         return style
     }
@@ -157,6 +166,74 @@ public struct ShapeBackgroundStyleModifier<S: ShapeStyle>: ComponentModifier {
     }
 }
 
+public struct BackgroundStyleModifier<S: ShapeStyle>: ComponentModifier {
+    private let style: S
+
+    init(_ style: S) {
+        self.style = style
+    }
+
+    @Environment(\.styleSystem) private var styleSystem: StyleSystem
+    @Environment(\.colorScheme) private var colorScheme: ColorScheme
+    @Environment(\.layoutDirection) private var layoutDirection: LayoutDirection
+    @Environment(\.controlState) private var controlState: ControlState
+
+    @HTMLBuilder
+    public func body(content: ModifierContent) -> some HTML {
+        content.environment(\.backgroundStyle, resolvedBackgroundStyle)
+    }
+
+    private var resolvedBackgroundStyle: String {
+        style.resolve(in: StyleResolutionContext(
+            styleSystem: styleSystem,
+            colorScheme: colorScheme,
+            layoutDirection: layoutDirection,
+            controlState: controlState
+        )).cssValue
+    }
+}
+
+public struct EnvironmentBackgroundModifier: ComponentModifier {
+    private let shape: Shape
+
+    init(shape: Shape) {
+        self.shape = shape
+    }
+
+    @Environment(\.backgroundStyle) private var backgroundStyle: String?
+
+    @HTMLBuilder
+    public func body(content: ModifierContent) -> some HTML {
+        Element(
+            "div",
+            attributes: mergedAttributes(
+                class: className,
+                styles: styleValue,
+                extra: []
+            )
+        ) {
+            content
+        }
+    }
+
+    private var styleValue: Style {
+        var style = Style.background(backgroundStyle ?? "var(--swui-background)")
+        style.append(.borderRadius(shape.cornerRadiusValue))
+        return style
+    }
+
+    private var className: String {
+        [
+            "swui-modifier",
+            "swui-style",
+            HTMLModifierRole.box.className,
+            WebStyleProperty.background.modifierClassName,
+            "swui-style-shaped-background",
+        ]
+        .joined(separator: " ")
+    }
+}
+
 public extension HTML {
     func foregroundStyle<S: ShapeStyle>(
         _ style: S
@@ -200,18 +277,26 @@ public extension HTML {
         modifier(ShapeBackgroundStyleModifier(style: style, shape: shape))
     }
 
+    /// Fill `shape` behind the view with the environment's background style.
+    ///
+    /// Mirrors SwiftUI `background(in:)`: the fill comes from the nearest
+    /// `backgroundStyle(_:)` up the tree, defaulting to the root background
+    /// token when none is in scope.
     func background(
         in shape: Shape
-    ) -> ModifiedContent<Self, HTMLAttributeModifier> {
-        modifier(HTMLAttributeModifier([
-            styleAttribute(.borderRadius(shape.cornerRadiusValue))
-        ]))
+    ) -> ModifiedContent<Self, EnvironmentBackgroundModifier> {
+        modifier(EnvironmentBackgroundModifier(shape: shape))
     }
 
+    /// Set the background style that `background(in:)` fills with, for this
+    /// view and its descendants.
+    ///
+    /// Mirrors SwiftUI `backgroundStyle(_:)`: it only writes the environment
+    /// and paints nothing itself.
     func backgroundStyle<S: ShapeStyle>(
         _ style: S
-    ) -> ModifiedContent<Self, WebStyleModifier<S>> {
-        background(style)
+    ) -> ModifiedContent<Self, BackgroundStyleModifier<S>> {
+        modifier(BackgroundStyleModifier(style))
     }
 
     func tint<S: ShapeStyle>(

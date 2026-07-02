@@ -1,6 +1,10 @@
 import SwiftWebUITheme
 import SwiftHTML
 
+/// A control that increments or decrements a value.
+///
+/// The stepper renders its title and the two buttons; it does not display the
+/// current value. Interpolate the value into the title to show it.
 public struct Stepper: WebUIAttributeComponent {
     private let title: String
     private let value: Binding<Int>?
@@ -12,24 +16,66 @@ public struct Stepper: WebUIAttributeComponent {
     private let attributes: [HTMLAttribute]
     @Environment(\.controlSize) private var controlSize: ControlSize
     @Environment(\.isEnabled) private var isEnabled: Bool
-    @Environment(\.tint) private var tint: String?
+    @Environment(\.tint) private var tint: Color?
+
+    public init(
+        _ title: String,
+        value: Binding<Int>,
+        in bounds: ClosedRange<Int>,
+        step: Int = 1,
+        onEditingChanged: @escaping @Sendable (Bool) -> Void = { _ in },
+        _ attributes: HTMLAttribute...
+    ) {
+        self.init(
+            title: title,
+            value: value,
+            step: step,
+            bounds: bounds,
+            onIncrement: nil,
+            onDecrement: nil,
+            onEditingChanged: onEditingChanged,
+            attributes: attributes
+        )
+    }
 
     public init(
         _ title: String,
         value: Binding<Int>,
         step: Int = 1,
-        in bounds: ClosedRange<Int>? = nil,
         onEditingChanged: @escaping @Sendable (Bool) -> Void = { _ in },
         _ attributes: HTMLAttribute...
     ) {
-        self.title = title
-        self.value = value
-        self.step = step
-        self.bounds = bounds
-        self.onIncrement = nil
-        self.onDecrement = nil
-        self.onEditingChanged = onEditingChanged
-        self.attributes = attributes
+        self.init(
+            title: title,
+            value: value,
+            step: step,
+            bounds: nil,
+            onIncrement: nil,
+            onDecrement: nil,
+            onEditingChanged: onEditingChanged,
+            attributes: attributes
+        )
+    }
+
+    @available(*, deprecated, message: "Use init(_:value:in:step:onEditingChanged:) — the canonical argument order puts the bounds before the step.")
+    public init(
+        _ title: String,
+        value: Binding<Int>,
+        step: Int,
+        in bounds: ClosedRange<Int>?,
+        onEditingChanged: @escaping @Sendable (Bool) -> Void = { _ in },
+        _ attributes: HTMLAttribute...
+    ) {
+        self.init(
+            title: title,
+            value: value,
+            step: step,
+            bounds: bounds,
+            onIncrement: nil,
+            onDecrement: nil,
+            onEditingChanged: onEditingChanged,
+            attributes: attributes
+        )
     }
 
     public init(
@@ -62,7 +108,7 @@ public struct Stepper: WebUIAttributeComponent {
             "div",
             attributes: mergedAttributes(
                 class: containerClassName,
-                styles: controlTintStyle(tint),
+                styles: controlTintStyle(tint?.cssValue),
                 extra: [.role("group"), .aria("label", title)] + attributes
             )
         ) {
@@ -80,14 +126,7 @@ public struct Stepper: WebUIAttributeComponent {
                 } else {
                     onDecrement?()
                 }
-            }
-            if let value {
-                span(
-                    .class("swui-stepper-value val"),
-                    .aria("live", "polite")
-                ) {
-                    String(value.wrappedValue)
-                }
+                onEditingChanged(false)
             }
             stepperButton(
                 symbol: "+",
@@ -100,6 +139,7 @@ public struct Stepper: WebUIAttributeComponent {
                 } else {
                     onIncrement?()
                 }
+                onEditingChanged(false)
             }
         }
     }

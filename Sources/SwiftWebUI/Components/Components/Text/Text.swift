@@ -65,6 +65,14 @@ public struct Text: WebUIAttributeComponent {
             classes.append("swui-inline-code")
         case .pre:
             classes.append("swui-preformatted")
+        case .h1:
+            classes.append(contentsOf: ["swui-heading", "swui-heading-page"])
+        case .h2:
+            classes.append(contentsOf: ["swui-heading", "swui-heading-section"])
+        case .h3:
+            classes.append(contentsOf: ["swui-heading", "swui-heading-subsection"])
+        case .h4, .h5, .h6:
+            classes.append("swui-heading")
         default:
             break
         }

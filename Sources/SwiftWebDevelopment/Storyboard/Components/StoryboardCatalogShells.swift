@@ -4,42 +4,28 @@ import SwiftWebUI
 
 // MARK: - Shells
 
-/// A compact prop-reference panel for the selected component.
+/// The prop-reference table for the selected component: one aligned grid, the
+/// parameter in a monospaced column, its accepted values and summary beside it.
 struct CatalogPropertyPanel: Component {
     let properties: [CatalogProperty]
 
     var body: some HTML {
-        VStack(alignment: .leading, spacing: .medium) {
+        div(.class("swui-storyboard-props")) {
             ForEach(properties) { property in
-                CatalogPropertyRow(property: property)
+                div(.class("swui-storyboard-props-row")) {
+                    Text(property.name, as: .span)
+                        .font(Font(size: .px(13), weight: .semibold, design: .monospaced))
+                    VStack(alignment: .leading, spacing: .xsmall) {
+                        Text(property.acceptedValues, as: .span)
+                            .font(Font(size: .px(12.5), design: .monospaced))
+                            .foregroundStyle(.accent)
+                        Text(property.summary, as: .span)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
         }
-        .padding(.large)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.surfaceRaised, in: .rect(cornerRadius: 12))
-        .border(.border, width: 1)
-        .cornerRadius(12)
-    }
-}
-
-struct CatalogPropertyRow: Component {
-    let property: CatalogProperty
-
-    var body: some HTML {
-        VStack(alignment: .leading, spacing: .xsmall) {
-            HStack(spacing: .small) {
-                Text(property.name)
-                    .font(Font(size: .px(13), weight: .semibold, design: .monospaced))
-                Text(property.acceptedValues)
-                    .font(Font(size: .px(13), design: .monospaced))
-                    .foregroundStyle(.accent)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            Text(property.summary)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -64,7 +50,7 @@ struct CatalogRelatedPanel: Component {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(.surfaceRaised, in: .rect(cornerRadius: 10))
                 .border(.border, width: 1)
-                .cornerRadius(10)
+                .clipShape(.rect(cornerRadius: 10))
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

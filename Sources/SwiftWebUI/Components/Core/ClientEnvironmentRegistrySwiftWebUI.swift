@@ -18,12 +18,12 @@ extension ClientEnvironmentRegistry {
     /// `SwiftWebUI.(unknown context at $<address>).<Name>`, whose discriminator
     /// differs per binary and never matches the snapshot produced by the server.
     public static let swiftWebUI = ClientEnvironmentRegistry.standard
-        .registering(PreferredColorSchemeEnvironmentKey.self)
         .registering(StyleSystemEnvironmentKey.self)
         .registering(IsEnabledEnvironmentKey.self)
         .registering(ControlSizeEnvironmentKey.self)
         .registering(ControlStateEnvironmentKey.self)
         .registering(TintEnvironmentKey.self)
+        .registering(BackgroundStyleEnvironmentKey.self)
         .registering(ButtonStyleEnvironmentKey.self)
         .registering(PickerStyleEnvironmentKey.self)
         .registering(ToggleStyleEnvironmentKey.self)
@@ -38,6 +38,8 @@ extension ClientEnvironmentRegistry {
         .registering(IsInsideFormEnvironmentKey.self)
         .registering(TabSelectionEnvironmentKey.self)
         .registering(TabGroupNameEnvironmentKey.self)
+        .registering(ToolbarRegionEnvironmentKey.self)
+        .registering(NavigationPathSegmentsEnvironmentKey.self)
         .registering(PickerSelectionEnvironmentKey.self)
         .registering(PickerGroupNameEnvironmentKey.self)
         .registering(SearchScopeSelectionEnvironmentKey.self)

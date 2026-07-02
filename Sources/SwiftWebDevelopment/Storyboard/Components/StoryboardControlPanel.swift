@@ -149,7 +149,7 @@ struct StoryboardControlPanel: Component {
         // A filled track only — no hard outline, matching a native segmented
         // control (the selected segment is the raised chip).
         .background(Color.secondary.opacity(0.1), in: .rect(cornerRadius: 8))
-        .cornerRadius(8)
+        .clipShape(.rect(cornerRadius: 8))
     }
 
     @HTMLBuilder

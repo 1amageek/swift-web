@@ -23,6 +23,9 @@ public struct LazyVStack<Content: HTML>: WebUIAttributeComponent {
     }
 
     /// Token-named spacing convenience over the theme spacing scale.
+    /// Disfavored so `spacing: .none` resolves to `Double?.none` (the default
+    /// system spacing, matching SwiftUI's `nil`) instead of `Space.none`.
+    @_disfavoredOverload
     public init(
         alignment: HorizontalAlignment = .center,
         spacing: Space,

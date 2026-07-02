@@ -140,6 +140,7 @@ package enum SwiftWebWasmRuntimeHostScript {
         this.installEventListeners();
         this.installServerActionListeners();
         this.installNavigationListeners();
+        this.installNavigationStackReconciler();
         this.installPresentationReconciler();
         this.publishStatus(true);
         this.completeReadyMetrics(runtimeStartedAt);
@@ -918,6 +919,63 @@ package enum SwiftWebWasmRuntimeHostScript {
         observer.observe(document.documentElement, {
           attributes: true,
           attributeFilter: ["data-presented"],
+          childList: true,
+          subtree: true
+        });
+      }
+
+      // Drives URL-backed NavigationStack path writes into same-origin document
+      // transitions. A client-side write to the bound path re-renders the
+      // stack's `data-navigation-path`; this reconciler derives the stack's
+      // base once (the document path minus the SSR-rendered path suffix) and
+      // navigates to `base/…segments` through the same enhanced-navigation
+      // queue as anchor clicks. Back/forward replays the target document and
+      // the page re-derives its path from the URL, so the reconciler never
+      // rewrites the binding. See ClientNavigationDesign.md,
+      // "URL-Backed NavigationStack".
+      installNavigationStackReconciler() {
+        const bindStack = (stack) => {
+          if (stack.__swuiNavStackBase !== undefined) {
+            return;
+          }
+          const joined = stack.getAttribute("data-navigation-path") || "";
+          let base = window.location.pathname.replace(/\/+$/, "");
+          if (joined.length > 0) {
+            const suffix = "/" + joined;
+            if (base.endsWith(suffix)) {
+              base = base.slice(0, base.length - suffix.length);
+            }
+          }
+          stack.__swuiNavStackBase = base;
+          stack.__swuiNavStackPath = joined;
+        };
+        const reconcile = () => {
+          const stacks = document.querySelectorAll("[data-navigation-stack][data-navigation-path]");
+          for (const stack of stacks) {
+            bindStack(stack);
+            const joined = stack.getAttribute("data-navigation-path") || "";
+            if (joined === stack.__swuiNavStackPath) {
+              continue;
+            }
+            stack.__swuiNavStackPath = joined;
+            const path = stack.__swuiNavStackBase + (joined.length > 0 ? "/" + joined : "");
+            const target = new URL(path.length > 0 ? path : "/", window.location.href);
+            if (target.pathname === window.location.pathname) {
+              continue;
+            }
+            this.eventQueue = this.eventQueue
+              .then(() => this.navigateServerDocument(target.href, { history: "push" }))
+              .catch((error) => {
+                console.error("SwiftWeb navigation-stack transition failed", error);
+                window.location.assign(target.href);
+              });
+          }
+        };
+        reconcile();
+        const observer = new MutationObserver(() => reconcile());
+        observer.observe(document.documentElement, {
+          attributes: true,
+          attributeFilter: ["data-navigation-path"],
           childList: true,
           subtree: true
         });
