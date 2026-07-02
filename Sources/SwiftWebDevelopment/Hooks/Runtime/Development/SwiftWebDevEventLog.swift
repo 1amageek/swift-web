@@ -76,9 +76,13 @@ package struct SwiftWebDevEventLog: Sendable {
             return events
         }
         guard let index = events.lastIndex(where: { $0.id == id }) else {
-            return events
+            return []
         }
         return Array(events[events.index(after: index)...])
+    }
+
+    package func latestEventID() throws -> String? {
+        try events(after: nil).last?.id
     }
 }
 

@@ -56,7 +56,8 @@ public struct SwiftWebStoryboardScaffold: Sendable {
     private var catalogSourceDirectory: URL {
         swiftWebPackageDirectory
             .appendingPathComponent("Sources", isDirectory: true)
-            .appendingPathComponent("SwiftWebStoryboard", isDirectory: true)
+            .appendingPathComponent("SwiftWebDevelopment", isDirectory: true)
+            .appendingPathComponent("Storyboard", isDirectory: true)
     }
 
     private var moduleSourceDirectory: URL {

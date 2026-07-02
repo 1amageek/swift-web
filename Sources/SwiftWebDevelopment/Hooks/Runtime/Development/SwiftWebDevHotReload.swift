@@ -7,6 +7,7 @@ import Vapor
 package enum SwiftWebDevHotReload {
   package static let reloadPath = "/__swiftweb/dev/reload"
   package static let eventsPath = "/__swiftweb/dev/events"
+  package static let clientScriptPath = "/__swiftweb/dev/client.js"
   package static let reloadTokenHeaderName = HTTPField.Name("X-SwiftWeb-Dev-Token")!
 
   package static var isEnabled: Bool {
@@ -84,11 +85,22 @@ package enum SwiftWebDevHotReload {
       return Response(headers: headers, body: .init(string: payload))
     }
 
-    return [reloadRoute, eventsRoute]
+    let clientScriptRoute = routes.get("__swiftweb", "dev", "client.js") { _ async throws -> Response in
+      Response(headers: clientScriptHeaders(), body: .init(string: clientScript()))
+    }
+
+    return [reloadRoute, eventsRoute, clientScriptRoute]
   }
 
   package static func shouldSuppressRouteLog(for request: Request) -> Bool {
-    request.url.path == reloadPath || request.url.path == eventsPath
+    request.url.path == reloadPath || request.url.path == eventsPath || request.url.path == clientScriptPath
+  }
+
+  package static func clientScriptHeaders() -> HTTPFields {
+    [
+      .contentType: "text/javascript; charset=utf-8",
+      .cacheControl: "public, max-age=31536000, immutable",
+    ]
   }
 
   private struct SwiftWebDevReloadSearch: Decodable {
@@ -111,7 +123,13 @@ package enum SwiftWebDevHotReload {
     after lastEventID: String?
   ) async throws -> String {
     if lastEventID == nil {
-      return try sseData(for: SwiftWebDevEvent(kind: .connected))
+      if let latestEventID = try eventLog.latestEventID() {
+        return try sseData(for: SwiftWebDevEvent(id: latestEventID, kind: .connected))
+      }
+
+      let connected = SwiftWebDevEvent(kind: .connected)
+      try eventLog.append(connected)
+      return try sseData(for: connected)
     }
 
     let deadline = Date().addingTimeInterval(30)
@@ -169,12 +187,33 @@ package enum SwiftWebDevHotReload {
 
   private static func scriptMarkup(token: String, nonce: String?) -> String {
     let nonceAttribute = nonce.map { " nonce=\"\(escapeHTMLAttribute($0))\"" } ?? ""
+    let source = "\(clientScriptPath)?v=\(clientScriptVersion)"
     return """
-      <script type="module"\(nonceAttribute)>
+      <script\(nonceAttribute)>
+      globalThis.__swiftWebDevBootstrap = {
+        token: "\(escapeJavaScriptString(token))",
+        reloadPath: "\(reloadPath)",
+        eventsPath: "\(eventsPath)"
+      };
+      </script>
+      <script src="\(escapeHTMLAttribute(source))"\(nonceAttribute)></script>
+      """
+  }
+
+  package static func clientScript() -> String {
+    clientScriptSource
+  }
+
+  private static var clientScriptVersion: String {
+    String(UInt(bitPattern: clientScriptSource.hashValue), radix: 16)
+  }
+
+  private static let clientScriptSource = """
       {
-        const swiftWebDevToken = "\(escapeJavaScriptString(token))";
-        const swiftWebDevReloadURL = new URL("\(reloadPath)", window.location.href);
-        const swiftWebDevEventsURL = new URL("\(eventsPath)", window.location.href);
+        const bootstrap = globalThis.__swiftWebDevBootstrap || {};
+        const swiftWebDevToken = String(bootstrap.token || "");
+        const swiftWebDevReloadURL = new URL(bootstrap.reloadPath || "/__swiftweb/dev/reload", window.location.href);
+        const swiftWebDevEventsURL = new URL(bootstrap.eventsPath || "/__swiftweb/dev/events", window.location.href);
         swiftWebDevReloadURL.searchParams.set("token", swiftWebDevToken);
         swiftWebDevEventsURL.searchParams.set("token", swiftWebDevToken);
         const previous = globalThis.__swiftWebDevReload;
@@ -645,9 +684,7 @@ package enum SwiftWebDevHotReload {
           swiftWebWaitForReload();
         }
       }
-      </script>
       """
-  }
 
   private static func escapeJavaScriptString(_ value: String) -> String {
     value

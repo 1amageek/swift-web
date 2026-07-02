@@ -4,11 +4,11 @@ SwiftWebUI is the SwiftUI-inspired component layer built on top of SwiftHTML.
 
 It owns reusable visual components, layout primitives, color scheme propagation, and developer-friendly modifiers. It does not own the HTML graph, page metadata, route registration, Vapor request handling, macros, or the CLI.
 
-The core architecture is documented in [`docs/SwiftWebUICoreDesign.md`](../../docs/SwiftWebUICoreDesign.md). That document defines the component graph, dynamic property lifecycle, modifier graph, and style abstraction boundaries.
+The core architecture is documented in [`docs/SwiftWebUICoreDesign.md`](../../../docs/SwiftWebUICoreDesign.md). That document defines the component graph, dynamic property lifecycle, modifier graph, and style abstraction boundaries.
 
-The public style contract is documented in [`docs/SwiftWebUIStyleDesign.md`](../../docs/SwiftWebUIStyleDesign.md). That document defines the ColorScheme / StyleSystem / CSS ownership model, component taxonomy, contextual styling rules, and styling gates for built-in components.
+The public style contract is documented in [`docs/SwiftWebUIStyleDesign.md`](../../../docs/SwiftWebUIStyleDesign.md). That document defines the ColorScheme / StyleSystem / CSS ownership model, component taxonomy, contextual styling rules, and styling gates for built-in components.
 
-Client WASM loading is documented in [`docs/ClientBundleLoadingDesign.md`](../../docs/ClientBundleLoadingDesign.md). That document defines the `ClientComponent` loading contract, modifier precedence, nested island ownership, and bundle policy rules. Client-side document navigation is documented in [`docs/ClientNavigationDesign.md`](../../docs/ClientNavigationDesign.md).
+Client WASM loading is documented in [`docs/ClientBundleLoadingDesign.md`](../../../docs/ClientBundleLoadingDesign.md). That document defines the `ClientComponent` loading contract, modifier precedence, nested island ownership, and bundle policy rules. Client-side document navigation is documented in [`docs/ClientNavigationDesign.md`](../../../docs/ClientNavigationDesign.md).
 
 ## Responsibility
 

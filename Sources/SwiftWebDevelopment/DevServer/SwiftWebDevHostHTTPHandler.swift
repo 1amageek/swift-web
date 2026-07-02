@@ -55,6 +55,8 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
         switch target.path {
         case "/__dev/status":
             return try await sendStatus(responseSender: responseSender)
+        case SwiftWebDevHotReload.clientScriptPath:
+            return try await sendClientScript(responseSender: responseSender)
         case "/__swiftweb/dev/events", "/__dev/events":
             return try await sendDevEvents(target: target, responseSender: responseSender)
         case "/__swiftweb/dev/reload":
@@ -80,6 +82,17 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
                 .cacheControl: "no-cache, no-transform",
             ],
             bytes: Array(data),
+            responseSender: responseSender
+        )
+    }
+
+    private func sendClientScript(
+        responseSender: consuming sending HTTPResponseSender<HTTPResponseConcludingAsyncWriter>
+    ) async throws {
+        try await Self.sendBytes(
+            status: .ok,
+            headers: SwiftWebDevHotReload.clientScriptHeaders(),
+            bytes: Array(SwiftWebDevHotReload.clientScript().utf8),
             responseSender: responseSender
         )
     }
@@ -115,7 +128,14 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
                 var responseBodyWriter = responseBodyWriter
                 var lastEventID = target.query["lastEventID"]
                 if lastEventID == nil {
-                    let connected = SwiftWebDevEvent(kind: .connected)
+                    let latestEventID = try eventLog.latestEventID()
+                    let connected: SwiftWebDevEvent
+                    if let latestEventID {
+                        connected = SwiftWebDevEvent(id: latestEventID, kind: .connected)
+                    } else {
+                        connected = SwiftWebDevEvent(kind: .connected)
+                        try eventLog.append(connected)
+                    }
                     try await responseBodyWriter.write(Array(SwiftWebDevHotReload.sseData(for: connected).utf8).span)
                     lastEventID = connected.id
                 }
@@ -231,10 +251,12 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
                 timeout: .seconds(30),
                 logger: logger
             )
+            var responseHeaders = Self.forwardHeaders(from: workerResponse.headers)
+            responseHeaders[HTTPField.Name("Connection")!] = "close"
             let writer = try await responseSender.send(
                 HTTPResponse(
                     status: .init(code: Int(workerResponse.status.code)),
-                    headerFields: Self.forwardHeaders(from: workerResponse.headers)
+                    headerFields: responseHeaders
                 )
             )
             try await writer.produceAndConclude { responseBodyWriter in
@@ -316,6 +338,7 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
         if let host = headers[HTTPField.Name("Host")!] {
             request.headers.replaceOrAdd(name: "Host", value: host)
         }
+        request.headers.replaceOrAdd(name: "Connection", value: "close")
         return request
     }
 

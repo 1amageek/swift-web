@@ -996,21 +996,22 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
   private func copyClientRuntimeSources(
     from swiftWebPackageDirectory: URL, to packageDirectory: URL
   ) throws {
-    for targetName in [
-      "SwiftWebStyle",
-      "SwiftWebActors",
-      "SwiftWebUITheme",
-      "SwiftWebUI",
-      "SwiftWebUIRuntime",
-    ] {
+    let runtimeSources: [(sourcePath: String, targetName: String)] = [
+      ("SwiftWebUI/Style", "SwiftWebStyle"),
+      ("SwiftWebRuntime/Actors", "SwiftWebActors"),
+      ("SwiftWebUI/Theme", "SwiftWebUITheme"),
+      ("SwiftWebUI/Components", "SwiftWebUI"),
+      ("SwiftWebBrowser/ClientRuntime", "SwiftWebUIRuntime"),
+    ]
+    for runtimeSource in runtimeSources {
       let sourceDirectory =
         swiftWebPackageDirectory
         .appendingPathComponent("Sources", isDirectory: true)
-        .appendingPathComponent(targetName, isDirectory: true)
+        .appendingPathComponent(runtimeSource.sourcePath, isDirectory: true)
       let destinationDirectory =
         packageDirectory
         .appendingPathComponent("Sources", isDirectory: true)
-        .appendingPathComponent(targetName, isDirectory: true)
+        .appendingPathComponent(runtimeSource.targetName, isDirectory: true)
       try FileManager.default.createDirectory(
         at: destinationDirectory,
         withIntermediateDirectories: true

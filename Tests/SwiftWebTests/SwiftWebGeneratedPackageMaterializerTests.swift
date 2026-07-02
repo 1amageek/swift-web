@@ -75,16 +75,16 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     try writeSwiftWebUIThemeRuntimeSources(in: swiftWebPackage)
     try write(
       "import SwiftHTML\npublic struct Text {}",
-      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Text.swift")
+      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Components/Text.swift")
     )
     try write(
       "public struct WebActorSystem {}",
-      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebActors/WebActorSystem.swift")
+      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebRuntime/Actors/WebActorSystem.swift")
     )
     try write(
       "import SwiftHTML\npublic struct RuntimeEntrypoint {}",
       to: swiftWebPackage.appendingPathComponent(
-        "Sources/SwiftWebUIRuntime/RuntimeEntrypoint.swift")
+        "Sources/SwiftWebBrowser/ClientRuntime/RuntimeEntrypoint.swift")
     )
     try writeJavaScriptKitRuntimeCheckout(in: swiftWebPackage)
     try write(
@@ -628,16 +628,16 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     try writeSwiftWebUIThemeRuntimeSources(in: swiftWebPackage)
     try write(
       "import SwiftHTML\npublic struct Text {}",
-      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Text.swift")
+      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Components/Text.swift")
     )
     try write(
       "public struct WebActorSystem {}",
-      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebActors/WebActorSystem.swift")
+      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebRuntime/Actors/WebActorSystem.swift")
     )
     try write(
       "import SwiftHTML\npublic struct RuntimeEntrypoint {}",
       to: swiftWebPackage.appendingPathComponent(
-        "Sources/SwiftWebUIRuntime/RuntimeEntrypoint.swift")
+        "Sources/SwiftWebBrowser/ClientRuntime/RuntimeEntrypoint.swift")
     )
     try writeJavaScriptKitRuntimeCheckout(in: swiftWebPackage)
     try write(
@@ -834,16 +834,16 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     )
     try write(
       "import SwiftHTML\npublic struct Text {}",
-      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Text.swift")
+      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Components/Text.swift")
     )
     try write(
       "public struct WebActorSystem {}",
-      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebActors/WebActorSystem.swift")
+      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebRuntime/Actors/WebActorSystem.swift")
     )
     try write(
       "import SwiftHTML\npublic struct RuntimeEntrypoint {}",
       to: swiftWebPackage.appendingPathComponent(
-        "Sources/SwiftWebUIRuntime/RuntimeEntrypoint.swift")
+        "Sources/SwiftWebBrowser/ClientRuntime/RuntimeEntrypoint.swift")
     )
     try writeJavaScriptKitRuntimeCheckout(in: swiftWebPackage)
     try write(
@@ -976,16 +976,16 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     try writeSwiftWebUIThemeRuntimeSources(in: swiftWebPackage)
     try write(
       "import SwiftHTML\npublic struct Text {}",
-      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Text.swift")
+      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Components/Text.swift")
     )
     try write(
       "public struct WebActorSystem {}",
-      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebActors/WebActorSystem.swift")
+      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebRuntime/Actors/WebActorSystem.swift")
     )
     try write(
       "import SwiftHTML\npublic struct RuntimeEntrypoint {}",
       to: swiftWebPackage.appendingPathComponent(
-        "Sources/SwiftWebUIRuntime/RuntimeEntrypoint.swift")
+        "Sources/SwiftWebBrowser/ClientRuntime/RuntimeEntrypoint.swift")
     )
     try writeJavaScriptKitRuntimeCheckout(in: swiftWebPackage)
     try write(
@@ -1151,16 +1151,16 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     try writeSwiftWebUIThemeRuntimeSources(in: swiftWebPackage)
     try write(
       "import SwiftHTML\npublic struct Text {}",
-      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Text.swift")
+      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Components/Text.swift")
     )
     try write(
       "public struct WebActorSystem {}",
-      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebActors/WebActorSystem.swift")
+      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebRuntime/Actors/WebActorSystem.swift")
     )
     try write(
       "import SwiftHTML\npublic struct RuntimeEntrypoint {}",
       to: swiftWebPackage.appendingPathComponent(
-        "Sources/SwiftWebUIRuntime/RuntimeEntrypoint.swift")
+        "Sources/SwiftWebBrowser/ClientRuntime/RuntimeEntrypoint.swift")
     )
     try writeJavaScriptKitRuntimeCheckout(in: swiftWebPackage)
     try write(
@@ -1341,16 +1341,16 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     try writeSwiftWebUIThemeRuntimeSources(in: swiftWebPackage)
     try write(
       "import SwiftHTML\npublic struct Text {}",
-      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Text.swift")
+      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Components/Text.swift")
     )
     try write(
       "public struct WebActorSystem {}",
-      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebActors/WebActorSystem.swift")
+      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebRuntime/Actors/WebActorSystem.swift")
     )
     try write(
       "import SwiftHTML\npublic struct RuntimeEntrypoint {}",
       to: swiftWebPackage.appendingPathComponent(
-        "Sources/SwiftWebUIRuntime/RuntimeEntrypoint.swift")
+        "Sources/SwiftWebBrowser/ClientRuntime/RuntimeEntrypoint.swift")
     )
     try writeJavaScriptKitRuntimeCheckout(in: swiftWebPackage)
     try write(
@@ -1611,16 +1611,16 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     try writeSwiftWebUIThemeRuntimeSources(in: swiftWebPackage)
     try write(
       "import SwiftHTML\npublic struct Text {}",
-      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Text.swift")
+      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Components/Text.swift")
     )
     try write(
       "public struct WebActorSystem {}",
-      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebActors/WebActorSystem.swift")
+      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebRuntime/Actors/WebActorSystem.swift")
     )
     try write(
       "import SwiftHTML\npublic struct RuntimeEntrypoint {}",
       to: swiftWebPackage.appendingPathComponent(
-        "Sources/SwiftWebUIRuntime/RuntimeEntrypoint.swift")
+        "Sources/SwiftWebBrowser/ClientRuntime/RuntimeEntrypoint.swift")
     )
     try writeJavaScriptKitRuntimeCheckout(in: swiftWebPackage)
     try write(
@@ -1735,14 +1735,14 @@ struct SwiftWebGeneratedPackageMaterializerTests {
   private func writeSwiftWebStyleRuntimeSources(in swiftWebPackage: URL) throws {
     try write(
       "import SwiftHTML\npublic struct StyleRegistry { public init() {} }",
-      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebStyle/StyleRegistry.swift")
+      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Style/StyleRegistry.swift")
     )
   }
 
   private func writeSwiftWebUIThemeRuntimeSources(in swiftWebPackage: URL) throws {
     try write(
       "import SwiftHTML\nimport SwiftWebStyle\npublic struct ThemeToken { public init() {} }",
-      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUITheme/ThemeToken.swift")
+      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Theme/ThemeToken.swift")
     )
   }
 

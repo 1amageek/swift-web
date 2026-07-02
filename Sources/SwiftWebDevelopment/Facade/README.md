@@ -19,17 +19,17 @@ materializer, dev browser overlay, or dev child-process supervisor.
 | `SwiftWebStoryboardTooling` | Generates the managed Storyboard package and launches it through the dev runtime. |
 
 Swift 6.3 host compatibility is tracked in
-[`docs/Swift63HostCompatibilityTODO.md`](../../docs/Swift63HostCompatibilityTODO.md). Do not
+[`docs/Swift63HostCompatibilityTODO.md`](../../../docs/Swift63HostCompatibilityTODO.md). Do not
 treat a host build with a Swift 6.4-capable Xcode toolchain as proof that the true Swift 6.3
 host compiler can build the current Vapor 5 HTTP stack.
 
 Build-time performance is tracked separately in
-[`docs/BuildTimePerformanceTODO.md`](../../docs/BuildTimePerformanceTODO.md). Do not treat a
+[`docs/BuildTimePerformanceTODO.md`](../../../docs/BuildTimePerformanceTODO.md). Do not treat a
 passing HMR E2E run as proof that cold or warm dev build latency is acceptable.
 
 Client WASM builds use generated-package inputs plus the selected Swift executable, Swift WASM SDK, and artifact-processing signature as a build-stamp key. When the stamp and artifact hash still match, the dev runtime reuses the existing WASM artifact and emits the same client update manifest without invoking SwiftPM again.
 
-Generated browser WASM packages use a runtime-only JavaScriptKit source copy by default. This keeps JavaScriptKit BridgeJS and `swift-syntax` out of the browser package graph while still allowing `SwiftWebUIRuntime` to use `JSObject`, `JSValue`, and `JSPromise` for DOM operations and WebActor transport. The decision is recorded in [`docs/BrowserRuntimeJavaScriptKitDecision.md`](../../docs/BrowserRuntimeJavaScriptKitDecision.md).
+Generated browser WASM packages use a runtime-only JavaScriptKit source copy by default. This keeps JavaScriptKit BridgeJS and `swift-syntax` out of the browser package graph while still allowing `SwiftWebUIRuntime` to use `JSObject`, `JSValue`, and `JSPromise` for DOM operations and WebActor transport. The decision is recorded in [`docs/BrowserRuntimeJavaScriptKitDecision.md`](../../../docs/BrowserRuntimeJavaScriptKitDecision.md).
 
 The dev runtime also keeps a bounded content-addressed WASM artifact cache. This is development-only and exists to avoid rebuilding the same generated client runtime after `.swiftweb` or temporary E2E directories are recreated.
 

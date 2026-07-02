@@ -113,10 +113,10 @@ allowlist for the final state.
 
 | Evidence | Location | Meaning | Required work |
 |---|---|---|---|
-| `StyleClass.selector` is now a token selector, while `rule(StyleClass)` uses variant-aware stylesheet emission. | `Sources/SwiftWebStyle/StyleClass.swift` | State, dark, breakpoint, group, peer, data, aria, structural, container, arbitrary selector, and arbitrary value paths have compiler coverage. | Keep coverage in `StyleRegistryTests`. |
+| `StyleClass.selector` is now a token selector, while `rule(StyleClass)` uses variant-aware stylesheet emission. | `Sources/SwiftWebUI/Style/StyleClass.swift` | State, dark, breakpoint, group, peer, data, aria, structural, container, arbitrary selector, and arbitrary value paths have compiler coverage. | Keep coverage in `StyleRegistryTests`. |
 | Utility tests now expect conditional selectors and at-rules. | `Tests/SwiftWebUITests/StyleRegistryTests.swift` | The previous always-on `hover:*` behavior is no longer accepted; custom registry and SwiftWebUI token registry paths are covered. | Add utilities as new typed definitions, not CSS text. |
-| `RootStylesheet` now routes component selectors and at-rule conditions through typed APIs. | `Sources/SwiftWebUITheme/RootStylesheet.swift` | `rule("...")`, multiline raw selectors, `media("...")`, `supports("...")`, and `container("...")` are rejected by static policy tests in SwiftWebUI and Storyboard. | Keep the static policy test enforcing this. |
-| `RootStylesheet` has explicit stylesheet layers. | `Sources/SwiftWebUITheme/RootStylesheet.swift` | Base tokens, component rules, utility rules, material rules, and at-rules are emitted in a fixed order; head assets emit `swui-base` before `swui-atomic`. | Preserve order with tests. |
+| `RootStylesheet` now routes component selectors and at-rule conditions through typed APIs. | `Sources/SwiftWebUI/Theme/RootStylesheet.swift` | `rule("...")`, multiline raw selectors, `media("...")`, `supports("...")`, and `container("...")` are rejected by static policy tests in SwiftWebUI and Storyboard. | Keep the static policy test enforcing this. |
+| `RootStylesheet` has explicit stylesheet layers. | `Sources/SwiftWebUI/Theme/RootStylesheet.swift` | Base tokens, component rules, utility rules, material rules, and at-rules are emitted in a fixed order; head assets emit `swui-base` before `swui-atomic`. | Preserve order with tests. |
 | The button tint rendering test now checks atomic class output instead of inline style. | `Tests/SwiftWebUITests/SwiftWebUIRenderingTests.swift` | Representative rendering paths assert no `style="` in emitted markup. | Expand only when a new render path is added. |
 | Rejection tests use `Style.custom(...)`. | `Tests/SwiftWebUITests/StyleRegistryTests.swift` | This is valid only as a rejection/validation fixture. | Keep only in explicit compiler safety tests. |
 
@@ -144,7 +144,7 @@ rg 'style="' Sources Tests docs
 rg 'HTMLAttribute\("style"' Sources Tests
 rg 'rule\(\s*#*"' Sources Tests docs
 rg 'CSSSelector\("' Sources Tests
-rg 'Style\.custom' Sources/SwiftWebUI Sources/SwiftWebStoryboard
+rg 'Style\.custom' Sources/SwiftWebUI Sources/SwiftWebDevelopment/Storyboard
 rg 'cssText.*split|split\(separator: *";"' Sources Tests
 ```
 

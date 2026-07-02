@@ -54,14 +54,17 @@ struct SwiftWebStoryboardScaffoldTests {
                     .target(name: "SwiftWebCore"),
               .target(name: "SwiftWeb"),
                     .target(name: "SwiftWebUI"),
-                    .target(name: "SwiftWebStoryboard"),
+                    .target(
+                        name: "SwiftWebStoryboard",
+                        path: "Sources/SwiftWebDevelopment/Storyboard"
+                    ),
                 ]
             )
             """,
             to: swiftWebPackage.appendingPathComponent("Package.swift")
         )
         let catalogSource = swiftWebPackage
-            .appendingPathComponent("Sources/SwiftWebStoryboard/Components/CatalogRoot.swift")
+            .appendingPathComponent("Sources/SwiftWebDevelopment/Storyboard/Components/CatalogRoot.swift")
         try write("public struct CatalogRoot {}", to: catalogSource)
 
         try SwiftWebStoryboardScaffold(
@@ -120,7 +123,10 @@ struct SwiftWebStoryboardScaffoldTests {
                 targets: [
                     .target(name: "SwiftWeb"),
                     .target(name: "SwiftWebUI"),
-                    .target(name: "SwiftWebStoryboard"),
+                    .target(
+                        name: "SwiftWebStoryboard",
+                        path: "Sources/SwiftWebDevelopment/Storyboard"
+                    ),
                 ]
             )
             """,
@@ -129,7 +135,7 @@ struct SwiftWebStoryboardScaffoldTests {
         try write(
             "public struct CatalogRoot {}",
             to: swiftWebPackage
-                .appendingPathComponent("Sources/SwiftWebStoryboard/Components/CatalogRoot.swift")
+                .appendingPathComponent("Sources/SwiftWebDevelopment/Storyboard/Components/CatalogRoot.swift")
         )
 
         try SwiftWebStoryboardScaffold(

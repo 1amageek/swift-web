@@ -3,6 +3,10 @@ import Logging
 import Vapor
 
 final class SwiftWebDevRouteLoggingMiddleware: Middleware {
+    static var isEnabled: Bool {
+        Vapor.Environment.get("SWIFT_WEB_DEV_ROUTE_LOG") == "1"
+    }
+
     private let logLevel: Logger.Level
 
     init(logLevel: Logger.Level = .info) {

@@ -24,7 +24,9 @@ extension SwiftWebDevelopmentHooks {
             installMiddlewares: { middlewares in
                 if SwiftWebDevHotReload.isEnabled {
                     middlewares.use(SwiftWebDevContextMiddleware())
-                    middlewares.use(SwiftWebDevRouteLoggingMiddleware(logLevel: .info))
+                    if SwiftWebDevRouteLoggingMiddleware.isEnabled {
+                        middlewares.use(SwiftWebDevRouteLoggingMiddleware(logLevel: .info))
+                    }
                 }
             },
             registerRoutes: { routes in

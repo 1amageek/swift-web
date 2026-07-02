@@ -24,23 +24,42 @@ flowchart LR
 
 ## Packages
 
-| Product | Purpose |
-|---|---|
-| `SwiftWeb` | Public app facade, page routing, server actions, and source macros. |
-| `SwiftWebCore` | Route/action/page runtime contracts and server-rendering core used by host adapters. |
-| `SwiftWebBrowserRuntime` | Browser runtime descriptors, WASM asset routes, and HTML runtime injection. |
-| `SwiftWebVapor` | Vapor host adapter for local development workers, Cloud Run, and native/container server builds. |
-| `SwiftWebUI` | SwiftUI-inspired component layer built on top of SwiftHTML. |
-| `SwiftWebUITheme` | Host-neutral theme tokens, style system, root stylesheet, colors, materials, and spacing values. |
-| `SwiftWebUIRuntime` | Browser-side WASM runtime bridge for SwiftWebUI client components. |
-| `SwiftWebActors` | Shared distributed actor runtime support for server/client actor calls. |
-| `SwiftWebDevelopmentHooks` | Worker-side development hooks and typed HMR contracts. |
-| `SwiftWebWasmBuild` | Toolchain resolution, WASM artifact processing, compression, and build profiles. |
-| `SwiftWebPackageGeneration` | Generated server/dev/WASM package materialization and manifest inspection. |
-| `SwiftWebDevServer` | Persistent dev host, watcher, HMR event stream, worker supervision, and rebuild orchestration. |
-| `SwiftWebStoryboardTooling` | Storyboard scaffold/materialization and dev runtime launch. |
-| `SwiftWebDevelopment` | Convenience facade that re-exports development modules. |
-| `sweb` | CLI for new projects, dev server, Storyboard, and production builds. |
+SwiftWeb keeps product names stable while grouping source directories by
+responsibility. `Sources/` direct children are ownership boundaries; nested
+directories describe the responsibility implemented by each SwiftPM target.
+
+```text
+Sources/
+  SwiftWeb/
+  SwiftWebRuntime/{Core,Actors}/
+  SwiftWebBrowser/{Runtime,ClientRuntime}/
+  SwiftWebHTTPServer/{Vapor,VaporWebActors}/
+  SwiftWebUI/{Components,Style,Theme}/
+  SwiftWebDevelopment/{Facade,Hooks,DevServer,PackageGeneration,WasmBuild,StoryboardTooling,Storyboard}/
+  SwiftWebCLI/
+  SwiftWebMacros/
+```
+
+| Product | Source directory | Responsibility |
+|---|---|---|
+| `SwiftWeb` | `Sources/SwiftWeb/` | Public app facade and source macro entrypoints. |
+| `SwiftWebCore` | `Sources/SwiftWebRuntime/Core/` | Route, action, page, session, security, streaming, and server-rendering contracts used by host adapters. |
+| `SwiftWebActors` | `Sources/SwiftWebRuntime/Actors/` | Transport-neutral distributed actor invocation support. |
+| `SwiftWebBrowserRuntime` | `Sources/SwiftWebBrowser/Runtime/` | Browser runtime descriptors, WASM asset routes, host scripts, and HTML runtime injection. |
+| `SwiftWebUIRuntime` | `Sources/SwiftWebBrowser/ClientRuntime/` | Browser-side WASM bridge and JavaScriptKit runtime adapter for client components. |
+| `SwiftWebVapor` | `Sources/SwiftWebHTTPServer/Vapor/` | HTTP server adapter for local development workers, Cloud Run, and native/container server builds. |
+| `SwiftWebVaporWebActors` | `Sources/SwiftWebHTTPServer/VaporWebActors/` | Optional HTTP server gateway for actor RPC. |
+| `SwiftWebUI` | `Sources/SwiftWebUI/Components/` | SwiftUI-inspired component layer built on top of SwiftHTML. |
+| `SwiftWebStyle` | `Sources/SwiftWebUI/Style/` | Atomic style classes, typed selectors, and CSS-safe declaration registration. |
+| `SwiftWebUITheme` | `Sources/SwiftWebUI/Theme/` | Host-neutral theme tokens, style system, root stylesheet, colors, materials, and spacing values. |
+| `SwiftWebDevelopmentHooks` | `Sources/SwiftWebDevelopment/Hooks/` | Worker-side development hooks and typed HMR contracts. |
+| `SwiftWebWasmBuild` | `Sources/SwiftWebDevelopment/WasmBuild/` | Toolchain resolution, WASM artifact processing, compression, and build profiles. |
+| `SwiftWebPackageGeneration` | `Sources/SwiftWebDevelopment/PackageGeneration/` | Generated server/dev/WASM package materialization and manifest inspection. |
+| `SwiftWebDevServer` | `Sources/SwiftWebDevelopment/DevServer/` | Persistent dev host, watcher, HMR event stream, worker supervision, and rebuild orchestration. |
+| `SwiftWebStoryboardTooling` | `Sources/SwiftWebDevelopment/StoryboardTooling/` | Managed Storyboard package scaffold/materialization and dev runtime launch. |
+| `SwiftWebStoryboard` | `Sources/SwiftWebDevelopment/Storyboard/` | Storyboard catalog components and routes. |
+| `SwiftWebDevelopment` | `Sources/SwiftWebDevelopment/Facade/` | Convenience facade that re-exports development modules. |
+| `sweb` | `Sources/SwiftWebCLI/` | CLI for new projects, dev server, Storyboard, and production builds. |
 
 ## Architecture Direction
 

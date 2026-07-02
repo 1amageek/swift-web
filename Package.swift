@@ -86,28 +86,33 @@ let package = Package(
         .target(
             name: "SwiftWebStyle",
             dependencies: [swiftHTMLDependency],
+            path: "Sources/SwiftWebUI/Style",
             swiftSettings: swiftWebSwiftSettings
         ),
         .target(
             name: "SwiftWebUITheme",
             dependencies: swiftWebUIThemeDependencies,
+            path: "Sources/SwiftWebUI/Theme",
             swiftSettings: swiftWebSwiftSettings
         ),
         .target(
             name: "SwiftWebActors",
             dependencies: swiftWebActorsDependencies,
+            path: "Sources/SwiftWebRuntime/Actors",
             exclude: ["README.md"],
             swiftSettings: swiftWebSwiftSettings
         ),
         .target(
             name: "SwiftWebUI",
             dependencies: swiftWebUIDependencies,
+            path: "Sources/SwiftWebUI/Components",
             exclude: ["README.md"],
             swiftSettings: swiftWebSwiftSettings
         ),
         .target(
             name: "SwiftWebUIRuntime",
             dependencies: swiftWebUIRuntimeDependencies,
+            path: "Sources/SwiftWebBrowser/ClientRuntime",
             swiftSettings: swiftWebSwiftSettings
         ),
     ] : [
@@ -126,16 +131,19 @@ let package = Package(
         .target(
             name: "SwiftWebStyle",
             dependencies: [swiftHTMLDependency],
+            path: "Sources/SwiftWebUI/Style",
             swiftSettings: swiftWebSwiftSettings
         ),
         .target(
             name: "SwiftWebUITheme",
             dependencies: swiftWebUIThemeDependencies,
+            path: "Sources/SwiftWebUI/Theme",
             swiftSettings: swiftWebSwiftSettings
         ),
         .target(
             name: "SwiftWebActors",
             dependencies: swiftWebActorsDependencies,
+            path: "Sources/SwiftWebRuntime/Actors",
             exclude: ["README.md"],
             swiftSettings: swiftWebSwiftSettings
         ),
@@ -149,6 +157,7 @@ let package = Package(
                 "SwiftWebActors",
                 "SwiftWebStyle",
             ],
+            path: "Sources/SwiftWebBrowser/Runtime",
             swiftSettings: swiftWebSwiftSettings
         ),
         .target(
@@ -165,7 +174,7 @@ let package = Package(
                 "SwiftWebBrowserRuntime",
                 "SwiftWebStyle",
             ],
-            path: "Sources/SwiftWeb",
+            path: "Sources/SwiftWebRuntime/Core",
             exclude: ["README.md"],
             swiftSettings: swiftWebSwiftSettings
         ),
@@ -178,7 +187,7 @@ let package = Package(
                 "SwiftWebMacros",
                 "SwiftWebStyle",
             ],
-            path: "Sources/SwiftWebFacade",
+            path: "Sources/SwiftWeb",
             swiftSettings: swiftWebSwiftSettings
         ),
         .target(
@@ -187,6 +196,7 @@ let package = Package(
                 .product(name: "Vapor", package: "vapor"),
                 "SwiftWebCore",
             ],
+            path: "Sources/SwiftWebHTTPServer/Vapor",
             swiftSettings: swiftWebSwiftSettings
         ),
         .target(
@@ -198,17 +208,20 @@ let package = Package(
                 "SwiftWebCore",
                 "SwiftWebVapor",
             ],
+            path: "Sources/SwiftWebHTTPServer/VaporWebActors",
             swiftSettings: swiftWebSwiftSettings
         ),
         .target(
             name: "SwiftWebUI",
             dependencies: swiftWebUIDependencies,
+            path: "Sources/SwiftWebUI/Components",
             exclude: ["README.md"],
             swiftSettings: swiftWebSwiftSettings
         ),
         .target(
             name: "SwiftWebUIRuntime",
             dependencies: swiftWebUIRuntimeDependencies,
+            path: "Sources/SwiftWebBrowser/ClientRuntime",
             swiftSettings: swiftWebSwiftSettings
         ),
         .target(
@@ -221,12 +234,14 @@ let package = Package(
                 .product(name: "ServiceContextModule", package: "swift-service-context"),
                 "SwiftWebCore",
             ],
+            path: "Sources/SwiftWebDevelopment/Hooks",
             swiftSettings: swiftWebSwiftSettings
         ),
         .target(
             name: "SwiftWebWasmBuild",
             dependencies: [
             ],
+            path: "Sources/SwiftWebDevelopment/WasmBuild",
             swiftSettings: swiftWebSwiftSettings
         ),
         .target(
@@ -238,6 +253,7 @@ let package = Package(
                 "SwiftWebDevelopmentHooks",
                 "SwiftWebWasmBuild",
             ],
+            path: "Sources/SwiftWebDevelopment/PackageGeneration",
             swiftSettings: swiftWebSwiftSettings
         ),
         .target(
@@ -256,6 +272,7 @@ let package = Package(
                 "SwiftWebPackageGeneration",
                 "SwiftWebWasmBuild",
             ],
+            path: "Sources/SwiftWebDevelopment/DevServer",
             swiftSettings: swiftWebSwiftSettings
         ),
         .target(
@@ -265,6 +282,7 @@ let package = Package(
                 "SwiftWebDevServer",
                 "SwiftWebPackageGeneration",
             ],
+            path: "Sources/SwiftWebDevelopment/StoryboardTooling",
             swiftSettings: swiftWebSwiftSettings
         ),
         .target(
@@ -276,6 +294,7 @@ let package = Package(
                 "SwiftWebStoryboardTooling",
                 "SwiftWebWasmBuild",
             ],
+            path: "Sources/SwiftWebDevelopment/Facade",
             exclude: ["README.md"],
             swiftSettings: swiftWebSwiftSettings
         ),
@@ -288,6 +307,7 @@ let package = Package(
                 "SwiftWebUI",
                 "SwiftWebUIRuntime",
             ],
+            path: "Sources/SwiftWebDevelopment/Storyboard",
             exclude: ["INFORMATION_ARCHITECTURE.md"],
             swiftSettings: swiftWebSwiftSettings
         ),

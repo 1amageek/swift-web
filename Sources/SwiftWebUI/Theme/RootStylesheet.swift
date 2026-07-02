@@ -315,6 +315,71 @@ package enum RootStylesheet {
         .padding(.space(.small), .space(.medium))
           .borderRadius("var(--swui-radius-large)")
       }
+      rule(cls("swui-mapkit-map")) {
+        .position("relative")
+          .display("block")
+          .width("calc(100% - (var(--swui-space-lg) * 2))")
+          .minHeight("236px")
+          .aspectRatio("4 / 3")
+          .margin("var(--swui-space-sm) var(--swui-space-lg) var(--swui-space-md)")
+          .overflow("hidden")
+          .border("1px solid color-mix(in srgb, var(--swui-border) 82%, var(--swui-accent))")
+          .background("linear-gradient(135deg, color-mix(in srgb, var(--swui-surface-raised) 92%, var(--swui-accent)), color-mix(in srgb, var(--swui-background) 88%, var(--swui-accent)))")
+          .borderRadius("var(--swui-container-radius)")
+          .isolation("isolate")
+      }
+      rule(cls("swui-mapkit-map").descendant(cls("mk-map-view"))) {
+        .borderRadius("inherit")
+      }
+      rule(cls("swui-mapkit-placeholder")) {
+        .position("absolute")
+          .inset("0")
+          .display("grid")
+          .alignItems("end")
+          .padding(.space(.large))
+          .background("linear-gradient(180deg, color-mix(in srgb, var(--swui-surface-raised) 8%, transparent), color-mix(in srgb, var(--swui-surface-raised) 82%, transparent))")
+      }
+      rule(cls("swui-mapkit-placeholder-body")) {
+        .display("grid")
+          .gap(.space(.xsmall))
+          .maxWidth("280px")
+          .padding(.space(.medium), .space(.large))
+          .border("1px solid color-mix(in srgb, var(--swui-border) 86%, var(--swui-text))")
+          .background("color-mix(in srgb, var(--swui-surface-raised) 94%, transparent)")
+          .borderRadius("var(--swui-container-radius)")
+          .boxShadow("0 8px 22px color-mix(in srgb, var(--swui-text) 7%, transparent)")
+      }
+      rule(cls("swui-mapkit-placeholder").descendant(cls("swui-mapkit-placeholder-body").descendant(cls("swui-mapkit-eyebrow")))) {
+        .color("var(--swui-accent)")
+          .fontSize("11px")
+          .fontWeight("900")
+          .letterSpacing("0")
+          .textTransform("uppercase")
+      }
+      rule(cls("swui-mapkit-placeholder").descendant(el(.strong))) {
+        .color("var(--swui-text)")
+          .fontSize("15px")
+          .lineHeight("1.35")
+          .overflowWrap("anywhere")
+      }
+      rule(cls("swui-mapkit-placeholder").descendant(el(.small))) {
+        .color("var(--swui-text-muted)")
+          .fontSize("12px")
+          .fontWeight("700")
+          .lineHeight("1.45")
+          .overflowWrap("anywhere")
+      }
+      rule(cls("swui-mapkit-error")) {
+        .background("linear-gradient(180deg, color-mix(in srgb, var(--swui-surface-raised) 10%, transparent), color-mix(in srgb, var(--swui-danger) 8%, var(--swui-surface-raised)))")
+      }
+      media(.maxWidth("360px")) {
+        rule(cls("swui-mapkit-map")) {
+          .width("calc(100% - 20px)")
+            .minHeight("210px")
+            .marginLeft("10px")
+            .marginRight("10px")
+        }
+      }
       rule(cls("swui-label-style-titleOnly").descendant(cls("swui-label-icon"))) {
         .display("none")
       }
@@ -1550,28 +1615,26 @@ package enum RootStylesheet {
       rule(list(el(.input), el(.button), el(.select), el(.textarea))) {
         .fontFamily("inherit")
       }
-      // Button size variants use native-like compact dimensions, which are
-      // tighter than the generic `swui-control-*` sizing; they are
-      // component-specific values that live in the stylesheet rather than the
-      // component body.
+      // Button size variants keep component-specific padding while reading their
+      // minimum hit area from the active StyleSystem.
       rule(cls("swui-button").compound(cls("swui-control-mini"))) {
-        .minHeight("0")
+        .minHeight("var(--swui-control-mini-height)")
           .padding(.px(4), .px(9))
           .borderRadius("var(--swui-radius-small)")
           .fontSize("11px")
       }
       rule(cls("swui-button").compound(cls("swui-control-small"))) {
-        .minHeight("0")
+        .minHeight("var(--swui-control-small-height)")
           .padding(.px(5), .px(11))
           .fontSize("12px")
       }
       rule(cls("swui-button").compound(cls("swui-control-regular"))) {
-        .minHeight("0")
+        .minHeight("var(--swui-control-regular-height)")
           .padding(.px(7), .px(14))
           .fontSize("14px")
       }
       rule(cls("swui-button").compound(cls("swui-control-large"))) {
-        .minHeight("0")
+        .minHeight("var(--swui-control-large-height)")
           .padding(.px(10), .px(20))
           .fontSize("16px")
       }

@@ -2,7 +2,7 @@
 
 SwiftWebCore is the current page/runtime target for SwiftHTML. It owns Vapor-backed route lowering, request context, route actions, streaming, uploads, WebSocket/SSE registration, HTML responses, production runtime hooks, and the app-facing browser runtime configuration surface. Browser runtime descriptors, rendered HTML injection, and hosted WASM runtime assets live in `SwiftWebBrowserRuntime`. SwiftWebCore does not own the visual component library, the HTML graph engine, or the development watch/HMR implementation.
 
-This README describes the current Vapor-backed runtime target. The target architecture separates the host-neutral app/runtime model from host adapters such as Vapor and Cloudflare; see [`../../docs/PlatformHostArchitecture.md`](../../docs/PlatformHostArchitecture.md).
+This README describes the current Vapor-backed runtime target. The target architecture separates the host-neutral app/runtime model from host adapters such as Vapor and Cloudflare; see [`../../docs/PlatformHostArchitecture.md`](../../../docs/PlatformHostArchitecture.md).
 
 ## Responsibility
 
@@ -272,7 +272,7 @@ WASM builds use the same generated package boundary but switch to a client-only 
 
 `SwiftPMWasmArtifact.location(target:)` resolves the served `.wasm` file from the user app package root, the app's `.swiftweb/generated` package root, and local `.package(path:)` dependency roots. This lets `sweb build --wasm` write into the shared SwiftWeb scratch directory while the app still declares the asset from its own `clientRuntime`.
 
-Client bundle loading is contract-first and documented in [`docs/ClientBundleLoadingDesign.md`](../../docs/ClientBundleLoadingDesign.md). `SwiftWeb` hosts resolved manifests and content-hashed WASM assets; `ClientComponent` contracts and modifiers decide bundle/load policy, while the runtime validates those contracts and serves the resulting assets. Same-origin browser navigation for WASM pages is defined in [`docs/ClientNavigationDesign.md`](../../docs/ClientNavigationDesign.md).
+Client bundle loading is contract-first and documented in [`docs/ClientBundleLoadingDesign.md`](../../../docs/ClientBundleLoadingDesign.md). `SwiftWeb` hosts resolved manifests and content-hashed WASM assets; `ClientComponent` contracts and modifiers decide bundle/load policy, while the runtime validates those contracts and serves the resulting assets. Same-origin browser navigation for WASM pages is defined in [`docs/ClientNavigationDesign.md`](../../../docs/ClientNavigationDesign.md).
 
 WASM asset routes are sidecar-aware. If a built artifact has `.wasm.br` or `.wasm.gz` siblings, `SwiftWeb` selects the best accepted variant from `Accept-Encoding` and sets `Content-Encoding` plus `Vary: Accept-Encoding`. The production artifact processor that creates those sidecars lives in `SwiftWebWasmBuild` and is invoked by `sweb build --wasm`; `SwiftWeb` only owns HTTP serving.
 
@@ -359,7 +359,7 @@ Server Action should be the default for page-local HTTP work:
 
 Client WASM should call long-lived or session-scoped services through an Apple `@Resolvable` protocol. This is the Swift-native RPC path and is the right model for typed service APIs, AI chat sessions, terminal sessions, collaborative editing, and other stateful service conversations.
 
-The SwiftWeb component API is documented in [`docs/ActorInjectionDesign.md`](../../docs/ActorInjectionDesign.md). A client component should read an `@Actor` property as the resolved service object; `WebActorSystem`, actor ids, and `$Protocol.resolve(id:using:)` remain runtime details for the standard API.
+The SwiftWeb component API is documented in [`docs/ActorInjectionDesign.md`](../../../docs/ActorInjectionDesign.md). A client component should read an `@Actor` property as the resolved service object; `WebActorSystem`, actor ids, and `$Protocol.resolve(id:using:)` remain runtime details for the standard API.
 
 ```swift
 @Resolvable

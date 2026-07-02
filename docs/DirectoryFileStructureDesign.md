@@ -1,6 +1,6 @@
 # Directory And File Structure Design
 
-This document defines the target directory and file structure for SwiftWeb. The
+This document defines the current directory and file structure for SwiftWeb. The
 goal is to make ownership visible from the path, keep compile-time boundaries
 honest, and reduce the cognitive cost of finding the right place for a change.
 
@@ -20,21 +20,16 @@ honest, and reduce the cognitive cost of finding the right place for a change.
 ```mermaid
 flowchart TD
   A["Application code"] --> B["SwiftWeb facade"]
-  B --> C["SwiftWebCore"]
+  B --> C["Runtime contracts"]
   B --> D["SwiftWebMacros"]
-  C --> E["SwiftWebBrowserRuntime"]
-  C --> G["SwiftWebVapor"]
-  Q["SwiftWebVaporWebActors"] --> F["SwiftWebActors"]
-  Q --> G
-  H["SwiftWebUI"] --> I["SwiftWebUITheme"]
-  H --> J["SwiftWebStyle"]
-  K["SwiftWebUIRuntime"] --> F
-  L["SwiftWebDevelopment facade"] --> M["SwiftWebDevServer"]
-  L --> N["SwiftWebPackageGeneration"]
-  L --> O["SwiftWebWasmBuild"]
-  L --> P["SwiftWebStoryboardTooling"]
-  M --> N
-  M --> O
+  C --> E["Browser execution"]
+  C --> G["HTTP server execution"]
+  C --> F["Actor runtime"]
+  H["UI components"] --> I["UI theme"]
+  H --> J["UI style"]
+  L["Development facade"] --> M["Development services"]
+  M --> N["Package generation"]
+  M --> O["WASM build"]
 ```
 
 ## Top-Level Layout
@@ -50,31 +45,59 @@ flowchart TD
 
 ## Source Targets
 
+```text
+Sources/
+  SwiftWeb/
+  SwiftWebRuntime/
+    Core/
+    Actors/
+  SwiftWebBrowser/
+    Runtime/
+    ClientRuntime/
+  SwiftWebHTTPServer/
+    Vapor/
+    VaporWebActors/
+  SwiftWebUI/
+    Components/
+    Style/
+    Theme/
+  SwiftWebDevelopment/
+    Facade/
+    Hooks/
+    DevServer/
+    PackageGeneration/
+    WasmBuild/
+    StoryboardTooling/
+    Storyboard/
+  SwiftWebCLI/
+  SwiftWebMacros/
+```
+
 | Target | Directory | Owns | Must not own |
 |---|---|---|---|
-| `SwiftWeb` | `Sources/SwiftWebFacade/` | Public facade, macro declarations, re-exports. | Runtime behavior, host adapters, tooling. |
-| `SwiftWebCore` | `Sources/SwiftWeb/` | App, Scene, Page, routing, actions, sessions, security, streaming contracts. | Browser host scripts, dev server, UI components. |
+| `SwiftWeb` | `Sources/SwiftWeb/` | Public facade, macro declarations, re-exports. | Runtime behavior, host adapters, tooling. |
+| `SwiftWebCore` | `Sources/SwiftWebRuntime/Core/` | App, Scene, Page, routing, actions, sessions, security, streaming contracts. | Browser host scripts, dev server, UI components. |
+| `SwiftWebActors` | `Sources/SwiftWebRuntime/Actors/` | Shared distributed actor system and invocation codecs. | Host adapter policy. |
 | `SwiftWebMacros` | `Sources/SwiftWebMacros/` | Source macros such as `@Page` and `@ServerAction`. | Runtime registration or file-system generation. |
-| `SwiftWebBrowserRuntime` | `Sources/SwiftWebBrowserRuntime/` | Browser runtime descriptors, hydration pruning, HTML injection, WASM asset routes, host scripts. | App routing, UI widgets, build orchestration. |
-| `SwiftWebVapor` | `Sources/SwiftWebVapor/` | Vapor adapter and `App.run()` lifecycle. | Host-neutral app model or dev orchestration. |
-| `SwiftWebVaporWebActors` | `Sources/SwiftWebVaporWebActors/` | Optional Vapor gateway for `@Resolvable` WebActor RPC. | Server Action registration or default app lifecycle. |
-| `SwiftWebActors` | `Sources/SwiftWebActors/` | Shared distributed actor system and invocation codecs. | Host adapter policy. |
-| `SwiftWebStyle` | `Sources/SwiftWebStyle/` | Atomic style classes, selectors, and CSS-safe declaration registration. | SwiftWebUI component policy. |
-| `SwiftWebUITheme` | `Sources/SwiftWebUITheme/` | Host-neutral colors, materials, lengths, style system, root stylesheet, utility class definitions. | Component rendering, request routing. |
-| `SwiftWebUI` | `Sources/SwiftWebUI/` | SwiftUI-inspired components, modifiers, environment integration. | Browser WASM bridge, route registration, dev tooling. |
-| `SwiftWebUIRuntime` | `Sources/SwiftWebUIRuntime/` | Browser-side WASM bridge and JavaScriptKit runtime adapter. | Server route registration or build tooling. |
-| `SwiftWebDevelopmentHooks` | `Sources/SwiftWebDevelopmentHooks/` | Worker-side HMR hooks, dev route logging, boundary annotation. | Persistent dev host or package generation. |
-| `SwiftWebWasmBuild` | `Sources/SwiftWebWasmBuild/` | WASM toolchain resolution, artifact processing, compression, size reports. | Watching files or launching workers. |
-| `SwiftWebPackageGeneration` | `Sources/SwiftWebPackageGeneration/` | Generated server/dev/WASM package materialization and manifest inspection. | Long-running dev host, browser asset serving. |
-| `SwiftWebDevServer` | `Sources/SwiftWebDevServer/` | Persistent dev host, file watching, HMR event stream, worker supervision, rebuild orchestration. | Public app API or production artifact policy. |
-| `SwiftWebStoryboardTooling` | `Sources/SwiftWebStoryboardTooling/` | Storyboard package scaffold and dev runtime launch. | Storyboard component catalog UI. |
-| `SwiftWebDevelopment` | `Sources/SwiftWebDevelopment/` | Development convenience facade. | Behavior beyond installing or re-exporting development modules. |
-| `SwiftWebStoryboard` | `Sources/SwiftWebStoryboard/` | Storyboard catalog components and routes. | Storyboard package generation or dev host. |
+| `SwiftWebBrowserRuntime` | `Sources/SwiftWebBrowser/Runtime/` | Browser runtime descriptors, hydration pruning, HTML injection, WASM asset routes, host scripts. | App routing, UI widgets, build orchestration. |
+| `SwiftWebUIRuntime` | `Sources/SwiftWebBrowser/ClientRuntime/` | Browser-side WASM bridge and JavaScriptKit runtime adapter. | Server route registration or build tooling. |
+| `SwiftWebVapor` | `Sources/SwiftWebHTTPServer/Vapor/` | HTTP server adapter and `App.run()` lifecycle. | Host-neutral app model or dev orchestration. |
+| `SwiftWebVaporWebActors` | `Sources/SwiftWebHTTPServer/VaporWebActors/` | Optional HTTP server gateway for `@Resolvable` WebActor RPC. | Server Action registration or default app lifecycle. |
+| `SwiftWebStyle` | `Sources/SwiftWebUI/Style/` | Atomic style classes, selectors, and CSS-safe declaration registration. | SwiftWebUI component policy. |
+| `SwiftWebUITheme` | `Sources/SwiftWebUI/Theme/` | Host-neutral colors, materials, lengths, style system, root stylesheet, utility class definitions. | Component rendering, request routing. |
+| `SwiftWebUI` | `Sources/SwiftWebUI/Components/` | SwiftUI-inspired components, modifiers, environment integration. | Browser WASM bridge, route registration, dev tooling. |
+| `SwiftWebDevelopmentHooks` | `Sources/SwiftWebDevelopment/Hooks/` | Worker-side HMR hooks, dev route logging, boundary annotation. | Persistent dev host or package generation. |
+| `SwiftWebWasmBuild` | `Sources/SwiftWebDevelopment/WasmBuild/` | WASM toolchain resolution, artifact processing, compression, size reports. | Watching files or launching workers. |
+| `SwiftWebPackageGeneration` | `Sources/SwiftWebDevelopment/PackageGeneration/` | Generated server/dev/WASM package materialization and manifest inspection. | Long-running dev host, browser asset serving. |
+| `SwiftWebDevServer` | `Sources/SwiftWebDevelopment/DevServer/` | Persistent dev host, file watching, HMR event stream, worker supervision, rebuild orchestration. | Public app API or production artifact policy. |
+| `SwiftWebStoryboardTooling` | `Sources/SwiftWebDevelopment/StoryboardTooling/` | Storyboard package scaffold and dev runtime launch. | Storyboard component catalog UI. |
+| `SwiftWebDevelopment` | `Sources/SwiftWebDevelopment/Facade/` | Development convenience facade. | Behavior beyond installing or re-exporting development modules. |
+| `SwiftWebStoryboard` | `Sources/SwiftWebDevelopment/Storyboard/` | Storyboard catalog components and routes. | Storyboard package generation or dev host. |
 | `SwiftWebCLI` | `Sources/SwiftWebCLI/` | `sweb` command parsing and delegation to tooling targets. | HMR implementation, package generation internals. |
 
 ## Target Internal Layout
 
-### `Sources/SwiftWeb/`
+### `Sources/SwiftWebRuntime/Core/`
 
 This target is already directory-shaped and should remain the model for core
 runtime code.
@@ -92,13 +115,13 @@ runtime code.
 | `Runtime/DevelopmentSupport/` | No-op production hook boundary used by development modules. |
 | `Runtime/Diagnostics/` | Debug diagnostics and developer render output. |
 
-### `Sources/SwiftWebBrowserRuntime/`
+### `Sources/SwiftWebBrowser/Runtime/`
 
 Current files may remain flat while the target is small, but new files should
 move toward this shape as the target grows:
 
 ```text
-Sources/SwiftWebBrowserRuntime/
+Sources/SwiftWebBrowser/Runtime/
   Descriptor/
     SwiftWebClientRuntime.swift
     SwiftWebClientRuntimeDescriptor.swift
@@ -119,10 +142,10 @@ The route constants and host script must stay in the browser runtime target,
 not in `SwiftWebCore`, because they describe browser boot behavior and WASM
 asset serving.
 
-### `Sources/SwiftWebUI/`
+### `Sources/SwiftWebUI/Components/`
 
 ```text
-Sources/SwiftWebUI/
+Sources/SwiftWebUI/Components/
   Core/
   Components/
     Containers/
@@ -140,7 +163,7 @@ Sources/SwiftWebUI/
 style primitives live in `SwiftWebUITheme`; UI-specific environment glue may
 remain in `SwiftWebUI/Core`.
 
-### `Sources/SwiftWebUITheme/`
+### `Sources/SwiftWebUI/Theme/`
 
 This target intentionally stays host-neutral.
 
@@ -154,12 +177,12 @@ This target intentionally stays host-neutral.
 If this target grows, use `Values/`, `System/`, `Stylesheet/`, and `Classes/`
 subdirectories. Do not move component types into this target.
 
-### `Sources/SwiftWebUIRuntime/`
+### `Sources/SwiftWebBrowser/ClientRuntime/`
 
 This target should be split by browser runtime concern as it grows:
 
 ```text
-Sources/SwiftWebUIRuntime/
+Sources/SwiftWebBrowser/ClientRuntime/
   Bootstrap/
     ClientRuntimeBootstrapInitializable.swift
     ClientBundleRuntimeEntrypoint.swift
@@ -192,20 +215,20 @@ families for component runtime APIs.
 Development tooling is split by lifecycle:
 
 ```text
-Sources/SwiftWebWasmBuild/
+Sources/SwiftWebDevelopment/WasmBuild/
   Toolchain/
   Artifact/
   Compression/
   Report/
 
-Sources/SwiftWebPackageGeneration/
+Sources/SwiftWebDevelopment/PackageGeneration/
   Discovery/
   Manifest/
   Materialization/
   Model/
   Toolchain/
 
-Sources/SwiftWebDevServer/
+Sources/SwiftWebDevelopment/DevServer/
   Runtime/
   Host/
   Watch/
@@ -213,7 +236,7 @@ Sources/SwiftWebDevServer/
   Process/
   Network/
 
-Sources/SwiftWebStoryboardTooling/
+Sources/SwiftWebDevelopment/StoryboardTooling/
   Scaffold/
   Runtime/
 ```
@@ -260,16 +283,16 @@ may change without changing source module ownership.
 
 | Question | Place it in |
 |---|---|
-| Is it part of `App`, `Scene`, `Page`, route lowering, request/session state, or server actions? | `Sources/SwiftWeb/` |
-| Does it describe browser boot, hydration descriptors, runtime script injection, or WASM asset routes? | `Sources/SwiftWebBrowserRuntime/` |
-| Is it a reusable UI component or SwiftUI-like modifier? | `Sources/SwiftWebUI/` |
-| Is it a host-neutral visual token, material, color, spacing, root stylesheet, or utility class? | `Sources/SwiftWebUITheme/` |
-| Does it run inside browser WASM using JavaScriptKit? | `Sources/SwiftWebUIRuntime/` |
-| Does it adapt the app to Vapor? | `Sources/SwiftWebVapor/` |
-| Does it inspect or generate SwiftPM packages? | `Sources/SwiftWebPackageGeneration/` |
-| Does it build, strip, compress, or report on WASM artifacts? | `Sources/SwiftWebWasmBuild/` |
-| Does it watch files, supervise dev workers, or emit HMR events? | `Sources/SwiftWebDevServer/` |
-| Does it scaffold or launch Storyboard's managed package? | `Sources/SwiftWebStoryboardTooling/` |
+| Is it part of `App`, `Scene`, `Page`, route lowering, request/session state, or server actions? | `Sources/SwiftWebRuntime/Core/` |
+| Does it describe browser boot, hydration descriptors, runtime script injection, or WASM asset routes? | `Sources/SwiftWebBrowser/Runtime/` |
+| Is it a reusable UI component or SwiftUI-like modifier? | `Sources/SwiftWebUI/Components/` |
+| Is it a host-neutral visual token, material, color, spacing, root stylesheet, or utility class? | `Sources/SwiftWebUI/Theme/` |
+| Does it run inside browser WASM using JavaScriptKit? | `Sources/SwiftWebBrowser/ClientRuntime/` |
+| Does it adapt the app to an HTTP server runtime? | `Sources/SwiftWebHTTPServer/` |
+| Does it inspect or generate SwiftPM packages? | `Sources/SwiftWebDevelopment/PackageGeneration/` |
+| Does it build, strip, compress, or report on WASM artifacts? | `Sources/SwiftWebDevelopment/WasmBuild/` |
+| Does it watch files, supervise dev workers, or emit HMR events? | `Sources/SwiftWebDevelopment/DevServer/` |
+| Does it scaffold or launch Storyboard's managed package? | `Sources/SwiftWebDevelopment/StoryboardTooling/` |
 | Is it user-facing CLI parsing? | `Sources/SwiftWebCLI/` |
 
 ## Review Checklist
@@ -280,7 +303,7 @@ Run these checks when moving files or adding a module:
 xcrun swift build
 xcodebuild -scheme swift-web-Package -destination 'platform=macOS' -test-timeouts-enabled YES -default-test-execution-time-allowance 60 -maximum-test-execution-time-allowance 180 test -quiet
 rg -n "Sources/SwiftWebDevelopment/Runtime|Runtime/Development|SwiftWebUI/Styling|Runtime/Client|Runtime/Wasm" README.md docs Sources Tests -g '*.md' -g '*.swift' -g '!docs/DirectoryFileStructureDesign.md'
-rg -n "^import SwiftWeb(Development|DevServer|PackageGeneration|WasmBuild|StoryboardTooling)" Sources/SwiftWeb Sources/SwiftWebUI Sources/SwiftWebBrowserRuntime Sources/SwiftWebUITheme -g '*.swift'
+rg -n "^import SwiftWeb(Development|DevServer|PackageGeneration|WasmBuild|StoryboardTooling)" Sources/SwiftWeb Sources/SwiftWebRuntime Sources/SwiftWebUI Sources/SwiftWebBrowser Sources/SwiftWebHTTPServer -g '*.swift'
 ```
 
 The first search should only return valid current paths, such as

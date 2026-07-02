@@ -74,7 +74,7 @@ this same operation. It returns the resolved `@Resolvable` protocol object to
 component code and keeps actor ids, `WebActorSystem`, and transport setup in the
 runtime layer. The generated WASM entrypoint registers the matching `$Protocol`
 resolver discovered from client component source. The design contract is tracked in
-[`../../docs/ActorInjectionDesign.md`](../../docs/ActorInjectionDesign.md).
+[`../../docs/ActorInjectionDesign.md`](../../../docs/ActorInjectionDesign.md).
 
 ## Difference From Server Actions
 

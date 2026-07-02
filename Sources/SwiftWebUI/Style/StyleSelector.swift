@@ -100,6 +100,8 @@ public enum StyleElement: String, Sendable, Equatable, Hashable {
     case html
     case input
     case select
+    case small
+    case strong
     case textarea
 }
 

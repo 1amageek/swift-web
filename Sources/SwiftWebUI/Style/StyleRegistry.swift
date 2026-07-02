@@ -7,7 +7,7 @@ import Synchronization
 ///
 /// Lives in its own low module so the three consumers — SwiftWebUI (`atom` + the
 /// modifier layer), SwiftWeb/SwiftWebCore (server collect + emit), and
-/// SwiftWebUIRuntime (client flush) — can all reach it without depending on the
+/// SwiftWebClientRuntime (client flush) — can all reach it without depending on the
 /// component library.
 public final class StyleRegistry: Sendable {
     // Insertion-ordered, deduplicated collection so the emitted `<style>` preserves

@@ -39,20 +39,25 @@ flowchart TD
 
 ## Responsibility Split
 
-| Layer | Target product name | Responsibility |
-|---|---|---|
-| Runtime core | `SwiftWebCore` or `SwiftWebRuntime` | Public app model, scene descriptors, page descriptors, host-neutral request/response, session model, action descriptors, worker descriptors, HTML rendering contracts. |
-| Vapor adapter | `SwiftWebVapor` | Vapor `Application`, route registration, middleware, native HTTP server, Cloud Run/container execution, Vapor response conversion, Vapor security integration. |
-| Cloudflare adapter | `SwiftWebCloudflare` | Generated TypeScript entrypoint, `fetch` routing, Durable Object class generation, queue/scheduled binding generation, Swift/Wasm dispatch glue, `wrangler.toml` materialization. |
-| UI theme | `SwiftWebUITheme` | Host-neutral theme tokens, style system, root stylesheet, colors, materials, and spacing values. |
-| UI components | `SwiftWebUI` | SwiftUI-inspired component layer and reusable server/client component primitives. |
-| Browser runtime | `SwiftWebUIRuntime` | Browser-side WASM runtime bridge and DOM patching. |
-| Actors | `SwiftWebActors` | Actor invocation envelopes and transport-neutral distributed actor support. |
-| Tooling facade | `sweb`, `SwiftWebDevelopment` | Command parsing and development-module re-export. |
-| Package generation | `SwiftWebPackageGeneration` | Generated server/dev/WASM packages and manifest inspection. |
-| Dev server | `SwiftWebDevServer` | Persistent DevHost, HMR, file watching, worker supervision, and development rebuild orchestration. |
-| WASM build tooling | `SwiftWebWasmBuild` | WASM toolchain resolution, artifact processing, size reports, and compression sidecars. |
-| Storyboard tooling | `SwiftWebStoryboardTooling` | Managed Storyboard package scaffold and launch. |
+| Layer | Target product name | Source directory | Responsibility |
+|---|---|---|---|
+| Runtime core | `SwiftWebCore` | `Sources/SwiftWebRuntime/Core/` | Public app model, scene descriptors, page descriptors, host-neutral request/response, session model, action descriptors, worker descriptors, HTML rendering contracts. |
+| Actor runtime | `SwiftWebActors` | `Sources/SwiftWebRuntime/Actors/` | Actor invocation envelopes and transport-neutral distributed actor support. |
+| Browser host runtime | `SwiftWebBrowserRuntime` | `Sources/SwiftWebBrowser/Runtime/` | Browser boot descriptors, HTML runtime injection, WASM asset routes, and host scripts. |
+| Browser client runtime | `SwiftWebUIRuntime` | `Sources/SwiftWebBrowser/ClientRuntime/` | Browser-side WASM runtime bridge and DOM patching. |
+| HTTP server adapter | `SwiftWebVapor` | `Sources/SwiftWebHTTPServer/Vapor/` | Vapor `Application`, route registration, middleware, native HTTP server, Cloud Run/container execution, Vapor response conversion, Vapor security integration. |
+| HTTP actor gateway | `SwiftWebVaporWebActors` | `Sources/SwiftWebHTTPServer/VaporWebActors/` | Optional server gateway for actor RPC. |
+| Cloudflare adapter | `SwiftWebCloudflare` | Adapter package | Generated TypeScript entrypoint, `fetch` routing, Durable Object class generation, queue/scheduled binding generation, Swift/Wasm dispatch glue, `wrangler.toml` materialization. |
+| UI components | `SwiftWebUI` | `Sources/SwiftWebUI/Components/` | SwiftUI-inspired component layer and reusable server/client component primitives. |
+| UI style | `SwiftWebStyle` | `Sources/SwiftWebUI/Style/` | Atomic style classes, typed selectors, and CSS-safe declaration registration. |
+| UI theme | `SwiftWebUITheme` | `Sources/SwiftWebUI/Theme/` | Host-neutral theme tokens, style system, root stylesheet, colors, materials, and spacing values. |
+| Tooling facade | `sweb`, `SwiftWebDevelopment` | `Sources/SwiftWebCLI/`, `Sources/SwiftWebDevelopment/Facade/` | Command parsing and development-module re-export. |
+| Development hooks | `SwiftWebDevelopmentHooks` | `Sources/SwiftWebDevelopment/Hooks/` | Worker-side HMR contracts, browser injection hooks, context propagation, and dev event schema. |
+| Package generation | `SwiftWebPackageGeneration` | `Sources/SwiftWebDevelopment/PackageGeneration/` | Generated server/dev/WASM packages and manifest inspection. |
+| Dev server | `SwiftWebDevServer` | `Sources/SwiftWebDevelopment/DevServer/` | Persistent DevHost, HMR, file watching, worker supervision, and development rebuild orchestration. |
+| WASM build tooling | `SwiftWebWasmBuild` | `Sources/SwiftWebDevelopment/WasmBuild/` | WASM toolchain resolution, artifact processing, size reports, and compression sidecars. |
+| Storyboard tooling | `SwiftWebStoryboardTooling` | `Sources/SwiftWebDevelopment/StoryboardTooling/` | Managed Storyboard package scaffold and launch. |
+| Storyboard catalog | `SwiftWebStoryboard` | `Sources/SwiftWebDevelopment/Storyboard/` | Component catalog routes and visual verification surfaces. |
 
 Platform-specific scaffolding can live outside this repository. `sweb` owns only
 the adapter reference contract and preset mapping; adapter repositories own files

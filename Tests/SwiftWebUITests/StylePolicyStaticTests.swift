@@ -7,8 +7,8 @@ struct StylePolicyStaticTests {
   func swiftWebUIAndStoryboardDoNotUseRawSelectorsOrStyleAttributes() throws {
     let root = try projectRoot()
     let scannedRoots = [
-      root.appending(path: "Sources/SwiftWebUI"),
-      root.appending(path: "Sources/SwiftWebStoryboard"),
+      root.appending(path: "Sources/SwiftWebUI/Components"),
+      root.appending(path: "Sources/SwiftWebDevelopment/Storyboard"),
     ]
     let commonForbiddenPatterns = [
       #"rule\(\s*#*""#,
@@ -28,7 +28,7 @@ struct StylePolicyStaticTests {
 
     for file in try swiftFiles(in: scannedRoots) {
       let source = try String(contentsOf: file, encoding: .utf8)
-      let extraPatterns = file.path.contains("/Sources/SwiftWebStoryboard/")
+      let extraPatterns = file.path.contains("/Sources/SwiftWebDevelopment/Storyboard/")
         ? storyboardForbiddenPatterns
         : []
       for pattern in commonForbiddenPatterns + extraPatterns {
