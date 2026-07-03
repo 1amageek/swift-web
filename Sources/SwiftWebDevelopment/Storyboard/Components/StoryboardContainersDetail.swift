@@ -55,30 +55,32 @@ struct ContainersDetail: Component {
             // The first section reflects the Header + Footer controls; a fixed
             // "Devices" section follows so grouped sections are evaluable as a
             // list, matching the design.
-            VStack(alignment: .leading, spacing: .medium) {
-                Section {
-                    VStack(alignment: .leading, spacing: .small) {
-                        Text("Profile")
-                        Text("Security")
-                        Text("Notifications")
+            div(.class("swui-storyboard-section-demo")) {
+                VStack(alignment: .leading, spacing: .medium) {
+                    Section {
+                        VStack(alignment: .leading, spacing: .small) {
+                            Text("Profile")
+                            Text("Security")
+                            Text("Notifications")
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    } header: {
+                        Text(value("section", "title", "Account"), as: .h3)
+                    } footer: {
+                        Text(footerText).foregroundStyle(.secondary)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                } header: {
-                    Text(value("section", "title", "Account"), as: .h3)
-                } footer: {
-                    Text(footerText).foregroundStyle(.secondary)
-                }
-                Section {
-                    VStack(alignment: .leading, spacing: .small) {
-                        Text("iPhone")
-                        Text("iPad")
+                    Section {
+                        VStack(alignment: .leading, spacing: .small) {
+                            Text("iPhone")
+                            Text("iPad")
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    } header: {
+                        Text("Devices", as: .h3)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                } header: {
-                    Text("Devices", as: .h3)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         case "disclosuregroup":
             DisclosureGroup("Advanced options", isExpanded: ui.bool("disclosuregroup.open")) {
                 VStack(alignment: .leading, spacing: .small) {

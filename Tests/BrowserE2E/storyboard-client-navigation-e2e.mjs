@@ -413,6 +413,9 @@ async function runtimeState(page) {
         text: anchor.textContent.trim(),
       })),
       ready: document.documentElement.getAttribute("data-wasm-ready"),
+      colorScheme: document.body?.getAttribute("data-color-scheme") || null,
+      selectedSchemeChips: Array.from(document.querySelectorAll("[data-scheme-chip].swui-storyboard-chip-selected"))
+        .map((chip) => chip.getAttribute("data-scheme-chip")),
       phase: document.documentElement.getAttribute("data-wasm-phase"),
       status: globalThis.__swiftWebWasmRuntimeStatus || null,
       summary: metrics.summary || {},
@@ -464,6 +467,38 @@ async function assertRouteState(page, expected) {
     })}`);
   }
   return state;
+}
+
+async function selectStoryboardScheme(page, scheme) {
+  const clicked = await page.evaluate((value) => {
+    const chip = document.querySelector(`[data-scheme-chip="${value}"]`);
+    if (!chip) {
+      return false;
+    }
+    chip.click();
+    return true;
+  }, scheme);
+  if (!clicked) {
+    throw new Error(`Scheme chip ${scheme} was not found.`);
+  }
+  await page.waitForFunction(
+    (value) => document.body
+      && document.body.getAttribute("data-color-scheme") === value
+      && document.cookie.includes(`swui-storyboard-scheme=${value}`)
+      && Array.from(document.querySelectorAll("[data-scheme-chip].swui-storyboard-chip-selected"))
+        .some((chip) => chip.getAttribute("data-scheme-chip") === value),
+    scheme,
+    { timeout: timeoutMs }
+  );
+}
+
+function assertStoryboardScheme(state, scheme, context) {
+  if (state.colorScheme !== scheme || !state.selectedSchemeChips.includes(scheme)) {
+    throw new Error(`${context} did not preserve Storyboard scheme ${scheme}: ${JSON.stringify({
+      colorScheme: state.colorScheme,
+      selectedSchemeChips: state.selectedSchemeChips,
+    })}`);
+  }
 }
 
 function assertNoRuntimeRestart(before, after, context) {
@@ -561,10 +596,17 @@ async function runBrowserAssertions(baseURL) {
     }
     report.initialRuntime = initial;
 
+    recordPhase("theme.light-cookie");
+    await selectStoryboardScheme(page, "light");
+    assertStoryboardScheme(await runtimeState(page), "light", "Light scheme selection");
+
     recordPhase("navigation.sidebar");
     const grid = await clickSidebarRoute(page, { path: "/storyboard/grid", h1: "Grid", label: "Grid" });
+    assertStoryboardScheme(grid, "light", "Grid navigation");
     const typography = await clickSidebarRoute(page, { path: "/storyboard/typography", h1: "Text", label: "Text" });
+    assertStoryboardScheme(typography, "light", "Typography navigation");
     const style = await clickSidebarRoute(page, { path: "/storyboard/style", h1: "Style", label: "Style" });
+    assertStoryboardScheme(style, "light", "Style navigation");
     assertNoRuntimeRestart(initial, grid, "Grid navigation");
     assertNoRuntimeRestart(grid, typography, "Typography navigation");
     assertNoRuntimeRestart(typography, style, "Style navigation");
@@ -574,11 +616,13 @@ async function runBrowserAssertions(baseURL) {
     await page.evaluate(() => history.back());
     await waitForPath(page, "/storyboard/typography");
     const afterBack = await assertRouteState(page, { path: "/storyboard/typography", h1: "Text" });
+    assertStoryboardScheme(afterBack, "light", "Back navigation");
     assertNoRuntimeRestart(beforeBack, afterBack, "Back navigation");
 
     await page.evaluate(() => history.forward());
     await waitForPath(page, "/storyboard/style");
     const afterForward = await assertRouteState(page, { path: "/storyboard/style", h1: "Style" });
+    assertStoryboardScheme(afterForward, "light", "Forward navigation");
     assertNoRuntimeRestart(afterBack, afterForward, "Forward navigation");
     const popstateEvents = afterForward.navigationEvents.filter((event) => event.history === "popstate");
     if (popstateEvents.length < 2) {
@@ -635,10 +679,27 @@ async function runBrowserAssertions(baseURL) {
       anchor.textContent = "External E2E";
       document.body.appendChild(anchor);
     });
-    const popupPromise = page.waitForEvent("popup", { timeout: timeoutMs });
-    await page.locator("#swiftweb-e2e-external-link").click();
-    const popup = await popupPromise;
-    await popup.close();
+    const externalClick = await page.evaluate(() => {
+      const anchor = document.querySelector("#swiftweb-e2e-external-link");
+      if (!anchor) {
+        return { dispatched: false };
+      }
+      const event = new MouseEvent("click", {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+        view: window,
+      });
+      const dispatchResult = anchor.dispatchEvent(event);
+      return {
+        dispatched: true,
+        defaultPrevented: event.defaultPrevented,
+        dispatchResult,
+      };
+    });
+    if (!externalClick.dispatched || externalClick.defaultPrevented || externalClick.dispatchResult === false) {
+      throw new Error(`External target link should not be intercepted: ${JSON.stringify(externalClick)}`);
+    }
     const afterExternal = await runtimeState(page);
     assertNoRuntimeRestart(beforeExternal, afterExternal, "External target navigation");
     if (afterExternal.navigationEvents.length !== beforeExternal.navigationEvents.length) {

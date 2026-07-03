@@ -1774,7 +1774,7 @@ package enum RootStylesheet {
       // the muted role — with no background bar behind them.
       rule(cls("swui-section-header")) {
         .margin("0")
-          .padding(.px(10), .px(14), .px(6), .px(14))
+          .padding(.px(10), .zero, .px(6), .zero)
           .color("var(--swui-text-muted)")
           .fontSize("11.5px")
           .fontWeight("700")

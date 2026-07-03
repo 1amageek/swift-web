@@ -1,5 +1,6 @@
 import Foundation
 import SwiftHTML
+import SwiftWebStyle
 import SwiftWebUIRuntime
 @testable import SwiftWebStoryboard
 import Testing
@@ -137,6 +138,41 @@ struct SwiftWebStoryboardCatalogTests {
     }
 
     @Test
+    func catalogSchemePreferenceRecordsDocumentColorSchemeAndChipSelection() {
+        let lightDocument = DocumentStyle()
+        let lightRendered = StyleRegistry.withCurrent(StyleRegistry()) {
+            DocumentStyle.withCurrent(lightDocument) {
+                StoryboardCatalog(initialSelection: "list", scheme: .light).render()
+            }
+        }
+
+        #expect(lightDocument.preferredColorScheme?.rawValue == "light")
+        #expect(
+            lightRendered.contains(#"class="swui-storyboard-chip swui-storyboard-chip-selected" type="button" data-scheme-chip="light""#)
+        )
+
+        let autoDocument = DocumentStyle()
+        let autoRendered = StyleRegistry.withCurrent(StyleRegistry()) {
+            DocumentStyle.withCurrent(autoDocument) {
+                StoryboardCatalog(initialSelection: "list", scheme: .auto).render()
+            }
+        }
+
+        #expect(autoDocument.preferredColorScheme?.rawValue == nil)
+        #expect(
+            autoRendered.contains(#"class="swui-storyboard-chip swui-storyboard-chip-selected" type="button" data-scheme-chip="auto""#)
+        )
+    }
+
+    @Test
+    func catalogSchemeScriptUsesCookieStorage() {
+        let rendered = StoryboardCatalog().render()
+
+        #expect(rendered.contains("document.cookie"))
+        #expect(!rendered.contains("localStorage"))
+    }
+
+    @Test
     func catalogEmitsSemanticLandmarks() {
         let rendered = StoryboardCatalog(initialSelection: "list").render()
 
@@ -224,6 +260,19 @@ struct SwiftWebStoryboardCatalogTests {
             #expect(self.rendered(rendered, contains: property.acceptedValues))
             #expect(self.rendered(rendered, contains: property.summary))
         }
+    }
+
+    @Test
+    func sectionPlaygroundAlignsDemoToCanvasLeadingEdge() {
+        let rendered = StoryboardCatalog(initialSelection: "section").render()
+
+        #expect(rendered.contains("swui-storyboard-section-demo"))
+        #expect(
+            rendered.contains(
+                ".swui-storyboard-preview-canvas > .swui-animation-scope > .swui-storyboard-section-demo"
+            )
+        )
+        #expect(rendered.contains("align-self: stretch;"))
     }
 
     @Test

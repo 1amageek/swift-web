@@ -179,6 +179,8 @@ struct SwiftWebUILayoutBehaviorTests {
 
     #expect(rendered.contains("data-pinned-headers=\"true\""))
     #expect(rendered.contains("data-pinned-footers=\"true\""))
+    #expect(rendered.contains("margin: 0;\n  padding: 10px 0 6px 0;"))
+    #expect(!rendered.contains("padding: 10px 14px 6px 14px;"))
     let headerRule = cssRule(
       "[data-pinned-headers=\"true\"] > .swui-section > .swui-section-header",
       in: rendered

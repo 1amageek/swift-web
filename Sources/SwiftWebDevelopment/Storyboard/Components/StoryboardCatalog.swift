@@ -8,9 +8,16 @@ import SwiftWebUI
 /// detail demo is hydrated as a client island.
 public struct StoryboardCatalog: Component, Sendable {
     private let selection: String
+    private let scheme: StoryboardSchemePreference
 
     public init(initialSelection: String = catalogDefaultSelection) {
         self.selection = catalogSelectionID(for: initialSelection)
+        self.scheme = .auto
+    }
+
+    init(initialSelection: String = catalogDefaultSelection, scheme: StoryboardSchemePreference) {
+        self.selection = catalogSelectionID(for: initialSelection)
+        self.scheme = scheme
     }
 
     public var body: some HTML {
@@ -21,7 +28,7 @@ public struct StoryboardCatalog: Component, Sendable {
         StoryboardStyleRoot {
             div(.class("swui-storyboard-app")) {
                 VStack(spacing: Space.none) {
-                    CatalogTopBar()
+                    CatalogTopBar(scheme: scheme)
                     HStack(alignment: .top, spacing: .medium) {
                         CatalogSidebar(selection: selection)
                         CatalogDetail(selection: selection)
@@ -32,5 +39,6 @@ public struct StoryboardCatalog: Component, Sendable {
                 .class("swui-storyboard-frame")
             }
         }
+        .preferredColorScheme(scheme.colorScheme)
     }
 }

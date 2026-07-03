@@ -26,31 +26,45 @@ struct StoryboardStyleRoot<Content: HTML>: Component {
 
 /// The catalog's color-scheme switcher. The document root carries
 /// `data-color-scheme` (the palette contract), so the chips just set or clear
-/// that attribute and persist the choice; "auto" clears it and lets the
-/// user-agent preference drive the palette through the media query.
+/// that attribute and persist the choice in a cookie; "auto" clears it and lets
+/// the user-agent preference drive the palette through the media query.
 enum StoryboardSchemeScript {
     static let script = """
     (function(){
     if(window.__swuiStoryboardScheme)return;window.__swuiStoryboardScheme=true;
     var KEY='swui-storyboard-scheme';
+    function clean(value){return value==='light'||value==='dark'||value==='auto'?value:'auto';}
     function root(){return document.body&&document.body.classList.contains('swui-root')?document.body:document.querySelector('.swui-root');}
     function apply(value){
+    value=clean(value);
     var target=root();if(!target)return;
     if(value==='light'||value==='dark'){target.setAttribute('data-color-scheme',value);}
     else{target.removeAttribute('data-color-scheme');}
-    var active=value==='light'||value==='dark'?value:'auto';
     document.querySelectorAll('[data-scheme-chip]').forEach(function(chip){
-    chip.classList.toggle('swui-storyboard-chip-selected',chip.getAttribute('data-scheme-chip')===active);
+    chip.classList.toggle('swui-storyboard-chip-selected',chip.getAttribute('data-scheme-chip')===value);
     });
     }
-    function stored(){try{return localStorage.getItem(KEY);}catch(error){return null;}}
+    function readCookie(){
+    try{
+    var name=KEY+'=';
+    var parts=document.cookie?document.cookie.split(';'):[];
+    for(var i=0;i<parts.length;i++){
+    var part=parts[i].trim();
+    if(part.indexOf(name)===0)return decodeURIComponent(part.slice(name.length));
+    }
+    }catch(error){}
+    return 'auto';
+    }
+    function writeCookie(value){
+    try{document.cookie=KEY+'='+encodeURIComponent(clean(value))+'; Path=/storyboard; Max-Age=31536000; SameSite=Lax';}catch(error){}
+    }
     function boot(){
-    apply(stored());
+    apply(readCookie());
     document.addEventListener('click',function(event){
     var chip=event.target&&event.target.closest?event.target.closest('[data-scheme-chip]'):null;
     if(!chip)return;
     var value=chip.getAttribute('data-scheme-chip');
-    try{localStorage.setItem(KEY,value);}catch(error){}
+    writeCookie(value);
     apply(value);
     });
     document.addEventListener('keydown',function(event){
@@ -441,6 +455,15 @@ private enum StoryboardStylesheet {
                   .alignItems("center")
                   .justifyContent("center")
                   .padding("36px")
+            }
+            rule(
+                cls("swui-storyboard-preview-canvas")
+                  .child(cls("swui-animation-scope"))
+                  .child(cls("swui-storyboard-section-demo"))
+            ) {
+                .alignSelf("stretch")
+                  .width("100%")
+                  .boxSizing("border-box")
             }
             rule(cls("swui-storyboard-control-panel")) {
                 .borderTop("1px solid var(--swui-border)")

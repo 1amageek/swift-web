@@ -12,6 +12,8 @@ enum CatalogChromeMetrics {
 // MARK: - Top bar
 
 struct CatalogTopBar: Component {
+    let scheme: StoryboardSchemePreference
+
     var body: some HTML {
         // The bar composes the same `bar` material recipe as `.toolbar` chrome,
         // floating over the atmosphere as an inset glass strip.
@@ -51,9 +53,9 @@ struct CatalogTopBar: Component {
                     topBarLink("Docs", "https://github.com/1amageek/swift-web#readme", muted: true)
                     topBarLink("GitHub ↗", "https://github.com/1amageek/swift-web", muted: false)
                     HStack(spacing: .xsmall) {
-                        colorSchemeChip("Light", value: "light")
-                        colorSchemeChip("Dark", value: "dark")
-                        colorSchemeChip("Auto", value: "auto", selected: true)
+                        colorSchemeChip("Light", value: .light)
+                        colorSchemeChip("Dark", value: .dark)
+                        colorSchemeChip("Auto", value: .auto)
                     }
                     .padding(3)
                     // Filled track only — no hard outline (matches a native segmented control).
@@ -76,15 +78,15 @@ struct CatalogTopBar: Component {
     }
 
     // A real switcher: the registered scheme script drives the document's
-    // `data-color-scheme` from these chips and keeps the choice in
-    // localStorage. "Auto" clears the attribute and follows the user agent.
-    private func colorSchemeChip(_ title: String, value: String, selected: Bool = false) -> some HTML {
+    // `data-color-scheme` from these chips and keeps the choice in a cookie.
+    // "Auto" clears the attribute and follows the user agent.
+    private func colorSchemeChip(_ title: String, value: StoryboardSchemePreference) -> some HTML {
         Element(
             "button",
             attributes: [
                 .type(ButtonType.button),
-                .class("swui-storyboard-chip\(selected ? " swui-storyboard-chip-selected" : "")"),
-                HTMLAttribute("data-scheme-chip", value),
+                .class("swui-storyboard-chip\(scheme == value ? " swui-storyboard-chip-selected" : "")"),
+                HTMLAttribute("data-scheme-chip", value.rawValue),
                 .aria("label", "Switch to \(title.lowercased()) appearance"),
             ]
         ) {

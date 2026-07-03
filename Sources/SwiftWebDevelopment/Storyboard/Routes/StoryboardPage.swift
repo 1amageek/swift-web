@@ -23,7 +23,7 @@ struct StoryboardPage {
     }
 
     func body() -> some HTML {
-        StoryboardCatalog()
+        StoryboardCatalog(scheme: StoryboardSchemePreference.currentFromRequest())
     }
 }
 
@@ -57,6 +57,18 @@ struct StoryboardSelectionPage {
     }
 
     func body() -> some HTML {
-        StoryboardCatalog(initialSelection: selectionID)
+        StoryboardCatalog(
+            initialSelection: selectionID,
+            scheme: StoryboardSchemePreference.currentFromRequest()
+        )
+    }
+}
+
+private extension StoryboardSchemePreference {
+    static func currentFromRequest() -> Self {
+        guard let rawValue = RequestContext.current?.request.cookies[cookieName]?.string else {
+            return .auto
+        }
+        return Self(rawValue: rawValue) ?? .auto
     }
 }
