@@ -342,16 +342,8 @@ struct FoundationsDetail: Component {
         case "list":
             VStack(spacing: .medium) {
                 List {
-                    ListRow {
-                        Text("Wi-Fi")
-                        Spacer()
-                        Text("On").foregroundStyle(.secondary)
-                    }
-                    ListRow {
-                        Text("Bluetooth")
-                        Spacer()
-                        Text("Off").foregroundStyle(.secondary)
-                    }
+                    Text("Wi-Fi").badge("On")
+                    Text("Bluetooth").badge("Off")
                 }
                 Text(".swui-list .swui-text { padding-block: 2px; }", as: .code)
             }

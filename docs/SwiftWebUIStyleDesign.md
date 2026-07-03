@@ -73,7 +73,7 @@ system contributes visual rules.
 | Step | Input | Output |
 |---|---|---|
 | 1 | Component configuration | Semantic state such as `isEnabled`, `controlSize`, selected value, bounds, and roles. |
-| 2 | Component body | Stable classes such as `swui-list-row`, `swui-text`, `swui-control-large`, `swui-control-disabled`. |
+| 2 | Component body | Stable classes such as `swui-list`, `swui-text`, `swui-control-large`, `swui-control-disabled`. |
 | 3 | Environment modifiers | Scoped values such as `colorScheme`, `styleSystem`, `tint`, `controlSize`, and semantic style kinds. |
 | 4 | `RootStylesheet` | CSS variables, base component rules, state rules, and contextual selectors. |
 | 5 | SwiftHTML | HTML graph, stylesheet output, hydration metadata, and SSR output. |
@@ -91,17 +91,17 @@ environment values.
 ```mermaid
 flowchart TD
     A["List"] --> B[".swui-list"]
-    B --> C["ListRow"]
-    C --> D[".swui-list-row"]
-    D --> E["Text"]
-    E --> F[".swui-text"]
-    G["StyleSystem CSS"] --> H[".swui-list-row .swui-text"]
+    B --> C["direct child = row"]
+    C --> D["Text"]
+    D --> E[".swui-text"]
+    F["StyleSystem CSS"] --> G[".swui-list > *"]
+    F --> H[".swui-list .swui-text"]
 ```
 
 | Context | Rule owner | Example selector |
 |---|---|---|
-| Text inside list row | `StyleSystem` CSS | `.swui-list-row .swui-text` |
-| Muted text inside list row | `StyleSystem` CSS | `.swui-list-row .swui-text-muted` |
+| Row chrome for every direct child of a list | `StyleSystem` CSS | `.swui-list > *` |
+| Text inside a list | `StyleSystem` CSS | `.swui-list .swui-text` |
 | Button inside toolbar | `StyleSystem` CSS | `.swui-toolbar .swui-button` |
 | Field inside form section | `StyleSystem` CSS | `.swui-section .swui-field` |
 | Navigation link inside sidebar | `StyleSystem` CSS | `.swui-sidebar .swui-navigation-link` |
@@ -155,7 +155,7 @@ convenience.
 | Layout | `GridSystem`, `Pane`, `VStack`, `HStack`, `ZStack`, `Grid`, lazy stacks, `ScrollView`, `Spacer`, `Divider` | Stable layout classes and spacing variables. |
 | Text | `Text`, semantic `Text.as`, `Label`, code-oriented text | Stable text classes; contextual typography comes from CSS. |
 | Controls | `Button`, `TextField`, `SecureField`, `TextEditor`, `Toggle`, `Slider`, `Stepper`, `Picker`, date/color pickers | Native attributes, state classes, and CSS variables for per-instance values. |
-| Containers | `GroupBox`, `Section`, `List`, `ListRow`, `DisclosureGroup`, `Toolbar`, `Badge` | Parent context classes and surface/material classes. |
+| Containers | `GroupBox`, `Section`, `List`, `DisclosureGroup`, `Toolbar`, `Badge` | Parent context classes and surface/material classes. |
 | Navigation | `NavigationStack`, `NavigationLink`, `TabView`, future split navigation | Route semantics, selected state, transition hooks, and context classes. |
 | Presentation | Dialog, sheet, popover, alert, toast | Overlay semantics, focus hooks, dismissal state, and layering classes. |
 | Status | `ProgressView`, `Gauge`, future skeleton/empty/error views | Progress semantics, state classes, and CSS variables. |
@@ -184,7 +184,7 @@ flowchart LR
 | Base class | Identifies the component, such as `swui-button` or `swui-stepper`. |
 | Part class | Identifies component parts, such as `swui-stepper-value`. |
 | State class | Identifies semantic state, such as `swui-control-disabled`. |
-| Context class | Parent class that enables contextual selectors, such as `swui-list-row`. |
+| Context class | Parent class that enables contextual selectors, such as `swui-list`. |
 | CSS variable | Carries per-instance values, such as `--swui-control-tint`. |
 | Stylesheet rule | Defines visual output using `StyleSystem` tokens and CSS selectors. |
 
@@ -229,7 +229,7 @@ Every new or changed public component must pass these gates:
 | Priority | Work |
 |---|---|
 | P0 | Ensure controls emit semantic classes/state classes and move visual recipes into stylesheet rules. |
-| P0 | Add contextual rules for common combinations such as `Text` in `ListRow`. |
+| P0 | Add contextual rules for common combinations such as `Text` in a `List` row. |
 | P0 | Keep `StyleSystem.default` complete and ensure every built-in rule resolves without optional tokens. |
 | P1 | Continue migrating control treatment names so they describe semantic variants rather than CSS ownership. |
 | P1 | Classify public components and move demo-only helpers out of the core API. |

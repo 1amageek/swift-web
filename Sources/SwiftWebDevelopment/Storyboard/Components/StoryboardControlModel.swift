@@ -213,6 +213,8 @@ func storyboardControls(for id: String) -> [StoryboardControl] {
         ]
     case "image":
         return [.segmented(label: "systemName", key: "name", options: [.init("star.fill", "star"), .init("bell.badge", "bell"), .init("gearshape", "gear")])]
+    case "asyncimage":
+        return [.segmented(label: "url", key: "source", options: [.init("photo", "Photo"), .init("broken", "Broken"), .init("none", "nil")])]
     case "colorvalue":
         return [
             .swatch(label: "Color", key: "name", options: [
@@ -399,6 +401,7 @@ let storyboardControlDefaults: [String: String] = [
     "materials.level": "regular",
     "typography.text": "Hello, SwiftWebUI", "typography.font": "largeTitle", "typography.weight": "bold", "typography.align": "center", "typography.fg": "primary",
     "image.name": "star.fill",
+    "asyncimage.source": "photo",
     "colorvalue.name": "blue", "colorvalue.opacity": "1",
     "code.lang": "swift", "code.lineNumbers": "true",
     "label.title": "Verified", "label.name": "checkmark.seal.fill",

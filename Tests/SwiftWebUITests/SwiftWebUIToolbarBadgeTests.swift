@@ -191,13 +191,11 @@ struct SwiftWebUIToolbarBadgeTests {
   @Test
   func badgeInsideAListRowRendersThePill() {
     let rendered = List {
-      ListRow {
-        Text("Wi-Fi").badge("On")
-      }
+      Text("Wi-Fi").badge("On")
     }
     .render()
 
-    #expect(rendered.contains("role=\"listitem\""))
+    #expect(rendered.contains("swui-list"))
     #expect(rendered.contains("swui-badged"))
     #expect(rendered.contains("class=\"swui-badge swui-material swui-material-thin\""))
     #expect(rendered.contains(">On</span>"))

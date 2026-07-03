@@ -1,3 +1,4 @@
+import Foundation
 import SwiftWebUITheme
 import SwiftHTML
 
@@ -20,9 +21,28 @@ public struct Image: WebUIAttributeComponent {
         self.attributes = []
     }
 
+    /// The image `AsyncImage` hands to its content closure: a URL-backed
+    /// `<img>` whose `scale` lowers to a `srcset` density descriptor, the
+    /// web's native pixel-density contract.
+    init(url: URL, scale: Double) {
+        self.source = .url(url, scale: scale)
+        self.attributes = []
+    }
+
     @HTMLBuilder
     public var body: some HTML {
         switch source {
+        case .url(let url, let scale):
+            Element(
+                "img",
+                attributes: mergedAttributes(
+                    class: "swui-image",
+                    extra: [.src(url.absoluteString), .alt(""), .attribute("decoding", "async")]
+                        + (scale != 1 ? [.attribute("srcset", "\(url.absoluteString) \(trimmedNumber(scale))x")] : [])
+                        + attributes
+                ),
+                isVoid: true
+            )
         case .named(let name):
             Element(
                 "img",
@@ -93,4 +113,5 @@ private enum ImageSource: Sendable, Equatable {
     case named(String)
     case decorative(String)
     case system(String)
+    case url(URL, scale: Double)
 }

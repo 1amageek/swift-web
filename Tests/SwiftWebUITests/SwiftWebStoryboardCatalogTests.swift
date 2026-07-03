@@ -401,7 +401,6 @@ struct SwiftWebStoryboardCatalogTests {
             "Toolbar",
             "Badge",
             "List",
-            "ListRow",
             "Section",
             "DisclosureGroup",
             "Grid",

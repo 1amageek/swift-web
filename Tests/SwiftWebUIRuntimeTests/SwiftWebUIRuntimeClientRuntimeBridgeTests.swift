@@ -1440,10 +1440,14 @@ struct SwiftWebUIRuntimeClientRuntimeBridgeTests {
             .flatMap(messageTextOrder(inHTML:))
     }
 
+    // Matches only rendered text nodes (`>u3<`), never attribute or comment
+    // noise: hashed atomic classes and component IDs ("…xd6f38a6f…",
+    // "…cd4b9aa2…") contain two-character fragments like "a6"/"a2" and made
+    // bare substring search report phantom insertions.
     private func messageTextOrder(inHTML html: String) -> [String] {
         ["a0", "u1", "a2", "u3", "a4", "u5", "a6"]
             .compactMap { value -> (String.Index, String)? in
-                guard let range = html.range(of: value) else {
+                guard let range = html.range(of: ">\(value)<") else {
                     return nil
                 }
                 return (range.lowerBound, value)

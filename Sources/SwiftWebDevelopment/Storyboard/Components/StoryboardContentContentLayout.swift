@@ -17,6 +17,11 @@ func contentLayoutDiscussion(for id: String) -> [String]? {
             "Image(systemName:) renders an SF Symbol identifier as an inline SVG glyph. The web has no access to the SF Symbols font, so the framework ships approximating 24×24 vector glyphs for a curated identifier set; each glyph fills with currentColor, so it inherits the surrounding foreground exactly like a symbol in SwiftUI.",
             "Symbols size through .font(_:) rather than .frame, keeping icons proportional to neighbouring text. Identifiers outside the shipped set render the identifier as text — surfacing the name instead of failing silently — and Image(_:) remains the plain img path for URL-based assets.",
         ]
+    case "asyncimage":
+        return [
+            "AsyncImage displays an image from a URL, and on the web it is just an img: the element is natively asynchronous, so the framework adds no loading machinery — the browser schedules, caches, decodes, and paints the resource on its own.",
+            "The placeholder form stacks the image above the placeholder in one grid cell: the placeholder shows until the image paints, and because the img is decorative (alt=\"\") a failed load leaves the placeholder in place instead of a broken-image glyph. scale lowers to a srcset density descriptor, and a nil URL renders only the placeholder, matching SwiftUI's empty phase.",
+        ]
     case "colorvalue":
         return [
             "Color is the framework's single concrete color type: the standard palette (.red through .gray), semantic roles (.accent, .danger, and the surface tokens), and literals from hex, sRGB, or HSB components. A color paints the region it is given and composes in any ShapeStyle position — foregrounds, backgrounds, and tints.",
@@ -39,8 +44,8 @@ func contentLayoutDiscussion(for id: String) -> [String]? {
         ]
     case "list":
         return [
-            "List is a container of rows. Rows are declared explicitly with ListRow — each row can carry leading and trailing content, badges, and controls — and the list applies one of five presentation styles without touching the rows themselves.",
-            "The container lowers to role=\"list\" markup and the style resolves through the environment, exactly like listStyle in SwiftUI: .plain and .inset stay flush with the content, .grouped and .insetGrouped draw the settings-style surface, and .sidebar tightens rows for navigation.",
+            "List is a container of rows, exactly like SwiftUI: every direct child is a row — Text(\"Wi-Fi\").badge(\"On\") is already a complete row — and the data-driven List(_:rowContent:) initializers derive one row per element of a collection, wrapping each in a semantic role=\"listitem\" box.",
+            "Row chrome comes from the list, not the rows, and the style resolves through the environment, exactly like listStyle in SwiftUI: .plain and .inset stay flush with the content, .grouped and .insetGrouped draw the settings-style surface, and .sidebar tightens rows for navigation.",
         ]
     case "section":
         return [
@@ -93,6 +98,8 @@ func contentLayoutParity(for id: String) -> String? {
         return "Same shape as SwiftUI's Text with .font/.fontWeight/.foregroundStyle; the as: element selector is the sanctioned web extension."
     case "image":
         return "Same shape as SwiftUI's Image(systemName:); on the web the symbol lowers to an inline SVG from a curated glyph set, and unknown identifiers fall back to readable text."
+    case "asyncimage":
+        return "Same shape as SwiftUI's AsyncImage(url:scale:) and AsyncImage(url:content:placeholder:); the load lifecycle belongs to the native img element, so there is no phase closure — the platform already owns those states."
     case "colorvalue":
         return "Same shape as SwiftUI's Color — palette, semantic, and literal initializers with opacity(_:) and mix(with:by:) — resolving to CSS light-dark(), var(), and color-mix() values instead of platform colors."
     case "code":
@@ -102,7 +109,7 @@ func contentLayoutParity(for id: String) -> String? {
     case "groupbox":
         return "Same shape as SwiftUI's GroupBox(_:content:), including the label-builder form; the surface composes the regular material."
     case "list":
-        return "Same shape as SwiftUI's List with listStyle(_:); the explicit ListRow wrapper is the web extension — rows are declared rather than derived from content."
+        return "Same shape as SwiftUI's List: every direct child of the builder is a row, List(_:rowContent:) derives rows from a collection, and listStyle(_:) selects the presentation."
     case "section":
         return "Same shape as SwiftUI's Section(_:content:) with header and footer builders; a string header lowers to a real heading element."
     case "disclosuregroup":
@@ -196,6 +203,35 @@ func contentLayoutVariants(for id: String) -> [CatalogVariant]? {
             },
             CatalogVariant("Unknown identifier", detail: "Identifiers outside the glyph set surface the name as text instead of rendering nothing.") {
                 Image(systemName: "sparkles")
+            },
+        ]
+    case "asyncimage":
+        return [
+            CatalogVariant("Plain", detail: "AsyncImage(url:) lowers to a native img — the browser owns the asynchronous load.") {
+                AsyncImage(url: storyboardSampleImageURL)
+            },
+            CatalogVariant("Placeholder", detail: "The placeholder sits beneath the image in one grid cell and shows until the image paints.") {
+                AsyncImage(url: storyboardSampleImageURL) { image in
+                    image.clipShape(.rect(cornerRadius: 12))
+                } placeholder: {
+                    Text("Loading…")
+                        .foregroundStyle(.secondary)
+                        .frame(width: 240, height: 150)
+                        .background(.surfaceRaised, in: .rect(cornerRadius: 12))
+                }
+            },
+            CatalogVariant("Failure keeps the placeholder", detail: "A decorative img (alt=\"\") paints nothing when its load fails, so the placeholder stays visible — no broken-image glyph.") {
+                AsyncImage(url: storyboardBrokenImageURL) { image in
+                    image
+                } placeholder: {
+                    Label("Unavailable", systemImage: "photo")
+                        .foregroundStyle(.secondary)
+                        .frame(width: 240, height: 150)
+                        .background(.surfaceRaised, in: .rect(cornerRadius: 12))
+                }
+            },
+            CatalogVariant("Density (scale: 2)", detail: "scale lowers to a srcset density descriptor — the platform's own pixel-density contract.") {
+                AsyncImage(url: storyboardSampleImageURL, scale: 2)
             },
         ]
     case "colorvalue":
@@ -314,38 +350,43 @@ func contentLayoutVariants(for id: String) -> [CatalogVariant]? {
         return [
             CatalogVariant(".plain", detail: "Rows flush with the content, no surrounding surface.") {
                 List {
-                    ListRow { Text("Wi-Fi").badge("On") }
-                    ListRow { Text("Bluetooth"); Spacer(); Text("Off").foregroundStyle(.secondary) }
+                    Text("Wi-Fi").badge("On")
+                    Text("Bluetooth").badge("Off")
                 }
                 .listStyle(.plain)
             },
             CatalogVariant(".inset", detail: "Plain rows with a leading and trailing inset.") {
                 List {
-                    ListRow { Text("Wi-Fi").badge("On") }
-                    ListRow { Text("Bluetooth"); Spacer(); Text("Off").foregroundStyle(.secondary) }
+                    Text("Wi-Fi").badge("On")
+                    Text("Bluetooth").badge("Off")
                 }
                 .listStyle(.inset)
             },
             CatalogVariant(".grouped", detail: "The settings-style surface behind the row group.") {
                 List {
-                    ListRow { Text("Wi-Fi").badge("On") }
-                    ListRow { Text("Updates").badge(3) }
+                    Text("Wi-Fi").badge("On")
+                    Text("Updates").badge(3)
                 }
                 .listStyle(.grouped)
             },
             CatalogVariant(".insetGrouped", detail: "The grouped surface with rounded, inset edges.") {
                 List {
-                    ListRow { Text("Wi-Fi").badge("On") }
-                    ListRow { Text("Updates").badge(3) }
+                    Text("Wi-Fi").badge("On")
+                    Text("Updates").badge(3)
                 }
                 .listStyle(.insetGrouped)
             },
             CatalogVariant(".sidebar", detail: "Tightened rows for navigation lists.") {
                 List {
-                    ListRow { Text("Inbox").badge(12) }
-                    ListRow { Text("Drafts") }
+                    Text("Inbox").badge(12)
+                    Text("Drafts")
                 }
                 .listStyle(.sidebar)
+            },
+            CatalogVariant("Data-driven rows", detail: "List(_:id:rowContent:) derives one semantic row per element, emitting role=\"list\" and role=\"listitem\".") {
+                List(["Ada", "Grace", "Katherine"], id: { name in name }) { name in
+                    Text(name)
+                }
             },
         ]
     case "section":

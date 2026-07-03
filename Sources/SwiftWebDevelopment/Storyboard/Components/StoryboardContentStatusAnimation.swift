@@ -106,29 +106,29 @@ func statusAnimationVariants(for id: String) -> [CatalogVariant]? {
         return [
             CatalogVariant("Status text", detail: "A short status string in the pill at the row's trailing edge.") {
                 List {
-                    ListRow { Text("Wi-Fi").badge("On") }
-                    ListRow { Text("VPN").badge("Connected") }
+                    Text("Wi-Fi").badge("On")
+                    Text("VPN").badge("Connected")
                 }
                 .frame(width: 180)
             },
             CatalogVariant("Counts", detail: "The Int overload renders the count, matching SwiftUI's semantics.") {
                 List {
-                    ListRow { Text("Inbox").badge(3) }
-                    ListRow { Text("Junk").badge(12) }
+                    Text("Inbox").badge(3)
+                    Text("Junk").badge(12)
                 }
                 .frame(width: 180)
             },
             CatalogVariant("Tinted", detail: ".tint(_:) colors the pill without touching the color scheme.") {
                 List {
-                    ListRow { Text("Updates").badge("Beta").tint(.danger) }
-                    ListRow { Text("Messages").badge(5).tint(.green) }
+                    Text("Updates").badge("Beta").tint(.danger)
+                    Text("Messages").badge(5).tint(.green)
                 }
                 .frame(width: 180)
             },
             CatalogVariant("Zero hides", detail: ".badge(0) renders no pill, so rows can declare badges unconditionally.") {
                 List {
-                    ListRow { Text("Inbox").badge(3) }
-                    ListRow { Text("Drafts").badge(0) }
+                    Text("Inbox").badge(3)
+                    Text("Drafts").badge(0)
                 }
                 .frame(width: 180)
             },
@@ -229,6 +229,6 @@ private func vocabularyChip(_ symbol: String, _ meaning: String) -> some HTML {
     }
     .padding(.all, 8)
     .background(.surfaceRaised)
-    .clipShape(.rect(cornerRadius: 8))
     .border(.border)
+    .clipShape(.rect(cornerRadius: 8))
 }

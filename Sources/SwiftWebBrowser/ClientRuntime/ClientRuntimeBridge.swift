@@ -1173,9 +1173,15 @@ public final class ClientRuntimeBridge<Root: HTML> {
         previousNodeMap: [HTMLNodeID: HTMLNodeID],
         mount: ClientComponentMount
     ) -> Set<HTMLNodeID> {
-        guard let localComponent = component(in: localIndex, matching: mount),
-              let mountedComponentNodeID = previousNodeMap[localComponent.nodeID]
-        else {
+        // The subtree to replace must be located on the MOUNTED side (the
+        // component's record in the previous full-page index). Looking up a
+        // fresh local node ID in the previous node map is wrong: node IDs are
+        // render-local, so after a structural change the new root's ID can be
+        // reused by an unrelated previous node, the walk then excludes the
+        // wrong subtree, and the whole previous component survives alongside
+        // its rebased copy — duplicate node and component IDs that kill every
+        // later `Dictionary(uniqueKeysWithValues:)` over the index.
+        guard let mountedComponentNodeID = component(in: mountedIndex, matching: mount)?.nodeID else {
             return Set(previousNodeMap.values)
         }
 

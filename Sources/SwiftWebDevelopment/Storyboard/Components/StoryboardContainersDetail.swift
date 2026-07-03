@@ -21,19 +21,13 @@ struct ContainersDetail: Component {
             let badgeLabel = value("badge", "label", "Ready")
             let selectedBadgeTint = state.control("badge", "tint")
             List {
-                ListRow {
-                    Text("Wi-Fi")
-                        .badge(badgeLabel)
-                        .tint(badgeTintColor(selectedBadgeTint))
-                }
-                ListRow {
-                    Text("Notifications").badge("Default")
-                }
-                ListRow {
-                    Text("Updates")
-                        .badge("Beta")
-                        .tint(.danger)
-                }
+                Text("Wi-Fi")
+                    .badge(badgeLabel)
+                    .tint(badgeTintColor(selectedBadgeTint))
+                Text("Notifications").badge("Default")
+                Text("Updates")
+                    .badge("Beta")
+                    .tint(.danger)
             }
         case "toolbar":
             // The Primary control drives the trailing primary action; the Back
@@ -52,9 +46,9 @@ struct ContainersDetail: Component {
                 }
         case "list":
             List {
-                ListRow { Text("Wi-Fi").badge("On") }
-                ListRow { Text("Bluetooth"); Spacer(); Text("Off").foregroundStyle(.secondary) }
-                ListRow { Text("Updates").badge(3) }
+                Text("Wi-Fi").badge("On")
+                Text("Bluetooth").badge("Off")
+                Text("Updates").badge(3)
             }
             .listStyle(listStyleKind(state.control("list", "style")))
         case "section":
@@ -124,8 +118,8 @@ struct ContainersDetail: Component {
             }
             .frame(width: 280, height: 160)
             .background(.surfaceRaised)
-            .clipShape(.rect(cornerRadius: 12))
             .border(.border)
+            .clipShape(.rect(cornerRadius: 12))
         } else {
             ScrollView(.vertical) {
                 LazyVStack(alignment: .leading, spacing: .small) {
@@ -138,8 +132,8 @@ struct ContainersDetail: Component {
             }
             .frame(width: 280, height: 160)
             .background(.surfaceRaised)
-            .clipShape(.rect(cornerRadius: 12))
             .border(.border)
+            .clipShape(.rect(cornerRadius: 12))
         }
     }
 
@@ -168,8 +162,8 @@ struct ContainersDetail: Component {
         }
         .frame(maxWidth: .infinity, height: height)
         .background(.surfaceRaised)
-        .clipShape(.rect(cornerRadius: 12))
         .border(.border)
+        .clipShape(.rect(cornerRadius: 12))
     }
 
     @HTMLBuilder

@@ -17,7 +17,7 @@ Client WASM loading is documented in [`docs/ClientBundleLoadingDesign.md`](../..
 | Layout primitives | Provides `GridSystem`, `Pane`, `VStack`, `HStack`, `ZStack`, `Spacer`, `ScrollView`, grids, and lazy stacks. |
 | UI controls | Provides `Button`, server action reference buttons, `SubmitButton`, `TextField`, `SecureField`, `Toggle`, and links. |
 | Text components | Provides `Text`, semantic `TextElement` switching via `as`, `Heading`, and text tones. |
-| Containers | Provides `GroupBox`, `Section`, `List`, `ListRow`, and `Toolbar`. |
+| Containers | Provides `GroupBox`, `Section`, `List` — every direct child is a row, with `List(_:rowContent:)` for data-driven rows — and `Toolbar`. |
 | Color scheme | Provides component-facing environment integration for color scheme and style system values. Host-neutral style values live in `SwiftWebUITheme`. |
 | Modifiers | Provides SwiftUI-like modifier graph wrappers for styles, attributes, frame, padding, alignment, accessibility, and events. |
 | Navigation | Provides `NavigationStack`, `NavigationLink`, `NavigationPath`, and `navigationTitle` metadata hooks. |

@@ -117,8 +117,8 @@ func catalogSnippet(for id: String, state: [String: String] = [:]) -> String {
         + "// the bar exposes .class(\"swui-toolbar\")"
     case "list":
       return "List {\n"
-        + "    ListRow { Text(\"Wi-Fi\"); Spacer(); Text(\"On\").foregroundStyle(.secondary) }\n"
-        + "    ListRow { Text(\"Bluetooth\"); Spacer(); Text(\"Off\").foregroundStyle(.secondary) }\n"
+        + "    Text(\"Wi-Fi\").badge(\"On\")\n"
+        + "    Text(\"Bluetooth\").badge(\"Off\")\n"
         + "}\n"
         + ".class(\"swui-list\")"
     default:
@@ -171,6 +171,11 @@ func catalogSnippet(for id: String, state: [String: String] = [:]) -> String {
     let name = state.control(id, "name")
     return "Image(systemName: \(q(name)))\n    .foregroundStyle(.accent)"
 
+  case "asyncimage":
+    let source = state.control(id, "source")
+    let urlLine = source == "none" ? "url: nil" : (source == "broken" ? "url: URL(string: \"/missing.png\")" : "url: photoURL")
+    return "AsyncImage(\(urlLine)) { image in\n    image.clipShape(.rect(cornerRadius: 12))\n} placeholder: {\n    Label(\"Waiting for the image\", systemImage: \"photo\")\n}"
+
   case "colorvalue":
     let name = state.control(id, "name")
     let opacity = state.controlNumber(id, "opacity")
@@ -202,9 +207,9 @@ func catalogSnippet(for id: String, state: [String: String] = [:]) -> String {
   case "list":
     let style = state.control(id, "style")
     return "List {\n"
-      + "    ListRow { Text(\"Wi-Fi\").badge(\"On\") }\n"
-      + "    ListRow { Text(\"Bluetooth\"); Spacer(); Text(\"Off\").foregroundStyle(.secondary) }\n"
-      + "    ListRow { Text(\"Updates\").badge(3) }\n}\n"
+      + "    Text(\"Wi-Fi\").badge(\"On\")\n"
+      + "    Text(\"Bluetooth\").badge(\"Off\")\n"
+      + "    Text(\"Updates\").badge(3)\n}\n"
       + ".listStyle(.\(style))"
 
   case "section":
@@ -367,9 +372,9 @@ func catalogSnippet(for id: String, state: [String: String] = [:]) -> String {
     let query = state.control(id, "query")
     let queryComment = query.isEmpty ? "" : "\n// query = \(q(query))"
     return "List {\n"
-      + "    ListRow { Text(\"Inbox\") }\n"
-      + "    ListRow { Text(\"Drafts\") }\n"
-      + "    ListRow { Text(\"Sent\") }\n"
+      + "    Text(\"Inbox\")\n"
+      + "    Text(\"Drafts\")\n"
+      + "    Text(\"Sent\")\n"
       + "}\n.searchable(text: $query, prompt: \"Search folders\")" + queryComment
 
   // MARK: Presentation

@@ -421,21 +421,21 @@ func menusNavigationVariants(for id: String) -> [CatalogVariant]? {
         return [
             CatalogVariant("Default", detail: "The field attaches above the content it searches; the prompt defaults to Search.") {
                 List {
-                    ListRow { Text("Inbox") }
-                    ListRow { Text("Archive") }
+                    Text("Inbox")
+                    Text("Archive")
                 }
                 .searchable(text: staticSearchQuery())
             },
             CatalogVariant("Custom prompt", detail: "The prompt is the placeholder and the field's accessible label.") {
                 List {
-                    ListRow { Text("Design") }
-                    ListRow { Text("Engineering") }
+                    Text("Design")
+                    Text("Engineering")
                 }
                 .searchable(text: staticSearchQuery(), prompt: "Search teams")
             },
             CatalogVariant("Bound query", detail: "The field renders the bound text; typing writes it back on every input event.") {
                 List {
-                    ListRow { Text("Inbox") }
+                    Text("Inbox")
                 }
                 .searchable(text: staticSearchQuery("inbox"), prompt: "Search folders")
             },

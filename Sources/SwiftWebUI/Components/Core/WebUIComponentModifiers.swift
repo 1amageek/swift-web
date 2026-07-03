@@ -175,12 +175,16 @@ public extension HTML {
     /// Clips this view to `shape`. The shape resolves to a `border-radius`,
     /// and `overflow: hidden` cuts descendants to that rounded box, matching
     /// SwiftUI's clipping semantics rather than only rounding the backdrop.
+    /// The stable `swui-clip` hook lets the stylesheet make direct children
+    /// inherit the radius, so an inner `.border(...)` follows the clip shape
+    /// instead of losing its corners to the clip.
     func clipShape(_ shape: Shape) -> ModifiedContent<Self, HTMLAttributeModifier> {
         modifier(HTMLAttributeModifier([
+            .class("swui-clip"),
             styleAttribute(Style {
                 .borderRadius(shape.cornerRadiusValue)
                 .overflow("hidden")
-            })
+            }),
         ]))
     }
 

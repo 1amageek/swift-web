@@ -74,7 +74,9 @@ let package = Package(
         .executable(name: "sweb", targets: ["SwiftWebCLI"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/1amageek/swift-html.git", from: "0.7.1"),
+        // TEMPORARY local override for the data:image/ URL allowance; restore
+        // the URL pin (>= 0.7.2) before tagging.
+        .package(path: "../swift-html"),
         .package(url: "https://github.com/1amageek/JavaScriptKit.git", from: "0.57.0"),
         .package(url: "https://github.com/1amageek/swift-actor-runtime.git", exact: "0.6.0"),
     ] + (swiftWebCoreOnly ? [] : [

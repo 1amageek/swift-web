@@ -1,6 +1,7 @@
 import SwiftWebUITheme
 import SwiftHTML
 
+@available(*, deprecated, message: "Every direct child of List is a row, matching SwiftUI; use List(_:rowContent:) for data-driven rows")
 public struct ListRow<Content: HTML>: WebUIAttributeComponent {
     private let attributes: [HTMLAttribute]
     private let content: Content

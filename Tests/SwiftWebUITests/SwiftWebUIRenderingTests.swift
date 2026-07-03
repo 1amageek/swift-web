@@ -42,8 +42,8 @@ struct SwiftWebUIRenderingTests {
     #expect(rendered.contains("--swui-grid-horizontal-spacing: 5px;"))
     #expect(rendered.contains("--swui-grid-vertical-spacing: 5px;"))
     #expect(rendered.contains("white-space: nowrap;"))
-    #expect(rendered.contains(".swui-list-row .swui-text"))
-    #expect(rendered.contains(".swui-list-row > .swui-text:not(:first-child)"))
+    #expect(rendered.contains(".swui-list > *"))
+    #expect(rendered.contains(".swui-list > * > .swui-text:not(:first-child)"))
     #expect(rendered.contains("class=\"swui-root\""))
     #expect(rendered.contains("data-color-scheme=\"light\""))
     #expect(rendered.contains("data-style-system=\"swift-web\""))
@@ -503,13 +503,8 @@ struct SwiftWebUIRenderingTests {
     let rendered = ScrollView(.vertical, showsIndicators: false) {
       LazyVStack(alignment: .leading) {
         Section("Inventory") {
-          List {
-            ListRow {
-              Text("First")
-            }
-            ListRow {
-              Text("Second")
-            }
+          List(["First", "Second"], id: { $0 }) { item in
+            Text(item)
           }
         }
         Divider()
@@ -956,9 +951,7 @@ struct SwiftWebUIRenderingTests {
       Toggle("Enabled", isOn: $enabled)
       Label("Favorite", systemImage: "star")
       List {
-        ListRow {
-          Text("Row")
-        }
+        Text("Row")
       }
       Form(action: "/nested") {
         TextField("Nested", text: $title)

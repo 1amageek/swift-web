@@ -980,26 +980,41 @@ package enum RootStylesheet {
           .zIndex("1")
           .background("var(--swui-background)")
       }
+      // Children of a clipped box inherit its radius, so an inner border (its
+      // own wrapper element) follows the clip shape instead of getting its
+      // square corners sheared off by `overflow: hidden`.
+      rule(cls("swui-clip").child(StyleSelector.universal)) {
+        .borderRadius("inherit")
+      }
       rule(cls("swui-list")) {
         .display("grid")
           .boxSizing("border-box")
       }
-      rule(cls("swui-list-row")) {
+      // Every direct child of a List is a row, matching SwiftUI. The selector
+      // also gives layout-transparent modifier wrappers (display: contents) a
+      // real row box when they are list children, so `Text(...).badge(...)`
+      // reads as one row.
+      rule(cls("swui-list").child(StyleSelector.universal)) {
         .display("flex")
           .alignItems("center")
           .gap(.space(.small))
           .boxSizing("border-box")
+          .minWidth("0")
       }
-      rule(cls("swui-list-row").descendant(cls("swui-text"))) {
+      rule(cls("swui-list").descendant(cls("swui-text"))) {
         .lineHeight("1.35")
       }
-      rule(cls("swui-list-row").child(cls("swui-text").pseudo(.firstChild))) {
+      // A bare text row reads as the row title.
+      rule(cls("swui-list").child(cls("swui-text"))) {
+        .fontWeight("500")
+      }
+      rule(cls("swui-list").child(StyleSelector.universal).child(cls("swui-text").pseudo(.firstChild))) {
         .fontWeight("500")
       }
       // Secondary text in a row (anything after the leading title) reads smaller.
       // Keyed to structural position rather than colour, so muting (handled by
       // `.foregroundStyle(.secondary)`) and sizing stay independent concerns.
-      rule(cls("swui-list-row").child(cls("swui-text").not(.pseudo(.firstChild)))) {
+      rule(cls("swui-list").child(StyleSelector.universal).child(cls("swui-text").not(.pseudo(.firstChild)))) {
         .fontSize("13px")
       }
       rule(cls("swui-field")) {
@@ -1184,6 +1199,23 @@ package enum RootStylesheet {
         .maxWidth("100%")
           .height("auto")
           .display("inline-block")
+      }
+      // ── AsyncImage ────────────────────────────────────────────────
+      // The image stacks above its placeholder in one grid cell: the
+      // placeholder shows until the image paints, and a failed decorative
+      // image (alt="") stays invisible, leaving the placeholder in place.
+      rule(cls("swui-async-image")) {
+        .display("grid")
+          .width("fit-content")
+      }
+      rule(cls("swui-async-image").child(StyleSelector.universal)) {
+        .gridArea("1 / 1")
+          .minWidth("0")
+      }
+      rule(cls("swui-async-image-default-placeholder")) {
+        .minWidth("80px")
+          .minHeight("80px")
+          .background("color-mix(in srgb, var(--swui-text) 10%, transparent)")
       }
       // An SVG symbol scales with the surrounding text (slightly larger, like an
       // SF Symbol) and inherits its color via fill="currentColor".
@@ -1735,13 +1767,14 @@ package enum RootStylesheet {
           .padding(.px(10), .px(20))
           .fontSize("16px")
       }
-      rule(cls("swui-list-row").pseudo(.lastChild)) {
+      rule(cls("swui-list").child(StyleSelector.universal.pseudo(.lastChild))) {
         .borderBottom("0")
       }
+      // Section headers read through type alone — size, weight, tracking, and
+      // the muted role — with no background bar behind them.
       rule(cls("swui-section-header")) {
         .margin("0")
           .padding(.px(10), .px(14), .px(6), .px(14))
-          .background("color-mix(in srgb, var(--swui-text-muted) 7%, transparent)")
           .color("var(--swui-text-muted)")
           .fontSize("11.5px")
           .fontWeight("700")

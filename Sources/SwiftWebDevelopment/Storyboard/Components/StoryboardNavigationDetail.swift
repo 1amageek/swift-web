@@ -29,9 +29,9 @@ struct NavigationDetail: Component {
             NavigationLink(linkLabel, destination: URL(string: "#overview")!)
         case "searchable":
             List {
-                ListRow { Text("Inbox") }
-                ListRow { Text("Drafts") }
-                ListRow { Text("Sent") }
+                Text("Inbox")
+                Text("Drafts")
+                Text("Sent")
             }
             .searchable(text: ui.string("searchable.query"), prompt: "Search folders")
         default:

@@ -44,13 +44,14 @@ public let catalogCategories: [CatalogCategory] = [
     CatalogCategory(id: "content", title: "Content", items: [
         CatalogItem(id: "typography", name: "Text", code: "Text(_:as:)", summary: "Displays read-only text with semantic font, weight, alignment, and foreground style."),
         CatalogItem(id: "image", name: "Image", code: "Image(systemName:)", summary: "Renders an SF Symbol name as an inline SVG glyph that inherits the text color."),
+        CatalogItem(id: "asyncimage", name: "AsyncImage", code: "AsyncImage(url:)", summary: "Displays a URL image through the natively asynchronous img element, with an optional placeholder beneath it."),
         CatalogItem(id: "colorvalue", name: "Color", code: "Color.blue.opacity(_:)", summary: "A color paints the region it is given and resolves per appearance."),
     ]),
     CatalogCategory(id: "layout", title: "Layout & organization", items: [
         CatalogItem(id: "code", name: "Code", code: "Code(language:) { code }", summary: "Code renders source as a <pre> with an optional line-number gutter and a language hint."),
         CatalogItem(id: "label", name: "Label", code: "Label(_:systemImage:)", summary: "Pairs an icon with a title."),
         CatalogItem(id: "groupbox", name: "GroupBox", code: "GroupBox { }", summary: "A titled container that groups related views on one bordered surface."),
-        CatalogItem(id: "list", name: "List", code: "List { ListRow { } }", summary: "A container of rows with styles such as plain, inset, grouped, and sidebar."),
+        CatalogItem(id: "list", name: "List", code: "List { }", summary: "A container where every direct child is a row, with styles such as plain, inset, grouped, and sidebar."),
         CatalogItem(id: "section", name: "Section", code: "Section { } header: { } footer: { }", summary: "Groups rows inside a List or Form under an optional header and footer."),
         CatalogItem(id: "disclosuregroup", name: "DisclosureGroup", code: "DisclosureGroup(isExpanded:) { } label: { }", summary: "An expandable region that composes the regular material."),
         CatalogItem(id: "grid", name: "Grid", code: "Grid { GridRow { } }", summary: "A static grid whose rows are declared with GridRow."),

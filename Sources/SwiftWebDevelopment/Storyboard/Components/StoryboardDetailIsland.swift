@@ -162,7 +162,7 @@ public struct StoryboardDetailIsland: ClientComponent, Sendable {
             FoundationsDetail(selection: selection, state: ui)
         case "typography", "colorvalue":
             FoundationsDetail(selection: selection, state: ui)
-        case "image", "label":
+        case "image", "asyncimage", "label":
             MediaDetail(selection: selection, state: ui)
         case "code":
             let language = ui.control("code", "lang")

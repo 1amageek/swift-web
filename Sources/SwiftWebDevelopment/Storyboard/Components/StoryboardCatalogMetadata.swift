@@ -226,9 +226,9 @@ private func catalogProperties(for id: String) -> [CatalogProperty] {
         ]
     case "list":
         return [
-            CatalogProperty("rows", values: "ListRow", summary: "Each row can hold leading and trailing content."),
+            CatalogProperty("rows", values: "direct children", summary: "Every direct child of the builder is one row; .badge(_:) attaches trailing content."),
+            CatalogProperty("List(_:rowContent:)", values: "Identifiable data or id:", summary: "Derives one semantic row per element, emitting role=\"list\" and role=\"listitem\"."),
             CatalogProperty("spacing", values: "StyleSystem token", summary: "Resolved by the active style system."),
-            CatalogProperty("Spacer", values: "layout child", summary: "Splits row content into leading and trailing regions."),
         ]
     case "section":
         return [
@@ -358,6 +358,13 @@ private func catalogProperties(for id: String) -> [CatalogProperty] {
             CatalogProperty("systemName", values: "SF Symbol name", summary: "Symbol identifier."),
             CatalogProperty("foregroundStyle", values: "semantic or CSS color", summary: "Icon color."),
             CatalogProperty("font", values: "style modifier", summary: "Controls symbol size through text sizing."),
+        ]
+    case "asyncimage":
+        return [
+            CatalogProperty("url", values: "URL?", summary: "The image source; nil renders only the placeholder."),
+            CatalogProperty("scale", values: "1, 2, 3", summary: "Lowers to a srcset density descriptor (url 2x)."),
+            CatalogProperty("content", values: "(Image) -> some HTML", summary: "Styles the underlying image element."),
+            CatalogProperty("placeholder", values: "@HTMLBuilder", summary: "Sits beneath the image and shows until it paints — and if it never does."),
         ]
     case "label":
         return [

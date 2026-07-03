@@ -248,14 +248,8 @@ func foundationsVariants(for id: String) -> [CatalogVariant]? {
             },
             CatalogVariant("List row", detail: ".swui-list .swui-text — the row context restyles the same declaration.") {
                 List {
-                    ListRow {
-                        Text("Wi-Fi").frame(width: 110, alignment: .leading)
-                        Text("On").foregroundStyle(.secondary)
-                    }
-                    ListRow {
-                        Text("Bluetooth").frame(width: 110, alignment: .leading)
-                        Text("Off").foregroundStyle(.secondary)
-                    }
+                    Text("Wi-Fi").badge("On")
+                    Text("Bluetooth").badge("Off")
                 }
             },
             CatalogVariant("Toolbar", detail: ".swui-toolbar .swui-text picks up bar typography without the call site changing.") {
