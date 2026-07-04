@@ -19,16 +19,4 @@ distributed actor CounterService: CounterServiceProtocol {
         value -= 1
         return value
     }
-
-    @ServerAction
-    func increment(_ input: NoActionInput, context: ActionInvocationContext) async throws -> ActionResult {
-        _ = try await increment()
-        return .invalidate(.page)
-    }
-
-    @ServerAction
-    func decrement(_ input: NoActionInput, context: ActionInvocationContext) async throws -> ActionResult {
-        _ = try await decrement()
-        return .invalidate(.page)
-    }
 }

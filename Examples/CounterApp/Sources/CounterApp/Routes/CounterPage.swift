@@ -7,9 +7,11 @@ import SwiftWebUI
 @Page("/counter")
 struct CounterPage {
     private let counterService: CounterService
+    private let counterActions: CounterActions
 
     init(counterService: CounterService = CounterService(actorSystem: .shared)) {
         self.counterService = counterService
+        self.counterActions = CounterActions(counterService: counterService)
     }
 
     var title: String {
@@ -52,9 +54,9 @@ struct CounterPage {
                                             .accessibilityValue(String(serverValue))
                                     }
                                     LazyHStack(spacing: .small) {
-                                        Button("Decrement", action: counterService.decrementAction)
+                                        Button("Decrement", action: counterActions.decrementAction)
                                         Spacer()
-                                        Button("Increment", action: counterService.incrementAction)
+                                        Button("Increment", action: counterActions.incrementAction)
                                     }
                                 }
                             }

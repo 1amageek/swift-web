@@ -449,6 +449,11 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         "SampleAppWasmRuntime/SampleAppWasmRuntime.swift"),
       encoding: .utf8
     )
+    let wasmActorResolvers = try String(
+      contentsOf: wasmSources.appendingPathComponent(
+        "SampleApp/SwiftWebGeneratedActorResolvers.swift"),
+      encoding: .utf8
+    )
     let serverLauncher = try String(
       contentsOf: serverSources.appendingPathComponent("AppServerLauncher/ServerLauncher.swift"),
       encoding: .utf8
@@ -474,10 +479,16 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     #expect(!developmentLauncher.contains("\"app-server-dev\""))
     #expect(!developmentLauncher.contains("app-server-dev-dev"))
     #expect(wasmEntrypoint.contains("import SwiftWebActors"))
-    #expect(wasmEntrypoint.contains("SwiftWebActorResolverRegistry(["))
-    #expect(wasmEntrypoint.contains("SwiftWebActorResolver("))
-    #expect(wasmEntrypoint.contains("SwiftWebActorContractKey(String(reflecting: (any SampleServiceProtocol).self))"))
-    #expect(wasmEntrypoint.contains("actorContract: $SampleServiceProtocol.self"))
+    #expect(
+      wasmEntrypoint.contains("SwiftWebGeneratedActorResolvers.sampleAppWasmRuntime()")
+    )
+    #expect(wasmActorResolvers.contains("SwiftWebActorResolverRegistry(["))
+    #expect(wasmActorResolvers.contains("SwiftWebActorResolver("))
+    #expect(
+      wasmActorResolvers.contains(
+        "SwiftWebActorContractKey(String(reflecting: (any SampleServiceProtocol).self))"
+      ))
+    #expect(wasmActorResolvers.contains("actorContract: $SampleServiceProtocol.self"))
     #expect(wasmEntrypoint.contains("actorResolverRegistry: sampleAppWasmRuntimeActorResolvers"))
     #expect(wasmEntrypoint.contains("import SwiftWebUI"))
     #expect(wasmEntrypoint.contains("import SwiftWebUIRuntime"))

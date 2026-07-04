@@ -111,7 +111,7 @@ async function prepareAppCopy(root) {
   const packageFile = path.join(appRoot, "Package.swift");
   let manifest = await readFile(packageFile, "utf8");
   manifest = manifest.replace(
-    /\.package\(path:\s*"[^"]*"\),\s*\n\s*\.package\((?:path|url):\s*"[^"]+"(?:,[^\n]*)?\),/,
+    /\.package\((?:path|url):\s*"[^"]+"(?:,[^\n]*)?\),\s*\n\s*\.package\((?:path|url):\s*"[^"]+"(?:,[^\n]*)?\),/,
     `.package(path: "${swiftStringLiteral(swiftWebRoot)}"),\n        .package(path: "${swiftStringLiteral(swiftHTMLRoot)}"),`
   );
   if (!manifest.includes(swiftStringLiteral(swiftWebRoot)) || !manifest.includes(swiftStringLiteral(swiftHTMLRoot))) {
@@ -332,8 +332,8 @@ public struct ClientNamedToolB: ClientComponent, Sendable {
   const counterPageFile = path.join(appRoot, "Sources", "CounterApp", "Routes", "CounterPage.swift");
   const counterPage = await readFile(counterPageFile, "utf8");
   let updatedCounterPage = counterPage.replace(
-    "ClientCounter()\n\n                GroupBox {",
-    "ClientCounter()\n                ClientDeferredCounter()\n\n                GroupBox {"
+    /ClientCounter\(\)\n\n(\s*)GroupBox \{/,
+    "ClientCounter()\n$1ClientDeferredCounter()\n\n$1GroupBox {"
   );
   const insertedDeferredCounter = updatedCounterPage !== counterPage;
   updatedCounterPage = updatedCounterPage.replace(
@@ -1105,7 +1105,10 @@ async function runBrowserAssertions(baseURL, appRoot) {
     recordPhase("client.hmr.source-change");
     const clientCounterFile = path.join(appRoot, "Sources", "CounterApp", "ClientCounter.swift");
     const originalSource = await readFile(clientCounterFile, "utf8");
-    const updatedSource = originalSource.replace("Heading(\"Client Counter\")", "Heading(\"Client Counter HMR\")");
+    let updatedSource = originalSource.replace("Text(\"Client Counter\", as: .h2)", "Text(\"Client Counter HMR\", as: .h2)");
+    if (updatedSource === originalSource) {
+      updatedSource = originalSource.replace("Heading(\"Client Counter\")", "Heading(\"Client Counter HMR\")");
+    }
     if (updatedSource === originalSource) {
       throw new Error("HMR source marker was not found in ClientCounter.swift.");
     }

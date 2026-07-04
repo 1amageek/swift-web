@@ -9,7 +9,8 @@ public struct CounterApp: SwiftWeb.App {
 
     public var body: some Scene {
         Redirect("/", to: "/counter")
-        CounterPage(counterService: counterService)
-            .actor(counterService)
+        ActorScene(counterService) {
+            CounterPage(counterService: counterService)
+        }
     }
 }
