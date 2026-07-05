@@ -83,7 +83,7 @@ actor model.
 | Swift tools version | `6.3` |
 | Browser WASM toolchain | Swift `6.3.1` release toolchain |
 | Browser WASM SDK | `swift-6.3.1-RELEASE_wasm` |
-| Host toolchain (resolve + build) | **Swift 6.4** toolchain (e.g. Xcode-beta). The host HTTP stack uses `swift-tools-version: 6.4.0`, so resolving with the 6.3.1 toolchain fails |
+| Host toolchain (resolve + build) | **Swift 6.4** toolchain, e.g. Xcode-beta (see "Why Swift 6.4" below) |
 | Platforms | macOS package development; browser runtime via WASM |
 
 SwiftWeb keeps the host toolchain and browser WASM toolchain separate:
@@ -102,6 +102,24 @@ Use the real Swift 6.3.1 toolchain executable for WASM builds, not a `swiftly` s
 export SWIFT_WEB_WASM_SWIFT="$(swiftly run +6.3.1 which swift)"
 export SWIFT_WEB_WASM_TOOLCHAIN_BIN="$(dirname "$SWIFT_WEB_WASM_SWIFT")"
 ```
+
+### Why Swift 6.4
+
+SwiftWeb's host HTTP stack builds on the next-generation server packages
+[`swift-http-server`](https://github.com/swift-server/swift-http-server)
+(`NIOHTTPServer`) and
+[`swift-http-api-proposal`](https://github.com/apple/swift-http-api-proposal)
+(`HTTPAPIs`). Both declare `// swift-tools-version:6.4` and enable the
+`LifetimeDependence` upcoming feature (the `Span` / lifetime-dependency model
+used for zero-copy HTTP I/O), so they can only be resolved and built with a
+Swift 6.4 toolchain. SwiftPM refuses to even resolve a graph whose dependency
+manifest declares a newer tools version than the installed toolchain, which is
+why the 6.3.1 toolchain fails at `swift package resolve`.
+
+This is also why SwiftWeb ships as a developer preview: the host stack rides
+Apple's still-evolving 6.4-era server APIs (pinned to specific revisions). Once
+Swift 6.4 reaches general availability, the release Xcode toolchain satisfies
+this on its own and the `DEVELOPER_DIR` override below is no longer needed.
 
 ## Installation
 
@@ -143,10 +161,8 @@ let package = Package(
 ```
 
 > **Toolchain:** resolving and building SwiftWeb requires a **Swift 6.4**
-> toolchain, because the host HTTP stack (`swift-http-server` and
-> `swift-http-api-proposal`) uses `swift-tools-version: 6.4.0`. The default
-> 6.3.1 toolchain fails at `swift package resolve`. Point SwiftPM at a 6.4
-> toolchain — e.g. Xcode-beta:
+> toolchain (see [Why Swift 6.4](#why-swift-64)); the default 6.3.1 fails at
+> `swift package resolve`. Point SwiftPM at 6.4 — e.g. Xcode-beta:
 >
 > ```bash
 > export DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer
