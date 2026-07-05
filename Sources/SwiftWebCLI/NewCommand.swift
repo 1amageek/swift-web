@@ -54,11 +54,14 @@ struct NewCommand {
             platform: platform
         )
 
+        progress("Scaffolding \(appName) at \(projectDirectory.path)")
         try createDirectory(projectDirectory)
         for file in project.files {
             try write(file, to: projectDirectory)
         }
         try PlatformAdapterTemplateMaterializer().materialize(project: project)
+
+        progress("Resolving dependencies and generating packages (first run downloads dependencies, this can take a minute)")
         try PrepareCommand(
             packageDirectory: projectDirectory,
             product: "app-server",
@@ -67,6 +70,12 @@ struct NewCommand {
         .run()
 
         print("Created \(project.directoryName) at \(projectDirectory.path)")
+    }
+
+    /// Emit a step notice to stderr, flushed immediately so a long-running step
+    /// (dependency resolution) never leaves the CLI looking frozen.
+    private func progress(_ message: String) {
+        FileHandle.standardError.write(Data("→ \(message)\n".utf8))
     }
 
     private func createDirectory(_ url: URL) throws {
