@@ -334,7 +334,7 @@ struct TemplateProject {
             ],
             dependencies: [
                 \(SwiftWebPackageReference.packageDependencyDeclaration),
-                .package(url: "https://github.com/1amageek/swift-html.git", from: "0.7.1"),
+                .package(url: "https://github.com/1amageek/swift-html.git", from: "0.9.0"),
             ],
             targets: [
                 .target(
@@ -527,6 +527,10 @@ struct TemplateProject {
                 }
             }
         }
+
+        #Preview {
+            HomePage().body()
+        }
         """
     }
 
@@ -564,6 +568,10 @@ struct TemplateProject {
                 }
                 .preferredColorScheme(.dark)
             }
+        }
+
+        #Preview {
+            ChatPage().body()
         }
         """
     }

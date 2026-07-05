@@ -92,14 +92,17 @@ struct WasmRuntimeSourceMirror: Sendable {
     else {
       return data
     }
-    let expanded = try SwiftWebClientActorPropertyExpander.expandActorProperties(
+    let actorExpanded = try SwiftWebClientActorPropertyExpander.expandActorProperties(
       inSource: source,
       filePath: relativePath
     )
-    guard expanded != source else {
+    // `#HTMLPreview` is a host-only Xcode preview; the vendored WASM copy of
+    // SwiftHTML omits its macro declaration, so strip any usage here.
+    let transformed = SwiftWebClientPreviewStripper.stripHTMLPreview(inSource: actorExpanded)
+    guard transformed != source else {
       return data
     }
-    return Data(expanded.utf8)
+    return Data(transformed.utf8)
   }
 
   private func copySwiftHTMLRuntimeSources(
