@@ -663,7 +663,7 @@ public struct ClientChart: ClientComponent, Sendable {
 
     public var body: some HTML {
         GroupBox {
-            Text("Chart", as: .h2)
+            Text("Chart").as(.h2)
             Text("Loaded when the chart approaches the viewport.").foregroundStyle(.secondary)
         }
     }

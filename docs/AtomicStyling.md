@@ -102,7 +102,7 @@ declaration, registers the rule, and returns the class:
 |---|---|---|
 | `.frame(width: 237)` | `swui-w-237px-x<hash>` | `width: 237px` |
 | `.opacity(0.6)` | `swui-o-0_6-x<hash>` | `opacity: 0.6` |
-| `.cornerRadius(.px(13))` | `swui-r-13px-x<hash>` | `border-radius: 13px` |
+| `.clipShape(.rect(cornerRadius: .px(13)))` | `swui-r-13px-x<hash>` | `border-radius: 13px` |
 | `.background(Color(hex: 0x22a06b))` | `swui-bg-x<hash>` | `background: #22a06b` |
 | `.shadow(radius: 8, y: 10)` | `swui-shadow-x<hash>` | `box-shadow: 0 10px 8px …` |
 

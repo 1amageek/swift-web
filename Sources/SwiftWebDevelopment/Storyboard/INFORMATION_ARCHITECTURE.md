@@ -10,34 +10,42 @@ Every component page has the identical structure. Only the *data* differs.
 
 ```
 ┌───────────────────────────────────────────────────────────────────┐
-│ TopBar   brand · search · Docs · GitHub · [Light|Dark]             │
+│ TopBar   brand · search · Docs · GitHub · [Light|Dark]  (no fill)  │
 ├──────────┬─────────────────────────────────────────┬──────────────┤
-│ Sidebar  │ Detail (max-width 760, left-aligned)     │ Inspector    │
+│ Sidebar  │ Detail (max-width 860, left-aligned)     │ Inspector    │
 │ (nav,    │                                          │ "On this     │
 │  scroll) │  ① Header                                │  page"       │
-│          │     breadcrumb · Title · summary         │  · Preview   │
-│          │  ──────────────────────────────────────  │  · Usage     │
-│          │  ② Preview                               │  · Properties│
-│          │     ┌────────────────────────────────┐   │  · Rendered  │
-│          │     │ dot-grid canvas (live demo)     │   │  · Related   │
-│          │     ├────────────────────────────────┤   │              │
-│          │     │ Control panel (per-component)   │   │ (anchors to  │
-│          │     └────────────────────────────────┘   │  each ②–⑥)  │
-│          │  ③ Usage      — code snippet             │              │
-│          │  ④ DOM Contract — stable class hooks      │              │
-│          │  ⑤ Properties — param/modifier table      │              │
-│          │  ⑥ Related    — sibling component links   │              │
+│          │     breadcrumb · Title · summary         │  · Variants  │
+│          │  ──────────────────────────────────────  │  · Playground│
+│          │  ② Variants — static gallery of the      │  · Usage     │
+│          │     whole range, no knobs                │  · Properties│
+│          │  ③ Playground                            │  · Related   │
+│          │     ┌────────────────────────────────┐   │              │
+│          │     │ dot-grid canvas (live demo)     │   │ (anchors to  │
+│          │     ├────────────────────────────────┤   │  each ②–⑦)  │
+│          │     │ Control panel (per-component)   │   │              │
+│          │     └────────────────────────────────┘   │              │
+│          │  ④ Usage      — code snippet (per knob)   │              │
+│          │  ⑤ DOM Contract — stable class hooks      │              │
+│          │  ⑥ Properties — param/modifier table      │              │
+│          │  ⑦ Related    — sibling component links   │              │
 └──────────┴─────────────────────────────────────────┴──────────────┘
 ```
 
 | # | Section | Content | Source of truth |
 |---|---|---|---|
 | ① | Header | breadcrumb (Category / Name), H1, one-line summary | static data |
-| ② | Preview | dot-grid canvas with the **live, centered demo** + the **control panel** | `demo(state)` + `controls` |
-| ③ | Usage | a **canonical usage example** for the component (stable documentation) | static data |
-| ④ | DOM Contract | stable semantic and utility classes emitted by the demo; internal atom classes/runtime attributes omitted | `contract(render(demo(state)))` |
-| ⑤ | Properties | table: name · type · description | static data |
-| ⑥ | Related | up to 3 sibling components in the same category | static data |
+| ② | Variants | a **static gallery** showing the component's whole range at a glance; no knobs — read it, then drive one config live in the Playground | `variants` (authored markup) |
+| ③ | Playground | dot-grid canvas with the **live, centered demo** + the **control panel** whose knobs reproduce every Variant | `demo(state)` + `controls` |
+| ④ | Usage | a usage example **generated from the live control state**, so changing a knob updates the code | `snippet(state)` |
+| ⑤ | DOM Contract | stable semantic and utility classes emitted by the demo; internal atom classes/runtime attributes omitted | `contract(render(demo(state)))` |
+| ⑥ | Properties | table: name · type · description | static data |
+| ⑦ | Related | up to 3 sibling components in the same category | static data |
+
+Variants and the Playground are the two halves of one idea: the gallery lets a
+reader see the whole range at a glance, and the Playground lets them drive any
+one configuration live. Every axis a Variant demonstrates is exposed as a
+Playground knob, so the reader can reproduce and tweak what they saw.
 
 ## 2. Unified component model
 
@@ -45,24 +53,27 @@ Each component is **one declarative record** — no per-component layout code.
 
 ```
 StoryboardComponent {
-    id:         String                 // route slug
-    category:   String                 // for breadcrumb + Related
-    name:       String                 // H1
-    summary:    String                 // one line under the title
-    controls:   [Control]              // ② control panel knobs
-    properties: [Property]             // ④ name, type, description
-    related:    [String]               // ⑥ sibling ids
-    demo:       (State) -> some HTML    // ② live preview, reads State
-    snippet:    String                  // ③ canonical usage example (documentation)
+    id:         String                    // route slug
+    category:   String                    // for breadcrumb + Related
+    name:       String                    // H1
+    summary:    String                    // one line under the title
+    variants:   [Variant]                 // ② static gallery cards
+    controls:   [Control]                 // ③ control panel knobs
+    properties: [Property]                // ⑥ name, type, description
+    related:    [String]                  // ⑦ sibling ids
+    demo:       (State) -> some HTML       // ③ live preview, reads State
+    snippet:    (State) -> String         // ④ usage example, reads State
 }
 ```
 
 `State` is the component's own values (the things its controls mutate). The
-**demo is the single source of truth**: the DOM Contract (④) is *generated from
-the demo*, then normalized to public class hooks so it can never drift while
-avoiding internal atom/hash noise. The snippet (③) is stable documentation, not a
-regenerated mirror of the demo — that keeps it from becoming a second thing to
-sync. The shared template renders ①–⑥ identically for all.
+**demo is the single source of truth for behaviour**: the DOM Contract (⑤) is
+*generated from the demo*, then normalized to public class hooks so it can never
+drift while avoiding internal atom/hash noise. The Usage snippet (④) is likewise
+generated from the live control state, so it stays in lock-step with the preview
+— changing a knob updates the code. The Variants (②) are the one authored,
+static part: hand-written cards that show the whole range at a glance. The shared
+template renders ①–⑦ identically for all.
 
 ## 3. Control vocabulary
 
@@ -79,105 +90,50 @@ rule. This fixed set is what makes every panel look and behave the same.
 | `swatch(label, palette)` | semantic color | color dots | foregroundStyle, tint |
 | `color(label)` | hex string | color well | .css(_:), selection |
 
-## 4. Per-component control map
+## 4. Per-component controls
 
-The control panel content is chosen per component to expose its meaningful
-knobs. (Derived from the design.) `seg` = segmented, `txt` = text,
-`tgl` = toggle, `rng` = range, `sw` = swatch, `col` = color.
+Each component exposes the knobs that make its meaningful axes drivable, so the
+Playground can **reproduce every Variant** in its gallery. The full, current map
+is code, not prose — `storyboardControls(for:)` (with initial values in
+`storyboardControlDefaults`) is the single source of truth. It is deliberately
+not duplicated here, where it would drift (see "Generate, don't duplicate").
 
-### Foundations
+Authoring rule for a component's controls:
+
+- **Cover the Variant axes.** For every dimension a Variant demonstrates — a
+  style, a size, a tint, a boolean like `disabled`, a count, an element — add
+  the matching knob so the reader can dial to that configuration. A Variant that
+  is a bespoke composition (not reducible to knobs) stays gallery-only.
+- **Use the canonical name.** A knob's label is the real API spelling
+  (`controlSize`, `displayedComponents`, `textFieldStyle`, `as`) and its options
+  are the real cases, so the generated snippet echoes them verbatim.
+- **Stay within the six widgets.** Everything a component needs is expressible as
+  segmented / text / toggle / range / swatch / color; no component invents a
+  widget.
+
+Representative shapes (see the code for the complete, authoritative list):
+
 | id | controls |
 |---|---|
-| gridsystem | seg columns [12/8/4] · seg gutter [.small/.medium/.large] · seg arrangement [Sidebar/Halves/Thirds/Full] |
-| spacing | seg spacing [.small/.medium/.large] |
-| alignment | seg alignment [Leading/Center/Trailing] |
-| hug-fill | seg fill alignment [Leading/Center/Trailing] |
-| style | seg context [Standalone/In List/In a toolbar] |
-| responsive | seg size class [Compact/Regular/Large] |
-| safearea | seg context [Notch/Browser/Desktop] |
-
-### Content
-| id | controls |
-|---|---|
-| typography | txt Text · seg font [Large Title…Caption] · seg fontWeight [Regular…Bold] · seg alignment · sw foregroundStyle [.primary/.secondary/.accent/.danger] |
-| image | seg systemName [star/bell/gear] |
-| colorvalue | sw Color (palette) · rng opacity [0…1] |
-| code | seg language [Swift/JSON/Bash] · tgl showsLineNumbers |
-
-### Layout & organization
-| id | controls |
-|---|---|
-| label | txt Title · seg systemImage [seal/heart/pin] |
-| groupbox | txt Label · seg Padding [Compact/Regular/Roomy] |
-| list | seg listStyle [Plain/Inset/Grouped/Inset Grouped/Sidebar] |
-| section | txt Header · txt Footer |
-| disclosuregroup | tgl isExpanded |
-| grid | — |
-| lazy | seg Axis [LazyVStack/LazyHStack] |
-| tabview | seg selection [Summary/Settings] |
-| stacks | seg Axis [VStack/HStack] |
-| spacer | seg Spacer [Leading/Between/Trailing] |
-| divider | seg orientation [Horizontal/Vertical] |
-| scrollview | seg axes [Vertical/Horizontal] · rng height [100…220 px] |
-| toolbar | txt Primary |
-
-### Menus & actions
-| id | controls |
-|---|---|
-| button | txt Content · seg Prominence [Primary/Secondary] |
-| button-styles | txt Content · seg Style [Glass/Prominent/Plain] |
-| control-sizes | txt Content · seg Size [Mini/Small/Regular/Large] |
-| button-states | txt Content · sw Tint · tgl disabled |
-| links | txt Label · seg Style [Plain/Glass/Prominent] · sw Tint |
-| menu | txt Label · tgl disabled |
-
-### Navigation & search
-| id | controls |
-|---|---|
-| navigationstack | txt navigationTitle |
-| navigationlink | txt Label |
-| searchable | txt Query |
-| tabview | (see Layout) |
-
-### Presentation
-| id | controls |
-|---|---|
-| alert | tgl isPresented · txt message |
-| sheet | tgl isPresented |
-| scrollview | (see Layout) |
-
-### Selection & input
-| id | controls |
-|---|---|
-| textfield | txt Placeholder · seg .type [text/email/url] · seg textFieldStyle [Automatic/Plain/Rounded] |
-| securefield | txt Value · seg textFieldStyle [Automatic/Plain/Rounded] |
-| texteditor | txt Text |
-| form | seg method [GET/POST] · txt action |
-| toggle | txt Label · tgl isOn |
-| slider | rng value [0…1] |
-| stepper | rng value [0…8] |
-| picker | seg Selection [List/Grid/Columns] · seg pickerStyle [Segmented/Menu] |
-| datepicker | seg datePickerStyle [Compact/Graphical] · tgl .hourAndMinute |
-| colorpicker | col selection |
-| color | col .css(_:) |
-
-### Status
-| id | controls |
-|---|---|
-| progressview | rng value [0…1] · tgl indeterminate |
-| gauge | rng value [0…1] |
-| badge | txt Label · sw Tint |
+| typography | txt Text · seg font · seg fontWeight · seg alignment · sw foregroundStyle · seg as [p/span/h3/code] |
+| materials | seg material · seg glass [.regular/.clear] · seg tint · seg shape [Capsule/Rect] · tgl interactive |
+| button-styles | txt Content · seg Style [Glass/Prominent/Bordered/Bordered+/Plain] · seg controlSize · sw Tint · tgl disabled |
+| datepicker | seg displayedComponents [.date/.hourAndMinute/Both] · tgl disabled |
+| slider | rng value · tgl stepped · sw tint · tgl disabled |
 
 ## 5. Consistency principles
 
-- **One template, many records.** Sections ①–⑥ are rendered once by a shared
-  template; a component contributes only data + the `demo`/`snippet` closures.
+- **One template, many records.** Sections ①–⑦ are rendered once by a shared
+  template; a component contributes only data + its `demo`/`snippet` closures.
   No component writes its own page layout.
 - **Generate, don't duplicate.** Anything that mirrors derived output is stale by
-  construction. The DOM Contract is **generated from the demo** and then filtered
-  down to stable public class hooks; the snippet is **documentation** — not a
-  generator that re-mirrors the demo. Nothing derived has to be kept in sync by hand.
+  construction. Both the DOM Contract and the Usage snippet are **generated from
+  the live control state**, then the DOM Contract is filtered to stable public
+  class hooks — so neither has to be synced by hand. The Variants gallery is the
+  one authored, static artifact; everything else follows the demo. This principle
+  is why the per-component control list lives in `storyboardControls(for:)`, not
+  in this document.
 - **Fixed widget set.** Every control is one of the six widgets, so all panels
   look and behave the same regardless of component.
-- **The panel is always present** when a component declares controls — which,
-  per the map above, is essentially every component.
+- **The panel is always present** when a component declares controls — which is
+  essentially every component, since each exposes its Variant axes as knobs.

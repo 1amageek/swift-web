@@ -155,7 +155,7 @@ convenience.
 | Layout | `GridSystem`, `Pane`, `VStack`, `HStack`, `ZStack`, `Grid`, lazy stacks, `ScrollView`, `Spacer`, `Divider` | Stable layout classes and spacing variables. |
 | Text | `Text`, semantic `Text.as`, `Label`, code-oriented text | Stable text classes; contextual typography comes from CSS. |
 | Controls | `Button`, `TextField`, `SecureField`, `TextEditor`, `Toggle`, `Slider`, `Stepper`, `Picker`, date/color pickers | Native attributes, state classes, and CSS variables for per-instance values. |
-| Containers | `GroupBox`, `Section`, `List`, `DisclosureGroup`, `Toolbar`, `Badge` | Parent context classes and surface/material classes. |
+| Containers | `GroupBox`, `Section`, `List`, `DisclosureGroup`, plus the `.toolbar { }` and `.badge(_:)` modifiers | Parent context classes and surface/material classes. |
 | Navigation | `NavigationStack`, `NavigationLink`, `TabView`, future split navigation | Route semantics, selected state, transition hooks, and context classes. |
 | Presentation | Dialog, sheet, popover, alert, toast | Overlay semantics, focus hooks, dismissal state, and layering classes. |
 | Status | `ProgressView`, `Gauge`, future skeleton/empty/error views | Progress semantics, state classes, and CSS variables. |

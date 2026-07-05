@@ -16,8 +16,8 @@ Client WASM loading is documented in [`docs/ClientBundleLoadingDesign.md`](../..
 |---|---|
 | Layout primitives | Provides `GridSystem`, `Pane`, `VStack`, `HStack`, `ZStack`, `Spacer`, `ScrollView`, grids, and lazy stacks. |
 | UI controls | Provides `Button`, server action reference buttons, `SubmitButton`, `TextField`, `SecureField`, `Toggle`, and links. |
-| Text components | Provides `Text`, semantic `TextElement` switching via `as`, `Heading`, and text tones. |
-| Containers | Provides `GroupBox`, `Section`, `List` — every direct child is a row, with `List(_:rowContent:)` for data-driven rows — and `Toolbar`. |
+| Text components | Provides `Text`, the `as(_:)` modifier for semantic `TextElement` (tag) selection, and text tones. |
+| Containers | Provides `GroupBox`, `Section`, and `List` — every direct child is a row, with `List(_:rowContent:)` for data-driven rows. The toolbar is the `.toolbar { ToolbarItem(placement:) }` modifier. |
 | Color scheme | Provides component-facing environment integration for color scheme and style system values. Host-neutral style values live in `SwiftWebUITheme`. |
 | Modifiers | Provides SwiftUI-like modifier graph wrappers for styles, attributes, frame, padding, alignment, accessibility, and events. |
 | Navigation | Provides `NavigationStack`, `NavigationLink`, `NavigationPath`, and `navigationTitle` metadata hooks. |
@@ -72,7 +72,7 @@ flowchart LR
 - `Space` is the component spacing scale. Page margins and responsive grid insets belong to `GridSystem` and the `StyleSystem` `.root { .pageInlinePadding(...) }` token; outer width constraints belong to `.frame(maxWidth:)`.
 - Modifiers should be ordered wrapper values that work on any `HTML`, not only components that store attributes directly.
 - Control state should flow through environment values such as `isEnabled`, `controlSize`, `tint`, and `buttonStyle`.
-- Semantic HTML should be explicit. `Text("Title", as: .h1)` changes the tag without requiring a separate component.
+- Semantic HTML should be explicit. `Text("Title").as(.h1)` changes only the tag (no separate component); appearance comes from modifiers like `.font(_:)`, never from the tag.
 - `Button` supports client closures for Client WASM work and `ActionRepresentable` values for route or server-side actions.
 - Action buttons consume SwiftHTML action contracts. They should not capture server closures or own distributed actor resolution.
 - Action buttons are user intents. They may render form-compatible transport markup for progressive enhancement, but the public concept is still `ActionRepresentable`, not a separate `ServerButton`.
