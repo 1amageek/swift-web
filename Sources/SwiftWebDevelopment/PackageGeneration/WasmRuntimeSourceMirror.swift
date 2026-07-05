@@ -96,8 +96,8 @@ struct WasmRuntimeSourceMirror: Sendable {
       inSource: source,
       filePath: relativePath
     )
-    // `#HTMLPreview` is a host-only Xcode preview; the vendored WASM copy of
-    // SwiftHTML omits its macro declaration, so strip any usage here.
+    // SwiftHTML's `#Preview` is a host-only Xcode preview; the vendored WASM copy
+    // of SwiftHTML omits its macro declaration, so strip any usage here.
     let transformed = SwiftWebClientPreviewStripper.stripHTMLPreview(inSource: actorExpanded)
     guard transformed != source else {
       return data
