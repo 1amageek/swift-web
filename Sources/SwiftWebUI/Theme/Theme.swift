@@ -1,5 +1,11 @@
 import SwiftHTML
 
+/// A named bundle of design decisions — tokens plus per-component recipes for
+/// surface, control, button, field, badge, navigation, toggle, motion, and
+/// material — that SwiftWebUI lowers into one static stylesheet. Built-in themes
+/// are `.swiftWeb` (`.default`), `.material`, and `.liquidGlass`; apply one with
+/// `.environment(\.theme, ...)`. Start a custom theme from a built-in and
+/// override only what differs, so every component always resolves a fallback.
 public struct Theme: Codable, Sendable, Equatable, Identifiable {
     public var id: String
     var root: Root
@@ -46,47 +52,47 @@ public struct Theme: Codable, Sendable, Equatable, Identifiable {
     }
 
     func overriding(_ override: Override) -> Theme {
-        var style = self
+        var theme = self
         if let id = override.id {
-            style.id = id
+            theme.id = id
         }
         if let root = override.root {
-            style.root = style.root.overriding(root)
+            theme.root = theme.root.overriding(root)
         }
         if let layout = override.layout {
-            style.layout = style.layout.overriding(layout)
+            theme.layout = theme.layout.overriding(layout)
         }
         if let surface = override.surface {
-            style.surface = style.surface.overriding(surface)
+            theme.surface = theme.surface.overriding(surface)
         }
         if let typography = override.typography {
-            style.typography = style.typography.overriding(typography)
+            theme.typography = theme.typography.overriding(typography)
         }
         if let control = override.control {
-            style.control = style.control.overriding(control)
+            theme.control = theme.control.overriding(control)
         }
         if let button = override.button {
-            style.button = style.button.overriding(button)
+            theme.button = theme.button.overriding(button)
         }
         if let field = override.field {
-            style.field = style.field.overriding(field)
+            theme.field = theme.field.overriding(field)
         }
         if let badge = override.badge {
-            style.badge = style.badge.overriding(badge)
+            theme.badge = theme.badge.overriding(badge)
         }
         if let navigation = override.navigation {
-            style.navigation = style.navigation.overriding(navigation)
+            theme.navigation = theme.navigation.overriding(navigation)
         }
         if let toggle = override.toggle {
-            style.toggle = style.toggle.overriding(toggle)
+            theme.toggle = theme.toggle.overriding(toggle)
         }
         if let motion = override.motion {
-            style.motion = style.motion.overriding(motion)
+            theme.motion = theme.motion.overriding(motion)
         }
         if let material = override.material {
-            style.material = style.material.overriding(material)
+            theme.material = theme.material.overriding(material)
         }
-        return style
+        return theme
     }
 }
 

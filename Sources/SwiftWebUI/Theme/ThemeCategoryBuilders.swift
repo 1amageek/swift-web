@@ -181,13 +181,13 @@ public enum ThemeButtonBuilder {
 
 public extension ThemeButtonOverrideStep {
     static func radius(_ value: Length) -> Self { Self { $0.radius = value.cssValue } }
-    static func primaryBackground<S: ShapeStyle>(_ value: S) -> Self { Self { $0.primaryBackground = themeCSSValue(value) } }
-    static func primaryForeground<S: ShapeStyle>(_ value: S) -> Self { Self { $0.primaryForeground = themeCSSValue(value) } }
-    static func secondaryBackground<S: ShapeStyle>(_ value: S) -> Self { Self { $0.secondaryBackground = themeCSSValue(value) } }
-    static func secondaryForeground<S: ShapeStyle>(_ value: S) -> Self { Self { $0.secondaryForeground = themeCSSValue(value) } }
-    static func secondaryBorder<S: ShapeStyle>(_ value: S) -> Self { Self { $0.secondaryBorder = themeCSSValue(value) } }
-    static func secondaryHoverBackground<S: ShapeStyle>(_ value: S) -> Self { Self { $0.secondaryHoverBackground = themeCSSValue(value) } }
-    static func plainForeground<S: ShapeStyle>(_ value: S) -> Self { Self { $0.plainForeground = themeCSSValue(value) } }
+    static func primaryBackground<S: ShapeStyle>(_ value: S) -> Self { Self { $0.primaryBackground = resolvedCSSValue(value) } }
+    static func primaryForeground<S: ShapeStyle>(_ value: S) -> Self { Self { $0.primaryForeground = resolvedCSSValue(value) } }
+    static func secondaryBackground<S: ShapeStyle>(_ value: S) -> Self { Self { $0.secondaryBackground = resolvedCSSValue(value) } }
+    static func secondaryForeground<S: ShapeStyle>(_ value: S) -> Self { Self { $0.secondaryForeground = resolvedCSSValue(value) } }
+    static func secondaryBorder<S: ShapeStyle>(_ value: S) -> Self { Self { $0.secondaryBorder = resolvedCSSValue(value) } }
+    static func secondaryHoverBackground<S: ShapeStyle>(_ value: S) -> Self { Self { $0.secondaryHoverBackground = resolvedCSSValue(value) } }
+    static func plainForeground<S: ShapeStyle>(_ value: S) -> Self { Self { $0.plainForeground = resolvedCSSValue(value) } }
     func radius(_ value: Length) -> Self { appending(Self.radius(value)) }
     func primaryBackground<S: ShapeStyle>(_ value: S) -> Self { appending(Self.primaryBackground(value)) }
     func primaryForeground<S: ShapeStyle>(_ value: S) -> Self { appending(Self.primaryForeground(value)) }
@@ -221,7 +221,7 @@ public enum ThemeFieldBuilder {
 }
 
 public extension ThemeFieldOverrideStep {
-    static func background<S: ShapeStyle>(_ value: S) -> Self { Self { $0.background = themeCSSValue(value) } }
+    static func background<S: ShapeStyle>(_ value: S) -> Self { Self { $0.background = resolvedCSSValue(value) } }
     static func border(_ value: ThemeBorder) -> Self { Self { $0.border = value.cssValue } }
     static func radius(_ value: Length) -> Self { Self { $0.radius = value.cssValue } }
     static func padding(_ value: EdgeInsets) -> Self { Self { $0.padding = value.cssValue } }
@@ -260,9 +260,9 @@ public enum ThemeBadgeBuilder {
 }
 
 public extension ThemeBadgeOverrideStep {
-    static func background<S: ShapeStyle>(_ value: S) -> Self { Self { $0.background = themeCSSValue(value) } }
+    static func background<S: ShapeStyle>(_ value: S) -> Self { Self { $0.background = resolvedCSSValue(value) } }
     static func border(_ value: ThemeBorder) -> Self { Self { $0.border = value.cssValue } }
-    static func foreground<S: ShapeStyle>(_ value: S) -> Self { Self { $0.foreground = themeCSSValue(value) } }
+    static func foreground<S: ShapeStyle>(_ value: S) -> Self { Self { $0.foreground = resolvedCSSValue(value) } }
     static func radius(_ value: Length) -> Self { Self { $0.radius = value.cssValue } }
     static func padding(_ value: EdgeInsets) -> Self { Self { $0.padding = value.cssValue } }
     static func padding(vertical: Length, horizontal: Length) -> Self {
@@ -301,7 +301,7 @@ public enum ThemeNavigationBuilder {
 public extension ThemeNavigationOverrideStep {
     static func gap(_ value: Space) -> Self { Self { $0.gap = value.rawValue } }
     static func gap(_ value: Length) -> Self { Self { $0.gap = value.cssValue } }
-    static func linkForeground<S: ShapeStyle>(_ value: S) -> Self { Self { $0.linkForeground = themeCSSValue(value) } }
+    static func linkForeground<S: ShapeStyle>(_ value: S) -> Self { Self { $0.linkForeground = resolvedCSSValue(value) } }
     static func linkDecoration(_ value: ThemeTextDecoration) -> Self { Self { $0.linkDecoration = value.cssValue } }
     static func linkHoverDecoration(_ value: ThemeTextDecoration) -> Self { Self { $0.linkHoverDecoration = value.cssValue } }
     func gap(_ value: Space) -> Self { appending(Self.gap(value)) }
@@ -398,7 +398,7 @@ public enum ThemeMaterialBuilder {
 }
 
 public extension ThemeMaterialOverrideStep {
-    static func tint<S: ShapeStyle>(_ value: S) -> Self { Self { $0.tint = themeCSSValue(value) } }
+    static func tint<S: ShapeStyle>(_ value: S) -> Self { Self { $0.tint = resolvedCSSValue(value) } }
     static func opacity(_ value: Double) -> Self { Self { $0.opacity = trimmedNumber(value) } }
     static func opacityStep(_ value: Double) -> Self { Self { $0.opacityStep = trimmedNumber(value) } }
     static func blur(_ value: Length) -> Self { Self { $0.blur = value.cssValue } }
@@ -406,7 +406,7 @@ public extension ThemeMaterialOverrideStep {
     static func brightness(_ value: Double) -> Self { Self { $0.brightness = trimmedNumber(value) } }
     static func rim(_ value: ThemeShadow) -> Self { Self { $0.rim = value.cssValue } }
     static func refraction(_ value: ThemeRefraction) -> Self { Self { $0.refraction = value.cssValue } }
-    static func solidFill<S: ShapeStyle>(_ value: S) -> Self { Self { $0.solidFill = themeCSSValue(value) } }
+    static func solidFill<S: ShapeStyle>(_ value: S) -> Self { Self { $0.solidFill = resolvedCSSValue(value) } }
     func tint<S: ShapeStyle>(_ value: S) -> Self { appending(Self.tint(value)) }
     func opacity(_ value: Double) -> Self { appending(Self.opacity(value)) }
     func opacityStep(_ value: Double) -> Self { appending(Self.opacityStep(value)) }

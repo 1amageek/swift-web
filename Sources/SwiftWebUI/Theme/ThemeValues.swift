@@ -1,4 +1,4 @@
-func themeCSSValue<S: ShapeStyle>(_ style: S) -> String {
+func resolvedCSSValue<S: ShapeStyle>(_ style: S) -> String {
     style.resolve(in: .default).cssValue
 }
 
@@ -12,7 +12,7 @@ public struct ThemeBorder: Sendable, Equatable, Codable {
     public static let none = ThemeBorder("none")
 
     public static func solid<S: ShapeStyle>(width: Length = 1, color: S) -> ThemeBorder {
-        ThemeBorder("\(width.cssValue) solid \(themeCSSValue(color))")
+        ThemeBorder("\(width.cssValue) solid \(resolvedCSSValue(color))")
     }
 }
 
@@ -141,6 +141,6 @@ private func shadowValue<S: ShapeStyle>(
     if let spread {
         parts.append(spread.cssValue)
     }
-    parts.append(themeCSSValue(color))
+    parts.append(resolvedCSSValue(color))
     return parts.joined(separator: " ")
 }
