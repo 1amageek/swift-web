@@ -83,7 +83,7 @@ actor model.
 | Swift tools version | `6.3` |
 | Browser WASM toolchain | Swift `6.3.1` release toolchain |
 | Browser WASM SDK | `swift-6.3.1-RELEASE_wasm` |
-| Host development build | Xcode Swift toolchain may be required by the current Vapor 5 HTTP stack |
+| Host toolchain (resolve + build) | **Swift 6.4** toolchain (e.g. Xcode-beta). The host HTTP stack uses `swift-tools-version: 6.4.0`, so resolving with the 6.3.1 toolchain fails |
 | Platforms | macOS package development; browser runtime via WASM |
 
 SwiftWeb keeps the host toolchain and browser WASM toolchain separate:
@@ -142,10 +142,32 @@ let package = Package(
 )
 ```
 
+> **Toolchain:** resolving and building SwiftWeb requires a **Swift 6.4**
+> toolchain, because the host HTTP stack (`swift-http-server` and
+> `swift-http-api-proposal`) uses `swift-tools-version: 6.4.0`. The default
+> 6.3.1 toolchain fails at `swift package resolve`. Point SwiftPM at a 6.4
+> toolchain — e.g. Xcode-beta:
+>
+> ```bash
+> export DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer
+> xcrun swift build        # resolves against 6.4
+> ```
+>
+> The browser/WASM build stays on the separate 6.3.1 WASM SDK (see Requirements).
+
 ### Install The CLI With Mint
 
 Mint can install the `sweb` executable product directly from the repository. Pin
 `@0.1.0` for a reproducible install; `@main` tracks the latest development.
+
+Mint invokes `swift` from `PATH`, so it must find the **6.4** toolchain (the
+default 6.3.1 fails to resolve the host HTTP stack). Put the 6.4 toolchain first:
+
+```bash
+XBIN=/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin
+env DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer PATH="$XBIN:$PATH" \
+  mint install 1amageek/swift-web@0.1.0 sweb
+```
 
 | Need | Command |
 |---|---|
