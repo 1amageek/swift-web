@@ -6,7 +6,7 @@ It owns reusable visual components, layout primitives, color scheme propagation,
 
 The core architecture is documented in [`docs/SwiftWebUICoreDesign.md`](../../../docs/SwiftWebUICoreDesign.md). That document defines the component graph, dynamic property lifecycle, modifier graph, and style abstraction boundaries.
 
-The public style contract is documented in [`docs/SwiftWebUIStyleDesign.md`](../../../docs/SwiftWebUIStyleDesign.md). That document defines the ColorScheme / StyleSystem / CSS ownership model, component taxonomy, contextual styling rules, and styling gates for built-in components.
+The public style contract is documented in [`docs/SwiftWebUIStyleDesign.md`](../../../docs/SwiftWebUIStyleDesign.md). That document defines the ColorScheme / Theme / CSS ownership model, component taxonomy, contextual styling rules, and styling gates for built-in components.
 
 Client WASM loading is documented in [`docs/ClientBundleLoadingDesign.md`](../../../docs/ClientBundleLoadingDesign.md). That document defines the `ClientComponent` loading contract, modifier precedence, nested island ownership, and bundle policy rules. Client-side document navigation is documented in [`docs/ClientNavigationDesign.md`](../../../docs/ClientNavigationDesign.md).
 
@@ -18,7 +18,7 @@ Client WASM loading is documented in [`docs/ClientBundleLoadingDesign.md`](../..
 | UI controls | Provides `Button`, server action reference buttons, `SubmitButton`, `TextField`, `SecureField`, `Toggle`, and links. |
 | Text components | Provides `Text`, the `as(_:)` modifier for semantic `TextElement` (tag) selection, and text tones. |
 | Containers | Provides `GroupBox`, `Section`, and `List` — every direct child is a row, with `List(_:rowContent:)` for data-driven rows. The toolbar is the `.toolbar { ToolbarItem(placement:) }` modifier. |
-| Color scheme | Provides component-facing environment integration for color scheme and style system values. Host-neutral style values live in `SwiftWebUITheme`. |
+| Color scheme | Provides component-facing environment integration for color scheme and theme values. Host-neutral style values live in `SwiftWebUITheme`. |
 | Modifiers | Provides SwiftUI-like modifier graph wrappers for styles, attributes, frame, padding, alignment, accessibility, and events. |
 | Navigation | Provides `NavigationStack`, `NavigationLink`, `NavigationPath`, and `navigationTitle` metadata hooks. |
 
@@ -33,7 +33,7 @@ Client WASM loading is documented in [`docs/ClientBundleLoadingDesign.md`](../..
 | `Components/Navigation/` | Navigation containers, navigation links, paths, and title metadata hooks. |
 | `Components/Containers/` | Structural UI components such as group boxes, sections, lists, toolbars, and badges. |
 | `Components/Media/` | Media-oriented components such as `Image`. |
-| `SwiftWebUITheme` target | Color values, materials, `StyleSystem` values, root stylesheet defaults, utility classes, and host-neutral style primitives. |
+| `SwiftWebUITheme` target | Color values, materials, `Theme` values, root stylesheet defaults, utility classes, and host-neutral style primitives. |
 
 ## Boundaries
 
@@ -44,7 +44,7 @@ flowchart LR
   A["SwiftWebUI Component"] --> B["SwiftHTML Component"]
   B --> C["HTMLGraph"]
   D["ColorScheme Environment"] --> A
-  E["StyleSystem Environment"] --> A
+  E["Theme Environment"] --> A
   F["Modifiers"] --> A
 ```
 
@@ -65,11 +65,11 @@ flowchart LR
 
 - Components should follow SwiftUI naming and initializer shape where it maps cleanly to the web.
 - Color mode should be scheme-driven through `.preferredColorScheme(_:)`.
-- Component design language should be style-system-driven through `.environment(\.styleSystem, value)`.
+- Component design language should be theme-driven through `.environment(\.theme, value)`.
 - Default CSS should be declared through SwiftHTML `Style` helpers and `Stylesheet` rules, not concatenated raw stylesheet strings.
 - Concrete CSS property output should use SwiftHTML generated standard property helpers so SwiftWebUI does not maintain a separate CSS property surface.
 - Public styling should prefer `foregroundStyle`, `backgroundStyle`, and `tint` over color-specific APIs.
-- `Space` is the component spacing scale. Page margins and responsive grid insets belong to `GridSystem` and the `StyleSystem` `.root { .pageInlinePadding(...) }` token; outer width constraints belong to `.frame(maxWidth:)`.
+- `Space` is the component spacing scale. Page margins and responsive grid insets belong to `GridSystem` and the `Theme` `.root { .pageInlinePadding(...) }` token; outer width constraints belong to `.frame(maxWidth:)`.
 - Modifiers should be ordered wrapper values that work on any `HTML`, not only components that store attributes directly.
 - Control state should flow through environment values such as `isEnabled`, `controlSize`, `tint`, and `buttonStyle`.
 - Semantic HTML should be explicit. `Text("Title").as(.h1)` changes only the tag (no separate component); appearance comes from modifiers like `.font(_:)`, never from the tag.
@@ -81,25 +81,25 @@ flowchart LR
 - Components may wrap SwiftHTML primitives but should not introduce a second rendering model.
 - Components should not create `html`, `head`, `title`, or document-level metadata; those belong to SwiftWeb `Page`.
 
-## Color Scheme And StyleSystem
+## Color Scheme And Theme
 
-`ColorScheme` selects the semantic color palette (background, text, accent, border) between light and dark. `StyleSystem` controls component-wide design choices such as container radius, button shape, field padding, material effects, and motion timing.
+`ColorScheme` selects the semantic color palette (background, text, accent, border) between light and dark. `Theme` controls component-wide design choices such as container radius, button shape, field padding, material effects, and motion timing.
 
 ```mermaid
 flowchart LR
   A["ColorScheme"] --> B["color variables"]
-  C["StyleSystem"] --> D["component variables"]
+  C["Theme"] --> D["component variables"]
   B --> E["RootStylesheet"]
   D --> E
   E --> F["SwiftWebUI components"]
 ```
 
-`StyleSystem.default` is complete. Custom styles should start from that default and override only the parts that differ, so every component always has a fallback token.
+`Theme.default` is complete. Custom styles should start from that default and override only the parts that differ, so every component always has a fallback token.
 
-Every chrome surface — group box, toolbar, badge, field, toggle track, and the bordered/glass buttons — composes one shared material recipe instead of hand-rolling its own translucency. A `StyleSystem` tunes that single recipe through the `material` block: `opacity` (with the per-level `opacityStep`), `blur`, `saturate`, the specular `rim`, and the SVG `refraction`. Components pick a *level* (`.regularMaterial`, `.thinMaterial`, `.bar`, …) and the CSS derives the level's fill from these knobs, so the glass stays consistent across the whole UI.
+Every chrome surface — group box, toolbar, badge, field, toggle track, and the bordered/glass buttons — composes one shared material recipe instead of hand-rolling its own translucency. A `Theme` tunes that single recipe through the `material` block: `opacity` (with the per-level `opacityStep`), `blur`, `saturate`, the specular `rim`, and the SVG `refraction`. Components pick a *level* (`.regularMaterial`, `.thinMaterial`, `.bar`, …) and the CSS derives the level's fill from these knobs, so the glass stays consistent across the whole UI.
 
 ```swift
-let glass = StyleSystem(id: "glass") {
+let glass = Theme(id: "glass") {
     .surface {
         .containerRadius(22)
         .containerShadow(.drop(y: 18, blur: 48, color: Color(hex: 0x0F172A).opacity(0.18)))
@@ -119,12 +119,12 @@ let glass = StyleSystem(id: "glass") {
 
 CounterView()
     .preferredColorScheme(.dark)
-    .environment(\.styleSystem, glass)
+    .environment(\.theme, glass)
 ```
 
 `solidFill` is the opaque fallback used where `backdrop-filter` is unsupported (e.g. Safari ignores `url()` filters) or when the reader requests reduced transparency. This degradation is part of the recipe, not a silent default. The built-in `.liquidGlass` preset already sets all of these knobs.
 
-When both values are set through modifiers, place `styleSystem` outside the color scheme scope as shown above. Modifier order is semantic: the stylesheet scope created by `preferredColorScheme` reads outer environment values.
+When both values are set through modifiers, place `theme` outside the color scheme scope as shown above. Modifier order is semantic: the stylesheet scope created by `preferredColorScheme` reads outer environment values.
 
 ## Action Boundary
 

@@ -133,7 +133,6 @@ struct SwiftWebStoryboardCatalogTests {
         #expect(rendered.contains("href=\"https://github.com/1amageek/swift-web\""))
         #expect(rendered.contains("Light"))
         #expect(rendered.contains("Dark"))
-        #expect(!rendered.contains("Style System"))
         #expect(!rendered.contains("Liquid Glass"))
     }
 

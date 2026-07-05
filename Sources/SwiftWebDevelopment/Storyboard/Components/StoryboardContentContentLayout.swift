@@ -35,7 +35,7 @@ func contentLayoutDiscussion(for id: String) -> [String]? {
     case "label":
         return [
             "Label pairs an icon with a title and treats the pair as one unit: one font, one foreground style, one gap. Reach for it in lists, menus, and settings rows where icon-plus-text is the row's identity rather than decoration.",
-            "The icon is the same inline SVG glyph Image(systemName:) draws, so it inherits the text color and scales with the label's font; the icon-title gap is a style-system token, keeping rows aligned across a whole list.",
+            "The icon is the same inline SVG glyph Image(systemName:) draws, so it inherits the text color and scales with the label's font; the icon-title gap is a theme token, keeping rows aligned across a whole list.",
         ]
     case "groupbox":
         return [
@@ -85,7 +85,7 @@ func contentLayoutDiscussion(for id: String) -> [String]? {
     case "divider":
         return [
             "Divider draws a hairline rule that separates content. Its orientation is inferred from the enclosing stack — a horizontal rule between VStack children, a vertical rule between HStack children — so the same declaration works in both.",
-            "The rule is a role=\"separator\" element whose color comes from the active style system's border token. Give it a frame to constrain its length, and give a vertical divider's row a height so the rule has something to span.",
+            "The rule is a role=\"separator\" element whose color comes from the active theme's border token. Give it a frame to constrain its length, and give a vertical divider's row a height so the rule has something to span.",
         ]
     default:
         return nil
@@ -125,7 +125,7 @@ func contentLayoutParity(for id: String) -> String? {
     case "spacer":
         return "Same shape as SwiftUI's Spacer(minLength:); it lowers to a flex-grow region and resolves its axis from the enclosing stack."
     case "divider":
-        return "Same shape as SwiftUI's Divider(); orientation resolves from the enclosing stack and the hairline color comes from the style system."
+        return "Same shape as SwiftUI's Divider(); orientation resolves from the enclosing stack and the hairline color comes from the theme."
     default:
         return nil
     }

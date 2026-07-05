@@ -27,7 +27,7 @@ flowchart TD
 | Area | Goal |
 |---|---|
 | DOM output | Server output, action fragments, stream output, Storyboard rendered HTML, and client-reconciled DOM contain no `style` attributes. |
-| CSS ownership | `SwiftWebStyle` is the only layer that emits stylesheet text. Other layers only provide semantic classes, utility tokens, typed declarations, or style-system values. |
+| CSS ownership | `SwiftWebStyle` is the only layer that emits stylesheet text. Other layers only provide semantic classes, utility tokens, typed declarations, or theme values. |
 | Utility API | Tailwind-like utility tokens are parsed into typed utility and variant structures before CSS is emitted. |
 | Variant behavior | `hover:`, `focus:`, `active:`, `disabled:`, responsive variants, dark mode, group, peer, data, aria, and container variants lower to selectors or at-rules with the expected conditional behavior. |
 | Static utilities | Finite framework classes such as stack gaps, alignment, padding, color roles, typography roles, materials, and control states are emitted once in the base stylesheet. |
@@ -40,10 +40,10 @@ flowchart TD
 | Layer | Required framework | Owns | Must not do |
 |---|---|---|---|
 | User app | `SwiftWebUI` | Components, modifiers, environment, semantic styling choices. | Write CSS text, inline styles, or raw selectors. |
-| SwiftWebUI components | `SwiftWebUI` + `SwiftWebStyle` | Semantic class hooks, state classes, style-system scopes, utility tokens. | Store component-local visual recipes as CSS text. |
+| SwiftWebUI components | `SwiftWebUI` + `SwiftWebStyle` | Semantic class hooks, state classes, theme scopes, utility tokens. | Store component-local visual recipes as CSS text. |
 | Utility compiler | `SwiftWebStyle` | Utility grammar, variant grammar, selector composition, at-rule composition, validation. | Depend on app code or SwiftWebUI component internals. |
 | Style registry | `SwiftWebStyle` | Atomic class names, declaration validation, render-scoped rule collection, client rule flush. | Parse `cssText` or accept raw style strings. |
-| Design system | `StyleSystem` + `ColorScheme` | Tokens, component visual language, color roles, material/motion/control values. | Emit CSS directly outside the SwiftWebStyle emitter. |
+| Design system | `Theme` + `ColorScheme` | Tokens, component visual language, color roles, material/motion/control values. | Emit CSS directly outside the SwiftWebStyle emitter. |
 | HTML graph | `SwiftHTML` | HTML nodes, attributes, typed `Style` payloads, escaping, rendering hooks. | Own atomic styling policy or SwiftWebUI visual semantics. |
 | Runtime | `SwiftWeb` + `SwiftWebUIRuntime` | Registry binding, head injection, client stylesheet flush. | Introduce inline style fallback paths. |
 | Storyboard | `SwiftWebStoryboard` | Visual verification of public APIs and rendered output. | Add private styling paths or raw CSS examples. |
@@ -84,7 +84,7 @@ API.
 | P1 | Add container query variants. | Container names, `@container`, min, max, default breakpoints, and bracket width variants work without raw CSS. |
 | P1 | Add arbitrary values. | Bracket values are accepted only through a validated value grammar. |
 | P1 | Add utility registry. | Framework and user utilities can register static and functional utilities without writing CSS text. |
-| P2 | Generate token utilities from `StyleSystem`. | Token namespaces produce predictable utility classes and default rules. |
+| P2 | Generate token utilities from `Theme`. | Token namespaces produce predictable utility classes and default rules. |
 | P2 | Add layer ordering. | Base, component, utility, and atomic output order is explicit and tested. |
 | P2 | Update Storyboard coverage. | Every public component entry dogfoods class-only styling and variant examples. |
 | P2 | Update public documentation. | Docs describe the SwiftWebStyle workflow and contain no raw CSS recommendations. |
@@ -104,7 +104,7 @@ API.
 | Container queries | Container utility and query variants. | Implemented for default breakpoints, max breakpoints, named containers, and bracket width variants. | At-rule builder |
 | Arbitrary values | Validated bracket values. | Implemented for common layout, color, display, grid, spacing, and opacity utilities. | Utility parser + validator |
 | Functional utilities | Parameterized utilities and modifiers. | Implemented for built-in arbitrary-value utilities and typed third-party static/functional definitions. | Utility registry |
-| StyleSystem-generated utilities | Token namespaces generate utility classes. | Implemented as SwiftWebUI `StyleSystemUtility` defaults and `.swiftWebUI` utility registry definitions. | StyleSystem integration |
+| Theme-generated utilities | Token namespaces generate utility classes. | Implemented as SwiftWebUI `ThemeUtility` defaults and `.swiftWebUI` utility registry definitions. | Theme integration |
 
 ## Current Inventory
 

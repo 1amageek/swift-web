@@ -35,7 +35,7 @@ enum SwiftWebHeadAssets {
         if let scheme = document.preferredColorScheme?.rawValue {
             openTag += " data-color-scheme=\"\(escapedAttribute(scheme))\""
         }
-        openTag += " data-style-system=\"\(escapedAttribute(provider.styleSystemID))\""
+        openTag += " data-theme=\"\(escapedAttribute(provider.themeID))\""
         return html.replacingCharacters(
             in: bodyStart.lowerBound..<tagEnd.lowerBound,
             with: openTag
@@ -65,7 +65,7 @@ enum SwiftWebHeadAssets {
         if let scheme = document.preferredColorScheme?.rawValue {
             attributes += " data-color-scheme=\"\(escapedAttribute(scheme))\""
         }
-        attributes += " data-style-system=\"\(escapedAttribute(provider.styleSystemID))\""
+        attributes += " data-theme=\"\(escapedAttribute(provider.themeID))\""
         return "<div\(attributes)>\(html)</div>"
     }
 

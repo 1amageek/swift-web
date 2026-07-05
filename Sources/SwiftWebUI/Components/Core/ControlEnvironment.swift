@@ -21,7 +21,7 @@ public struct ControlStateEnvironmentKey: ClientEnvironmentKey {
 
 public struct TintEnvironmentKey: ClientEnvironmentKey {
     // Absent until a `.tint(...)` is applied. Keeping the default `nil` lets each
-    // control's CSS fall back to its style-system token
+    // control's CSS fall back to its theme token
     // (`var(--swui-control-tint, var(--swui-button-primary-background))`, etc.)
     // instead of an environment default silently overriding those tokens.
     public static let defaultValue: Color? = nil

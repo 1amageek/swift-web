@@ -59,7 +59,7 @@ struct DocumentStyleTests {
     SwiftWebUIDocumentStyle.install()
     let provider = try #require(DocumentStyleBootstrap.installed)
     #expect(provider.rootClass == "swui-root")
-    #expect(!provider.styleSystemID.isEmpty)
+    #expect(!provider.themeID.isEmpty)
     #expect(provider.stylesheet.contains(".swui-root"))
     #expect(provider.scripts.map(\.id).sorted() == ["swui-glass-refraction", "swui-slider-sync"])
   }

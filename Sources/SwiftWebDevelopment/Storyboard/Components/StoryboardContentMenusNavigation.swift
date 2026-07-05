@@ -10,7 +10,7 @@ func menusNavigationDiscussion(for id: String) -> [String]? {
     switch id {
     case "button-styles":
         return [
-            "A button style selects the visual recipe — fill, rim, and refraction — without touching the button's action or label. Styles resolve through the active style system, so the same declaration renders Liquid Glass under the default system and flatter chrome under a custom one.",
+            "A button style selects the visual recipe — fill, rim, and refraction — without touching the button's action or label. Styles resolve through the active theme, so the same declaration renders Liquid Glass under the default system and flatter chrome under a custom one.",
             "Reach for .glass on chrome that floats above content, .borderedProminent for the one primary action in a view, .bordered for secondary actions, and .plain when the button should read as text. Prominence is part of the style, not a separate axis.",
         ]
     case "button":
@@ -54,7 +54,7 @@ func menusNavigationDiscussion(for id: String) -> [String]? {
         ]
     case "searchable":
         return [
-            "searchable(text:prompt:) marks its content as searchable and attaches a search field above it. The field lowers to a role=\"search\" region holding a native <input type=\"search\"> bound to the query text — typing writes the binding on every input event — and composes the thin material so its fill tracks the active style system.",
+            "searchable(text:prompt:) marks its content as searchable and attaches a search field above it. The field lowers to a role=\"search\" region holding a native <input type=\"search\"> bound to the query text — typing writes the binding on every input event — and composes the thin material so its fill tracks the active theme.",
             "The prompt doubles as the placeholder and the field's accessible label. Related modifiers layer onto the same field: searchSuggestions offers completions, searchScopes narrows the query with a radio row, and searchTokens renders removable filter chips.",
         ]
     default:

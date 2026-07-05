@@ -27,7 +27,7 @@ struct SwiftWebUILayoutBehaviorTests {
       }
     }
     .styleRoot(.light)
-    .environment(\.styleSystem, .swiftWeb)
+    .environment(\.theme, .swiftWeb)
     .render()
 
     #expect(rendered.contains(".swui-vstack > .swui-spacer"))
@@ -174,7 +174,7 @@ struct SwiftWebUILayoutBehaviorTests {
       }
     }
     .styleRoot(.light)
-    .environment(\.styleSystem, .swiftWeb)
+    .environment(\.theme, .swiftWeb)
     .render()
 
     #expect(rendered.contains("data-pinned-headers=\"true\""))

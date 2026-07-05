@@ -46,7 +46,7 @@ struct SwiftWebPageDocumentTests {
 
             #expect(rendered.contains("<body class=\"swui-root\""))
             #expect(rendered.contains("data-color-scheme=\"dark\""))
-            #expect(rendered.contains("data-style-system=\""))
+            #expect(rendered.contains("data-theme=\""))
             #expect(rendered.contains("<style id=\"swui-base\">"))
             #expect(rendered.contains(".swui-root"))
             #expect(rendered.contains("<script id=\"swui-glass-refraction\""))
@@ -63,7 +63,7 @@ struct SwiftWebPageDocumentTests {
             )
             let rendered = try #require(response.body.string)
 
-            #expect(rendered.contains("<body class=\"swui-root\" data-style-system=\""))
+            #expect(rendered.contains("<body class=\"swui-root\" data-theme=\""))
             #expect(!rendered.contains("<body class=\"swui-root\" data-color-scheme"))
         }
     }

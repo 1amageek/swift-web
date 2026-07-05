@@ -50,7 +50,7 @@ flowchart TD
 | Cloudflare adapter | `SwiftWebCloudflare` | Adapter package | Generated TypeScript entrypoint, `fetch` routing, Durable Object class generation, queue/scheduled binding generation, Swift/Wasm dispatch glue, `wrangler.toml` materialization. |
 | UI components | `SwiftWebUI` | `Sources/SwiftWebUI/Components/` | SwiftUI-inspired component layer and reusable server/client component primitives. |
 | UI style | `SwiftWebStyle` | `Sources/SwiftWebUI/Style/` | Atomic style classes, typed selectors, and CSS-safe declaration registration. |
-| UI theme | `SwiftWebUITheme` | `Sources/SwiftWebUI/Theme/` | Host-neutral theme tokens, style system, root stylesheet, colors, materials, and spacing values. |
+| UI theme | `SwiftWebUITheme` | `Sources/SwiftWebUI/Theme/` | Host-neutral theme tokens, the `Theme` model, root stylesheet, colors, materials, and spacing values. |
 | Tooling facade | `sweb`, `SwiftWebDevelopment` | `Sources/SwiftWebCLI/`, `Sources/SwiftWebDevelopment/Facade/` | Command parsing and development-module re-export. |
 | Development hooks | `SwiftWebDevelopmentHooks` | `Sources/SwiftWebDevelopment/Hooks/` | Worker-side HMR contracts, browser injection hooks, context propagation, and dev event schema. |
 | Package generation | `SwiftWebPackageGeneration` | `Sources/SwiftWebDevelopment/PackageGeneration/` | Generated server/dev/WASM packages and manifest inspection. |

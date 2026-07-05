@@ -8,7 +8,7 @@ public struct TintModifier<S: ShapeStyle>: ComponentModifier {
         self.style = style
     }
 
-    @Environment(\.styleSystem) private var styleSystem: StyleSystem
+    @Environment(\.theme) private var theme: Theme
     @Environment(\.colorScheme) private var colorScheme: ColorScheme
     @Environment(\.layoutDirection) private var layoutDirection: LayoutDirection
     @Environment(\.controlState) private var controlState: ControlState
@@ -20,7 +20,7 @@ public struct TintModifier<S: ShapeStyle>: ComponentModifier {
 
     private var resolvedTint: Color {
         Color(cssValue: style.resolve(in: StyleResolutionContext(
-            styleSystem: styleSystem,
+            theme: theme,
             colorScheme: colorScheme,
             layoutDirection: layoutDirection,
             controlState: controlState

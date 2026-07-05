@@ -30,11 +30,11 @@ struct SwiftWebUIRenderingTests {
       }
     }
     .styleRoot(.light)
-    .environment(\.styleSystem, .swiftWeb)
+    .environment(\.theme, .swiftWeb)
     .render()
 
     #expect(rendered.contains("[data-color-scheme=\"dark\"]"))
-    #expect(rendered.contains("[data-style-system=\"swift-web\"]"))
+    #expect(rendered.contains("[data-theme=\"swift-web\"]"))
     #expect(rendered.contains("--swui-background: #f7f8fa;"))
     #expect(rendered.contains("--swui-button-radius: var(--swui-radius-medium);"))
     #expect(rendered.contains(".swui-code-line-number"))
@@ -46,7 +46,7 @@ struct SwiftWebUIRenderingTests {
     #expect(rendered.contains(".swui-list > * > .swui-text:not(:first-child)"))
     #expect(rendered.contains("class=\"swui-root\""))
     #expect(rendered.contains("data-color-scheme=\"light\""))
-    #expect(rendered.contains("data-style-system=\"swift-web\""))
+    #expect(rendered.contains("data-theme=\"swift-web\""))
     #expect(
       rendered.contains("class=\"swui-group-box swui-material swui-material-regular\""))
     #expect(cssRule(".swui-group-box", in: rendered)?.contains("padding: var(--swui-space-md);") == true)
@@ -60,7 +60,7 @@ struct SwiftWebUIRenderingTests {
       Text("Layer order")
     }
     .styleRoot(.light)
-    .environment(\.styleSystem, .swiftWeb)
+    .environment(\.theme, .swiftWeb)
     .render()
     let css = styleBlock(in: rendered) ?? ""
 
@@ -84,8 +84,8 @@ struct SwiftWebUIRenderingTests {
   }
 
   @Test
-  func rendersDeclarativeStyleSystemBuilderOverrides() {
-    let style = StyleSystem(id: "brand") {
+  func rendersDeclarativeThemeBuilderOverrides() {
+    let style = Theme(id: "brand") {
       .root {
         .pageInlinePadding(40)
         .stackSpacing(24)
@@ -104,12 +104,12 @@ struct SwiftWebUIRenderingTests {
       Button("Save") {}
     }
     .styleRoot(.dark)
-    .environment(\.styleSystem, style)
+    .environment(\.theme, style)
     .render()
 
     #expect(rendered.contains("data-color-scheme=\"dark\""))
-    #expect(rendered.contains("data-style-system=\"brand\""))
-    #expect(rendered.contains("[data-style-system=\"brand\"]"))
+    #expect(rendered.contains("data-theme=\"brand\""))
+    #expect(rendered.contains("[data-theme=\"brand\"]"))
     #expect(rendered.contains("--swui-page-inline-padding: 40px;"))
     #expect(rendered.contains("--swui-stack-spacing: 24px;"))
     #expect(rendered.contains("--swui-container-radius: 18px;"))
@@ -120,20 +120,20 @@ struct SwiftWebUIRenderingTests {
   }
 
   @Test
-  func rendersBuiltInStyleSystemPresets() {
+  func rendersBuiltInThemePresets() {
     let rendered = GroupBox {
       Text("Status").badge("Preview")
       Text("7").as(.strong)
     }
     .styleRoot(.light)
-    .environment(\.styleSystem, .liquidGlass)
+    .environment(\.theme, .liquidGlass)
     .render()
 
-    #expect(rendered.contains("data-style-system=\"liquid-glass\""))
+    #expect(rendered.contains("data-theme=\"liquid-glass\""))
     // The liquid-glass knobs feed the single shared material recipe: a
     // translucent surface tint scaled per level and a saturated backdrop blur.
     // The refraction and specular highlight are generated per element by the
-    // client script, so they are not emitted as style-system CSS variables.
+    // client script, so they are not emitted as theme CSS variables.
     #expect(rendered.contains("--swui-material-opacity: 0.62;"))
     #expect(rendered.contains("--swui-material-blur: 24px;"))
     #expect(rendered.contains("--swui-material-saturate: 1.6;"))
@@ -151,7 +151,7 @@ struct SwiftWebUIRenderingTests {
     .styleRoot(nil)
     .render()
 
-    #expect(rendered.contains("<div data-style-system=\"liquid-glass\" class=\"swui-root\""))
+    #expect(rendered.contains("<div data-theme=\"liquid-glass\" class=\"swui-root\""))
     #expect(!rendered.contains("<div data-color-scheme="))
     #expect(rendered.contains("@media (prefers-color-scheme: dark)"))
   }
@@ -166,12 +166,12 @@ struct SwiftWebUIRenderingTests {
           .tint(.danger)
       }
       .styleRoot(.light)
-      .environment(\.styleSystem, .swiftWeb)
+      .environment(\.theme, .swiftWeb)
       .render()
     }
     let rootCSS = registry.stylesheets().joined()
 
-    // The style-system token is the plain default; the tint indirection lives
+    // The theme token is the plain default; the tint indirection lives
     // in the rule, not in the ancestor-declared token. This is what stops the
     // var(--swui-control-tint, ...) chain from collapsing on the swui-root.
     #expect(rootCSS.contains("--swui-button-primary-background: var(--swui-accent);"))
@@ -202,7 +202,7 @@ struct SwiftWebUIRenderingTests {
       Text("Status").badge("Glass")
     }
     .styleRoot(.light)
-    .environment(\.styleSystem, .liquidGlass)
+    .environment(\.theme, .liquidGlass)
     .render()
 
     #expect(rendered.contains("function hasFilter(el)"))
@@ -254,7 +254,7 @@ struct SwiftWebUIRenderingTests {
     #expect(rendered.contains("--swui-grid-system-gutter: var(--swui-space-lg)"))
     #expect(rendered.contains("max-width: 720px"))
     #expect(rendered.contains("padding-block: var(--swui-space-xl)"))
-    // The responsive page inline inset is a global StyleSystem token applied by
+    // The responsive page inline inset is a global Theme token applied by
     // the `.swui-grid-system` stylesheet rule (`padding-inline:
     // var(--swui-page-inline-padding)`), not a per-instance inline style, so the
     // `swui-grid-system` class above is what carries it.
@@ -1648,7 +1648,7 @@ struct SwiftWebUIRenderingTests {
     .styleRoot(.light)
     .render()
     // No `.tint()` in scope: no control emits an inline --swui-control-tint, so
-    // the rule's fallback resolves to the style-system token.
+    // the rule's fallback resolves to the theme token.
     #expect(!rendered.contains("--swui-control-tint:"))
     #expect(rendered.contains("var(--swui-control-tint, var(--swui-button-primary-background))"))
   }

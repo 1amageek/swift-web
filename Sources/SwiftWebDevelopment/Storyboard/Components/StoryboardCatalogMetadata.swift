@@ -57,7 +57,7 @@ private func catalogProperties(for id: String) -> [CatalogProperty] {
     case "spacing":
         return [
             CatalogProperty("base unit", values: "8px", summary: "The atomic spacing step."),
-            CatalogProperty(".small / .medium / .large", values: "8 / 12 / 16px", summary: "Named spacing tokens resolved by the active style system."),
+            CatalogProperty(".small / .medium / .large", values: "8 / 12 / 16px", summary: "Named spacing tokens resolved by the active theme."),
             CatalogProperty("half-step", values: "4px", summary: "Reserved for fine optical alignment."),
         ]
     case "alignment":
@@ -70,7 +70,7 @@ private func catalogProperties(for id: String) -> [CatalogProperty] {
         return [
             CatalogProperty("class-only DOM", values: "no inline styles", summary: "Components emit stable semantic class hooks."),
             CatalogProperty("semantic class", values: "swui-text / swui-list / swui-toolbar", summary: "Every component exposes a cascade hook."),
-            CatalogProperty("token utility", values: "swui-bg-surface / swui-fg-secondary", summary: "StyleSystem tokens are emitted once in the base stylesheet."),
+            CatalogProperty("token utility", values: "swui-bg-surface / swui-fg-secondary", summary: "Theme tokens are emitted once in the base stylesheet."),
             CatalogProperty("variant utility", values: "hover:swui-bg-accent / md:swui-fg-secondary", summary: "SwiftWebStyle compiles conditional classes into typed selectors and at-rules."),
         ]
     case "responsive":
@@ -121,7 +121,7 @@ private func catalogProperties(for id: String) -> [CatalogProperty] {
         return [
             CatalogProperty("buttonStyle", values: ".automatic / .plain / .glass / .glassProminent", summary: "Switches the button recipe independently from its action."),
             CatalogProperty("prominence", values: ".primary / .secondary", summary: "Combines with style to set emphasis."),
-            CatalogProperty("styleSystem", values: "environment value", summary: "Resolves glass styles differently per style system."),
+            CatalogProperty("theme", values: "environment value", summary: "Resolves glass styles differently per theme."),
         ]
     case "control-sizes":
         return [
@@ -217,7 +217,7 @@ private func catalogProperties(for id: String) -> [CatalogProperty] {
         return [
             CatalogProperty("ToolbarItem(placement:)", values: ".automatic / .navigation / .principal / .primaryAction / .bottomBar", summary: "Routes each item into the leading, principal, trailing, or bottom bar region."),
             CatalogProperty("ToolbarItemGroup(placement:)", values: "shared placement", summary: "Groups several views under one placement."),
-            CatalogProperty("material", values: ".bar", summary: "The bar uses the bar material recipe from the active StyleSystem and fills horizontally."),
+            CatalogProperty("material", values: ".bar", summary: "The bar uses the bar material recipe from the active Theme and fills horizontally."),
         ]
     case "badge":
         return [
@@ -229,7 +229,7 @@ private func catalogProperties(for id: String) -> [CatalogProperty] {
         return [
             CatalogProperty("rows", values: "direct children", summary: "Every direct child of the builder is one row; .badge(_:) attaches trailing content."),
             CatalogProperty("List(_:rowContent:)", values: "Identifiable data or id:", summary: "Derives one semantic row per element, emitting role=\"list\" and role=\"listitem\"."),
-            CatalogProperty("spacing", values: "StyleSystem token", summary: "Resolved by the active style system."),
+            CatalogProperty("spacing", values: "Theme token", summary: "Resolved by the active theme."),
         ]
     case "section":
         return [
@@ -345,7 +345,7 @@ private func catalogProperties(for id: String) -> [CatalogProperty] {
     case "divider":
         return [
             CatalogProperty("orientation", values: "inferred from stack", summary: "Horizontal in a VStack and vertical in an HStack."),
-            CatalogProperty("style", values: "StyleSystem rule", summary: "The active style system owns the hairline color."),
+            CatalogProperty("style", values: "Theme rule", summary: "The active theme owns the hairline color."),
             CatalogProperty("frame", values: "length modifiers", summary: "Constrains the rule length or thickness."),
         ]
     case "hug-fill":
@@ -371,7 +371,7 @@ private func catalogProperties(for id: String) -> [CatalogProperty] {
         return [
             CatalogProperty("title", values: "String", summary: "Visible text."),
             CatalogProperty("systemImage", values: "SF Symbol name", summary: "Leading icon."),
-            CatalogProperty("spacing", values: "StyleSystem token", summary: "Resolved icon/text gap."),
+            CatalogProperty("spacing", values: "Theme token", summary: "Resolved icon/text gap."),
         ]
     default:
         return [

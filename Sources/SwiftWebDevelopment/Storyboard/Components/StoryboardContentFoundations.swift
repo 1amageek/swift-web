@@ -13,7 +13,7 @@ func foundationsDiscussion(for id: String) -> [String]? {
         ]
     case "spacing":
         return [
-            "Every gap, inset, and offset resolves from a named token — .xsmall (4px) through .xlarge (24px) — built on an 8px base unit. Tokens resolve through the active style system to CSS custom properties, so retheming rescales the whole page's rhythm at once instead of hunting down pixel values.",
+            "Every gap, inset, and offset resolves from a named token — .xsmall (4px) through .xlarge (24px) — built on an 8px base unit. Tokens resolve through the active theme to CSS custom properties, so retheming rescales the whole page's rhythm at once instead of hunting down pixel values.",
             "Pass tokens to stack spacing and padding for anything structural. Numeric spacing stays SwiftUI-canonical — points lower to px — for one-off fine tuning; if a gap is not a token, it should be a deliberate exception, not a habit.",
         ]
     case "alignment":
@@ -28,7 +28,7 @@ func foundationsDiscussion(for id: String) -> [String]? {
         ]
     case "style":
         return [
-            "Components emit stable semantic classes — swui-text, swui-list, swui-toolbar — and no inline styles. The active style system compiles every token and recipe into one static stylesheet, so a page's appearance is data the cascade resolves, not code that runs per node.",
+            "Components emit stable semantic classes — swui-text, swui-list, swui-toolbar — and no inline styles. The active theme compiles every token and recipe into one static stylesheet, so a page's appearance is data the cascade resolves, not code that runs per node.",
             "Contextual styling flows through that cascade: a rule like .swui-toolbar .swui-text restyles text inside a bar without the call site changing. The same Text declaration renders differently bare, in a list row, or in a toolbar — the context, not the component, decides.",
         ]
     case "responsive":
@@ -56,7 +56,7 @@ func foundationsParity(for id: String) -> String? {
     case "gridsystem":
         return "SwiftUI has no page-lattice primitive — Grid and LazyVGrid size to content; GridSystem is column-count-first, with panes claiming whole fractional tracks."
     case "spacing":
-        return "Same shape as SwiftUI's spacing parameters (VStack(spacing:), .padding(_:)); the web adds named tokens that resolve through the style system, while plain numbers lower to px."
+        return "Same shape as SwiftUI's spacing parameters (VStack(spacing:), .padding(_:)); the web adds named tokens that resolve through the theme, while plain numbers lower to px."
     case "alignment":
         return "Same shape as SwiftUI's Alignment and frame(_:alignment:); on the web the vocabulary lowers to flexbox justify/align markers that the browser solves."
     case "hug-fill":

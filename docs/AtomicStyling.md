@@ -251,7 +251,7 @@ also merges `swui-base` / `swui-atomic` from the parsed head.
 | Client flush | Implemented: WASM updates append new atomic rules to `<style id="swui-atomic">`. |
 | Utility class primitives | Implemented: `StyleClass`, `StyleClassList`, and `rule(StyleClass)` are the standard API for finite utility classes. |
 | Utility variant compiler | Implemented for state pseudo-class, pseudo-element, `dark:`, default breakpoint, group, peer, data, aria, structural, container, arbitrary selector, arbitrary attribute, arbitrary value, named group/peer, and typed custom utility registration through `SwiftWebStyle`. |
-| StyleSystem token utilities | Implemented: SwiftWebUI emits `swui-bg-*`, `swui-fg-*`, border, radius, and shadow utilities from StyleSystem-backed token namespaces. |
+| Theme token utilities | Implemented: SwiftWebUI emits `swui-bg-*`, `swui-fg-*`, border, radius, and shadow utilities from Theme-backed token namespaces. |
 | Layer order | Implemented and tested: root tokens, component rules, utility rules, material rules, at-rules, then render-scoped atomic rules in `<style id="swui-atomic">`. |
 | SwiftWebUI standard layout utilities | Implemented: stack/grid gap and alignment use `StyleClass` token utilities by default; arbitrary numeric spacing remains atomic. |
 | Raw/string style handling | Enforced: SwiftWeb render scopes reject string/raw `style` attributes. |

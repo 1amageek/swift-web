@@ -10,7 +10,7 @@ public struct NavigationLink<Label: HTML>: WebUIAttributeComponent {
     private let destination: URL
     private let attributes: [HTMLAttribute]
     private let label: Label
-    @Environment(\.styleSystem) private var styleSystem: StyleSystem
+    @Environment(\.theme) private var theme: Theme
     @Environment(\.colorScheme) private var colorScheme: ColorScheme
     @Environment(\.layoutDirection) private var layoutDirection: LayoutDirection
     @Environment(\.controlSize) private var controlSize: ControlSize
@@ -75,7 +75,7 @@ public struct NavigationLink<Label: HTML>: WebUIAttributeComponent {
                 tint: tint?.cssValue
             ),
             context: StyleResolutionContext(
-                styleSystem: styleSystem,
+                theme: theme,
                 colorScheme: colorScheme,
                 layoutDirection: layoutDirection,
                 controlState: isEnabled ? .enabled : .disabled

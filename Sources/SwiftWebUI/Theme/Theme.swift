@@ -1,6 +1,6 @@
 import SwiftHTML
 
-public struct StyleSystem: Codable, Sendable, Equatable, Identifiable {
+public struct Theme: Codable, Sendable, Equatable, Identifiable {
     public var id: String
     var root: Root
     var layout: Layout
@@ -45,7 +45,7 @@ public struct StyleSystem: Codable, Sendable, Equatable, Identifiable {
         self.material = material
     }
 
-    func overriding(_ override: Override) -> StyleSystem {
+    func overriding(_ override: Override) -> Theme {
         var style = self
         if let id = override.id {
             style.id = id
@@ -90,7 +90,7 @@ public struct StyleSystem: Codable, Sendable, Equatable, Identifiable {
     }
 }
 
-extension StyleSystem {
+extension Theme {
     struct Override: Codable, Sendable, Equatable {
         var id: String?
         var root: Root.Override?
@@ -713,8 +713,8 @@ extension StyleSystem {
     }
 }
 
-public extension StyleSystem {
-    static let `default` = StyleSystem(
+public extension Theme {
+    static let `default` = Theme(
         id: "swift-web",
         root: Root(
             pageInlinePadding: "clamp(16px, 4vw, 24px)",
@@ -807,9 +807,9 @@ public extension StyleSystem {
         )
     )
 
-    static let swiftWeb = StyleSystem.default
+    static let swiftWeb = Theme.default
 
-    static let material = StyleSystem(id: "material") {
+    static let material = Theme(id: "material") {
         .root {
             .pageInlinePadding(.clamp(min: 16, ideal: .vw(5), max: 32))
         }
@@ -838,7 +838,7 @@ public extension StyleSystem {
         }
     }
 
-    static let liquidGlass = StyleSystem(id: "liquid-glass") {
+    static let liquidGlass = Theme(id: "liquid-glass") {
         .root {
             .pageInlinePadding(.clamp(min: 18, ideal: .vw(5), max: 36))
         }
@@ -892,7 +892,7 @@ public extension StyleSystem {
     }
 }
 
-public extension StyleSystem {
+public extension Theme {
     var cssVariableStyle: Style {
         Style {
             .custom("--swui-page-inline-padding", root.pageInlinePadding)

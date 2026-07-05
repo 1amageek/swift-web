@@ -1,7 +1,7 @@
 import SwiftHTML
 import SwiftWebStyle
 
-public struct StyleSystemUtility: Sendable, Equatable {
+public struct ThemeUtility: Sendable, Equatable {
     public let className: StyleClass
     public let style: Style
 
@@ -11,8 +11,8 @@ public struct StyleSystemUtility: Sendable, Equatable {
     }
 }
 
-public extension StyleSystemUtility {
-    static let defaults: [StyleSystemUtility] = [
+public extension ThemeUtility {
+    static let defaults: [ThemeUtility] = [
         .background("background", token: "--swui-background"),
         .background("surface", token: "--swui-surface"),
         .background("surface-raised", token: "--swui-surface-raised"),
@@ -36,36 +36,36 @@ public extension StyleSystemUtility {
         .shadow("container", token: "--swui-container-shadow"),
     ]
 
-    static func background(_ name: String, token: String) -> StyleSystemUtility {
-        StyleSystemUtility(
+    static func background(_ name: String, token: String) -> ThemeUtility {
+        ThemeUtility(
             className: StyleClass("swui-bg-\(name)"),
             style: .background("var(\(token))")
         )
     }
 
-    static func foreground(_ name: String, token: String) -> StyleSystemUtility {
-        StyleSystemUtility(
+    static func foreground(_ name: String, token: String) -> ThemeUtility {
+        ThemeUtility(
             className: StyleClass("swui-fg-\(name)"),
             style: .color("var(\(token))")
         )
     }
 
-    static func border(_ name: String, token: String) -> StyleSystemUtility {
-        StyleSystemUtility(
+    static func border(_ name: String, token: String) -> ThemeUtility {
+        ThemeUtility(
             className: StyleClass("swui-border-\(name)"),
             style: .borderColor("var(\(token))")
         )
     }
 
-    static func radius(_ name: String, token: String) -> StyleSystemUtility {
-        StyleSystemUtility(
+    static func radius(_ name: String, token: String) -> ThemeUtility {
+        ThemeUtility(
             className: StyleClass("swui-radius-\(name)"),
             style: .borderRadius("var(\(token))")
         )
     }
 
-    static func shadow(_ name: String, token: String) -> StyleSystemUtility {
-        StyleSystemUtility(
+    static func shadow(_ name: String, token: String) -> ThemeUtility {
+        ThemeUtility(
             className: StyleClass("swui-shadow-\(name)"),
             style: .boxShadow("var(\(token))")
         )
@@ -75,7 +75,7 @@ public extension StyleSystemUtility {
 public extension StyleUtilityRegistry {
     static var swiftWebUI: StyleUtilityRegistry {
         StyleUtilityRegistry(
-            definitions: StyleSystemUtility.defaults.map { utility in
+            definitions: ThemeUtility.defaults.map { utility in
                 .token(utility.className.rawValue, style: utility.style)
             }
         )

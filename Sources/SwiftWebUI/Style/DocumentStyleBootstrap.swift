@@ -12,8 +12,8 @@ public protocol DocumentStyleBootstrapProvider: Sendable {
     var scripts: [DocumentStyleScript] { get }
     /// The class added to `<body>` so root-scoped selectors apply.
     var rootClass: String { get }
-    /// The style-system identifier emitted as `data-style-system` on `<body>`.
-    var styleSystemID: String { get }
+    /// The theme identifier emitted as `data-theme` on `<body>`.
+    var themeID: String { get }
 }
 
 public struct DocumentStyleScript: Sendable {

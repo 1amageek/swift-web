@@ -18,7 +18,7 @@ extension ClientEnvironmentRegistry {
     /// `SwiftWebUI.(unknown context at $<address>).<Name>`, whose discriminator
     /// differs per binary and never matches the snapshot produced by the server.
     public static let swiftWebUI = ClientEnvironmentRegistry.standard
-        .registering(StyleSystemEnvironmentKey.self)
+        .registering(ThemeEnvironmentKey.self)
         .registering(IsEnabledEnvironmentKey.self)
         .registering(ControlSizeEnvironmentKey.self)
         .registering(ControlStateEnvironmentKey.self)

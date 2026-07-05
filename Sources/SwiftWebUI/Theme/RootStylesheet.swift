@@ -14,9 +14,9 @@ package enum RootStylesheet {
     .list(selectors)
   }
 
-  package static func stylesheet(for styleSystem: StyleSystem) -> Stylesheet {
+  package static func stylesheet(for theme: Theme) -> Stylesheet {
     Stylesheet {
-      rootTokenStylesheet(for: styleSystem)
+      rootTokenStylesheet(for: theme)
       componentStylesheet
       utilityStylesheet
       materialStylesheet
@@ -24,7 +24,7 @@ package enum RootStylesheet {
     }
   }
 
-  private static func rootTokenStylesheet(for styleSystem: StyleSystem) -> Stylesheet {
+  private static func rootTokenStylesheet(for theme: Theme) -> Stylesheet {
     Stylesheet {
       // Scheme-independent theme tokens plus the light palette as the default.
       // Light is the baseline; an explicit dark scope or the OS dark preference
@@ -45,8 +45,8 @@ package enum RootStylesheet {
           darkPalette
         }
       }
-      rule(.attribute("data-style-system", equals: styleSystem.id)) {
-        styleSystem.cssVariableStyle
+      rule(.attribute("data-theme", equals: theme.id)) {
+        theme.cssVariableStyle
       }
     }
   }
@@ -54,8 +54,8 @@ package enum RootStylesheet {
   /// The full stylesheet text. Every rule — including the `@supports`/`@media`/
   /// `@keyframes` at-rules — is modeled in the typed `Stylesheet`, so there is no
   /// raw CSS string.
-  package static func css(for styleSystem: StyleSystem) -> String {
-    stylesheet(for: styleSystem).cssText
+  package static func css(for theme: Theme) -> String {
+    stylesheet(for: theme).cssText
   }
 
   // The color palettes are keyed by `ColorScheme`. The light palette is the
@@ -761,13 +761,13 @@ package enum RootStylesheet {
         .color("var(--swui-button-primary-foreground)")
           // Resolve the control tint on the button element itself so the local
           // per-button --swui-control-tint override wins. Falling back to the
-          // style-system default avoids depending on an ancestor-resolved token.
+          // theme default avoids depending on an ancestor-resolved token.
           .background("var(--swui-control-tint, var(--swui-button-primary-background))")
       }
       // The bordered (secondary) button surface comes from the shared material.
       // The component emits semantic classes only; this stylesheet feeds the
       // secondary background token in as the material tint so the active
-      // StyleSystem owns translucency, blur, rim, and solid fallback.
+      // Theme owns translucency, blur, rim, and solid fallback.
       rule(cls("swui-button-secondary")) {
         .color("var(--swui-button-secondary-foreground)")
           .custom("--swui-material-tint", "var(--swui-button-secondary-background)")
@@ -1720,7 +1720,7 @@ package enum RootStylesheet {
         .fontFamily("inherit")
       }
       // Button size variants keep component-specific padding while reading their
-      // minimum hit area from the active StyleSystem.
+      // minimum hit area from the active Theme.
       rule(cls("swui-button").compound(cls("swui-control-mini"))) {
         .minHeight("var(--swui-control-mini-height)")
           .padding(.px(4), .px(9))
@@ -1797,7 +1797,7 @@ package enum RootStylesheet {
   private static var utilityStylesheet: Stylesheet {
     Stylesheet {
       paddingUtilityRules
-      for utility in StyleSystemUtility.defaults {
+      for utility in ThemeUtility.defaults {
         rule(utility.className, utility.style)
       }
       rule(.swuiGapStack) {

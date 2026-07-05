@@ -8,7 +8,7 @@ public struct ForegroundStylesModifier: ComponentModifier {
         self.styles = styles
     }
 
-    @Environment(\.styleSystem) private var styleSystem: StyleSystem
+    @Environment(\.theme) private var theme: Theme
     @Environment(\.colorScheme) private var colorScheme: ColorScheme
     @Environment(\.layoutDirection) private var layoutDirection: LayoutDirection
     @Environment(\.controlState) private var controlState: ControlState
@@ -31,7 +31,7 @@ public struct ForegroundStylesModifier: ComponentModifier {
     private var resolvedStyles: [ResolvedStyle] {
         styles.map { style in
             style.resolve(in: StyleResolutionContext(
-                styleSystem: styleSystem,
+                theme: theme,
                 colorScheme: colorScheme,
                 layoutDirection: layoutDirection,
                 controlState: resolvedControlState
@@ -108,7 +108,7 @@ public struct ShapeBackgroundStyleModifier<S: ShapeStyle>: ComponentModifier {
         self.shape = shape
     }
 
-    @Environment(\.styleSystem) private var styleSystem: StyleSystem
+    @Environment(\.theme) private var theme: Theme
     @Environment(\.colorScheme) private var colorScheme: ColorScheme
     @Environment(\.layoutDirection) private var layoutDirection: LayoutDirection
     @Environment(\.controlState) private var controlState: ControlState
@@ -130,7 +130,7 @@ public struct ShapeBackgroundStyleModifier<S: ShapeStyle>: ComponentModifier {
 
     private var resolvedStyle: ResolvedStyle {
         style.resolve(in: StyleResolutionContext(
-            styleSystem: styleSystem,
+            theme: theme,
             colorScheme: colorScheme,
             layoutDirection: layoutDirection,
             controlState: resolvedControlState
@@ -173,7 +173,7 @@ public struct BackgroundStyleModifier<S: ShapeStyle>: ComponentModifier {
         self.style = style
     }
 
-    @Environment(\.styleSystem) private var styleSystem: StyleSystem
+    @Environment(\.theme) private var theme: Theme
     @Environment(\.colorScheme) private var colorScheme: ColorScheme
     @Environment(\.layoutDirection) private var layoutDirection: LayoutDirection
     @Environment(\.controlState) private var controlState: ControlState
@@ -185,7 +185,7 @@ public struct BackgroundStyleModifier<S: ShapeStyle>: ComponentModifier {
 
     private var resolvedBackgroundStyle: String {
         style.resolve(in: StyleResolutionContext(
-            styleSystem: styleSystem,
+            theme: theme,
             colorScheme: colorScheme,
             layoutDirection: layoutDirection,
             controlState: controlState

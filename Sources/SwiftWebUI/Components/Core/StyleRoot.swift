@@ -11,7 +11,7 @@ import SwiftWebStyle
 /// `.swui-root .swui-root` stylesheet scope), and isolated `render()` output in
 /// tests, where there is no response encoder to assemble a document.
 package struct StyleRoot<Content: HTML>: Component {
-    @Environment(\.styleSystem) private var styleSystem: StyleSystem
+    @Environment(\.theme) private var theme: Theme
 
     private let colorScheme: ColorScheme?
     private let content: Content
@@ -24,14 +24,14 @@ package struct StyleRoot<Content: HTML>: Component {
     @HTMLBuilder
     package var body: some HTML {
         if let registry = StyleRegistry.current {
-            let css = RootStylesheet.css(for: styleSystem)
+            let css = RootStylesheet.css(for: theme)
             let _ = registry.registerStylesheet(css)
             let _ = registry.registerScript(id: "swui-glass-refraction", body: StyleRootAssets.refractionScript)
             let _ = registry.registerScript(id: "swui-slider-sync", body: StyleRootAssets.sliderScript)
             EmptyHTML()
         } else {
             style {
-                rawHTML(RootStylesheet.css(for: styleSystem))
+                rawHTML(RootStylesheet.css(for: theme))
             }
             rawHTML(StyleRootAssets.refractionScriptTag)
             rawHTML(StyleRootAssets.sliderScriptTag)
@@ -55,7 +55,7 @@ package struct StyleRoot<Content: HTML>: Component {
         if let colorScheme {
             attributes.append(.data("color-scheme", colorScheme.rawValue))
         }
-        attributes.append(.data("style-system", styleSystem.id))
+        attributes.append(.data("theme", theme.id))
         attributes.append(.class("swui-root"))
         return attributes
     }

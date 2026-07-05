@@ -1,22 +1,22 @@
-func styleSystemCSSValue<S: ShapeStyle>(_ style: S) -> String {
+func themeCSSValue<S: ShapeStyle>(_ style: S) -> String {
     style.resolve(in: .default).cssValue
 }
 
-public struct StyleSystemBorder: Sendable, Equatable, Codable {
+public struct ThemeBorder: Sendable, Equatable, Codable {
     let cssValue: String
 
     init(_ cssValue: String) {
         self.cssValue = cssValue
     }
 
-    public static let none = StyleSystemBorder("none")
+    public static let none = ThemeBorder("none")
 
-    public static func solid<S: ShapeStyle>(width: Length = 1, color: S) -> StyleSystemBorder {
-        StyleSystemBorder("\(width.cssValue) solid \(styleSystemCSSValue(color))")
+    public static func solid<S: ShapeStyle>(width: Length = 1, color: S) -> ThemeBorder {
+        ThemeBorder("\(width.cssValue) solid \(themeCSSValue(color))")
     }
 }
 
-public struct StyleSystemShadow: Sendable, Equatable, Codable {
+public struct ThemeShadow: Sendable, Equatable, Codable {
     public struct Layer: Sendable, Equatable, Codable {
         let cssValue: String
 
@@ -51,10 +51,10 @@ public struct StyleSystemShadow: Sendable, Equatable, Codable {
         self.cssValue = cssValue
     }
 
-    public static let none = StyleSystemShadow("none")
+    public static let none = ThemeShadow("none")
 
-    public static func layers(_ layers: [Layer]) -> StyleSystemShadow {
-        StyleSystemShadow(layers.map(\.cssValue).joined(separator: ", "))
+    public static func layers(_ layers: [Layer]) -> ThemeShadow {
+        ThemeShadow(layers.map(\.cssValue).joined(separator: ", "))
     }
 
     public static func drop(
@@ -63,31 +63,31 @@ public struct StyleSystemShadow: Sendable, Equatable, Codable {
         blur: Length,
         spread: Length? = nil,
         color: some ShapeStyle
-    ) -> StyleSystemShadow {
+    ) -> ThemeShadow {
         layers([.drop(x: x, y: y, blur: blur, spread: spread, color: color)])
     }
 }
 
-public enum StyleSystemTextDecoration: String, Sendable, Equatable, Codable {
+public enum ThemeTextDecoration: String, Sendable, Equatable, Codable {
     case none
     case underline
 
     var cssValue: String { rawValue }
 }
 
-public struct StyleSystemIntrinsicSize: Sendable, Equatable, Codable {
+public struct ThemeIntrinsicSize: Sendable, Equatable, Codable {
     let cssValue: String
 
     init(_ cssValue: String) {
         self.cssValue = cssValue
     }
 
-    public static func automatic(block: Length) -> StyleSystemIntrinsicSize {
-        StyleSystemIntrinsicSize("auto \(block.cssValue)")
+    public static func automatic(block: Length) -> ThemeIntrinsicSize {
+        ThemeIntrinsicSize("auto \(block.cssValue)")
     }
 }
 
-public struct StyleSystemMotionTiming: Sendable, Equatable, Codable {
+public struct ThemeMotionTiming: Sendable, Equatable, Codable {
     public enum Curve: Sendable, Equatable, Codable {
         case ease
         case cubicBezier(Double, Double, Double, Double)
@@ -109,17 +109,17 @@ public struct StyleSystemMotionTiming: Sendable, Equatable, Codable {
     }
 }
 
-public struct StyleSystemRefraction: Sendable, Equatable, Codable {
+public struct ThemeRefraction: Sendable, Equatable, Codable {
     let cssValue: String
 
     init(_ cssValue: String) {
         self.cssValue = cssValue
     }
 
-    public static let none = StyleSystemRefraction("none")
+    public static let none = ThemeRefraction("none")
 
-    public static func svgFilter(id: String) -> StyleSystemRefraction {
-        StyleSystemRefraction("url(\"#\(id)\")")
+    public static func svgFilter(id: String) -> ThemeRefraction {
+        ThemeRefraction("url(\"#\(id)\")")
     }
 }
 
@@ -141,6 +141,6 @@ private func shadowValue<S: ShapeStyle>(
     if let spread {
         parts.append(spread.cssValue)
     }
-    parts.append(styleSystemCSSValue(color))
+    parts.append(themeCSSValue(color))
     return parts.joined(separator: " ")
 }

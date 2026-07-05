@@ -84,7 +84,7 @@ Sources/
 | `SwiftWebVapor` | `Sources/SwiftWebHTTPServer/Vapor/` | HTTP server adapter and `App.run()` lifecycle. | Host-neutral app model or dev orchestration. |
 | `SwiftWebVaporWebActors` | `Sources/SwiftWebHTTPServer/VaporWebActors/` | Optional HTTP server gateway for `@Resolvable` WebActor RPC. | Server Action registration or default app lifecycle. |
 | `SwiftWebStyle` | `Sources/SwiftWebUI/Style/` | Atomic style classes, selectors, and CSS-safe declaration registration. | SwiftWebUI component policy. |
-| `SwiftWebUITheme` | `Sources/SwiftWebUI/Theme/` | Host-neutral colors, materials, lengths, style system, root stylesheet, utility class definitions. | Component rendering, request routing. |
+| `SwiftWebUITheme` | `Sources/SwiftWebUI/Theme/` | Host-neutral colors, materials, lengths, the `Theme` model, root stylesheet, utility class definitions. | Component rendering, request routing. |
 | `SwiftWebUI` | `Sources/SwiftWebUI/Components/` | SwiftUI-inspired components, modifiers, environment integration. | Browser WASM bridge, route registration, dev tooling. |
 | `SwiftWebDevelopmentHooks` | `Sources/SwiftWebDevelopment/Hooks/` | Worker-side HMR hooks, dev route logging, boundary annotation. | Persistent dev host or package generation. |
 | `SwiftWebWasmBuild` | `Sources/SwiftWebDevelopment/WasmBuild/` | WASM toolchain resolution, artifact processing, compression, size reports. | Watching files or launching workers. |
@@ -170,7 +170,7 @@ This target intentionally stays host-neutral.
 | File group | File placement |
 |---|---|
 | Values | `Color`, `Length`, `Geometry`, `Material`, `ShapeStyle`, `ResolvedStyle`, `StyleResolutionContext`. |
-| System | `StyleSystem`, builder files, category builders, environment model, utility registry. |
+| System | `Theme`, builder files, category builders, environment model, utility registry. |
 | Stylesheet | `RootStylesheet` and root-level stylesheet layer definitions. |
 | Classes | `SwiftWebUIStyleClasses`, `SpaceStyleClasses`, `PaddingClassAxis`. |
 

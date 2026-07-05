@@ -1,25 +1,25 @@
 import SwiftHTML
 
 public struct StyleResolutionContext: Sendable {
-    public let styleSystem: StyleSystem
+    public let theme: Theme
     public let colorScheme: ColorScheme
     public let layoutDirection: LayoutDirection
     public let controlState: ControlState
 
     public init(
-        styleSystem: StyleSystem,
+        theme: Theme,
         colorScheme: ColorScheme,
         layoutDirection: LayoutDirection,
         controlState: ControlState
     ) {
-        self.styleSystem = styleSystem
+        self.theme = theme
         self.colorScheme = colorScheme
         self.layoutDirection = layoutDirection
         self.controlState = controlState
     }
 
     public static let `default` = StyleResolutionContext(
-        styleSystem: .default,
+        theme: .default,
         colorScheme: .light,
         layoutDirection: .leftToRight,
         controlState: .enabled

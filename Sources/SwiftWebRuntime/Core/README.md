@@ -140,7 +140,7 @@ struct CounterPage {
 | `services: AppServices` | Optionally register application-wide services and gateways. Page-local server actions do not require this. |
 | Page stored properties | Hold page-local route-lifetime services. |
 | `Page.cache` | Declare response cache behavior for the page. |
-| `.environment(...)` | Pass client-visible UI context such as locale, color scheme, and style system. |
+| `.environment(...)` | Pass client-visible UI context such as locale, color scheme, and theme. |
 
 ## Request Session
 

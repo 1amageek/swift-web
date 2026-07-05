@@ -40,7 +40,7 @@ func inputPresentationDiscussion(for id: String) -> [String]? {
     case "textfield":
         return [
             "TextField binds a single line of editable text to a String. It renders as a real <label> wrapping a native <input>, so clicking the label focuses the field and assistive technology reads the pair as one control. Trailing HTML attributes carry the web's input semantics: .type(.email), .url, or .search selects the browser's keyboard, validation, and autofill hints without changing the binding.",
-            "The field composes the shared thin material, so its fill and backdrop blur track the active style system; <input> is a replaced element, so the material's rim and refraction overlay intentionally do not paint here. Every keystroke flows through the native input event into the binding, and textFieldStyle(_:) switches between the automatic, plain, and square-border recipes.",
+            "The field composes the shared thin material, so its fill and backdrop blur track the active theme; <input> is a replaced element, so the material's rim and refraction overlay intentionally do not paint here. Every keystroke flows through the native input event into the binding, and textFieldStyle(_:) switches between the automatic, plain, and square-border recipes.",
         ]
     case "securefield":
         return [
