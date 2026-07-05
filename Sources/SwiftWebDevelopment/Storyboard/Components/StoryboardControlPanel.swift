@@ -66,7 +66,7 @@ struct StoryboardControlPanel: Component {
     @HTMLBuilder
     private func controlRow(_ control: StoryboardControl) -> some HTML {
         HStack(spacing: .small) {
-            Text(controlLabel(control), as: .span)
+            Text(controlLabel(control)).as(.span)
                 .font(Font(size: .px(11), weight: .bold))
                 .foregroundStyle(.secondary)
                 .textCase(.uppercase)
@@ -158,7 +158,7 @@ struct StoryboardControlPanel: Component {
         div(.class("swui-storyboard-range-widget")) {
             Slider(value: binding, in: min...max, step: step)
                 .class("swui-storyboard-range-slider")
-            Text(controlReadout(binding.wrappedValue, unit), as: .span)
+            Text(controlReadout(binding.wrappedValue, unit)).as(.span)
                 .font(Font(size: .px(13), design: .monospaced))
                 .foregroundStyle(.secondary)
                 .class("swui-storyboard-range-readout")

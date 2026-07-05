@@ -19,7 +19,7 @@ struct HelloPage {
             GridSystem {
                 Pane(span: 12) {
                     VStack(spacing: .large) {
-                        Text("Hello, World!", as: .h1)
+                        Text("Hello, World!").as(.h1)
                         Text("This is the smallest SwiftWeb example.").foregroundStyle(.secondary)
                     }
                 }

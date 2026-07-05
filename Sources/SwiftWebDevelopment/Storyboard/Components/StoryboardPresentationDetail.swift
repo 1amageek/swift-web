@@ -18,7 +18,7 @@ struct PresentationDetail: Component {
                 .buttonStyle(.borderedProminent)
                 .sheet(isPresented: ui.bool("sheet.open")) {
                     VStack(alignment: .leading, spacing: .medium) {
-                        Text("Sheet", as: .h2)
+                        Text("Sheet").as(.h2)
                         Text("A sheet composes the thick material and lifts to the top layer.")
                             .foregroundStyle(.secondary)
                         Button("Done") { ui.bool("sheet.open").wrappedValue = false }

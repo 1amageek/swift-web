@@ -14,25 +14,49 @@ struct PickersDetail: Component {
     var body: some HTML {
         switch selection {
         case "menu":
-            Menu(menuLabel) {
-                Button("Duplicate") {}
-                Button("Move") {}
-                Button("Delete") {}
-            }
-            .disabled(state.controlFlag("menu", "disabled"))
+            menuDemo()
         default: // picker
             pickerDemo()
         }
     }
 
     @HTMLBuilder
-    private func pickerDemo() -> some HTML {
-        if state.control("picker", "style") == "menu" {
-            Picker("View", selection: ui.string("picker.value")) { pickerOptions() }
-                .pickerStyle(.menu)
+    private func menuDemo() -> some HTML {
+        let disabled = state.controlFlag("menu", "disabled")
+        if state.controlFlag("menu", "icon") {
+            Menu {
+                menuItems()
+            } label: {
+                Label(menuLabel, systemImage: "person.crop.circle")
+            }
+            .disabled(disabled)
         } else {
-            Picker("View", selection: ui.string("picker.value")) { pickerOptions() }
-                .pickerStyle(.segmented)
+            Menu(menuLabel) {
+                menuItems()
+            }
+            .disabled(disabled)
+        }
+    }
+
+    @HTMLBuilder
+    private func menuItems() -> some HTML {
+        Button("Duplicate") {}
+        Button("Move") {}
+        Button("Delete") {}
+    }
+
+    @HTMLBuilder
+    private func pickerDemo() -> some HTML {
+        Picker("View", selection: ui.string("picker.value")) { pickerOptions() }
+            .pickerStyle(pickerStyleKind(state.control("picker", "style")))
+            .disabled(state.controlFlag("picker", "disabled"))
+    }
+
+    private func pickerStyleKind(_ value: String) -> PickerStyleKind {
+        switch value {
+        case "menu": return .menu
+        case "inline": return .inline
+        default: return .segmented
         }
     }
 

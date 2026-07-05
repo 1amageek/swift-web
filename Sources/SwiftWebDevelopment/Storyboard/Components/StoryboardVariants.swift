@@ -56,9 +56,9 @@ struct CatalogVariantCard: Component {
                 rawHTML(variant.demoHTML())
             }
             div(.class("swui-storyboard-variant-caption")) {
-                Text(variant.title, as: .span)
+                Text(variant.title).as(.span)
                     .font(Font(size: .px(13), weight: .semibold))
-                Text(variant.detail, as: .span)
+                Text(variant.detail).as(.span)
                     .font(Font(size: .px(12)))
                     .foregroundStyle(.secondary)
             }

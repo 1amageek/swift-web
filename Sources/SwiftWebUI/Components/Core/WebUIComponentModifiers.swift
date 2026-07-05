@@ -167,10 +167,6 @@ public extension HTML {
         modifier(HTMLAttributeModifier([styleAttribute(.padding(insets.cssValue))]))
     }
 
-    @available(*, deprecated, message: "Use clipShape(.rect(cornerRadius:))")
-    func cornerRadius(_ value: Length) -> ModifiedContent<Self, HTMLAttributeModifier> {
-        clipShape(.rect(cornerRadius: value))
-    }
 
     /// Clips this view to `shape`. The shape resolves to a `border-radius`,
     /// and `overflow: hidden` cuts descendants to that rounded box, matching

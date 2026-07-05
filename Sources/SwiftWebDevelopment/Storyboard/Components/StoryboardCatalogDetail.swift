@@ -31,7 +31,7 @@ struct CatalogDetail: Component {
     private func sectionTitle(_ title: String, anchor: String) -> some HTML {
         VStack(alignment: .leading, spacing: .xsmall) {
             div(.class("swui-storyboard-section-rule")) { EmptyHTML() }
-            Text(title, as: .h2, .id(anchor))
+            Text(title, .id(anchor)).as(.h2)
                 .font(.headline)
                 .fontWeight(.semibold)
         }
@@ -41,13 +41,13 @@ struct CatalogDetail: Component {
     @HTMLBuilder
     private func detailHeader(item: CatalogItem, spec: CatalogDetailSpec) -> some HTML {
         if let category = catalogCategory(for: item.id) {
-            Text(category.title, as: .span, .class("swui-storyboard-eyebrow"))
+            Text(category.title, .class("swui-storyboard-eyebrow")).as(.span)
         }
         HStack(alignment: .center, spacing: .medium) {
-            Text(item.name, as: .h1)
+            Text(item.name).as(.h1)
                 .font(.largeTitle)
                 .fontWeight(.bold)
-            Text(item.code, as: .code, .class("swui-storyboard-code-chip"))
+            Text(item.code, .class("swui-storyboard-code-chip")).as(.code)
         }
         if spec.discussion.isEmpty {
             Text(spec.overview, .class("swui-storyboard-lede"))
@@ -63,8 +63,8 @@ struct CatalogDetail: Component {
         }
         if let parity = spec.swiftUIParity {
             HStack(alignment: .center, spacing: .small) {
-                Text("SwiftUI", as: .span, .class("swui-storyboard-code-chip"))
-                Text(parity, as: .span)
+                Text("SwiftUI", .class("swui-storyboard-code-chip")).as(.span)
+                Text(parity).as(.span)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }

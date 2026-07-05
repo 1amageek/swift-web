@@ -13,15 +13,15 @@ struct SwiftWebUIRenderingTests {
       VStack(spacing: .large) {
         VStack(spacing: .small) {
           Text("SwiftWeb")
-          Text("Counter", as: .h1)
+          Text("Counter").as(.h1)
           Text("Client and server counters.").foregroundStyle(.secondary)
         }
         Grid(alignment: .center, horizontalSpacing: 5.0, verticalSpacing: 5.0) {
           GridRow {
             GroupBox {
-              Text("Client Counter", as: .h2)
+              Text("Client Counter").as(.h2)
               Text("Runs in WASM.").foregroundStyle(.secondary)
-              Text("0", as: .strong)
+              Text("0").as(.strong)
                 .accessibilityIdentifier("counter-value")
             }
             .accessibilityIdentifier("client-counter")
@@ -123,7 +123,7 @@ struct SwiftWebUIRenderingTests {
   func rendersBuiltInStyleSystemPresets() {
     let rendered = GroupBox {
       Text("Status").badge("Preview")
-      Text("7", as: .strong)
+      Text("7").as(.strong)
     }
     .styleRoot(.light)
     .environment(\.styleSystem, .liquidGlass)
@@ -265,16 +265,16 @@ struct SwiftWebUIRenderingTests {
   @Test
   func rendersTextAsSemanticElement() {
     let rendered = VStack {
-      Text("Page Title", as: .h1)
+      Text("Page Title").as(.h1)
       Text("Inline value")
         .as(.span)
-      Text("Muted caption", as: .small).foregroundStyle(.secondary)
+      Text("Muted caption").as(.small).foregroundStyle(.secondary)
     }
     .render()
 
     #expect(
       rendered.contains(
-        "<h1 class=\"swui-text swui-heading swui-heading-page\">Page Title</h1>"))
+        "<h1 class=\"swui-text\">Page Title</h1>"))
     #expect(rendered.contains("<span class=\"swui-text\">Inline value</span>"))
     #expect(rendered.contains("<small class=\"swui-text"))
     #expect(rendered.contains("color: var(--swui-foreground-secondary, var(--swui-text-muted))"))
@@ -287,7 +287,7 @@ struct SwiftWebUIRenderingTests {
       """
       let title = "<main>"
 
-      Text(title, as: .code)
+      Text(title).as(.code)
       """
     }
     .render()
@@ -303,10 +303,12 @@ struct SwiftWebUIRenderingTests {
   }
 
   @Test
-  func rendersInlineCodeWithCodeStyling() {
-    let rendered = Text("inline.code()", as: .code).render()
+  func rendersInlineCodeAsSemanticElement() {
+    // `as(.code)` selects the `<code>` tag only; it adds no style class, so the
+    // element carries just `swui-text` and reads like body text until styled.
+    let rendered = Text("inline.code()").as(.code).render()
 
-    #expect(rendered.contains("<code class=\"swui-text swui-inline-code\">inline.code()</code>"))
+    #expect(rendered.contains("<code class=\"swui-text\">inline.code()</code>"))
   }
 
   @Test
@@ -316,7 +318,7 @@ struct SwiftWebUIRenderingTests {
         SubmitButton("Decrement")
           .name("delta")
           .value(-1)
-        Text("4", as: .strong)
+        Text("4").as(.strong)
           .accessibilityIdentifier("counterValue")
         SubmitButton("Increment")
           .name("delta")
@@ -473,7 +475,7 @@ struct SwiftWebUIRenderingTests {
     #expect(rendered.contains("swui-style-foreground"))
     #expect(rendered.contains("<nav class=\"swui-navigation-stack\""))
     #expect(rendered.contains("data-navigation-title=\"Counter\""))
-    #expect(rendered.contains("<h1 class=\"swui-text swui-heading swui-heading-page\""))
+    #expect(rendered.contains("<h1 class=\"swui-text\""))
     #expect(rendered.contains("font-size: 3rem"))
     #expect(rendered.contains("color: var(--swui-foreground-primary, var(--swui-text))"))
     #expect(rendered.contains("aria-label=\"Counter title\""))
@@ -1727,17 +1729,19 @@ struct SwiftWebUIRenderingTests {
   }
 
   @Test
-  func headingLevelsMapToHeadingTags() {
-    let page = Text("P", as: .h1).render()
-    let section = Text("S", as: .h2).render()
-    let subsection = Text("Sub", as: .h3).render()
-    #expect(page.contains("<h1"))
-    #expect(page.contains("swui-heading-page"))
-    #expect(section.contains("<h2"))
-    #expect(section.contains("swui-heading-section"))
-    #expect(subsection.contains("<h3"))
-    #expect(subsection.contains("swui-heading-subsection"))
-    #expect(Text("Deep", as: .h4).render().contains("swui-heading"))
+  func headingLevelsMapToHeadingTagsWithoutStyleClasses() {
+    // `as(_:)` swaps the tag only: `.h1`-`.h6` render `<h1>`-`<h6>` carrying just
+    // `swui-text`, never a style class. Heading appearance comes from `.font(_:)`
+    // or a container, not from the tag.
+    let page = Text("P").as(.h1).render()
+    let section = Text("S").as(.h2).render()
+    let subsection = Text("Sub").as(.h3).render()
+    #expect(page.contains("<h1 class=\"swui-text\">P</h1>"))
+    #expect(section.contains("<h2 class=\"swui-text\">S</h2>"))
+    #expect(subsection.contains("<h3 class=\"swui-text\">Sub</h3>"))
+    #expect(!page.contains("swui-heading"))
+    #expect(Text("Deep").as(.h4).render().contains("<h4 class=\"swui-text\">Deep</h4>"))
+    #expect(!Text("Deep").as(.h4).render().contains("swui-heading"))
   }
 
   @Test

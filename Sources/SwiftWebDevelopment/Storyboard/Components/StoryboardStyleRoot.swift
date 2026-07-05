@@ -556,6 +556,15 @@ private enum StoryboardStylesheet {
             rule(cls("swui-storyboard-swatch-purple")) {
                 .backgroundColor("#af52de")
             }
+            rule(cls("swui-storyboard-swatch-red")) {
+                .backgroundColor("#ff3b30")
+            }
+            rule(cls("swui-storyboard-swatch-yellow")) {
+                .backgroundColor("#ffcc00")
+            }
+            rule(cls("swui-storyboard-swatch-indigo")) {
+                .backgroundColor("#5856d6")
+            }
             rule(cls("swui-storyboard-runtime-summary")) {
                 .boxSizing("border-box")
                   .width("100%")

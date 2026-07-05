@@ -382,7 +382,7 @@ func foundationsVariants(for id: String) -> [CatalogVariant]? {
 
 /// A labelled cell that fills its grid track, making spans evaluable.
 private func foundationsGridCell(_ label: String, height: Double = 26) -> some HTML {
-    Text(label, as: .small)
+    Text(label).as(.small)
         .font(Font(size: .px(11), design: .monospaced))
         .foregroundStyle(.accent)
         .frame(maxWidth: .infinity, height: height, alignment: .center)
@@ -408,14 +408,14 @@ private func foundationsSpacingBlock() -> some HTML {
 }
 
 private func foundationsSpacingCaption(_ label: String) -> some HTML {
-    Text(label, as: .small)
+    Text(label).as(.small)
         .font(Font(size: .px(11), design: .monospaced))
         .foregroundStyle(.secondary)
 }
 
 /// A chip whose inset grows with the padding token it names.
 private func foundationsPaddedChip(_ label: String, padding: Space) -> some HTML {
-    Text(label, as: .small)
+    Text(label).as(.small)
         .font(Font(size: .px(11), design: .monospaced))
         .foregroundStyle(.accent)
         .padding(padding)

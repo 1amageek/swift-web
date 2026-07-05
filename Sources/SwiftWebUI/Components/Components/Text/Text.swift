@@ -3,45 +3,56 @@ import SwiftHTML
 
 /// A run of read-only text, mirroring SwiftUI's `Text`.
 ///
-/// SwiftWebUI extends `Text` with an `as:` selector that chooses the HTML
-/// element it renders into — `<p>`, `<span>`, the headings, `<code>`, `<pre>`,
-/// and so on (see `TextElement`). This is an **intentional, web-specific part of
-/// the API, not a SwiftUI-parity gap**: SwiftUI has no notion of an HTML element,
-/// so there is no canonical name to mirror. `as:` lets callers emit semantic
-/// HTML without leaving the `Text` abstraction, in the same sanctioned-exception
-/// category as the HTML-attribute modifiers (`.id`, `.class`, `.data`).
+/// The initializer is SwiftUI-canonical: `Text("…")` takes only the string (plus
+/// the standard HTML-attribute modifiers). Choosing the HTML element a run
+/// renders into — `<p>`, `<span>`, the headings, `<code>`, `<pre>`, `<label>`,
+/// and so on (see `TextElement`) — is a **web-specific extension exposed as the
+/// `as(_:)` modifier**, not an initializer argument: SwiftUI has no notion of an
+/// HTML element, so the selector stays out of the SwiftUI-parity initializer.
 ///
-/// It defaults to `.p`, so a bare `Text("…")` matches SwiftUI; reach for `as:`
-/// (or the `as(_:)` modifier) only when a specific element is required.
+/// Being a modifier also lets the selector compose with `#if`, so platform- or
+/// target-conditional markup can add or drop the element without rebuilding the
+/// call. A bare `Text("…")` renders as `<p>`; reach for `.as(_:)` only when a
+/// specific element is required.
 public struct Text: WebUIAttributeComponent {
     private let value: String
     private let element: TextElement
     private let attributes: [HTMLAttribute]
 
-    /// Creates a text run that renders as `element` (a paragraph by default).
-    ///
-    /// `as:` is an intentional, web-specific spec — see the type documentation.
+    /// Creates a text run, mirroring SwiftUI's `Text(_:)`. It renders as a
+    /// paragraph; use the `as(_:)` modifier to emit a different HTML element.
     public init(
         _ value: String,
-        as element: TextElement = .p,
         _ attributes: HTMLAttribute...
     ) {
         self.value = value
-        self.element = element
+        self.element = .p
         self.attributes = attributes
     }
 
     @HTMLBuilder
     public var body: some HTML {
-        Element(element.tagName, attributes: mergedAttributes(class: className, extra: attributes)) {
+        // `as` selects only the tag; it never contributes a style class. The
+        // single `swui-text` class normalizes every element's typography to the
+        // inherited baseline (see the stylesheet), so `.as(.code)` and `.as(.h1)`
+        // are visually identical to a bare `Text` until a modifier styles them.
+        Element(element.tagName, attributes: mergedAttributes(class: "swui-text", extra: attributes)) {
             value
         }
     }
 
-    /// Re-renders this text as a different HTML `element`. Intentional,
-    /// web-specific spec — see the type documentation.
+    /// Renders this text as the given HTML `element` instead of the default
+    /// `<p>`. A web-specific extension exposed as a modifier so it composes with
+    /// `#if` — see the type documentation.
     public func `as`(_ element: TextElement) -> Self {
         Self(value, element: element, attributes: attributes)
+    }
+
+    /// Renders this text as the HTML element named `tag` (`"h1"`, `"label"`,
+    /// `"p"`, …). Known tag names resolve to their semantic `TextElement`;
+    /// anything else renders as a custom element.
+    public func `as`(_ tag: String) -> Self {
+        `as`(TextElement(tag))
     }
 
     public func addingAttributes(_ attributes: [HTMLAttribute]) -> Self {
@@ -56,26 +67,5 @@ public struct Text: WebUIAttributeComponent {
 
     var plainValue: String {
         value
-    }
-
-    private var className: String {
-        var classes = ["swui-text"]
-        switch element {
-        case .code:
-            classes.append("swui-inline-code")
-        case .pre:
-            classes.append("swui-preformatted")
-        case .h1:
-            classes.append(contentsOf: ["swui-heading", "swui-heading-page"])
-        case .h2:
-            classes.append(contentsOf: ["swui-heading", "swui-heading-section"])
-        case .h3:
-            classes.append(contentsOf: ["swui-heading", "swui-heading-subsection"])
-        case .h4, .h5, .h6:
-            classes.append("swui-heading")
-        default:
-            break
-        }
-        return classes.joined(separator: " ")
     }
 }

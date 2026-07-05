@@ -845,7 +845,13 @@ public extension StyleSystem {
         .surface {
             .containerBorder(.solid(width: 1, color: Color.white.mix(with: .border, by: 0.66)))
             .containerRadius(22)
-            .containerShadow(.drop(y: 18, blur: 48, color: Color(hex: 0x0F172A).opacity(0.18)))
+            // A grouped surface should rest, not float like a modal: a tight
+            // contact shadow plus a soft, low ambient layer give quiet depth
+            // instead of one heavy 48px cast.
+            .containerShadow(.layers([
+                .drop(y: 1, blur: 2, color: Color(hex: 0x0F172A).opacity(0.05)),
+                .drop(y: 6, blur: 18, color: Color(hex: 0x0F172A).opacity(0.10)),
+            ]))
         }
         .control {
             .regularHeight(40)

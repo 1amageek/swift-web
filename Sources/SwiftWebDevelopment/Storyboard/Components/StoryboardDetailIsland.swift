@@ -71,7 +71,7 @@ public struct StoryboardDetailIsland: ClientComponent, Sendable {
     }
 
     private func sectionTitle(_ title: String, anchor: String) -> some HTML {
-        Text(title, as: .h2, .id(anchor))
+        Text(title, .id(anchor)).as(.h2)
             .font(.headline)
             .fontWeight(.semibold)
     }
@@ -122,7 +122,7 @@ public struct StoryboardDetailIsland: ClientComponent, Sendable {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             } label: {
-                Text("DOM Contract", as: .span, .id("dom-contract"))
+                Text("DOM Contract", .id("dom-contract")).as(.span)
                     .font(.headline)
                     .fontWeight(.semibold)
             }
@@ -168,6 +168,7 @@ public struct StoryboardDetailIsland: ClientComponent, Sendable {
             let language = ui.control("code", "lang")
             Code(
                 language: language,
+                startLine: Int(ui.controlNumber("code", "startLine")),
                 showsLineNumbers: ui.controlFlag("code", "lineNumbers")
             ) {
                 codeSample(language)

@@ -87,7 +87,8 @@ private func catalogProperties(for id: String) -> [CatalogProperty] {
         ]
     case "typography":
         return [
-            CatalogProperty("Text(_:as:)", values: "String", summary: "The read-only string the view renders."),
+            CatalogProperty("Text(_:)", values: "String", summary: "The read-only string the view renders."),
+            CatalogProperty("as(_:)", values: ".h1–.h6 / .span / .code / .label / …", summary: "Renders the text as a different HTML element."),
             CatalogProperty("font", values: ".largeTitle / .title / .headline / .body / .caption", summary: "Applies a semantic font preset."),
             CatalogProperty("foregroundStyle", values: ".primary / .secondary / .accent / .danger", summary: "Sets color from a semantic role."),
         ]

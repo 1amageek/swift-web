@@ -15,7 +15,7 @@ struct CatalogSegmentOption: Identifiable, Sendable {
 }
 
 private func controlLabel(_ label: String) -> some HTML {
-    Text(label, as: .span)
+    Text(label).as(.span)
         .font(.footnote)
         .fontWeight(.medium)
         .foregroundStyle(.secondary)
@@ -29,7 +29,7 @@ struct CatalogRangeControl: Component {
         HStack(spacing: .medium) {
             // Name the range input from the visible label; a bare range input
             // would otherwise be announced only as "slider".
-            Text(label, as: .span, .id(labelID))
+            Text(label, .id(labelID)).as(.span)
                 .font(.footnote)
                 .fontWeight(.medium)
                 .foregroundStyle(.secondary)

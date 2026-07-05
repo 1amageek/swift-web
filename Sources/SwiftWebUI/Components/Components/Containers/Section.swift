@@ -115,7 +115,7 @@ public extension Section where Parent == EmptyHTML {
 public extension Section where Parent == Text, Footer == EmptyHTML {
     init(_ title: String, @HTMLBuilder content: () -> Content) {
         self.init(content: content) {
-            Text(title, as: .h3)
+            Text(title).as(.h3)
         }
     }
 }
@@ -127,7 +127,7 @@ public extension Section where Parent == Text, Footer == Text {
         @HTMLBuilder content: () -> Content
     ) {
         self.init(content: content) {
-            Text(title, as: .h3)
+            Text(title).as(.h3)
         } footer: {
             Text(footer)
         }

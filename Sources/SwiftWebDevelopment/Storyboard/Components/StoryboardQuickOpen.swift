@@ -21,10 +21,10 @@ public struct StoryboardQuickOpen: ClientComponent, Sendable {
                 isOpen = true
             } label: {
                 HStack(spacing: .small) {
-                    Text("⌕", as: .span).foregroundStyle(.secondary)
-                    Text("Search components", as: .span).foregroundStyle(.secondary)
+                    Text("⌕").as(.span).foregroundStyle(.secondary)
+                    Text("Search components").as(.span).foregroundStyle(.secondary)
                     Spacer()
-                    Text("⌘K", as: .span)
+                    Text("⌘K").as(.span)
                         .font(Font(size: .px(11)))
                         .foregroundStyle(.secondary)
                 }
@@ -48,7 +48,7 @@ public struct StoryboardQuickOpen: ClientComponent, Sendable {
                 isOpen = false
                 query = ""
             } label: {
-                Text("Close search", as: .span)
+                Text("Close search").as(.span)
             }
             .data("quick-open-close", "true")
             .class("swui-storyboard-quickopen-backdrop")
@@ -79,13 +79,13 @@ public struct StoryboardQuickOpen: ClientComponent, Sendable {
         Link(destination: URL(string: item.path)!) {
             VStack(alignment: .leading, spacing: .xsmall) {
                 HStack(spacing: .small) {
-                    Text(item.name, as: .span)
+                    Text(item.name).as(.span)
                         .fontWeight(.semibold)
-                    Text(item.code, as: .span)
+                    Text(item.code).as(.span)
                         .font(Font(size: .px(11.5), design: .monospaced))
                         .foregroundStyle(.secondary)
                 }
-                Text(item.summary, as: .span)
+                Text(item.summary).as(.span)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)

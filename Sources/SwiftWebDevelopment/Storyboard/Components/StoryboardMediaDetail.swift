@@ -24,14 +24,27 @@ struct MediaDetail: Component {
         case "label":
             let title = state.control("label", "title")
             Label(title.isEmpty ? "Verified" : title, systemImage: state.control("label", "name"))
-                .font(.title2)
+                .font(labelFont(state.control("label", "font")))
+                .foregroundStyle(imageForeground(state.control("label", "fg")))
         case "asyncimage":
             let source = state.control("asyncimage", "source")
             let url: URL? =
                 source == "none"
                 ? nil
                 : (source == "broken" ? storyboardBrokenImageURL : storyboardSampleImageURL)
-            AsyncImage(url: url) { image in
+            let scale = Double(state.control("asyncimage", "scale")) ?? 1
+            asyncImageDemo(url: url, scale: scale, placeholder: state.controlFlag("asyncimage", "placeholder"))
+        default: // image
+            Image(systemName: state.control("image", "name"))
+                .font(imageFont(state.control("image", "font")))
+                .foregroundStyle(imageForeground(state.control("image", "fg")))
+        }
+    }
+
+    @HTMLBuilder
+    private func asyncImageDemo(url: URL?, scale: Double, placeholder: Bool) -> some HTML {
+        if placeholder {
+            AsyncImage(url: url, scale: scale) { image in
                 image.clipShape(.rect(cornerRadius: 12))
             } placeholder: {
                 Label("Waiting for the image", systemImage: "photo")
@@ -39,10 +52,33 @@ struct MediaDetail: Component {
                     .frame(width: 240, height: 150)
                     .background(.surfaceRaised, in: .rect(cornerRadius: 12))
             }
-        default: // image
-            Image(systemName: state.control("image", "name"))
-                .font(.largeTitle)
-                .foregroundStyle(.accent)
+        } else {
+            AsyncImage(url: url, scale: scale)
+        }
+    }
+
+    private func imageFont(_ value: String) -> Font {
+        switch value {
+        case "body": return .body
+        case "title2": return .title2
+        default: return .largeTitle
+        }
+    }
+
+    private func labelFont(_ value: String) -> Font {
+        switch value {
+        case "body": return .body
+        case "caption": return .caption
+        default: return .title3
+        }
+    }
+
+    private func imageForeground(_ value: String) -> Color {
+        switch value {
+        case "secondary": return .secondary
+        case "danger": return .danger
+        case "accent": return .accent
+        default: return .primary
         }
     }
 }

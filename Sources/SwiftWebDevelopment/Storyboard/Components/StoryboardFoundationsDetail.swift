@@ -25,6 +25,7 @@ struct FoundationsDetail: Component {
             let token = state.control("spacing", "unit")
             HStack(alignment: .top, spacing: .large) {
                 VStack(alignment: .leading, spacing: .xsmall) {
+                    spacingBar(".xsmall", width: 32, active: token == "xsmall")
                     spacingBar(".small", width: 48, active: token == "small")
                     spacingBar(".medium", width: 72, active: token == "medium")
                     spacingBar(".large", width: 96, active: token == "large")
@@ -35,32 +36,17 @@ struct FoundationsDetail: Component {
                             .foregroundStyle(.secondary)
                     }
                     Button("Continue").buttonStyle(.borderedProminent)
-                    Text(".\(token)", as: .small)
+                    Text(".\(token)").as(.small)
                         .font(Font(size: .px(12), design: .monospaced))
                         .foregroundStyle(.secondary)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         case "alignment":
-            // The chip is positioned within a bounded, dashed frame by the
-            // selected alignment. The dashed frame uses typed style declarations:
-            // SwiftWebUI's `.border(_:width:)` only produces a *solid* border, so
-            // the dashed style lives in the Storyboard stylesheet instead of being
-            // faked with a solid component border.
-            let align = state.control("alignment", "align")
-            VStack(spacing: .small) {
-                div(.class("swui-storyboard-alignment-frame \(alignmentJustifyClass(align))")) {
-                    Text("View")
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.accentText)
-                        .padding(.horizontal, 18)
-                        .padding(.vertical, 10)
-                        .background(.accent, in: .rect(cornerRadius: 8))
-                }
-                Text(alignmentTag(align), as: .small)
-                    .font(Font(size: .px(12), design: .monospaced))
-                    .foregroundStyle(.secondary)
-            }
+            // The `target` control selects which alignment concept the demo
+            // exercises: positioning inside a frame, a stack's cross-axis
+            // alignment, or wrapped-line alignment inside the text's own box.
+            alignmentDemo(align: state.control("alignment", "align"), target: state.control("alignment", "target"))
         case "style":
             // The same Text renders differently by context: bare, inside a List
             // row, or inside a toolbar attached through the toolbar modifier.
@@ -94,18 +80,20 @@ struct FoundationsDetail: Component {
                     }
                     .frame(maxWidth: .infinity)
                 }
-                Text(responsiveCaption(bp), as: .small)
+                Text(responsiveCaption(bp)).as(.small)
                     .font(Font(size: .px(12), design: .monospaced))
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity)
         case "safearea":
             // The device context changes how much chrome (notch + home indicator,
-            // a browser toolbar, or none) insets the safe area inside the frame.
+            // a browser toolbar, or none) insets the safe area; the ignore control
+            // extends an accent background under that chrome, edge to edge.
             let device = state.control("safearea", "device")
+            let ignore = state.control("safearea", "ignore")
             VStack(spacing: .small) {
-                deviceMock(device)
-                Text(safeAreaLabel(device), as: .small)
+                deviceMock(device, ignore: ignore)
+                Text("\(safeAreaLabel(device)) · \(ignoreLabel(ignore))").as(.small)
                     .font(Font(size: .px(12), design: .monospaced))
                     .foregroundStyle(.secondary)
             }
@@ -116,24 +104,16 @@ struct FoundationsDetail: Component {
                 VStack {}
                     .frame(width: 150, height: 88)
                     .background(Color(cssValue: paletteHex(name)).opacity(opacity), in: .rect(cornerRadius: 12))
-                Text("Color.\(name) · opacity \(String(format: "%.2f", opacity))", as: .small)
+                Text("Color.\(name) · opacity \(String(format: "%.2f", opacity))").as(.small)
                     .font(Font(size: .px(12), design: .monospaced))
                     .foregroundStyle(.secondary)
             }
         case "color":
-            let custom = Color(cssValue: state.control("color", "custom"))
-            HStack(spacing: .small) {
-                Button("Accent").buttonStyle(.borderedProminent)
-                    .tint(.accent)
-                Button("Danger").buttonStyle(.borderedProminent)
-                    .tint(.danger)
-                Button("Custom").buttonStyle(.borderedProminent)
-                    .tint(custom)
-            }
-            .frame(maxWidth: .infinity, alignment: .center)
+            colorDemo()
         case "typography":
             let text = state.control("typography", "text")
             Text(text.isEmpty ? "Hello, SwiftWebUI" : text)
+                .as(typographyElement(state.control("typography", "as")))
                 .font(typographyFont(state.control("typography", "font")))
                 .fontWeight(typographyWeight(state.control("typography", "weight")))
                 .multilineTextAlignment(typographyTextAlignment(state.control("typography", "align")))
@@ -150,7 +130,12 @@ struct FoundationsDetail: Component {
                 div(.class("swui-storyboard-material-content")) {
                     HStack(spacing: .large) {
                         materialSample(state.control("materials", "level"))
-                        glassSample()
+                        glassSample(
+                            variant: state.control("materials", "glass"),
+                            tint: state.control("materials", "tint"),
+                            shape: state.control("materials", "shape"),
+                            interactive: state.controlFlag("materials", "interactive")
+                        )
                     }
                     .frame(maxWidth: .infinity)
                 }
@@ -160,6 +145,34 @@ struct FoundationsDetail: Component {
                 .font(.largeTitle)
                 .fontWeight(.bold)
                 .foregroundStyle(.primary)
+        }
+    }
+
+    @HTMLBuilder
+    private func colorDemo() -> some HTML {
+        let name = state.control("color", "name")
+        let opacity = state.controlNumber("color", "opacity")
+        let custom = Color(cssValue: state.control("color", "custom"))
+        VStack(spacing: .small) {
+            HStack(spacing: .medium) {
+                colorChip(Color(cssValue: paletteHex(name)).opacity(opacity), label: ".\(name)")
+                colorChip(custom, label: ".css")
+            }
+            Text("Color.\(name).opacity(\(String(format: "%.2f", opacity)))").as(.small)
+                .font(Font(size: .px(12), design: .monospaced))
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
+    }
+
+    private func colorChip(_ color: Color, label: String) -> some HTML {
+        VStack(spacing: .xsmall) {
+            VStack {}
+                .frame(width: 96, height: 72)
+                .background(color, in: .rect(cornerRadius: 12))
+            Text(label).as(.small)
+                .font(Font(size: .px(11), design: .monospaced))
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -201,18 +214,26 @@ struct FoundationsDetail: Component {
         }
     }
 
-    private func glassSample() -> some HTML {
-        VStack(spacing: .xsmall) {
+    private func glassSample(variant: String, tint: String, shape: String, interactive: Bool) -> some HTML {
+        var glass: Glass = variant == "clear" ? .clear : .regular
+        if tint != "none" {
+            glass = glass.tint(storyboardTintColor(tint))
+        }
+        if interactive {
+            glass = glass.interactive()
+        }
+        let clip: Shape = shape == "capsule" ? .capsule : .rect(cornerRadius: 20)
+        return VStack(spacing: .xsmall) {
             Text("Liquid Glass").font(.subheadline).fontWeight(.semibold).foregroundStyle(.primary)
             Text(".glassEffect() · refracts").font(Font(size: .px(11), design: .monospaced)).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, minHeight: 150, alignment: .center)
         .padding(.medium)
-        .glassEffect(.regular, in: .rect(cornerRadius: 20))
+        .glassEffect(glass, in: clip)
     }
 
     private func gridPane(_ label: String) -> some HTML {
-        Text(label, as: .small)
+        Text(label).as(.small)
             .font(Font(size: .px(12), design: .monospaced))
             .foregroundStyle(.accent)
             .frame(maxWidth: .infinity, height: 56, alignment: .center)
@@ -247,10 +268,13 @@ struct FoundationsDetail: Component {
 
     private func paletteHex(_ name: String) -> String {
         switch name {
-        case "green": return "#34c759"
+        case "red": return "#ff3b30"
         case "orange": return "#ff9500"
-        case "pink": return "#ff2d55"
+        case "yellow": return "#ffcc00"
+        case "green": return "#34c759"
+        case "indigo": return "#5856d6"
         case "purple": return "#af52de"
+        case "pink": return "#ff2d55"
         default: return "#007aff" // blue
         }
     }
@@ -302,9 +326,35 @@ struct FoundationsDetail: Component {
 
     private func spacingSpace(_ value: String) -> Space {
         switch value {
+        case "xsmall": return .xsmall
         case "small": return .small
         case "large": return .large
         default: return .medium
+        }
+    }
+
+    private func stackHAlignment(_ value: String) -> HorizontalAlignment {
+        switch value {
+        case "leading": return .leading
+        case "trailing": return .trailing
+        default: return .center
+        }
+    }
+
+    private func typographyElement(_ value: String) -> TextElement {
+        switch value {
+        case "span": return .span
+        case "h3": return .h3
+        case "code": return .code
+        default: return .p
+        }
+    }
+
+    private func ignoreLabel(_ ignore: String) -> String {
+        switch ignore {
+        case "all": return "ignoresSafeArea()"
+        case "top": return "ignoresSafeArea(edges: .top)"
+        default: return "safe by default"
         }
     }
 
@@ -323,6 +373,56 @@ struct FoundationsDetail: Component {
             : "frame(maxWidth: .infinity, alignment: .\(value))"
     }
 
+    // The dashed frame uses typed style declarations: SwiftWebUI's
+    // `.border(_:width:)` only produces a *solid* border, so the dashed style
+    // lives in the Storyboard stylesheet instead of being faked with a solid
+    // component border.
+    @HTMLBuilder
+    private func alignmentDemo(align: String, target: String) -> some HTML {
+        switch target {
+        case "stack":
+            VStack(spacing: .small) {
+                VStack(alignment: stackHAlignment(align), spacing: .xsmall) {
+                    Text("Departures").fontWeight(.semibold)
+                    Text("Gate 4 · on time").font(.footnote).foregroundStyle(.secondary)
+                    Text("Boarding").font(.footnote).foregroundStyle(.secondary)
+                }
+                .padding(.small)
+                .frame(width: 220, alignment: .leading)
+                .background(Color.accent.opacity(0.08), in: .rect(cornerRadius: 10))
+                Text("VStack(alignment: .\(align))").as(.small)
+                    .font(Font(size: .px(12), design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
+        case "multiline":
+            VStack(spacing: .small) {
+                Text("Wrapped lines align inside the text's own box")
+                    .font(.footnote)
+                    .multilineTextAlignment(typographyTextAlignment(align))
+                    .frame(width: 180)
+                    .padding(.small)
+                    .background(Color.accent.opacity(0.08), in: .rect(cornerRadius: 10))
+                Text("multilineTextAlignment(.\(align))").as(.small)
+                    .font(Font(size: .px(12), design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
+        default: // frame
+            VStack(spacing: .small) {
+                div(.class("swui-storyboard-alignment-frame \(alignmentJustifyClass(align))")) {
+                    Text("View")
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.accentText)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 10)
+                        .background(.accent, in: .rect(cornerRadius: 8))
+                }
+                Text(alignmentTag(align)).as(.small)
+                    .font(Font(size: .px(12), design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
     @HTMLBuilder
     private func styleDemo(_ context: String) -> some HTML {
         switch context {
@@ -337,7 +437,7 @@ struct FoundationsDetail: Component {
                             Button("Done").buttonStyle(.borderedProminent).controlSize(.small)
                         }
                     }
-                Text(".swui-toolbar .swui-text { font-weight: 600; }", as: .code)
+                Text(".swui-toolbar .swui-text { font-weight: 600; }").as(.code)
             }
         case "list":
             VStack(spacing: .medium) {
@@ -345,12 +445,12 @@ struct FoundationsDetail: Component {
                     Text("Wi-Fi").badge("On")
                     Text("Bluetooth").badge("Off")
                 }
-                Text(".swui-list .swui-text { padding-block: 2px; }", as: .code)
+                Text(".swui-list .swui-text { padding-block: 2px; }").as(.code)
             }
         default: // standalone
             VStack(spacing: .medium) {
                 Text("Wi-Fi")
-                Text("StyleClass(\"swui-fg-primary\")", as: .code)
+                Text("StyleClass(\"swui-fg-primary\")").as(.code)
             }
         }
     }
@@ -358,12 +458,14 @@ struct FoundationsDetail: Component {
     /// A device frame whose chrome insets (top/bottom) shrink the inner safe
     /// area. The hatched chrome bands and dashed accent safe-area box are
     /// storyboard stylesheet classes, not inline styles.
-    private func deviceMock(_ device: String) -> some HTML {
+    private func deviceMock(_ device: String, ignore: String) -> some HTML {
         let top = safeAreaTop(device)
         let bottom = safeAreaBottom(device)
+        // `all` bleeds the accent background behind every edge; `top` tints only
+        // the top chrome band, matching ignoresSafeArea(edges: .top).
         return div(.class("swui-storyboard-device \(deviceClass(device))")) {
-            chromeBand(edge: "top", height: top, notch: device == "notch")
-            chromeBand(edge: "bottom", height: bottom, notch: false)
+            chromeBand(edge: "top", height: top, notch: device == "notch", tinted: ignore == "all" || ignore == "top")
+            chromeBand(edge: "bottom", height: bottom, notch: false, tinted: ignore == "all")
             div(.class("swui-storyboard-safe-area")) {
                 Text("safe area")
                     .font(Font(size: .px(11)))
@@ -371,12 +473,14 @@ struct FoundationsDetail: Component {
                     .foregroundStyle(.accent)
             }
         }
+        .background(ignore == "all" ? Color.accent.opacity(0.18) : .clear, in: .rect(cornerRadius: 12))
     }
 
     /// One hatched chrome band pinned to an edge of the device frame; bands at
-    /// or below the 8px baseline render nothing (no chrome on that edge).
+    /// or below the 8px baseline render nothing (no chrome on that edge). A
+    /// tinted band shows an accent background reaching under that chrome.
     @HTMLBuilder
-    private func chromeBand(edge: String, height: Double, notch: Bool) -> some HTML {
+    private func chromeBand(edge: String, height: Double, notch: Bool, tinted: Bool) -> some HTML {
         if height > 8 {
             div(.class("swui-storyboard-chrome-band swui-storyboard-chrome-\(edge)")) {
                 if notch {
@@ -385,6 +489,7 @@ struct FoundationsDetail: Component {
                     div(.class("swui-storyboard-home-indicator")) {}
                 }
             }
+            .background(tinted ? Color.accent.opacity(0.35) : .clear)
         }
     }
 
@@ -422,7 +527,7 @@ struct FoundationsDetail: Component {
 
     private func spacingBar(_ label: String, width: Double, active: Bool) -> some HTML {
         HStack(spacing: .small) {
-            Text(label, as: .small)
+            Text(label).as(.small)
                 .font(Font(size: .px(12), design: .monospaced))
                 .foregroundStyle(.secondary)
                 .frame(width: 24, alignment: .trailing)
@@ -430,7 +535,7 @@ struct FoundationsDetail: Component {
                 .frame(width: width, height: 10)
                 .background(active ? Color.accent : Color.border, in: .rect(cornerRadius: 3))
             if active {
-                Text("selected", as: .small)
+                Text("selected").as(.small)
                     .font(Font(size: .px(11)))
                     .foregroundStyle(.accent)
             }

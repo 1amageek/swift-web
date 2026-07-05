@@ -220,10 +220,10 @@ func statusAnimationVariants(for id: String) -> [CatalogVariant]? {
 /// instead of faking motion — the playground is where the values change.
 private func vocabularyChip(_ symbol: String, _ meaning: String) -> some HTML {
     VStack(spacing: 2) {
-        Text(symbol, as: .code)
+        Text(symbol).as(.code)
             .font(.caption)
             .fontWeight(.semibold)
-        Text(meaning, as: .span)
+        Text(meaning).as(.span)
             .font(.caption2)
             .foregroundStyle(.secondary)
     }

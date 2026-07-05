@@ -59,7 +59,7 @@ public extension GroupBox where Label == Text {
         @HTMLBuilder content: () -> Content
     ) {
         self.init(content: content) {
-            Text(title, as: .h3)
+            Text(title).as(.h3)
         }
     }
 }

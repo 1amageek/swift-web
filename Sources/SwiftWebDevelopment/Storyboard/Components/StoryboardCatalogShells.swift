@@ -13,13 +13,13 @@ struct CatalogPropertyPanel: Component {
         div(.class("swui-storyboard-props")) {
             ForEach(properties) { property in
                 div(.class("swui-storyboard-props-row")) {
-                    Text(property.name, as: .span)
+                    Text(property.name).as(.span)
                         .font(Font(size: .px(13), weight: .semibold, design: .monospaced))
                     VStack(alignment: .leading, spacing: .xsmall) {
-                        Text(property.acceptedValues, as: .span)
+                        Text(property.acceptedValues).as(.span)
                             .font(Font(size: .px(12.5), design: .monospaced))
                             .foregroundStyle(.accent)
-                        Text(property.summary, as: .span)
+                        Text(property.summary).as(.span)
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }

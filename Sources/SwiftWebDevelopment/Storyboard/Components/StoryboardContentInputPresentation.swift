@@ -19,14 +19,14 @@ private let variantDate = Date(timeIntervalSince1970: 1_781_515_800)
 
 /// A small rounded swatch that paints one `Color`.
 private func colorSwatch(_ color: Color) -> some HTML {
-    Text("", as: .span)
+    Text("").as(.span)
         .frame(width: 22, height: 22)
         .background(color, in: .rect(cornerRadius: 7))
 }
 
 /// A pill-shaped chip used as horizontally scrolling content.
 private func scrollChip(_ title: String) -> some HTML {
-    Text(title, as: .span)
+    Text(title).as(.span)
         .font(.footnote)
         .padding(.horizontal, 10)
         .padding(.vertical, 4)

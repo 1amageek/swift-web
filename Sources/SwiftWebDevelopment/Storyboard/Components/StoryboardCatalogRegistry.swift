@@ -42,7 +42,7 @@ public let catalogCategories: [CatalogCategory] = [
         CatalogItem(id: "materials", name: "Materials & Glass", code: ".regularMaterial · glassEffect()", summary: "Material frosts the backdrop (vibrancy); Liquid Glass refracts it. Glass is the default surface."),
     ]),
     CatalogCategory(id: "content", title: "Content", items: [
-        CatalogItem(id: "typography", name: "Text", code: "Text(_:as:)", summary: "Displays read-only text with semantic font, weight, alignment, and foreground style."),
+        CatalogItem(id: "typography", name: "Text", code: "Text(_:)", summary: "Displays read-only text with semantic font, weight, alignment, and foreground style."),
         CatalogItem(id: "image", name: "Image", code: "Image(systemName:)", summary: "Renders an SF Symbol name as an inline SVG glyph that inherits the text color."),
         CatalogItem(id: "asyncimage", name: "AsyncImage", code: "AsyncImage(url:)", summary: "Displays a URL image through the natively asynchronous img element, with an optional placeholder beneath it."),
         CatalogItem(id: "colorvalue", name: "Color", code: "Color.blue.opacity(_:)", summary: "A color paints the region it is given and resolves per appearance."),

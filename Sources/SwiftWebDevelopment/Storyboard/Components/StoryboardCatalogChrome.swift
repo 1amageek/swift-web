@@ -15,11 +15,12 @@ struct CatalogTopBar: Component {
     let scheme: StoryboardSchemePreference
 
     var body: some HTML {
-        // The bar composes the same `bar` material recipe as `.toolbar` chrome,
-        // floating over the atmosphere as an inset glass strip.
+        // The bar carries no surface of its own: its content sits directly on the
+        // atmosphere. It keeps the `.toolbar` context so bar typography still
+        // applies, but no material fill, blur, or rim is composed.
         div(
             .class(
-                "swui-storyboard-topbar swui-toolbar swui-fill-h swui-material swui-material-bar"
+                "swui-storyboard-topbar swui-toolbar swui-fill-h"
             )
         ) {
             HStack(spacing: .medium) {

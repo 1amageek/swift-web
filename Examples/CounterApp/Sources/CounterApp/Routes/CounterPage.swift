@@ -40,14 +40,14 @@ struct CounterPage {
 
                             GroupBox {
                                 VStack(spacing: .large) {
-                                    Text("Server Counter", as: .h2)
+                                    Text("Server Counter").as(.h2)
                                     Text(
                                         "Each button posts a delta to Vapor. The value is read from server state on the next render."
                                     )
                                     .foregroundStyle(.secondary)
                                     VStack(spacing: .xsmall) {
-                                        Text("Server value", as: .small).foregroundStyle(.secondary)
-                                        Text(String(serverValue), as: .strong)
+                                        Text("Server value").as(.small).foregroundStyle(.secondary)
+                                        Text(String(serverValue)).as(.strong)
                                             .font(.largeTitle)
                                             .foregroundStyle(.accent)
                                             .accessibilityIdentifier("counter-value")

@@ -326,8 +326,13 @@ package enum RootStylesheet {
           .boxShadow("var(--swui-container-shadow)")
           .padding(.space(.medium))
       }
+      // The GroupBox styles its own title (the header Text is semantic-only now
+      // that `as` never carries style); the title Text inherits this typography.
       rule(cls("swui-group-box-title")) {
         .margin("0 0 var(--swui-space-sm) 0")
+          .fontSize("var(--swui-heading-subsection-size)")
+          .fontWeight("600")
+          .lineHeight("1.25")
       }
       // The toolbar reads as a floating glass bar: its fill + backdrop come
       // from the shared `bar` material (composed in the toolbar layout); this
@@ -656,50 +661,20 @@ package enum RootStylesheet {
       )) {
         .alignSelf("flex-start")
       }
-      rule(cls("swui-heading")) {
-        .margin("0")
-          .color("var(--swui-text)")
-          .letterSpacing("0")
-      }
-      rule(cls("swui-heading-page")) {
-        .fontSize("var(--swui-heading-page-size)")
-          .lineHeight("var(--swui-heading-page-line-height)")
-      }
-      rule(cls("swui-heading-section")) {
-        .fontSize("var(--swui-heading-section-size)")
-          .lineHeight("1.2")
-      }
-      rule(cls("swui-heading-subsection")) {
-        .fontSize("var(--swui-heading-subsection-size)")
-          .lineHeight("1.25")
-      }
+      // `Text` renders one of several HTML elements (`as` picks the tag), but its
+      // appearance must not depend on the tag: `swui-text` normalizes every
+      // element's typography to the inherited baseline, so a heading, `<code>`,
+      // or `<strong>` reads identically to a `<p>` until a modifier styles it.
+      // Heading size, monospace, weight, etc. come from `.font(_:)` (or a
+      // container that styles its header by inheritance), never from `as`.
       rule(cls("swui-text")) {
         .margin("0")
           .color("var(--swui-text)")
-      }
-      rule(cls("swui-inline-code")) {
-        .display("inline-block")
-          .padding(.zero, .em(0.35))
-          .border("1px solid var(--swui-border)")
-          .borderRadius("var(--swui-radius-small)")
-          .background("color-mix(in srgb, var(--swui-surface-raised) 88%, var(--swui-accent))")
-          .fontFamily("var(--swui-mono-font-family)")
-          .fontSize("0.9em")
-          .lineHeight("1.5")
-      }
-      rule(cls("swui-preformatted")) {
-        .maxWidth("100%")
-          .overflowX("auto")
-          .padding(.space(.medium))
-          .border("1px solid var(--swui-border)")
-          .borderRadius("var(--swui-radius-medium)")
-          .background("color-mix(in srgb, var(--swui-surface-raised) 92%, var(--swui-accent))")
-          .fontFamily("var(--swui-mono-font-family)")
-          .fontSize("0.875em")
-          .lineHeight("1.55")
-          .tabSize("4")
-          .whiteSpace("pre")
-          .boxSizing("border-box")
+          .fontFamily("inherit")
+          .fontSize("inherit")
+          .fontWeight("inherit")
+          .fontStyle("inherit")
+          .lineHeight("inherit")
       }
       rule(cls("swui-code-block")) {
         .maxWidth("100%")

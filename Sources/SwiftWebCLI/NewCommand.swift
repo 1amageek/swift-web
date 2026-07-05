@@ -594,7 +594,7 @@ struct TemplateProject {
                         Button(action: {
                             sendDraft()
                         }) {
-                            Text("↑", as: .span)
+                            Text("↑").as(.span)
                                 .class("sw-chat-send-icon")
                         }
                         .class("sw-chat-send")

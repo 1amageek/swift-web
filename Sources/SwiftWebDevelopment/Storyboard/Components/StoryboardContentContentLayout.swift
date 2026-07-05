@@ -162,9 +162,9 @@ func contentLayoutVariants(for id: String) -> [CatalogVariant]? {
             },
             CatalogVariant("Semantic elements", detail: "as: renders headings, code, and inline spans.") {
                 VStack(alignment: .leading, spacing: .xsmall) {
-                    Text("Section heading", as: .h3)
-                    Text("let value = 42", as: .code)
-                    Text("An inline span", as: .span).foregroundStyle(.secondary)
+                    Text("Section heading").as(.h3)
+                    Text("let value = 42").as(.code)
+                    Text("An inline span").as(.span).foregroundStyle(.secondary)
                 }
             },
         ]

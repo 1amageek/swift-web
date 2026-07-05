@@ -57,27 +57,6 @@ public struct Stepper: WebUIAttributeComponent {
         )
     }
 
-    @available(*, deprecated, message: "Use init(_:value:in:step:onEditingChanged:) — the canonical argument order puts the bounds before the step.")
-    public init(
-        _ title: String,
-        value: Binding<Int>,
-        step: Int,
-        in bounds: ClosedRange<Int>?,
-        onEditingChanged: @escaping @Sendable (Bool) -> Void = { _ in },
-        _ attributes: HTMLAttribute...
-    ) {
-        self.init(
-            title: title,
-            value: value,
-            step: step,
-            bounds: bounds,
-            onIncrement: nil,
-            onDecrement: nil,
-            onEditingChanged: onEditingChanged,
-            attributes: attributes
-        )
-    }
-
     public init(
         _ title: String,
         onIncrement: (@Sendable () -> Void)?,

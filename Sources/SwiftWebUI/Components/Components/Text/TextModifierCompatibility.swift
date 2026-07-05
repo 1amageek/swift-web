@@ -101,9 +101,6 @@ public enum TextSelectability: Sendable, Equatable {
     }
 }
 
-@available(*, deprecated, renamed: "TextSelectability")
-public typealias TextSelection = TextSelectability
-
 public extension HTML {
     func lineLimit(_ number: Int?) -> ModifiedContent<Self, HTMLAttributeModifier> {
         guard let number else {

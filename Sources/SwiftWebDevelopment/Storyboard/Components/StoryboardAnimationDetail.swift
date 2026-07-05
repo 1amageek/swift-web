@@ -9,6 +9,7 @@ struct AnimationDetail: Component {
     /// Shared control-panel state, keyed "componentID.knob".
     let ui: Binding<[String: String]>
 
+    private var state: [String: String] { ui.wrappedValue }
     private var on: Binding<Bool> { ui.bool("\(selection).on") }
 
     var body: some HTML {
@@ -19,14 +20,14 @@ struct AnimationDetail: Component {
                 GroupBox {
                     Text("Now you see me")
                 }
-                .transition(.scale.combined(with: .opacity))
+                .transition(transitionValue(state.control("transition", "kind")))
             }
         case "withanimation":
             // The button drives the change inside withAnimation, so the whole
-            // update is interpolated.
+            // update is interpolated with the selected timing.
             VStack(spacing: .medium) {
                 Button(action: {
-                    withAnimation(.spring(duration: 0.4, bounce: 0.3)) {
+                    withAnimation(animationValue("withanimation")) {
                         on.wrappedValue.toggle()
                     }
                 }) {
@@ -40,13 +41,36 @@ struct AnimationDetail: Component {
             }
         default: // animation
             // `.animation(_:value:)` interpolates the descendant changes a state
-            // change drives.
+            // change drives, using the selected curve and duration.
             GroupBox {
                 Text("Featured")
             }
             .opacity(on.wrappedValue ? 1 : 0.3)
             .scaleEffect(on.wrappedValue ? 1.08 : 1)
-            .animation(.easeInOut(duration: 0.3), value: on.wrappedValue)
+            .animation(animationValue("animation"), value: on.wrappedValue)
+        }
+    }
+
+    private func animationValue(_ prefix: String) -> Animation {
+        let curve = state.control(prefix, "curve")
+        let duration = state.controlNumber(prefix, "duration")
+        let bounce = state.controlFlag(prefix, "bounce")
+        switch curve {
+        case "easeIn": return .easeIn(duration: duration)
+        case "easeOut": return .easeOut(duration: duration)
+        case "linear": return .linear(duration: duration)
+        case "spring": return .spring(duration: duration, bounce: bounce ? 0.3 : 0)
+        default: return .easeInOut(duration: duration)
+        }
+    }
+
+    private func transitionValue(_ kind: String) -> AnyTransition {
+        switch kind {
+        case "opacity": return .opacity
+        case "move": return .move(edge: .bottom)
+        case "slide": return .slide
+        case "asymmetric": return .asymmetric(insertion: .move(edge: .leading), removal: .opacity)
+        default: return .scale.combined(with: .opacity)
         }
     }
 }

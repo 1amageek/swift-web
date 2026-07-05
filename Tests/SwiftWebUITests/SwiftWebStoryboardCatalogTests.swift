@@ -80,7 +80,7 @@ struct SwiftWebStoryboardCatalogTests {
         #expect(rendered.contains("DOM Contract"))
         #expect(rendered.contains("Properties"))
         #expect(rendered.contains("Related"))
-        #expect(rendered.contains("Text(_:as:)"))
+        #expect(rendered.contains("Text(_:)"))
         #expect(rendered.contains("Text(\"Hello, SwiftWebUI\")"))
     }
 
@@ -374,11 +374,12 @@ struct SwiftWebStoryboardCatalogTests {
     }
 
     @Test
-    func gridStoryboardUsesStaticGridContract() {
+    func gridStoryboardExposesSpacingAndAlignmentControls() {
         let snippet = catalogSnippet(for: "grid", state: [:])
         let rendered = StoryboardCatalog(initialSelection: "grid").render()
 
-        #expect(storyboardControls(for: "grid").isEmpty)
+        let controlKeys = storyboardControls(for: "grid").map(\.id)
+        #expect(controlKeys == ["hSpacing", "vSpacing", "align"])
         #expect(storyboardControlDefaults["grid.min"] == nil)
         #expect(snippet.contains("Grid(horizontalSpacing: 12, verticalSpacing: 12)"))
         #expect(snippet.contains("GridRow"))
@@ -432,7 +433,6 @@ struct SwiftWebStoryboardCatalogTests {
             "GroupBox",
             "Code",
             "Text",
-            "Heading",
             "Button",
             "SubmitButton",
             "TextField",
