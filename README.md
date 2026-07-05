@@ -105,8 +105,9 @@ export SWIFT_WEB_WASM_TOOLCHAIN_BIN="$(dirname "$SWIFT_WEB_WASM_SWIFT")"
 
 ## Installation
 
-For the current developer preview, depend on the repository branch until the host-side
-HTTP dependencies are fully versioned for SwiftPM release consumption:
+SwiftWeb's first developer-preview release is `0.1.0`. Depend on it by version.
+The host-side HTTP stack is still pinned to specific upstream revisions, so a
+resolved build pulls those exact revisions transitively:
 
 ```swift
 // swift-tools-version: 6.3
@@ -121,8 +122,8 @@ let package = Package(
         .library(name: "MyApp", targets: ["MyApp"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/1amageek/swift-web.git", branch: "main"),
-        .package(url: "https://github.com/1amageek/swift-html.git", from: "0.7.1"),
+        .package(url: "https://github.com/1amageek/swift-web.git", from: "0.1.0"),
+        .package(url: "https://github.com/1amageek/swift-html.git", from: "0.8.1"),
     ],
     targets: [
         .target(
@@ -144,17 +145,16 @@ let package = Package(
 ### Install The CLI With Mint
 
 Mint can install the `sweb` executable product directly from the repository. Pin
-`@main` while SwiftWeb is in developer preview; replace it with a release tag when
-tagged releases are available.
+`@0.1.0` for a reproducible install; `@main` tracks the latest development.
 
 | Need | Command |
 |---|---|
-| Install and link `sweb` globally | `mint install 1amageek/swift-web@main sweb` |
-| Run without linking | `mint run 1amageek/swift-web@main sweb <command>` |
-| Print the installed executable path | `mint which 1amageek/swift-web@main sweb` |
+| Install and link `sweb` globally | `mint install 1amageek/swift-web@0.1.0 sweb` |
+| Run without linking | `mint run 1amageek/swift-web@0.1.0 sweb <command>` |
+| Print the installed executable path | `mint which 1amageek/swift-web@0.1.0 sweb` |
 
 ```bash
-mint install 1amageek/swift-web@main sweb
+mint install 1amageek/swift-web@0.1.0 sweb
 sweb --help
 sweb new MyApp --output ../MyApp
 ```
