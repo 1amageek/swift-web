@@ -43,12 +43,16 @@ struct DevCommand {
     }
 
     func run() async throws {
+        let resolvedPort = SwiftWebDevPortProbe.firstAvailablePort(host: host, startingAt: port)
+        if resolvedPort != port {
+            FileHandle.standardError.write(Data("Port \(port) is in use; using \(resolvedPort).\n".utf8))
+        }
         let configuration = SwiftWebDevRuntimeConfiguration(
             packageDirectory: packageDirectory,
             scratchDirectory: scratchDirectory,
             product: product,
             host: host,
-            port: port
+            port: resolvedPort
         )
 
         try await SwiftWebDevRuntime(configuration: configuration).run()

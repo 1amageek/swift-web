@@ -60,7 +60,7 @@ private func codeBody(language: String) -> String {
   case "json":
     return "    \"\"\"\n    {\n      \"columns\": 12,\n      \"gutter\": \"medium\"\n    }\n    \"\"\""
   case "bash":
-    return "    \"\"\"\n    swift run sweb storyboard --port 3001\n    \"\"\""
+    return "    \"\"\"\n    swift run sweb storyboard\n    \"\"\""
   default:
     return "    \"\"\"\n    struct Counter: View {\n        @State private var count = 0\n    }\n    \"\"\""
   }

@@ -149,7 +149,7 @@ public struct StoryboardDetailIsland: ClientComponent, Sendable {
         case "json":
             return "{\n  \"columns\": 12,\n  \"gutter\": \"medium\"\n}"
         case "bash":
-            return "swift run sweb storyboard --port 3001"
+            return "swift run sweb storyboard"
         default:
             return "struct Counter: View {\n    @State private var count = 0\n}"
         }

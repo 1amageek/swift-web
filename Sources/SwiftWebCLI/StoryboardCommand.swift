@@ -20,7 +20,7 @@ struct StoryboardCommand {
         var storyboardDirectory: URL?
         var scratchDirectory: URL?
         var host = "127.0.0.1"
-        var port = 3001
+        var port = 3000
         var runsServer = true
         var force = false
         var mode = StoryboardCommandMode.development
@@ -96,6 +96,12 @@ struct StoryboardCommand {
     }
 
     func run() async throws {
+        let resolvedPort = runsServer
+            ? SwiftWebDevPortProbe.firstAvailablePort(host: host, startingAt: port)
+            : port
+        if runsServer, resolvedPort != port {
+            FileHandle.standardError.write(Data("Port \(port) is in use; using \(resolvedPort).\n".utf8))
+        }
         let resolvedStoryboardDirectory = storyboardDirectory
             ?? packageDirectory
                 .appendingPathComponent(".swiftweb", isDirectory: true)
@@ -106,7 +112,7 @@ struct StoryboardCommand {
             storyboardDirectory: resolvedStoryboardDirectory,
             scratchDirectory: scratchDirectory,
             host: host,
-            port: port,
+            port: resolvedPort,
             runsServer: mode == .development ? runsServer : false,
             force: force
         )
@@ -132,7 +138,7 @@ struct StoryboardCommand {
             packageDirectory: resolvedStoryboardDirectory,
             scratchDirectory: scratchDirectory,
             host: host,
-            port: port,
+            port: resolvedPort,
             runsServer: runsServer,
             configuration: self.configuration ?? "release",
             swiftSDK: swiftSDK,

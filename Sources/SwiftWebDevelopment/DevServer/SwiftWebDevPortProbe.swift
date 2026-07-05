@@ -4,9 +4,27 @@ import SwiftWebWasmBuild
 import Darwin
 import Foundation
 
-enum SwiftWebDevPortProbe {
+public enum SwiftWebDevPortProbe {
     static func isListening(host: String, port: Int) -> Bool {
         canConnect(host: host, port: port)
+    }
+
+    /// The first port at or above `startingAt` that nothing is listening on,
+    /// scanning up to `maxAttempts` consecutive ports (bounded by 65535). Falls
+    /// back to `startingAt` when none is free, so the caller still surfaces the
+    /// real bind failure rather than silently succeeding.
+    public static func firstAvailablePort(host: String, startingAt: Int, maxAttempts: Int = 64) -> Int {
+        var port = max(1, startingAt)
+        for _ in 0..<max(1, maxAttempts) {
+            if port > 65535 {
+                break
+            }
+            if !isListening(host: host, port: port) {
+                return port
+            }
+            port += 1
+        }
+        return startingAt
     }
 
     static func wait(host: String, port: Int, timeout: TimeInterval) -> Bool {
