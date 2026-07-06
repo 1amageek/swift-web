@@ -5,6 +5,7 @@ import FoundationEssentials
 #elseif canImport(Foundation)
 import Foundation
 #endif
+import SwiftHTML
 import Synchronization
 
 public final class WebActorSystem: DistributedActorSystem, Sendable {
@@ -18,7 +19,7 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
 
     private let registry = ActorRegistry()
     private let transport: (any WebActorTransport)?
-    private let activators = Mutex<[String: @Sendable () -> Void]>([:])
+    private let activators = Mutex<[String: WebActorActivator]>([:])
     private let activationLock = Mutex<Void>(())
 
     public init(transport: (any WebActorTransport)? = nil) {
@@ -40,11 +41,15 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
 
     /// Registers the factory that activates instances of `actorType` on
     /// demand, one per ID. Registered by `ActorGroup` during scene lowering.
+    /// The environment is established around activation and every invocation
+    /// on the group's actors, so `@Environment` resolves inside them.
     public func registerActivator<Act: DistributedActor>(
         for actorType: Act.Type,
+        environment: EnvironmentValues = EnvironmentValues(),
         activate: @escaping @Sendable () -> Void
     ) where Act.ActorSystem == WebActorSystem {
-        activators.withLock { $0[Self.contract(for: actorType)] = activate }
+        let activator = WebActorActivator(environment: environment, activate: activate)
+        activators.withLock { $0[Self.contract(for: actorType)] = activator }
     }
 
     public func assignID<Act>(_ actorType: Act.Type) -> ActorID where Act: DistributedActor {
@@ -159,6 +164,27 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
         envelope: InvocationEnvelope,
         target: RemoteCallTarget
     ) async throws -> ResponseEnvelope {
+        #if !hasFeature(Embedded)
+        if let environment = registeredEnvironment(for: envelope.recipientID) {
+            return try await EnvironmentValues.withValue(environment) {
+                try await self.executeResolved(envelope: envelope, target: target)
+            }
+        }
+        #endif
+        return try await executeResolved(envelope: envelope, target: target)
+    }
+
+    private func registeredEnvironment(for id: ActorID) -> EnvironmentValues? {
+        guard let separator = id.firstIndex(of: ":") else {
+            return nil
+        }
+        return activators.withLock { $0[String(id[..<separator])] }?.environment
+    }
+
+    private func executeResolved(
+        envelope: InvocationEnvelope,
+        target: RemoteCallTarget
+    ) async throws -> ResponseEnvelope {
         guard let actor = try registry.find(id: envelope.recipientID) ?? activatedActor(id: envelope.recipientID) else {
             throw RuntimeError.actorNotFound(envelope.recipientID)
         }
@@ -190,7 +216,7 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
             return nil
         }
         let contract = String(id[..<separator])
-        guard let activate = activators.withLock({ $0[contract] }) else {
+        guard let activator = activators.withLock({ $0[contract] }) else {
             return nil
         }
         return try activationLock.withLock { _ in
@@ -198,7 +224,7 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
                 return existing
             }
             WebActorActivationContext.withValue(WebActorPendingID(id)) {
-                activate()
+                activator.activate()
             }
             guard let activated = registry.find(id: id) else {
                 throw RuntimeError.executionFailed(
@@ -209,6 +235,11 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
             return activated
         }
     }
+}
+
+private struct WebActorActivator: Sendable {
+    let environment: EnvironmentValues
+    let activate: @Sendable () -> Void
 }
 
 private actor WebActorInvocationResultStore {

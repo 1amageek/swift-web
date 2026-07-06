@@ -28,7 +28,10 @@ where ActorType.ActorSystem == WebActorSystem {
 
     func _makeScene(in context: _SceneContext) async throws {
         let factory = self.factory
-        context.actorSystem.registerActivator(for: ActorType.self) {
+        context.actorSystem.registerActivator(
+            for: ActorType.self,
+            environment: context.environment
+        ) {
             _ = factory()
         }
         ActorInvocationEndpoint.registerIfNeeded(

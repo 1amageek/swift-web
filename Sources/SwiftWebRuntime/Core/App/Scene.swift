@@ -39,17 +39,20 @@ public struct _SceneContext {
     public let application: Application
     public let routes: any RoutesBuilder
     public let actorSystem: WebActorSystem
+    public let environment: EnvironmentValues
     package let actorBindings: SwiftWebActorBindingScope
 
     public init(
         application: Application,
         routes: any RoutesBuilder,
         actorSystem: WebActorSystem = .shared,
+        environment: EnvironmentValues = EnvironmentValues(),
         actorBindings: SwiftWebActorBindingScope = .empty
     ) {
         self.application = application
         self.routes = routes
         self.actorSystem = actorSystem
+        self.environment = environment
         self.actorBindings = actorBindings
     }
 
@@ -72,6 +75,7 @@ public struct _SceneContext {
             application: application,
             routes: routes.grouped(path.webComponents),
             actorSystem: actorSystem,
+            environment: environment,
             actorBindings: actorBindings
         )
     }
@@ -81,7 +85,18 @@ public struct _SceneContext {
             application: application,
             routes: routes,
             actorSystem: actorSystem,
+            environment: environment,
             actorBindings: actorBindings.adding(actor)
+        )
+    }
+
+    package func withEnvironment(_ environment: EnvironmentValues) -> _SceneContext {
+        _SceneContext(
+            application: application,
+            routes: routes,
+            actorSystem: actorSystem,
+            environment: environment,
+            actorBindings: actorBindings
         )
     }
 }

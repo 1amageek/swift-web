@@ -263,8 +263,11 @@ struct SupportApp: App {
   (`/_swiftweb/actors/invoke`, raw-body plain-JSON envelope decode per the wire-format
   rule) — actors are reachable on the swift-http-server host with zero extra wiring;
   verified E2E over a real socket (state persists across calls).
-- Dependency injection: init arguments in the factory; `.environment()` on the scene is
-  the agreed follow-up for cross-cutting values (`@Environment` inside actors).
+- Dependency injection: init arguments in the factory, **and `.environment()` on the
+  scene** — SwiftHTML's existing `@Environment` resolves inside the group's actors
+  (one environment system for views and actors; no new wrapper). The system establishes
+  the scene environment around activation and every invocation, so reads are stable
+  per the agreed lifetime rule (scene values, never per-invocation data).
 - The Cloudflare lowering of the same declaration (wrangler binding + DO class codegen +
   Worker id→stub routing) is the WS-4/5 work; the declaration and activation semantics
   are now fixed.

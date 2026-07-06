@@ -95,6 +95,62 @@ struct SwiftWebActorGroupTests {
         }
     }
 
+    @Test
+    func sceneEnvironmentResolvesInsideActorGroupActors() async throws {
+        let application = TestWebApplication()
+        let system = WebActorSystem()
+        try await _SceneRenderer.make(
+            ActorGroupEnvironmentFixture(system: system).scenes,
+            in: _SceneContext(application: application, routes: application.routes, actorSystem: system)
+        )
+
+        let id = WebActorSystem.actorID(for: ActorGroupGreeter.self, named: "env-1")
+        let store = CapturedEnvelopeStore()
+        let clientSystem = WebActorSystem(transport: CapturingWebActorTransport(store: store))
+        let remote = try $ActorGroupGreeterProtocol.resolve(id: id, using: clientSystem)
+        do {
+            _ = try await remote.greeting()
+            Issue.record("Capturing transport should throw after recording the envelope")
+        } catch {}
+        let greeting = try await system.invoke(envelope: store.requireEnvelope())
+        guard case .success(let greetingData) = greeting.result else {
+            throw ActorGroupTestError.invocationFailed
+        }
+        #expect(try JSONDecoder().decode(String.self, from: greetingData) == "injected")
+
+        do {
+            _ = try await remote.greetingCapturedAtActivation()
+            Issue.record("Capturing transport should throw after recording the envelope")
+        } catch {}
+        let captured = try await system.invoke(envelope: store.requireEnvelope())
+        guard case .success(let capturedData) = captured.result else {
+            throw ActorGroupTestError.invocationFailed
+        }
+        #expect(try JSONDecoder().decode(String.self, from: capturedData) == "injected")
+    }
+
+    @Test
+    func environmentDefaultsApplyWhenSceneSetsNothing() async throws {
+        let system = WebActorSystem()
+        system.registerActivator(for: ActorGroupGreeter.self) {
+            _ = ActorGroupGreeter(actorSystem: system)
+        }
+        let id = WebActorSystem.actorID(for: ActorGroupGreeter.self, named: "default-1")
+        let store = CapturedEnvelopeStore()
+        let clientSystem = WebActorSystem(transport: CapturingWebActorTransport(store: store))
+        let remote = try $ActorGroupGreeterProtocol.resolve(id: id, using: clientSystem)
+        do {
+            _ = try await remote.greeting()
+            Issue.record("Capturing transport should throw after recording the envelope")
+        } catch {}
+
+        let response = try await system.invoke(envelope: store.requireEnvelope())
+        guard case .success(let data) = response.result else {
+            throw ActorGroupTestError.invocationFailed
+        }
+        #expect(try JSONDecoder().decode(String.self, from: data) == "default-greeting")
+    }
+
     // MARK: - Helpers
 
     private func capturedEnvelope(id: String, incrementBy amount: Int) async throws -> InvocationEnvelope {
@@ -214,6 +270,64 @@ private struct ActorGroupFixtureScenes {
         ActorGroup {
             ActorGroupCounter(actorSystem: system)
         }
+    }
+}
+
+private struct ActorGroupGreetingKey: EnvironmentKey {
+    static let defaultValue = "default-greeting"
+}
+
+extension EnvironmentValues {
+    fileprivate var actorGreeting: String {
+        get { self[ActorGroupGreetingKey.self] }
+        set { self[ActorGroupGreetingKey.self] = newValue }
+    }
+}
+
+@Resolvable
+protocol ActorGroupGreeterProtocol: DistributedActor
+where ActorSystem == WebActorSystem {
+    distributed func greeting() async throws -> String
+    distributed func greetingCapturedAtActivation() async throws -> String
+}
+
+@ResolvableActor(ActorGroupGreeterProtocol.self)
+private distributed actor ActorGroupGreeter: ActorGroupGreeterProtocol {
+    typealias ActorSystem = WebActorSystem
+
+    @Environment(\.actorGreeting) private var environmentGreeting
+    private let activationGreeting: String
+
+    init(actorSystem: WebActorSystem) {
+        self.actorSystem = actorSystem
+        self.activationGreeting = EnvironmentContextReader.currentGreeting
+    }
+
+    distributed func greeting() async throws -> String {
+        environmentGreeting
+    }
+
+    distributed func greetingCapturedAtActivation() async throws -> String {
+        activationGreeting
+    }
+}
+
+/// Reads the greeting from the ambient environment during activation, from
+/// outside the actor so the read does not touch `self` mid-init.
+private enum EnvironmentContextReader {
+    static var currentGreeting: String {
+        Environment(\.actorGreeting).wrappedValue
+    }
+}
+
+private struct ActorGroupEnvironmentFixture {
+    let system: WebActorSystem
+
+    var scenes: some Scene {
+        ActorGroup {
+            ActorGroupGreeter(actorSystem: system)
+        }
+        .environment(\.actorGreeting, "injected")
     }
 }
 

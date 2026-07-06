@@ -32,7 +32,8 @@ let swiftWebUIRuntimeDependencies: [Target.Dependency] = [
 
 let swiftWebActorsDependencies: [Target.Dependency] =
     [
-        .product(name: "ActorRuntime", package: "swift-actor-runtime")
+        swiftHTMLDependency,
+        .product(name: "ActorRuntime", package: "swift-actor-runtime"),
     ] + (swiftWebCoreOnly ? [] : ["SwiftWebMacros"])
 
 // The @Actor accessor macro declaration is gated behind SWIFTWEB_MACROS so that
