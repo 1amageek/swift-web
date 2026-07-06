@@ -38,20 +38,26 @@ public enum _SceneRenderer {
 public struct _SceneContext {
     public let application: Application
     public let routes: any RoutesBuilder
+    public let actorSystem: WebActorSystem
     package let actorBindings: SwiftWebActorBindingScope
 
     public init(
         application: Application,
         routes: any RoutesBuilder,
+        actorSystem: WebActorSystem = .shared,
         actorBindings: SwiftWebActorBindingScope = .empty
     ) {
         self.application = application
         self.routes = routes
+        self.actorSystem = actorSystem
         self.actorBindings = actorBindings
     }
 
-    public static func root(_ application: Application) -> _SceneContext {
-        _SceneContext(application: application, routes: application.routes)
+    public static func root(
+        _ application: Application,
+        actorSystem: WebActorSystem = .shared
+    ) -> _SceneContext {
+        _SceneContext(application: application, routes: application.routes, actorSystem: actorSystem)
     }
 
     package func grouped(_ path: String) -> _SceneContext {
@@ -65,6 +71,7 @@ public struct _SceneContext {
         return _SceneContext(
             application: application,
             routes: routes.grouped(path.webComponents),
+            actorSystem: actorSystem,
             actorBindings: actorBindings
         )
     }
@@ -73,6 +80,7 @@ public struct _SceneContext {
         _SceneContext(
             application: application,
             routes: routes,
+            actorSystem: actorSystem,
             actorBindings: actorBindings.adding(actor)
         )
     }

@@ -236,6 +236,39 @@ the full test suite (390 tests) is green through the rebuilt Vapor adapter.
   `ActionGateway.register(handler:...)`.
 - swift-web suite: 371 tests green without Vapor; swift-web-vapor: 33 tests green.
 
+## 8d. Progress log — 2026-07-06 (ActorGroup: the agent programming model's front door)
+
+The DO-hosted actor is now expressible in the app model (feeds WS-5/WS-8):
+
+```swift
+@main
+struct SupportApp: App {
+    var body: some Scene {
+        ActorGroup {
+            SupportAgent(actorSystem: actorSystem)   // App.actorSystem (default .shared)
+        }
+    }
+}
+```
+
+- **`ActorGroup`** is a scene in the `WindowGroup` sense: a family of identically
+  structured actors, one per identity. Nothing is created at boot; the factory runs
+  once per ID on first message (virtual-actor activation). Uses only the language's
+  standard `init(actorSystem:)` — no protocol requirement, no macro, no magic init.
+- **Activation** lives in `WebActorSystem`: IDs are `"<contract>:<name>"` (same shape
+  `assignID` generates; `WebActorSystem.actorID(for:named:)`), activators register per
+  contract, activation is per-ID single-flight, and the pending ID is consumed by the
+  first matching `assignID` during the factory call. Wrong-system factories fail loudly.
+- **Declaring an `ActorGroup` auto-registers the host-neutral invocation endpoint**
+  (`/_swiftweb/actors/invoke`, raw-body plain-JSON envelope decode per the wire-format
+  rule) — actors are reachable on the swift-http-server host with zero extra wiring;
+  verified E2E over a real socket (state persists across calls).
+- Dependency injection: init arguments in the factory; `.environment()` on the scene is
+  the agreed follow-up for cross-cutting values (`@Environment` inside actors).
+- The Cloudflare lowering of the same declaration (wrangler binding + DO class codegen +
+  Worker id→stub routing) is the WS-4/5 work; the declaration and activation semantics
+  are now fixed.
+
 ## 9. Document index
 
 - `PlatformHostArchitecture.md` — host-neutral core & adapter model (foundation for WS-1/2/3/4).

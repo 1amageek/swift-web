@@ -68,7 +68,10 @@ public struct HTTPServerAppRunner<Definition: App> {
             }
             try await (clientRuntime ?? definition.clientRuntime).install(on: application)
             try await definition.services.register(on: application)
-            try await _SceneRenderer.make(definition.body, in: .root(application))
+            try await _SceneRenderer.make(
+                definition.body,
+                in: .root(application, actorSystem: definition.actorSystem)
+            )
 
             let handler = SwiftWebHostHTTPHandler(
                 application: application,

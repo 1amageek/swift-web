@@ -1,3 +1,5 @@
+import SwiftWebActors
+
 public protocol App {
     associatedtype Body: Scene
     associatedtype Services: AppServices = EmptyAppServices
@@ -7,6 +9,16 @@ public protocol App {
     var clientRuntime: ClientRuntimeConfiguration { get }
     /// Defines the app-wide HTTP security policy.
     var security: SecurityConfiguration { get }
+
+    /// The actor system hosting the app's distributed actors. `ActorGroup`
+    /// factories construct their actors with it:
+    ///
+    ///     ActorGroup {
+    ///         SupportAgent(actorSystem: actorSystem)
+    ///     }
+    ///
+    /// Must return the same instance for the app's lifetime.
+    var actorSystem: WebActorSystem { get }
 
     @AppServiceBuilder
     var services: Services { get }
@@ -22,6 +34,10 @@ public extension App {
 
     var security: SecurityConfiguration {
         .defaults
+    }
+
+    var actorSystem: WebActorSystem {
+        .shared
     }
 }
 

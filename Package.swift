@@ -177,6 +177,7 @@ let package = Package(
             dependencies: [
                 swiftHTMLDependency,
                 "SwiftWebHostKit",
+                .product(name: "ActorRuntime", package: "swift-actor-runtime"),
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "Logging", package: "swift-log"),
                 "SwiftWebActors",

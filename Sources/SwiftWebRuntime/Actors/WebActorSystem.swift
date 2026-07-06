@@ -5,6 +5,7 @@ import FoundationEssentials
 #elseif canImport(Foundation)
 import Foundation
 #endif
+import Synchronization
 
 public final class WebActorSystem: DistributedActorSystem, Sendable {
     public typealias ActorID = String
@@ -17,13 +18,40 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
 
     private let registry = ActorRegistry()
     private let transport: (any WebActorTransport)?
+    private let activators = Mutex<[String: @Sendable () -> Void]>([:])
+    private let activationLock = Mutex<Void>(())
 
     public init(transport: (any WebActorTransport)? = nil) {
         self.transport = transport
     }
 
+    /// The contract prefix identifying an actor type in virtual-actor IDs
+    /// (`"<contract>:<name>"`), matching the prefix `assignID` generates.
+    public static func contract<Act: DistributedActor>(for actorType: Act.Type) -> String {
+        String(reflecting: actorType)
+    }
+
+    /// The ID addressing the virtual actor of the given type with the given
+    /// logical name. Sending to it activates the actor on demand when an
+    /// `ActorGroup` for the type is registered.
+    public static func actorID<Act: DistributedActor>(for actorType: Act.Type, named name: String) -> ActorID {
+        "\(contract(for: actorType)):\(name)"
+    }
+
+    /// Registers the factory that activates instances of `actorType` on
+    /// demand, one per ID. Registered by `ActorGroup` during scene lowering.
+    public func registerActivator<Act: DistributedActor>(
+        for actorType: Act.Type,
+        activate: @escaping @Sendable () -> Void
+    ) where Act.ActorSystem == WebActorSystem {
+        activators.withLock { $0[Self.contract(for: actorType)] = activate }
+    }
+
     public func assignID<Act>(_ actorType: Act.Type) -> ActorID where Act: DistributedActor {
-        "\(String(reflecting: actorType)):\(UUID().uuidString)"
+        if let pending = WebActorActivationContext.current?.takeIfMatching(contract: Self.contract(for: actorType)) {
+            return pending
+        }
+        return "\(String(reflecting: actorType)):\(UUID().uuidString)"
     }
 
     public func actorReady<Act>(_ actor: Act) where Act: DistributedActor, Act.ID == ActorID {
@@ -131,7 +159,7 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
         envelope: InvocationEnvelope,
         target: RemoteCallTarget
     ) async throws -> ResponseEnvelope {
-        guard let actor = registry.find(id: envelope.recipientID) else {
+        guard let actor = try registry.find(id: envelope.recipientID) ?? activatedActor(id: envelope.recipientID) else {
             throw RuntimeError.actorNotFound(envelope.recipientID)
         }
 
@@ -152,6 +180,34 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
             throw RuntimeError.executionFailed("No result captured", underlying: "Unknown")
         }
         return response
+    }
+
+    /// Activates the virtual actor an ID targets when an `ActorGroup` factory
+    /// is registered for its contract. The lock makes activation per-ID
+    /// single-flight: concurrent messages for the same ID get one instance.
+    private func activatedActor(id: ActorID) throws -> (any DistributedActor)? {
+        guard let separator = id.firstIndex(of: ":") else {
+            return nil
+        }
+        let contract = String(id[..<separator])
+        guard let activate = activators.withLock({ $0[contract] }) else {
+            return nil
+        }
+        return try activationLock.withLock { _ in
+            if let existing = registry.find(id: id) {
+                return existing
+            }
+            WebActorActivationContext.withValue(WebActorPendingID(id)) {
+                activate()
+            }
+            guard let activated = registry.find(id: id) else {
+                throw RuntimeError.executionFailed(
+                    "ActorGroup factory did not create a \(contract) on this actor system for id '\(id)'",
+                    underlying: "The factory must construct the actor with the app's actor system"
+                )
+            }
+            return activated
+        }
     }
 }
 
