@@ -66,8 +66,8 @@ extension WebRequest {
             url: WebURL(string: path, path: path),
             headers: headers,
             cookies: cookies,
-            query: WebQueryContainer { _ in
-                throw TestRequestError.unsupported("query decoding")
+            query: WebQueryContainer { type in
+                try WebURLEncodedFormDecoder().decode(type, from: "")
             },
             content: WebContentContainer(
                 decoder: { _ in

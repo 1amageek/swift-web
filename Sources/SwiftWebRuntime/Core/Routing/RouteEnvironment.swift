@@ -95,8 +95,16 @@ extension EnvironmentValues {
         set { self[CSPNonceEnvironmentKey.self] = newValue }
     }
 
+    /// The environment established by enclosing scene `.environment()`
+    /// modifiers, empty outside any. Read via the whole-values key path so it
+    /// works through SwiftHTML's public wrapper.
+    static var swiftWebAmbient: EnvironmentValues {
+        Environment(\.self).wrappedValue
+    }
+
     static var swiftWebCurrent: EnvironmentValues {
-        var environment = EnvironmentValues()
+        // Seed with the scene environment; request-derived values win.
+        var environment = swiftWebAmbient
         if let context = RequestContext.current {
             environment.route = context.routeEnvironment
             environment.csrfToken = context.security?.csrfToken

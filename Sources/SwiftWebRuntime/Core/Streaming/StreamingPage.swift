@@ -29,7 +29,7 @@ public enum StreamingPageRoute {
             let searchParams = try req.query.decode(Page.SearchParams.self)
             let headers: HTTPFields = [.contentType: "text/html; charset=utf-8"]
             let requestValues = RequestValues(request: req, params: NoParams(), searchParams: searchParams)
-            var configuredEnvironment = EnvironmentValues()
+            var configuredEnvironment = EnvironmentValues.swiftWebAmbient
             configuredEnvironment.applyRequestValues(requestValues)
             let environment = configuredEnvironment
 

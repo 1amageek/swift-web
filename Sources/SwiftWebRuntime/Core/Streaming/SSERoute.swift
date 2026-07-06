@@ -28,7 +28,7 @@ public enum SSERouteBuilder {
         routes.get(path.webComponents) { req async throws -> Response in
             let searchParams = try req.query.decode(RouteType.SearchParams.self)
             let requestValues = RequestValues(request: req, params: NoParams(), searchParams: searchParams)
-            var configuredEnvironment = EnvironmentValues()
+            var configuredEnvironment = EnvironmentValues.swiftWebAmbient
             configuredEnvironment.applyRequestValues(requestValues)
             let environment = configuredEnvironment
             let context = SSEContext(request: req, searchParams: searchParams)
