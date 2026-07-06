@@ -72,8 +72,8 @@ Everything that must be built, grouped. Status: ☐ not started · ◐ in progre
 | **WS-3** | **Vapor as a separate package** | Extract `SwiftWebVapor` into an optional package/adapter mapping the core to Vapor; keep for those who want it, not the default. | WS-1 | ☑ |
 | **WS-4** | **Cloudflare Worker adapter** | Lower the app model into a Workers `fetch` entrypoint (TS shim + Swift/WASM). Routing `actor id → DO`. Build/deploy via `wrangler`. | WS-1 | ☐ |
 | **WS-5** | **Durable Object actor runtime** | JS DO class that hosts the Swift/WASM module; binds DO storage, alarms, and (hibernatable) WebSocket into Swift via JavaScriptKit; dispatches inbound invocations to the local actor and drives outbound pushes. | WS-4 | ☐ |
-| **WS-6** | **Actor transports** | `DurableObjectActorTransport` (`call` → `get(id).fetch(envelope)`) **and** `WebSocketActorTransport` (bidirectional, multiplexed, push). Both satisfy `WebActorTransport`. | WS-5 | ☐ |
-| **WS-7** | **Client-side inbound dispatch** | The client must *receive* server-initiated invocations (route to client-hosted observer actors), not only send. Mirror the server dispatch machinery. | WS-6 | ☐ |
+| **WS-6** | **Actor transports** | `DurableObjectActorTransport` (`call` → `get(id).fetch(envelope)`) **and** `WebSocketActorTransport` (bidirectional, multiplexed, push). Both satisfy `WebActorTransport`. | WS-5 | ☑ |
+| **WS-7** | **Client-side inbound dispatch** | The client must *receive* server-initiated invocations (route to client-hosted observer actors), not only send. Mirror the server dispatch machinery. | WS-6 | ☑ |
 | **WS-8** | **Agent runtime & programming model** | The product layer: `Agent`/`AgentClient` distributed actors, run loop, streaming push, tool-calls, cancellation, lifecycle. | WS-6, WS-7 | ☐ |
 | **WS-9** | **Edge auth** | Verify Firebase ID token at the Worker (WebCrypto + JWKS via fetch), bind the session/observer, gate DO access. Reuse `FirebaseAuth` claim logic. | WS-4 | ☐ |
 | **WS-10** | **Firestore REST client** *(deferred)* | Reuse `FirebaseAPI`'s `FirestoreCore`/`FirestoreCodable`, add a `fetch`-based REST transport + REST-JSON value mapping + WebCrypto service-account auth. No gRPC/protobuf. | WS-4 | ☐ (deferred) |
@@ -339,6 +339,32 @@ Object and dispatches envelopes on the app's `WebActorSystem` (async model A).
   the factory; the factory now receives the system (`$0`).
 - Remaining for WS-4/5: point the browser fetch transport at the worker origin
   (config), DO storage (WS-5 `@ActorStorage`), hibernatable WebSocket (with WS-6).
+
+## 8g. Progress log — 2026-07-06 (WS-6/7: typed push over WebSocket, E2E in workerd)
+
+The product path works end to end. A native driver hosting an observer actor
+opened **one WebSocket** (Worker routed `?actor=<recipientID>` to the per-identity
+DO), made the type-safe call `agent.start(observerID:count:)`, and received three
+typed pushes back — `pushed=3, edge-token-1..3` — all on the same multiplexed
+connection.
+
+- **`WebSocketActorTransport`** (SwiftWebActors, socket-agnostic): symmetric
+  Envelope bus per the design doc — callID correlation, inbound dispatch to the
+  bound system with response acks, `senderID` stamped on outgoing invocations for
+  reply addressing, `closed()` failing in-flight calls. `WebSocketSessionRouter`
+  routes agent → observer pushes to the socket the sender registered from;
+  `WebActorSystem.setTransport` lets hosts install it after construction.
+- **Server side** (swift-web-cloudflare): DO sockets become transports via the
+  `__swiftwebSocketID/Frame` globals + `swiftwebSocketSend`; the worker template
+  upgrades `/_swiftweb/actors/ws?actor=…` to the per-identity DO.
+- **Client side**: `BrowserWebSocketActorChannel` (JSKit, pre-open queueing) drives
+  the same transport in the browser; compiles clean for the wasm client (clean-scratch
+  verified). In-memory duplex tests cover the semantics natively.
+- Fixed en route: `@ResolvableActor` now emits access modifiers matching the actor
+  (public actors previously failed to conform to the public exporting protocol).
+- Still open (Phase 3/4 hardening): hibernatable WebSocket API (sockets currently
+  use plain `accept()`; the one-way-push rule matters once hibernation lands),
+  reconnect/resume, backpressure, browser-E2E via the storyboard flow, `@ActorStorage`.
 
 ## 9. Document index
 
