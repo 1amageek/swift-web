@@ -291,6 +291,9 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
     swiftHTMLPackageDirectory: URL?
   ) throws -> SwiftWebGeneratedPackage {
     let clientComponents = try discoverClientComponents(appProductName: appProductName)
+    let clientEnvironmentKeyTypeNames = try SwiftWebClientEnvironmentKeyDiscovery.discover(
+      in: appSwiftFiles(appProductName: appProductName)
+    )
     let wasmRuntimeTargets = WasmRuntimePlanner(
       appProductName: appProductName,
       splitBuildStrategy: wasmSplitBuildStrategy
@@ -349,6 +352,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
       developmentServerProductName: developmentServerProductName,
       devProductName: devProductName,
       wasmRuntimeTargets: wasmRuntimeTargets,
+      clientEnvironmentKeyTypeNames: clientEnvironmentKeyTypeNames,
       actorRuntimeDependencyDeclaration: try packageResolvedSynchronizer.actorRuntimeDependencyDeclaration(
         fallbackPackageDirectory: swiftWebPackageDirectory
       ),
@@ -454,6 +458,12 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
   private func discoverClientComponents(appProductName: String) throws
     -> [ClientComponentDeclaration]
   {
+    try SwiftWebClientComponentDiscovery.discover(in: appSwiftFiles(appProductName: appProductName))
+  }
+
+  private func appSwiftFiles(appProductName: String) throws
+    -> [(url: URL, relativePath: String)]
+  {
     let sourceDirectory =
       appPackageDirectory
       .appendingPathComponent("Sources", isDirectory: true)
@@ -462,12 +472,10 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
       throw SwiftWebGeneratedPackageMaterializerError.clientSourceDirectoryNotFound(sourceDirectory)
     }
 
-    let swiftFiles = try collectSwiftFiles(
+    return try collectSwiftFiles(
       in: sourceDirectory,
       relativePath: ""
     )
-
-    return try SwiftWebClientComponentDiscovery.discover(in: swiftFiles)
   }
 
   private func collectSwiftFiles(

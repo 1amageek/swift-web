@@ -11,6 +11,7 @@ struct GeneratedPackageRenderContext: Sendable {
   let developmentServerProductName: String
   let devProductName: String
   let wasmRuntimeTargets: [WasmRuntimeTargetDeclaration]
+  let clientEnvironmentKeyTypeNames: [String]
   let actorRuntimeDependencyDeclaration: String
   let wasmRuntimeProfile: SwiftWebWasmRuntimeProfile
 }

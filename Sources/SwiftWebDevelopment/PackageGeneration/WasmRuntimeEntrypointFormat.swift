@@ -5,7 +5,11 @@ struct WasmRuntimeEntrypointFormat {
   ) -> String {
     switch context.wasmRuntimeProfile {
     case .standard:
-      return standardWasmEntrypointSwift(appProductName: context.appProductName, target: target)
+      return standardWasmEntrypointSwift(
+        appProductName: context.appProductName,
+        environmentKeyTypeNames: context.clientEnvironmentKeyTypeNames,
+        target: target
+      )
     case .embedded:
       return embeddedWasmEntrypointSwift(target: target)
     }
@@ -13,16 +17,28 @@ struct WasmRuntimeEntrypointFormat {
 
   private func standardWasmEntrypointSwift(
     appProductName: String,
+    environmentKeyTypeNames: [String],
     target: WasmRuntimeTargetDeclaration
   ) -> String {
     let runtimeVariableName = "\(GeneratedPackageNameFormatter.lowerCamelCase(target.targetName))Runtime"
     let actorResolverVariableName =
       "\(GeneratedPackageNameFormatter.lowerCamelCase(target.targetName))ActorResolvers"
+    let environmentRegistryVariableName =
+      "\(GeneratedPackageNameFormatter.lowerCamelCase(target.targetName))EnvironmentRegistry"
+    // App-defined ClientEnvironmentKey conformances extend the framework
+    // registry; a key missing from the registry aborts hydration with
+    // missingDecoder.
+    let registeringCalls = environmentKeyTypeNames
+      .map { "\n    .registering(\($0).self)" }
+      .joined()
+    let environmentRegistryDeclaration =
+      "nonisolated(unsafe) private let \(environmentRegistryVariableName) = "
+      + "ClientEnvironmentRegistry.swiftWebUI\(registeringCalls)"
     let registrations = target.componentTypeNames.map { typeName in
       """
           ClientComponentRegistration(
               \(typeName).self,
-              environmentRegistry: .swiftWebUI,
+              environmentRegistry: \(environmentRegistryVariableName),
               actorResolverRegistry: \(actorResolverVariableName)
           ) { request in
               try makeSwiftWebWasmRoot(
@@ -58,6 +74,8 @@ struct WasmRuntimeEntrypointFormat {
 
       nonisolated(unsafe) private let \(actorResolverVariableName) =
           SwiftWebGeneratedActorResolvers.\(WasmActorResolverRegistryFormat.functionName(for: target.targetName))()
+
+      \(environmentRegistryDeclaration)
 
       nonisolated(unsafe) private let \(runtimeVariableName) = ClientBundleRuntimeEntrypoint(
           registrations: [
