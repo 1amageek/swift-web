@@ -320,9 +320,17 @@ Object and dispatches envelopes on the app's `WebActorSystem` (async model A).
   locally (`~/Desktop/swift-html` @ 18f0503) but **not tagged**; swift-web pins
   `from: 0.9.1`, so normal resolves won't see it until 0.9.2 is tagged and pushed.
   The probe verified it via `swift package edit`.
-- Remaining for WS-4/5: `CloudflarePackageFormat` codegen (wrangler config + worker
-  TS + DO wasm package + entry file with the two exports; decide `@Page`
-  pre-expansion vs page-free projection), Worker `id → stub` routing, DO storage
+- **`@Page` pre-expansion: NOT NEEDED.** The `SWIFTWEB_DO=1` manifest mode resolves
+  the core chain plus macros and the SwiftWeb umbrella; macros run on the host during
+  6.3.1 cross-compilation and never touch the wasm graph. App sources compile as-is.
+- **Worker routing: DONE** (swift-web-cloudflare `Templates/worker/`): the stateless
+  Worker routes `POST /_swiftweb/actors/invoke` by `recipientID` to a per-identity
+  `SwiftWebActorDO` via `idFromName` — the same path the browser fetch transport
+  uses. Verified E2E in workerd: raw envelope POST → routing → activation → state
+  across calls.
+- Remaining for WS-4/5: package generation that emits the templates + the DO wasm
+  package (path deps on the app / swift-web `SWIFTWEB_DO=1` / swift-web-cloudflare,
+  the launcher entry, and a build script with wasm-opt), and DO storage
   (WS-5 `@ActorStorage`).
 
 ## 9. Document index
