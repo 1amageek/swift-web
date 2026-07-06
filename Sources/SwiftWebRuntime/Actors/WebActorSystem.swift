@@ -18,12 +18,23 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
     public static let shared = WebActorSystem()
 
     private let registry = ActorRegistry()
-    private let transport: (any WebActorTransport)?
+    private let transportBox: Mutex<(any WebActorTransport)?>
     private let activators = Mutex<[String: WebActorActivator]>([:])
     private let activationLock = Mutex<Void>(())
 
     public init(transport: (any WebActorTransport)? = nil) {
-        self.transport = transport
+        self.transportBox = Mutex(transport)
+    }
+
+    /// Installs the transport for outbound calls to non-local actors. Hosts
+    /// that learn their routing after construction (the Durable Object host
+    /// wiring WebSocket sessions) use this; it replaces any prior transport.
+    public func setTransport(_ transport: any WebActorTransport) {
+        transportBox.withLock { $0 = transport }
+    }
+
+    private var transport: (any WebActorTransport)? {
+        transportBox.withLock { $0 }
     }
 
     /// The contract prefix identifying an actor type in virtual-actor IDs
