@@ -7,7 +7,12 @@ let swiftWebSwiftSettings: [SwiftSetting] = [
     .enableUpcomingFeature("ApproachableConcurrency"),
 ]
 
-let swiftWebCoreOnly = Context.environment["SWIFTWEB_CORE_ONLY"] == "1"
+// SWIFTWEB_DO resolves the core chain PLUS the macro toolchain and the
+// SwiftWeb umbrella, for Durable Object wasm packages whose app sources use
+// @Page/@ServerAction/@Actor. swift-syntax builds for the host only, so it
+// does not affect the wasm binary.
+let swiftWebDO = Context.environment["SWIFTWEB_DO"] == "1"
+let swiftWebCoreOnly = Context.environment["SWIFTWEB_CORE_ONLY"] == "1" || swiftWebDO
 
 let swiftHTMLDependency: Target.Dependency = .product(name: "SwiftHTML", package: "swift-html")
 
@@ -30,18 +35,20 @@ let swiftWebUIRuntimeDependencies: [Target.Dependency] = [
     "SwiftWebStyle",
 ]
 
+let swiftWebUsesMacros = !swiftWebCoreOnly || swiftWebDO
+
 let swiftWebActorsDependencies: [Target.Dependency] =
     [
         swiftHTMLDependency,
         .product(name: "ActorRuntime", package: "swift-actor-runtime"),
-    ] + (swiftWebCoreOnly ? [] : ["SwiftWebMacros"])
+    ] + (swiftWebUsesMacros ? ["SwiftWebMacros"] : [])
 
 // The @Actor accessor macro declaration is gated behind SWIFTWEB_MACROS so that
 // core-only and generated browser WASM builds compile SwiftWebActors without the
 // SwiftWebMacros plugin or swift-syntax. Generated WASM packages receive client
 // sources with @Actor already expanded by SwiftWebPackageGeneration.
 let swiftWebActorsSwiftSettings: [SwiftSetting] =
-    swiftWebSwiftSettings + (swiftWebCoreOnly ? [] : [.define("SWIFTWEB_MACROS")])
+    swiftWebSwiftSettings + (swiftWebUsesMacros ? [.define("SWIFTWEB_MACROS")] : [])
 
 let package = Package(
     name: "swift-web",
@@ -57,7 +64,9 @@ let package = Package(
         .library(name: "SwiftWebHostKit", targets: ["SwiftWebHostKit"]),
         .library(name: "SwiftWebBrowserRuntime", targets: ["SwiftWebBrowserRuntime"]),
         .library(name: "SwiftWebCore", targets: ["SwiftWebCore"]),
-    ] : [
+    ] + (swiftWebDO ? [
+        .library(name: "SwiftWeb", targets: ["SwiftWeb"]),
+    ] : []) : [
         .library(name: "SwiftWebActors", targets: ["SwiftWebActors"]),
         .library(name: "SwiftWebStyle", targets: ["SwiftWebStyle"]),
         .library(name: "SwiftWebUITheme", targets: ["SwiftWebUITheme"]),
@@ -83,7 +92,9 @@ let package = Package(
         .package(url: "https://github.com/1amageek/swift-actor-runtime.git", exact: "0.6.0"),
         .package(url: "https://github.com/apple/swift-http-types", from: "1.0.0"),
         .package(url: "https://github.com/apple/swift-log.git", from: "1.6.0"),
-    ] + (swiftWebCoreOnly ? [] : [
+    ] + (swiftWebDO ? [
+        .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "602.0.0"),
+    ] : []) + (swiftWebCoreOnly ? [] : [
         .package(url: "https://github.com/swift-server/async-http-client.git", revision: "393104434ea57710f2469036e816672fe15e8212"),
         .package(url: "https://github.com/swift-server/swift-http-server", revision: "b1c4f775dfbdc74800c0f29fda79c8984a5e9073"),
         .package(url: "https://github.com/apple/swift-http-api-proposal.git", revision: "d58fd6fa157e08bff44aa360ff83ebd424783392"),
@@ -160,7 +171,32 @@ let package = Package(
             exclude: ["README.md"],
             swiftSettings: swiftWebSwiftSettings
         ),
-    ] : [
+    ] + (swiftWebDO ? [
+        .macro(
+            name: "SwiftWebMacros",
+            dependencies: [
+                .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
+                .product(name: "SwiftDiagnostics", package: "swift-syntax"),
+                .product(name: "SwiftSyntax", package: "swift-syntax"),
+                .product(name: "SwiftSyntaxBuilder", package: "swift-syntax"),
+                .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
+            ],
+            exclude: ["README.md"],
+            swiftSettings: swiftWebSwiftSettings
+        ),
+        .target(
+            name: "SwiftWeb",
+            dependencies: [
+                "SwiftWebActors",
+                "SwiftWebBrowserRuntime",
+                "SwiftWebCore",
+                "SwiftWebMacros",
+                "SwiftWebStyle",
+            ],
+            path: "Sources/SwiftWeb",
+            swiftSettings: swiftWebSwiftSettings
+        ),
+    ] : []) : [
         .macro(
             name: "SwiftWebMacros",
             dependencies: [
