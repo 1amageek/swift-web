@@ -498,7 +498,7 @@ public final class ClientRuntimeBridge<Root: HTML> {
     }
 
     private static func stateSourceRawValue(from stateSlotID: String) -> String {
-        guard let range = stateSlotID.range(of: ":state:") else {
+        guard let range = stateSlotID.firstRange(of: ":state:") else {
             return stateSlotID
         }
         return String(stateSlotID[range.upperBound...])
@@ -1287,7 +1287,7 @@ public final class ClientRuntimeBridge<Root: HTML> {
         var output = ""
         var cursor = html.startIndex
 
-        while let range = html[cursor...].range(of: marker) {
+        while let range = html[cursor...].firstRange(of: marker) {
             output.append(contentsOf: html[cursor..<range.upperBound])
             var numberEnd = range.upperBound
             while numberEnd < html.endIndex, html[numberEnd].isNumber {

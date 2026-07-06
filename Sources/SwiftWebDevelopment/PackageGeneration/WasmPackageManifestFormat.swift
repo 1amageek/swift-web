@@ -55,6 +55,7 @@ struct WasmPackageManifestFormat {
             name: "SwiftWebActors",
             dependencies: [
                 .product(name: "ActorRuntime", package: "swift-actor-runtime"),
+                "SwiftHTML",
             ],
             path: "Sources/SwiftWebActors",
             swiftSettings: swiftSettings
