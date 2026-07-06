@@ -69,7 +69,7 @@ Everything that must be built, grouped. Status: ☐ not started · ◐ in progre
 |---|---|---|---|---|
 | **WS-1** | **Host-neutral core** | Remove Vapor types from `SwiftWebCore`: introduce host-neutral request/response, session, route, and `AppServices` abstractions. Refit `RequestContext`, `WebSession`, `Redirect`, `@Page`/`@ServerAction` route lowering, `PageRouteScene`. | — | ☑ |
 | **WS-2** | **`swift-http-server` host adapter** | A native/container host that lowers the core onto `NIOHTTPServer` (reuse the dev host setup). Minimal router + middleware + session/cookie. The default fast local-dev + Cloud Run host. | WS-1 | ☑ |
-| **WS-3** | **Vapor as a separate package** | Extract `SwiftWebVapor` into an optional package/adapter mapping the core to Vapor; keep for those who want it, not the default. | WS-1 | ☐ |
+| **WS-3** | **Vapor as a separate package** | Extract `SwiftWebVapor` into an optional package/adapter mapping the core to Vapor; keep for those who want it, not the default. | WS-1 | ☑ |
 | **WS-4** | **Cloudflare Worker adapter** | Lower the app model into a Workers `fetch` entrypoint (TS shim + Swift/WASM). Routing `actor id → DO`. Build/deploy via `wrangler`. | WS-1 | ☐ |
 | **WS-5** | **Durable Object actor runtime** | JS DO class that hosts the Swift/WASM module; binds DO storage, alarms, and (hibernatable) WebSocket into Swift via JavaScriptKit; dispatches inbound invocations to the local actor and drives outbound pushes. | WS-4 | ☐ |
 | **WS-6** | **Actor transports** | `DurableObjectActorTransport` (`call` → `get(id).fetch(envelope)`) **and** `WebSocketActorTransport` (bidirectional, multiplexed, push). Both satisfy `WebActorTransport`. | WS-5 | ☐ |
@@ -220,8 +220,21 @@ the full test suite (390 tests) is green through the rebuilt Vapor adapter.
   multipart field decoding, request-body streaming (`.stream` routes buffer within
   a 16 MB limit).
 
-**Remaining for Phase 1**: WS-3 (move `SwiftWebVapor` out into its own package so its
-graph leaves the default resolve).
+**WS-3 landed the same day — Phase 1 is complete.**
+
+- Generated server/dev packages (the `sweb` dev, storyboard, and production flows)
+  default to `SwiftWebHTTPServerHost`; `App.run()` there parses the same
+  `--hostname`/`--port` arguments `sweb` passes to app workers.
+- `SwiftWebVapor` + `SwiftWebVaporWebActors` moved to the sibling package
+  **`~/Desktop/swift-web-vapor`** (own repo; depends on swift-web by path until
+  swift-web is tagged — switch to the URL before tagging). Their Vapor-harness test
+  suites (scene/session/security/wasm-routes/gateway, 33 tests) moved with them.
+- swift-web's `Package.resolved` no longer contains vapor / routing-kit /
+  websocket-kit. The adapter seams the extraction needed are now public API:
+  `_SceneRenderer`/`_SceneContext`, `securityConfiguration`,
+  `SecurityConfiguration.installMiddleware`, `ClientRuntimeConfiguration.install`,
+  `ActionGateway.register(handler:...)`.
+- swift-web suite: 371 tests green without Vapor; swift-web-vapor: 33 tests green.
 
 ## 9. Document index
 

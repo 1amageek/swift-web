@@ -9,7 +9,7 @@ public enum ActionGateway {
     }
 
     @discardableResult
-    static func register<Handler>(
+    public static func register<Handler>(
         handler: Handler,
         descriptor: ServerActionDescriptor,
         path: RoutePath,

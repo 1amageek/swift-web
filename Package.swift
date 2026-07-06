@@ -64,8 +64,6 @@ let package = Package(
         .library(name: "SwiftWebCore", targets: ["SwiftWebCore"]),
         .library(name: "SwiftWeb", targets: ["SwiftWeb"]),
         .library(name: "SwiftWebHTTPServerHost", targets: ["SwiftWebHTTPServerHost"]),
-        .library(name: "SwiftWebVapor", targets: ["SwiftWebVapor"]),
-        .library(name: "SwiftWebVaporWebActors", targets: ["SwiftWebVaporWebActors"]),
         .library(name: "SwiftWebDevelopmentHooks", targets: ["SwiftWebDevelopmentHooks"]),
         .library(name: "SwiftWebWasmBuild", targets: ["SwiftWebWasmBuild"]),
         .library(name: "SwiftWebPackageGeneration", targets: ["SwiftWebPackageGeneration"]),
@@ -80,9 +78,6 @@ let package = Package(
         .package(url: "https://github.com/1amageek/JavaScriptKit.git", from: "0.57.0"),
         .package(url: "https://github.com/1amageek/swift-actor-runtime.git", exact: "0.6.0"),
     ] + (swiftWebCoreOnly ? [] : [
-        .package(url: "https://github.com/vapor/vapor.git", revision: "fff4892930e69b49ea2612699bed9583721723dc"),
-        .package(url: "https://github.com/vapor/routing-kit.git", from: "5.0.0-beta"),
-        .package(url: "https://github.com/vapor/websocket-kit.git", from: "2.13.0"),
         .package(url: "https://github.com/swift-server/async-http-client.git", revision: "393104434ea57710f2469036e816672fe15e8212"),
         .package(url: "https://github.com/swift-server/swift-http-server", revision: "b1c4f775dfbdc74800c0f29fda79c8984a5e9073"),
         .package(url: "https://github.com/apple/swift-http-api-proposal.git", revision: "d58fd6fa157e08bff44aa360ff83ebd424783392"),
@@ -218,31 +213,6 @@ let package = Package(
             swiftSettings: swiftWebSwiftSettings
         ),
         .target(
-            name: "SwiftWebVapor",
-            dependencies: [
-                .product(name: "Vapor", package: "vapor"),
-                .product(name: "RoutingKit", package: "routing-kit"),
-                .product(name: "WebSocketKit", package: "websocket-kit"),
-                .product(name: "NIOCore", package: "swift-nio"),
-                .product(name: "Logging", package: "swift-log"),
-                "SwiftWebCore",
-            ],
-            path: "Sources/SwiftWebHTTPServer/Vapor",
-            swiftSettings: swiftWebSwiftSettings
-        ),
-        .target(
-            name: "SwiftWebVaporWebActors",
-            dependencies: [
-                .product(name: "ActorRuntime", package: "swift-actor-runtime"),
-                .product(name: "Vapor", package: "vapor"),
-                "SwiftWebActors",
-                "SwiftWebCore",
-                "SwiftWebVapor",
-            ],
-            path: "Sources/SwiftWebHTTPServer/VaporWebActors",
-            swiftSettings: swiftWebSwiftSettings
-        ),
-        .target(
             name: "SwiftWebUI",
             dependencies: swiftWebUIDependencies,
             path: "Sources/SwiftWebUI/Components",
@@ -259,7 +229,6 @@ let package = Package(
             name: "SwiftWebDevelopmentHooks",
             dependencies: [
                 swiftHTMLDependency,
-                .product(name: "Vapor", package: "vapor"),
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "Logging", package: "swift-log"),
                 .product(name: "ServiceContextModule", package: "swift-service-context"),
@@ -394,15 +363,12 @@ let package = Package(
                 "SwiftWebBrowserRuntime",
                 "SwiftWebDevServer",
                 "SwiftWebHTTPServerHost",
-                "SwiftWebVapor",
-                "SwiftWebVaporWebActors",
                 "SwiftWebUI",
                 "SwiftWebDevelopmentHooks",
                 "SwiftWebDevelopment",
                 "SwiftWebPackageGeneration",
                 "SwiftWebStoryboardTooling",
                 "SwiftWebWasmBuild",
-                .product(name: "VaporTesting", package: "vapor"),
             ],
             swiftSettings: swiftWebSwiftSettings
         ),

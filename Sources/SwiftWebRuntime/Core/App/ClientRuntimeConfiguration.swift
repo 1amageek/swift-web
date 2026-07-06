@@ -41,7 +41,7 @@ public enum ClientRuntimeConfiguration {
         ))
     }
 
-    package func install(on application: Application) async throws {
+    public func install(on application: Application) async throws {
         switch self {
         case .disabled:
             application.swiftWebClientRuntime = .disabled

@@ -1,15 +1,9 @@
 import Distributed
 import Foundation
-import HTTPTypes
-import NIOCore
 @testable import SwiftWeb
 @testable import SwiftWebActors
 @testable import SwiftWebCore
-@testable import SwiftWebVapor
-@testable import SwiftWebVaporWebActors
 import Testing
-import Vapor
-import VaporTesting
 
 @Suite
 struct SwiftWebActorSystemTests {
@@ -24,75 +18,6 @@ struct SwiftWebActorSystemTests {
 
         #expect(value == 3)
         #expect(try await service.currentValue() == 3)
-    }
-
-    @Test
-    func vaporGatewayExecutesInvocationEnvelope() async throws {
-        let application = try await Vapor.Application()
-        let webApplication = VaporWebApplication(application)
-        var configuration = SecurityConfiguration.defaults
-        configuration.csrf = .disabled
-        webApplication.securityConfiguration = configuration
-        WebActorGateway.register(on: webApplication)
-        webApplication.lowerPendingRoutes()
-        let service = TestCounterService(actorSystem: .shared)
-        let captureStore = CapturedEnvelopeStore()
-        let clientSystem = WebActorSystem(
-            transport: CapturingWebActorTransport(store: captureStore)
-        )
-        let remote = try $TestCounterServiceProtocol.resolve(id: service.id, using: clientSystem)
-
-        do {
-            _ = try await remote.increment(by: 4)
-            Issue.record("Capturing transport should throw after recording the envelope")
-        } catch {}
-
-        let envelope = try await captureStore.requireEnvelope()
-        var headers: HTTPFields = [:]
-        headers[.contentType] = "application/json"
-        let response = try await application.testing().sendRequest(
-            .post,
-            WebActorGateway.path,
-            hostname: "example.com",
-            headers: headers,
-            body: ByteBufferAllocator().buffer(data: try JSONEncoder().encode(envelope))
-        )
-        try await application.shutdown()
-        WebActorSystem.shared.shutdown()
-
-        #expect(response.status == .ok)
-        let responseEnvelope = try JSONDecoder().decode(
-            ResponseEnvelope.self,
-            from: Data(buffer: response.body)
-        )
-        guard case .success(let data) = responseEnvelope.result else {
-            Issue.record("Gateway should return a successful invocation result")
-            return
-        }
-        let value = try JSONDecoder().decode(Int.self, from: data)
-        #expect(value == 4)
-    }
-
-    @Test
-    func vaporGatewayRequiresCSRFWhenEnabled() async throws {
-        let application = try await Vapor.Application()
-        let webApplication = VaporWebApplication(application)
-        webApplication.securityConfiguration = .defaults
-        WebActorGateway.register(on: webApplication)
-        webApplication.lowerPendingRoutes()
-
-        var headers: HTTPFields = [:]
-        headers[.contentType] = "application/json"
-        let response = try await application.testing().sendRequest(
-            .post,
-            WebActorGateway.path,
-            hostname: "example.com",
-            headers: headers,
-            body: ByteBufferAllocator().buffer(string: "{}")
-        )
-        try await application.shutdown()
-
-        #expect(response.status == .forbidden)
     }
 
     @Test
@@ -207,30 +132,3 @@ private struct LoopbackWebActorTransport: WebActorTransport {
     }
 }
 
-private struct CapturingWebActorTransport: WebActorTransport {
-    let store: CapturedEnvelopeStore
-
-    func call(_ envelope: InvocationEnvelope) async throws -> ResponseEnvelope {
-        await store.store(envelope)
-        throw RuntimeError.transportFailed("captured")
-    }
-}
-
-private actor CapturedEnvelopeStore {
-    private var envelope: InvocationEnvelope?
-
-    func store(_ envelope: InvocationEnvelope) {
-        self.envelope = envelope
-    }
-
-    func requireEnvelope() throws -> InvocationEnvelope {
-        guard let envelope else {
-            throw CapturedEnvelopeError.missingEnvelope
-        }
-        return envelope
-    }
-}
-
-private enum CapturedEnvelopeError: Error {
-    case missingEnvelope
-}

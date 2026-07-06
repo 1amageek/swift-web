@@ -22,8 +22,8 @@ protocol _PrimitiveScene: Scene where Body == Never {
     func _makeScene(in context: _SceneContext) async throws
 }
 
-package enum _SceneRenderer {
-    package static func make<Content: Scene>(
+public enum _SceneRenderer {
+    public static func make<Content: Scene>(
         _ scene: Content,
         in context: _SceneContext
     ) async throws {
@@ -35,12 +35,12 @@ package enum _SceneRenderer {
     }
 }
 
-package struct _SceneContext {
-    package let application: Application
-    package let routes: any RoutesBuilder
+public struct _SceneContext {
+    public let application: Application
+    public let routes: any RoutesBuilder
     package let actorBindings: SwiftWebActorBindingScope
 
-    package init(
+    public init(
         application: Application,
         routes: any RoutesBuilder,
         actorBindings: SwiftWebActorBindingScope = .empty
@@ -50,7 +50,7 @@ package struct _SceneContext {
         self.actorBindings = actorBindings
     }
 
-    package static func root(_ application: Application) -> _SceneContext {
+    public static func root(_ application: Application) -> _SceneContext {
         _SceneContext(application: application, routes: application.routes)
     }
 

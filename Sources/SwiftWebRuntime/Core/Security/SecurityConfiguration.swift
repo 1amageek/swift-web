@@ -30,7 +30,7 @@ public struct SecurityConfiguration: Sendable {
         headers: .strictSelfHosted
     )
 
-    package func installMiddleware(on middlewares: inout Middlewares) {
+    public func installMiddleware(on middlewares: inout Middlewares) {
         if let corsMiddleware = cors.middleware(
             forwardedHeaders: forwardedHeaders,
             csrfHeaderName: csrf.isEnabled ? csrf.headerName : nil
@@ -83,7 +83,7 @@ private struct SecurityConfigurationStorageKey: StorageKey {
 }
 
 extension WebApplicationProtocol {
-    package var securityConfiguration: SecurityConfiguration {
+    public var securityConfiguration: SecurityConfiguration {
         get {
             storage[SecurityConfigurationStorageKey.self] ?? .defaults
         }
