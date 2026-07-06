@@ -135,8 +135,8 @@ public struct CounterValue: Component {
 
     public var body: some HTML {
         VStack(spacing: .xsmall) {
-            Text(label, as: .small).foregroundStyle(.secondary)
-            Text(String(value), as: .strong)
+            Text(label).as(.small).foregroundStyle(.secondary)
+            Text(String(value)).as(.strong)
                 .font(.largeTitle)
                 .foregroundStyle(.accent)
                 .accessibilityIdentifier("counter-value")
@@ -154,7 +154,7 @@ public struct ClientDeferredCounter: ClientComponent, Sendable {
     public var body: some HTML {
         GroupBox {
             VStack(spacing: .large) {
-                Heading("Deferred Client Counter")
+                Text("Deferred Client Counter").as(.h3)
                 Text(
                     "This counter hydrates only after user interaction."
                 )
@@ -186,7 +186,7 @@ public struct ClientVisibleCounter: ClientComponent, Sendable {
     public var body: some HTML {
         GroupBox {
             VStack(spacing: .large) {
-                Heading("Visible Client Counter")
+                Text("Visible Client Counter").as(.h3)
                 Text("This counter hydrates when it enters the viewport.").foregroundStyle(.secondary)
                 CounterValue(label: "Visible value", value: value)
                 Button("Increment visible") {
@@ -208,7 +208,7 @@ public struct ClientIdleCounter: ClientComponent, Sendable {
     public var body: some HTML {
         GroupBox {
             VStack(spacing: .large) {
-                Heading("Idle Client Counter")
+                Text("Idle Client Counter").as(.h3)
                 Text("This counter hydrates during the browser idle stage.").foregroundStyle(.secondary)
                 CounterValue(label: "Idle value", value: value)
                 Button("Increment idle") {
@@ -230,7 +230,7 @@ public struct ClientManualCounter: ClientComponent, Sendable {
     public var body: some HTML {
         GroupBox {
             VStack(spacing: .large) {
-                Heading("Manual Client Counter")
+                Text("Manual Client Counter").as(.h3)
                 Text("This counter hydrates only when the runtime explicitly loads its bundle.").foregroundStyle(.secondary)
                 CounterValue(label: "Manual value", value: value)
                 Button("Increment manual") {
@@ -253,7 +253,7 @@ public struct ClientSharedBadgeA: ClientComponent, Sendable {
     public var body: some HTML {
         GroupBox {
             VStack(spacing: .small) {
-                Heading("Shared Badge A")
+                Text("Shared Badge A").as(.h3)
                 CounterValue(label: "Badge A", value: value)
                 Button("Increment shared A") {
                     value += 1
@@ -274,7 +274,7 @@ public struct ClientSharedBadgeB: ClientComponent, Sendable {
     public var body: some HTML {
         GroupBox {
             VStack(spacing: .small) {
-                Heading("Shared Badge B")
+                Text("Shared Badge B").as(.h3)
                 CounterValue(label: "Badge B", value: value)
                 Button("Increment shared B") {
                     value += 1
@@ -295,7 +295,7 @@ public struct ClientNamedToolA: ClientComponent, Sendable {
     public var body: some HTML {
         GroupBox {
             VStack(spacing: .small) {
-                Heading("Named Tool A")
+                Text("Named Tool A").as(.h3)
                 CounterValue(label: "Tool A", value: value)
                 Button("Increment named A") {
                     value += 1
@@ -316,7 +316,7 @@ public struct ClientNamedToolB: ClientComponent, Sendable {
     public var body: some HTML {
         GroupBox {
             VStack(spacing: .small) {
-                Heading("Named Tool B")
+                Text("Named Tool B").as(.h3)
                 CounterValue(label: "Tool B", value: value)
                 Button("Increment named B") {
                     value += 1
@@ -329,6 +329,59 @@ public struct ClientNamedToolB: ClientComponent, Sendable {
 `
   );
 
+  await writeFile(
+    path.join(appRoot, "Sources", "CounterApp", "ClientEnvironmentBadge.swift"),
+    `import SwiftHTML
+import SwiftWebUI
+
+public struct SceneGreetingKey: ClientEnvironmentKey {
+    public static let defaultValue = "default-greeting"
+}
+
+extension EnvironmentValues {
+    public var sceneGreeting: String {
+        get { self[SceneGreetingKey.self] }
+        set { self[SceneGreetingKey.self] = newValue }
+    }
+}
+
+public struct ClientEnvironmentBadge: ClientComponent, Sendable {
+    @Environment(\\.sceneGreeting) private var greeting
+    @State private var revealed = false
+
+    public init() {}
+
+    public var body: some HTML {
+        // Read during SSR as well, so the value enters the hydration snapshot.
+        let greeting = self.greeting
+        return GroupBox {
+            VStack(spacing: .small) {
+                Text("Scene Environment Badge").as(.h3)
+                Text(revealed ? greeting : "waiting").as(.strong)
+                    .accessibilityIdentifier("env-greeting")
+                Button("Reveal environment") {
+                    revealed = true
+                }
+            }
+        }
+        .accessibilityIdentifier("environment-badge")
+        .frame(maxWidth: .infinity, alignment: .top)
+    }
+}
+`
+  );
+
+  const appFile = path.join(appRoot, "Sources", "CounterApp", "App.swift");
+  const appSource = await readFile(appFile, "utf8");
+  const updatedAppSource = appSource.replace(
+    /ActorScene\(counterService\) \{\n(\s*)CounterPage\(counterService: counterService\)\n(\s*)\}/,
+    'ActorScene(counterService) {\n$1CounterPage(counterService: counterService)\n$2}\n$2.environment(\\.sceneGreeting, "scene-injected")'
+  );
+  if (updatedAppSource === appSource) {
+    throw new Error("Failed to attach .environment to the CounterApp scene.");
+  }
+  await writeFile(appFile, updatedAppSource);
+
   const counterPageFile = path.join(appRoot, "Sources", "CounterApp", "Routes", "CounterPage.swift");
   const counterPage = await readFile(counterPageFile, "utf8");
   let updatedCounterPage = counterPage.replace(
@@ -340,7 +393,7 @@ public struct ClientNamedToolB: ClientComponent, Sendable {
     "            Link(\"Reload page\", destination: URL(string: \"/counter\")!)",
     `            GroupBox {
                 VStack(spacing: .small) {
-                    Heading("Loading Policy E2E Spacer")
+                    Text("Loading Policy E2E Spacer").as(.h3)
                     Text("The visible counter sits below this spacer so IntersectionObserver is required.")
                 }
             }
@@ -356,6 +409,7 @@ public struct ClientNamedToolB: ClientComponent, Sendable {
             ClientSharedBadgeB()
             ClientNamedToolA()
             ClientNamedToolB()
+            ClientEnvironmentBadge()
 
             Link("Reload page", destination: URL(string: "/counter")!)`
   );
@@ -903,6 +957,28 @@ async function runBrowserAssertions(baseURL, appRoot) {
       bytes: runtime.metrics.summary && runtime.metrics.summary.totalWasmBytes,
     });
 
+    recordPhase("environment.badge");
+    {
+      const badge = '[data-accessibility-identifier="environment-badge"]';
+      const before = await page
+        .locator(`${badge} [data-accessibility-identifier="env-greeting"]`)
+        .first()
+        .innerText();
+      if (before.trim() !== "waiting") {
+        throw new Error(`environment badge should render "waiting" before reveal, got: ${before}`);
+      }
+      await page.locator(`${badge} button`).first().click();
+      await page.waitForFunction(
+        () => {
+          const el = document.querySelector('[data-accessibility-identifier="env-greeting"]');
+          return el && el.textContent.trim() === "scene-injected";
+        },
+        undefined,
+        { timeout: timeoutMs }
+      );
+    }
+    recordPhase("environment.badge.ok");
+
     const splitSnapshot = await runtimeManifestSnapshot(page);
     const deferredComponent = componentBySuffix(splitSnapshot, "ClientDeferredCounter");
     if (deferredComponent.loadPolicy !== "interaction") {
@@ -1105,7 +1181,7 @@ async function runBrowserAssertions(baseURL, appRoot) {
     recordPhase("client.hmr.source-change");
     const clientCounterFile = path.join(appRoot, "Sources", "CounterApp", "ClientCounter.swift");
     const originalSource = await readFile(clientCounterFile, "utf8");
-    let updatedSource = originalSource.replace("Text(\"Client Counter\", as: .h2)", "Text(\"Client Counter HMR\", as: .h2)");
+    let updatedSource = originalSource.replace("Text(\"Client Counter\").as(.h2)", "Text(\"Client Counter HMR\").as(.h2)");
     if (updatedSource === originalSource) {
       updatedSource = originalSource.replace("Heading(\"Client Counter\")", "Heading(\"Client Counter HMR\")");
     }
