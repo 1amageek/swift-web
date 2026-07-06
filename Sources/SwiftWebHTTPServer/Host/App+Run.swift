@@ -3,7 +3,10 @@ import FoundationEssentials
 #else
 import Foundation
 #endif
-import SwiftWebCore
+// Importing the host module must provide the core vocabulary app launchers
+// use (App.run, ClientRuntime, SwiftPMWasmArtifact, ...), matching the
+// contract SwiftWebVaporHost established.
+@_exported import SwiftWebCore
 
 /// The bind address for `App.run()`, resolved the same way the Vapor host
 /// did: `--hostname`/`--port` arguments (how `sweb` launches app workers),
