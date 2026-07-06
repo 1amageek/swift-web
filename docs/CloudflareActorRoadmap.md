@@ -160,11 +160,14 @@ lightweight native host (host-neutral core + swift-http-server, **no Vapor**) se
 the same host-neutral seam to swift-web's existing Vapor-coupled `SwiftWebCore` in-place
 (and extracting Vapor, WS-3) is the remaining large, careful migration.
 
-**Key decision — async execution model.** Two options:
-(A) pure Swift `async` in WASM driven by JavaScriptKit's JS event loop (ideal; JSKit's runtime
-looks `workerd`-compatible but full wiring is a dedicated spike);
-(B) **synchronous Swift core + async orchestration in the JS/TS DO layer** (proven by the
-spike). **MVP uses (B)**; (A) is a later upgrade for a fully-Swift agent loop.
+**Key decision — async execution model: (A) CONFIRMED (2026-07-06).** The dedicated
+probe (`EdgeActorSpike/jskit-async/`, findings in `ASYNC-FINDINGS.md`) ran the **real
+`WebActorSystem`** — `executeDistributedTarget` on a genuine envelope, `ActorGroup`
+virtual activation, state across calls (5 → 10) — inside a Durable Object in `workerd`,
+with Swift async/await driven by **JavaScriptKit's event loop** (cold start 12 ms;
+`SWIFTWEB_CORE_ONLY=1` keeps macros/swift-syntax out of the wasm graph). Option (B)
+(synchronous core + TS orchestration) is retired; WS-5 hosts the fully-Swift async
+actor runtime.
 
 **Remaining (large blocks):** Phase 1 (`WS-1/2/3` — strip Vapor from `SwiftWebCore`, add the
 `swift-http-server` adapter); `WS-6` formal transports + real `WebActorSystem` integration;
