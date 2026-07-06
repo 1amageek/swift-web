@@ -1,11 +1,10 @@
-import Vapor
-
+/// The per-request security context (CSRF token / CSP nonce), stored on the request.
 public struct RequestSecurityContext: Sendable, Equatable {
     public let csrfToken: String?
     public let csrfFieldName: String?
     public let cspNonce: String?
 
-    let shouldSetCSRFCookie: Bool
+    public let shouldSetCSRFCookie: Bool
 
     public init(
         csrfToken: String? = nil,
@@ -17,22 +16,5 @@ public struct RequestSecurityContext: Sendable, Equatable {
         self.csrfFieldName = csrfFieldName
         self.cspNonce = cspNonce
         self.shouldSetCSRFCookie = shouldSetCSRFCookie
-    }
-}
-
-private struct RequestSecurityContextStorageKey: StorageKey {
-    typealias Value = RequestSecurityContext
-}
-
-extension Request {
-    var securityContext: RequestSecurityContext? {
-        get {
-            storage[RequestSecurityContextStorageKey.self]
-        }
-        set {
-            var currentStorage = storage
-            currentStorage[RequestSecurityContextStorageKey.self] = newValue
-            storage = currentStorage
-        }
     }
 }

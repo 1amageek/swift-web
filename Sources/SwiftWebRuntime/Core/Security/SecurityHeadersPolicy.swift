@@ -1,5 +1,4 @@
 import HTTPTypes
-import Vapor
 
 public struct SecurityHeadersPolicy: Sendable {
     public var contentSecurityPolicy: ContentSecurityPolicy?
@@ -33,7 +32,7 @@ public struct SecurityHeadersPolicy: Sendable {
     )
 
     func apply(
-        to response: Response,
+        to response: inout Response,
         request: Request,
         context: RequestSecurityContext,
         forwardedHeaders: ForwardedHeadersPolicy
@@ -48,7 +47,7 @@ public struct SecurityHeadersPolicy: Sendable {
             response.headers[.xContentTypeOptions] = xContentTypeOptions
         }
         if let xFrameOptions {
-            response.headers[.xFrameOptions] = xFrameOptions
+            response.headers[HTTPField.Name("X-Frame-Options")!] = xFrameOptions
         }
         if let referrerPolicy {
             response.headers[HTTPField.Name("Referrer-Policy")!] = referrerPolicy

@@ -1,31 +1,31 @@
 @preconcurrency import ActorRuntime
 import Foundation
-import NIOCore
+import HTTPTypes
 import SwiftWebActors
 import SwiftWebCore
 import SwiftWebVapor
-import Vapor
 
 public enum WebActorGateway {
     public static let path = "/_swiftweb/actors/invoke"
 
     @discardableResult
     public static func register(on application: Application) -> Route {
-        application.post("_swiftweb", "actors", "invoke") { req async throws -> Response in
+        application.routes.post("_swiftweb", "actors", "invoke") { req async throws -> Response in
             try SecurityRequestValidator.validateStateChangingRequest(req)
 
-            guard let body = req.body.data else {
+            guard let body = try await req.collectedBody() else {
                 throw Abort(.badRequest, reason: "Actor invocation body is missing")
             }
-            let envelope = try JSONDecoder().decode(
-                InvocationEnvelope.self,
-                from: Data(buffer: body)
-            )
+            // The envelope wire format is owned by the actor transport: plain
+            // JSON coding, matching the client's `JSONEncoder` exactly.
+            let envelope = try JSONDecoder().decode(InvocationEnvelope.self, from: Data(body))
             let response = try await WebActorSystem.shared.invoke(envelope: envelope)
 
+            var headers = HTTPFields()
+            headers[.contentType] = "application/json; charset=utf-8"
             return Response(
                 status: .ok,
-                headers: [.contentType: "application/json; charset=utf-8"],
+                headers: headers,
                 body: .init(data: try JSONEncoder().encode(response))
             )
         }

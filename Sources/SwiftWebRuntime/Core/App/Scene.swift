@@ -1,4 +1,3 @@
-import Vapor
 import SwiftHTML
 import SwiftWebActors
 
@@ -52,7 +51,7 @@ package struct _SceneContext {
     }
 
     package static func root(_ application: Application) -> _SceneContext {
-        _SceneContext(application: application, routes: application)
+        _SceneContext(application: application, routes: application.routes)
     }
 
     package func grouped(_ path: String) -> _SceneContext {
@@ -65,7 +64,7 @@ package struct _SceneContext {
         }
         return _SceneContext(
             application: application,
-            routes: routes.grouped(path.vaporComponents),
+            routes: routes.grouped(path.webComponents),
             actorBindings: actorBindings
         )
     }

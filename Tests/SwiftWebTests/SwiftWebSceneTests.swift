@@ -2,7 +2,7 @@ import HTTPTypes
 import Synchronization
 import SwiftHTML
 import Testing
-import Vapor
+import class Vapor.Application
 import VaporTesting
 
 import SwiftWeb
@@ -147,9 +147,9 @@ struct SwiftWebSceneTests {
     }
 
     private func withApplication(
-        _ body: (Application) async throws -> Void
+        _ body: (Vapor.Application) async throws -> Void
     ) async throws {
-        let application = try await Application()
+        let application = try await Vapor.Application()
         do {
             try await body(application)
             try await application.shutdown()

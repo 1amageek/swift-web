@@ -3,7 +3,6 @@ import SwiftHTML
 @testable import SwiftWeb
 @testable import SwiftWebCore
 import Testing
-import Vapor
 
 @Suite
 struct SwiftWebServerActionTests {
@@ -155,16 +154,9 @@ struct SwiftWebServerActionTests {
     }
 
     private func withApplication(
-        _ body: (Application) async throws -> Void
+        _ body: (TestWebApplication) async throws -> Void
     ) async throws {
-        let application = try await Application()
-        do {
-            try await body(application)
-            try await application.shutdown()
-        } catch {
-            try await application.shutdown()
-            throw error
-        }
+        try await body(TestWebApplication())
     }
 }
 

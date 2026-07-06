@@ -1,4 +1,3 @@
-import Vapor
 
 public protocol PageOwnedServerActions: Sendable {
     func registerServerActions(

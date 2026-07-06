@@ -1,4 +1,3 @@
-import Vapor
 
 public struct EmptyAppServices: AppServices {
     public init() {}

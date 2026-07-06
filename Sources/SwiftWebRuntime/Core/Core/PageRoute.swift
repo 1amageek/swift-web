@@ -1,4 +1,3 @@
-import Vapor
 
 public protocol PageRoute: Sendable {
     static func register(on routes: any RoutesBuilder)

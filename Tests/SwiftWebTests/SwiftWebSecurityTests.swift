@@ -6,12 +6,13 @@ import NIOCore
 import Testing
 import Vapor
 import VaporTesting
+import SwiftWebVapor
 
 @Suite
 struct SecurityTests {
     @Test
     func securityMiddlewareSetsCSRFCookieAndBrowserHeaders() async throws {
-        try await withSecurityApplication { application in
+        try await withSecurityApplication { application, webApplication in
             application.get("page") { _ async throws -> String in
                 "ok"
             }
@@ -31,7 +32,7 @@ struct SecurityTests {
 
     @Test
     func strictSelfHostedCSPUsesNonceForScriptsAndStyles() async throws {
-        try await withSecurityApplication(.strictSelfHosted) { application in
+        try await withSecurityApplication(.strictSelfHosted) { application, webApplication in
             application.get("page") { _ async throws -> String in
                 "ok"
             }
@@ -47,8 +48,9 @@ struct SecurityTests {
 
     @Test
     func corsPreflightAllowsSameOriginOnlyByDefault() async throws {
-        try await withSecurityApplication { application in
-            RouteAction.post(SecurityFormAction.self, on: application, path: "/submit")
+        try await withSecurityApplication { application, webApplication in
+            RouteAction.post(SecurityFormAction.self, on: webApplication.routes, path: "/submit")
+            webApplication.lowerPendingRoutes()
 
             var sameOriginHeaders: HTTPFields = [:]
             sameOriginHeaders[.origin] = "http://example.com"
@@ -80,8 +82,9 @@ struct SecurityTests {
         var configuration = SecurityConfiguration.defaults
         configuration.csrf = CSRFPolicy(headerName: HTTPField.Name("X-App-CSRF")!)
 
-        try await withSecurityApplication(configuration) { application in
-            RouteAction.post(SecurityFormAction.self, on: application, path: "/submit")
+        try await withSecurityApplication(configuration) { application, webApplication in
+            RouteAction.post(SecurityFormAction.self, on: webApplication.routes, path: "/submit")
+            webApplication.lowerPendingRoutes()
 
             var headers: HTTPFields = [:]
             headers[.origin] = "http://example.com"
@@ -104,11 +107,12 @@ struct SecurityTests {
 
     @Test
     func formActionRequiresValidCSRFToken() async throws {
-        try await withSecurityApplication { application in
+        try await withSecurityApplication { application, webApplication in
             application.get("page") { _ async throws -> String in
                 "token-source"
             }
-            RouteAction.post(SecurityFormAction.self, on: application, path: "/submit")
+            RouteAction.post(SecurityFormAction.self, on: webApplication.routes, path: "/submit")
+            webApplication.lowerPendingRoutes()
 
             let page = try await application.testing().sendRequest(.get, "/page", hostname: "example.com")
             let token = try csrfToken(from: page)
@@ -140,11 +144,12 @@ struct SecurityTests {
 
     @Test
     func formActionRejectsCrossOriginEvenWithValidCSRFToken() async throws {
-        try await withSecurityApplication { application in
+        try await withSecurityApplication { application, webApplication in
             application.get("page") { _ async throws -> String in
                 "token-source"
             }
-            RouteAction.post(SecurityFormAction.self, on: application, path: "/submit")
+            RouteAction.post(SecurityFormAction.self, on: webApplication.routes, path: "/submit")
+            webApplication.lowerPendingRoutes()
 
             let page = try await application.testing().sendRequest(.get, "/page", hostname: "example.com")
             let token = try csrfToken(from: page)
@@ -165,8 +170,9 @@ struct SecurityTests {
 
     @Test
     func formActionRejectsCrossOriginBeforeDecodingBody() async throws {
-        try await withSecurityApplication { application in
-            RouteAction.post(SecurityFormAction.self, on: application, path: "/submit")
+        try await withSecurityApplication { application, webApplication in
+            RouteAction.post(SecurityFormAction.self, on: webApplication.routes, path: "/submit")
+            webApplication.lowerPendingRoutes()
 
             var headers: HTTPFields = [:]
             headers[.origin] = "https://evil.example"
@@ -185,7 +191,7 @@ struct SecurityTests {
 
     @Test
     func actionGatewayRejectsCrossOriginBeforeDecodingBody() async throws {
-        try await withSecurityApplication { application in
+        try await withSecurityApplication { application, webApplication in
             let handler = SecurityServerActionHandler()
             let descriptor = ServerActionDescriptor(
                 handlerType: SecurityServerActionHandler.self,
@@ -200,9 +206,10 @@ struct SecurityTests {
                 handler: handler,
                 descriptor: descriptor,
                 path: RoutePath("/secure"),
-                on: application,
-                application: application
+                on: webApplication.routes,
+                application: webApplication
             )
+            webApplication.lowerPendingRoutes()
 
             var headers: HTTPFields = [:]
             headers[.origin] = "https://evil.example"
@@ -221,7 +228,7 @@ struct SecurityTests {
 
     @Test
     func actionGatewayMethodOverrideRejectsCrossOriginBeforeDecodingBody() async throws {
-        try await withSecurityApplication { application in
+        try await withSecurityApplication { application, webApplication in
             let handler = SecurityServerActionHandler()
             let descriptor = ServerActionDescriptor(
                 handlerType: SecurityServerActionHandler.self,
@@ -236,9 +243,10 @@ struct SecurityTests {
                 handler: handler,
                 descriptor: descriptor,
                 path: RoutePath("/secure"),
-                on: application,
-                application: application
+                on: webApplication.routes,
+                application: webApplication
             )
+            webApplication.lowerPendingRoutes()
 
             var headers: HTTPFields = [:]
             headers[.origin] = "https://evil.example"
@@ -257,11 +265,12 @@ struct SecurityTests {
 
     @Test
     func uploadActionRequiresHeaderCSRFTokenWithoutReadingStreamBodyToken() async throws {
-        try await withSecurityApplication { application in
+        try await withSecurityApplication { application, webApplication in
             application.get("page") { _ async throws -> String in
                 "token-source"
             }
-            UploadRoute.post(SecurityUploadAction.self, on: application, path: "/upload", body: .stream)
+            UploadRoute.post(SecurityUploadAction.self, on: webApplication.routes, path: "/upload", body: .stream)
+            webApplication.lowerPendingRoutes()
 
             let page = try await application.testing().sendRequest(.get, "/page", hostname: "example.com")
             let token = try csrfToken(from: page)
@@ -297,7 +306,7 @@ struct SecurityTests {
     func hstsTrustsForwardedProtoOnlyWhenConfigured() async throws {
         var ignored = SecurityConfiguration.strictSelfHosted
         ignored.forwardedHeaders = .ignore
-        try await withSecurityApplication(ignored) { application in
+        try await withSecurityApplication(ignored) { application, webApplication in
             application.get("page") { _ async throws -> String in
                 "ok"
             }
@@ -316,7 +325,7 @@ struct SecurityTests {
 
         var trusted = SecurityConfiguration.strictSelfHosted
         trusted.forwardedHeaders = .trust
-        try await withSecurityApplication(trusted) { application in
+        try await withSecurityApplication(trusted) { application, webApplication in
             application.get("page") { _ async throws -> String in
                 "ok"
             }
@@ -336,13 +345,14 @@ struct SecurityTests {
 
     @Test
     func actionResultDoesNotRedirectToExternalReferrer() async throws {
-        try await withSecurityApplication { application in
-            application.get("invalidate") { request async throws -> Response in
+        try await withSecurityApplication { application, webApplication in
+            webApplication.routes.get("invalidate") { request async throws -> WebResponse in
                 try await ActionResult.invalidate(.page).encodeResponse(for: request)
             }
-            application.get("redirect") { request async throws -> Response in
+            webApplication.routes.get("redirect") { request async throws -> WebResponse in
                 try await ActionResult.redirect("https://evil.example/path").encodeResponse(for: request)
             }
+            webApplication.lowerPendingRoutes()
 
             var referrerHeaders: HTTPFields = [:]
             referrerHeaders[HTTPField.Name("Referer")!] = "https://evil.example/after-action"
@@ -395,8 +405,8 @@ struct SecurityTests {
 
     @Test
     func actionMetadataFieldsRenderCSRFTokenFromRequestContext() async throws {
-        try await withSecurityApplication { application in
-            let request = Request(application: application)
+        try await withSecurityApplication { application, webApplication in
+            let request = WebRequest(application: webApplication)
             let context = RequestSecurityContext(csrfToken: "token", csrfFieldName: "_csrf")
             let values = RequestValues(
                 request: request,
@@ -421,16 +431,19 @@ struct SecurityTests {
 
     private func withSecurityApplication(
         _ configuration: SecurityConfiguration = .defaults,
-        _ body: (Application) async throws -> Void
+        _ body: (Vapor.Application, VaporWebApplication) async throws -> Void
     ) async throws {
-        let application = try await Application()
-        application.securityConfiguration = configuration
-        var middlewares = Middlewares()
-        application.securityConfiguration.installMiddleware(on: &middlewares)
+        let application = try await Vapor.Application()
+        let webApplication = VaporWebApplication(application)
+        webApplication.securityConfiguration = configuration
+        var chain = WebMiddlewares()
+        webApplication.securityConfiguration.installMiddleware(on: &chain)
+        var middlewares = Vapor.Middlewares()
+        middlewares.use(webApplication.middlewareBridge(chain))
         middlewares.use(ErrorMiddleware.default(environment: application.environment))
         application.middleware = middlewares
         do {
-            try await body(application)
+            try await body(application, webApplication)
             try await application.shutdown()
         } catch {
             try await application.shutdown()

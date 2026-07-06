@@ -1,7 +1,6 @@
 import HTTPTypes
 import Logging
 import SwiftHTML
-import Vapor
 
 public struct SwiftWebDevelopmentHooks: Sendable {
     public var startParentMonitor: @Sendable (Logger) -> Task<Void, Never>?

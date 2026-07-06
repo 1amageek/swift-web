@@ -1,4 +1,3 @@
-import Vapor
 
 public struct UploadEndpoint<Action: UploadAction>: Scene, _PrimitiveScene {
     private let path: String

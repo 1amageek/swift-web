@@ -1,4 +1,3 @@
-import Vapor
 
 public struct SSEEndpoint<RouteType: SSERoute>: Scene, _PrimitiveScene {
     private let path: String

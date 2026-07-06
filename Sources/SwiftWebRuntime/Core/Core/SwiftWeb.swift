@@ -1,18 +1,19 @@
 @_exported import SwiftHTML
-import Vapor
+@_exported import SwiftWebHostKit
+@_exported import HTTPTypes
 
 public typealias Environment = SwiftHTML.Environment
-public typealias Application = Vapor.Application
-public typealias AsyncBodyStreamWriter = Vapor.AsyncBodyStreamWriter
-public typealias File = Vapor.File
-public typealias HTTPBodyStreamStrategy = Vapor.HTTPBodyStreamStrategy
-public typealias HTTPStatus = Vapor.HTTPStatus
-public typealias HTTPCookies = Vapor.HTTPCookies
-public typealias Middleware = Vapor.Middleware
-public typealias Request = Vapor.Request
-public typealias Responder = Vapor.Responder
-public typealias Response = Vapor.Response
-public typealias ResponseEncodable = Vapor.ResponseEncodable
-public typealias Route = Vapor.Route
-public typealias RoutesBuilder = Vapor.RoutesBuilder
-public typealias StorageKey = Vapor.StorageKey
+public typealias Application = any WebApplicationProtocol
+public typealias AsyncBodyStreamWriter = WebBodyWriter
+public typealias File = WebFile
+public typealias HTTPBodyStreamStrategy = WebBodyStreamStrategy
+public typealias HTTPStatus = HTTPResponse.Status
+public typealias Middleware = WebMiddleware
+public typealias Middlewares = WebMiddlewares
+public typealias Request = WebRequest
+public typealias Responder = WebResponder
+public typealias Response = WebResponse
+public typealias ResponseEncodable = WebResponseEncodable
+public typealias Route = WebRoute
+public typealias RoutesBuilder = WebRoutesBuilder
+public typealias StorageKey = WebStorageKey

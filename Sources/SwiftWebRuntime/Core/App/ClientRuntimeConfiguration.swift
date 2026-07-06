@@ -1,6 +1,5 @@
 import SwiftWebBrowserRuntime
 import Foundation
-import Vapor
 
 public enum ClientRuntimeConfiguration {
     case disabled

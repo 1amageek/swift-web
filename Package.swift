@@ -60,6 +60,7 @@ let package = Package(
         .library(name: "SwiftWebUI", targets: ["SwiftWebUI"]),
         .library(name: "SwiftWebUIRuntime", targets: ["SwiftWebUIRuntime"]),
         .library(name: "SwiftWebBrowserRuntime", targets: ["SwiftWebBrowserRuntime"]),
+        .library(name: "SwiftWebHostKit", targets: ["SwiftWebHostKit"]),
         .library(name: "SwiftWebCore", targets: ["SwiftWebCore"]),
         .library(name: "SwiftWeb", targets: ["SwiftWeb"]),
         .library(name: "SwiftWebVapor", targets: ["SwiftWebVapor"]),
@@ -159,23 +160,27 @@ let package = Package(
             name: "SwiftWebBrowserRuntime",
             dependencies: [
                 swiftHTMLDependency,
-                .product(name: "Vapor", package: "vapor"),
-                .product(name: "RoutingKit", package: "routing-kit"),
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 "SwiftWebActors",
+                "SwiftWebHostKit",
                 "SwiftWebStyle",
             ],
             path: "Sources/SwiftWebBrowser/Runtime",
             swiftSettings: swiftWebSwiftSettings
         ),
         .target(
+            name: "SwiftWebHostKit",
+            dependencies: [
+                .product(name: "HTTPTypes", package: "swift-http-types"),
+                .product(name: "Logging", package: "swift-log"),
+            ],
+            swiftSettings: swiftWebSwiftSettings
+        ),
+        .target(
             name: "SwiftWebCore",
             dependencies: [
                 swiftHTMLDependency,
-                .product(name: "Vapor", package: "vapor"),
-                .product(name: "RoutingKit", package: "routing-kit"),
-                .product(name: "WebSocketKit", package: "websocket-kit"),
-                .product(name: "NIOCore", package: "swift-nio"),
+                "SwiftWebHostKit",
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "Logging", package: "swift-log"),
                 "SwiftWebActors",
@@ -202,6 +207,10 @@ let package = Package(
             name: "SwiftWebVapor",
             dependencies: [
                 .product(name: "Vapor", package: "vapor"),
+                .product(name: "RoutingKit", package: "routing-kit"),
+                .product(name: "WebSocketKit", package: "websocket-kit"),
+                .product(name: "NIOCore", package: "swift-nio"),
+                .product(name: "Logging", package: "swift-log"),
                 "SwiftWebCore",
             ],
             path: "Sources/SwiftWebHTTPServer/Vapor",

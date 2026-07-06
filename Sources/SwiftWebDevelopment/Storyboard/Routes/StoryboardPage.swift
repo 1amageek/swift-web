@@ -66,7 +66,7 @@ struct StoryboardSelectionPage {
 
 private extension StoryboardSchemePreference {
     static func currentFromRequest() -> Self {
-        guard let rawValue = RequestContext.current?.request.cookies[cookieName]?.string else {
+        guard let rawValue = RequestContext.current?.request.cookies[cookieName] else {
             return .auto
         }
         return Self(rawValue: rawValue) ?? .auto

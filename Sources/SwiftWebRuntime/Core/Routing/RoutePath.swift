@@ -1,4 +1,4 @@
-import RoutingKit
+import SwiftWebHostKit
 
 public struct RoutePath: Sendable {
     public let components: [String]
@@ -13,8 +13,8 @@ public struct RoutePath: Sendable {
         self.components = components
     }
 
-    var vaporComponents: [PathComponent] {
-        components.map { PathComponent(stringLiteral: $0) }
+    public var webComponents: [WebPathComponent] {
+        components.map { WebPathComponent($0) }
     }
 
     public var string: String {

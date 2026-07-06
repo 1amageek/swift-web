@@ -1,5 +1,4 @@
 import Foundation
-import Vapor
 
 public struct SecurityConfiguration: Sendable {
     public var cors: CORSPolicy
@@ -56,7 +55,7 @@ public struct SecurityConfiguration: Sendable {
         guard csrf.isEnabled else {
             return (nil, false)
         }
-        if let token = request.cookies[csrf.cookieName]?.string, Self.isValidToken(token) {
+        if let token = request.cookies[csrf.cookieName], Self.isValidToken(token) {
             return (token, false)
         }
         return (Self.randomToken(byteCount: csrf.tokenByteCount), true)
@@ -83,7 +82,7 @@ private struct SecurityConfigurationStorageKey: StorageKey {
     typealias Value = SecurityConfiguration
 }
 
-extension Application {
+extension WebApplicationProtocol {
     package var securityConfiguration: SecurityConfiguration {
         get {
             storage[SecurityConfigurationStorageKey.self] ?? .defaults

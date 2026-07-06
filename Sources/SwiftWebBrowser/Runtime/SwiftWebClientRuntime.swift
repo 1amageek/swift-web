@@ -1,5 +1,5 @@
 import SwiftHTML
-import Vapor
+import SwiftWebHostKit
 
 public enum SwiftWebClientRuntime: Sendable, Equatable {
     case disabled
@@ -88,11 +88,11 @@ public struct SwiftWebWasmClientBundle: Sendable, Codable, Equatable {
     }
 }
 
-private struct SwiftWebClientRuntimeStorageKey: StorageKey {
+private struct SwiftWebClientRuntimeStorageKey: WebStorageKey {
     typealias Value = SwiftWebClientRuntime
 }
 
-public extension Application {
+public extension WebApplicationProtocol {
     var swiftWebClientRuntime: SwiftWebClientRuntime {
         get {
             storage[SwiftWebClientRuntimeStorageKey.self] ?? .disabled

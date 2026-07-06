@@ -1,4 +1,3 @@
-import Vapor
 
 public protocol FormAction: SendableMetatype {
     associatedtype Params: Decodable & Sendable = NoParams
@@ -27,7 +26,7 @@ public enum RouteAction {
         path: RoutePath,
         body: HTTPBodyStreamStrategy = .collect
     ) -> Route {
-        routes.on(.post, path.vaporComponents, body: body) { req async throws -> Response in
+        routes.on(.post, path.webComponents, body: body) { req async throws -> Response in
             try SecurityRequestValidator.validateOrigin(req)
             let csrfToken = try await SecurityRequestValidator.csrfToken(
                 from: req,

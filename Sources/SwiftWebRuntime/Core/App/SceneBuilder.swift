@@ -1,4 +1,3 @@
-import Vapor
 
 @resultBuilder
 public enum SceneBuilder {

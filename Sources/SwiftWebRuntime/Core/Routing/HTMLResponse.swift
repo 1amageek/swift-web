@@ -1,7 +1,6 @@
 import SwiftWebBrowserRuntime
 import SwiftHTML
 import SwiftWebStyle
-import Vapor
 
 extension HTML {
     public func encodePageResponse(for request: Request, metadata: PageMetadata) async throws -> Response {

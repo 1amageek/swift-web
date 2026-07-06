@@ -1,7 +1,6 @@
 @testable import SwiftWeb
 @testable import SwiftWebCore
 import Testing
-import Vapor
 
 @Suite
 struct SwiftWebPageOwnedServicesTests {
@@ -13,7 +12,7 @@ struct SwiftWebPageOwnedServicesTests {
             try await PageOwnedServices.register(
                 service,
                 on: application,
-                routes: application,
+                routes: application.routes,
                 basePath: RoutePath("/counter")
             )
 
@@ -40,7 +39,7 @@ struct SwiftWebPageOwnedServicesTests {
             try await PageOwnedServices.register(
                 NonServerActionPageValue() as Any,
                 on: application,
-                routes: application,
+                routes: application.routes,
                 basePath: RoutePath("/counter")
             )
         }
@@ -54,7 +53,7 @@ struct SwiftWebPageOwnedServicesTests {
             try await PageOwnedServices.register(
                 service as Any,
                 on: application,
-                routes: application,
+                routes: application.routes,
                 basePath: RoutePath("/counter")
             )
 
@@ -98,16 +97,9 @@ struct SwiftWebPageOwnedServicesTests {
     }
 
     private func withApplication(
-        _ body: (Application) async throws -> Void
+        _ body: (TestWebApplication) async throws -> Void
     ) async throws {
-        let application = try await Application()
-        do {
-            try await body(application)
-            try await application.shutdown()
-        } catch {
-            try await application.shutdown()
-            throw error
-        }
+        try await body(TestWebApplication())
     }
 }
 

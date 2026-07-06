@@ -1,5 +1,4 @@
 import SwiftWebBrowserRuntime
-import Vapor
 
 extension Request {
     var clientSecurityDescriptor: ClientSecurityDescriptor? {

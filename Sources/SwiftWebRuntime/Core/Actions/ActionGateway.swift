@@ -1,10 +1,9 @@
 import Foundation
-import Vapor
 
 public enum ActionGateway {
     @discardableResult
     public static func register(on application: Application) -> Route {
-        application.post("_swiftweb", "actions") { _ async throws -> Response in
+        application.routes.post("_swiftweb", "actions") { _ async throws -> Response in
             throw Abort(.gone, reason: "Global server action gateway has been replaced by page-local HTTP action routes")
         }
     }
@@ -24,7 +23,7 @@ public enum ActionGateway {
             path: publicPath
         )
 
-        let route = routes.on(descriptor.method.vaporMethod, path.vaporComponents) { request async throws -> Response in
+        let route = routes.on(descriptor.method.httpMethod, path.webComponents) { request async throws -> Response in
             try await invoke(
                 handler: handler,
                 descriptor: descriptor,
@@ -35,7 +34,7 @@ public enum ActionGateway {
         }
 
         if descriptor.method.requiresFormMethodOverride {
-            routes.on(.post, path.vaporComponents) { request async throws -> Response in
+            routes.on(.post, path.webComponents) { request async throws -> Response in
                 try SecurityRequestValidator.validateOrigin(request)
                 let metadata = try await request.content.decode(ActionRequestMetadata.self)
                 guard metadata.methodOverride == descriptor.method.rawValue else {

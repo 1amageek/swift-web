@@ -1,4 +1,3 @@
-import Vapor
 
 public struct StrictTransportSecurityPolicy: Sendable {
     public var maxAge: Int

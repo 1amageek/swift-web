@@ -1,5 +1,4 @@
 import SwiftWebCore
-import Vapor
 
 public enum SwiftWebDevelopmentHooksRuntime {
     public static func install() async {

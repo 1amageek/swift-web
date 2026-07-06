@@ -1,5 +1,4 @@
 import HTTPTypes
-import Vapor
 
 public enum ForwardedHeadersPolicy: Sendable {
     case ignore
@@ -40,7 +39,7 @@ public enum ForwardedHeadersPolicy: Sendable {
         case .trust:
             return true
         case .trustedProxies(let addresses):
-            guard let remoteAddress = request.remoteAddress?.ipAddress else {
+            guard let remoteAddress = request.remoteAddress else {
                 return false
             }
             return addresses.contains(remoteAddress)

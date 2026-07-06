@@ -1,4 +1,3 @@
-import Vapor
 
 public struct EmptyScene: Scene, _PrimitiveScene {
     public init() {}

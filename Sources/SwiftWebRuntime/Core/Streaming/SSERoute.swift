@@ -1,6 +1,5 @@
 import SwiftWebBrowserRuntime
 import HTTPTypes
-import Vapor
 
 public protocol SSERoute: SendableMetatype {
     associatedtype SearchParams: Decodable & Sendable = NoSearchParams
@@ -26,7 +25,7 @@ public enum SSERouteBuilder {
         on routes: any RoutesBuilder,
         path: RoutePath
     ) -> Route {
-        routes.get(path.vaporComponents) { req async throws -> Response in
+        routes.get(path.webComponents) { req async throws -> Response in
             let searchParams = try req.query.decode(RouteType.SearchParams.self)
             let requestValues = RequestValues(request: req, params: NoParams(), searchParams: searchParams)
             var configuredEnvironment = EnvironmentValues()

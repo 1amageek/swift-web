@@ -7,6 +7,6 @@ public struct Session: Sendable {
         guard let context = RequestContext.current else {
             preconditionFailure("@Session was accessed outside a SwiftWeb page request")
         }
-        return WebSession.vapor(context.request)
+        return context.request.session
     }
 }

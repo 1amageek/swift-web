@@ -1,9 +1,7 @@
 import HTTPTypes
-import NIOCore
 @testable import SwiftWeb
 @testable import SwiftWebCore
 import Testing
-import Vapor
 
 @Suite
 struct OriginPolicyTests {
@@ -56,14 +54,12 @@ struct OriginPolicyTests {
     @Test
     func requestOriginUsesForwardedHeadersOnlyForTrustedProxy() async throws {
         try await withApplication { application in
-            let trustedRemote = try SocketAddress(ipAddress: "10.0.0.1", port: 443)
-            let trustedRequest = Request(application: application, remoteAddress: trustedRemote)
+            let trustedRequest = Request(application: application, remoteAddress: "10.0.0.1")
             trustedRequest.headers[HTTPField.Name("Host")!] = "127.0.0.1:3000"
             trustedRequest.headers[HTTPField.Name("X-Forwarded-Proto")!] = "https"
             trustedRequest.headers[HTTPField.Name("X-Forwarded-Host")!] = "example.com"
 
-            let untrustedRemote = try SocketAddress(ipAddress: "10.0.0.2", port: 443)
-            let untrustedRequest = Request(application: application, remoteAddress: untrustedRemote)
+            let untrustedRequest = Request(application: application, remoteAddress: "10.0.0.2")
             untrustedRequest.headers[HTTPField.Name("Host")!] = "127.0.0.1:3000"
             untrustedRequest.headers[HTTPField.Name("X-Forwarded-Proto")!] = "https"
             untrustedRequest.headers[HTTPField.Name("X-Forwarded-Host")!] = "example.com"
@@ -75,15 +71,8 @@ struct OriginPolicyTests {
     }
 
     private func withApplication(
-        _ body: (Application) async throws -> Void
+        _ body: (TestWebApplication) async throws -> Void
     ) async throws {
-        let application = try await Application()
-        do {
-            try await body(application)
-            try await application.shutdown()
-        } catch {
-            try await application.shutdown()
-            throw error
-        }
+        try await body(TestWebApplication())
     }
 }

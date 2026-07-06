@@ -28,11 +28,13 @@ struct SwiftWebActorSystemTests {
 
     @Test
     func vaporGatewayExecutesInvocationEnvelope() async throws {
-        let application = try await Application()
+        let application = try await Vapor.Application()
+        let webApplication = VaporWebApplication(application)
         var configuration = SecurityConfiguration.defaults
         configuration.csrf = .disabled
-        application.securityConfiguration = configuration
-        WebActorGateway.register(on: application)
+        webApplication.securityConfiguration = configuration
+        WebActorGateway.register(on: webApplication)
+        webApplication.lowerPendingRoutes()
         let service = TestCounterService(actorSystem: .shared)
         let captureStore = CapturedEnvelopeStore()
         let clientSystem = WebActorSystem(
@@ -73,9 +75,11 @@ struct SwiftWebActorSystemTests {
 
     @Test
     func vaporGatewayRequiresCSRFWhenEnabled() async throws {
-        let application = try await Application()
-        application.securityConfiguration = .defaults
-        WebActorGateway.register(on: application)
+        let application = try await Vapor.Application()
+        let webApplication = VaporWebApplication(application)
+        webApplication.securityConfiguration = .defaults
+        WebActorGateway.register(on: webApplication)
+        webApplication.lowerPendingRoutes()
 
         var headers: HTTPFields = [:]
         headers[.contentType] = "application/json"

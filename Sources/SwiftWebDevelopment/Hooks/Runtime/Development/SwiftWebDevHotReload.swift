@@ -2,7 +2,6 @@ import Foundation
 import HTTPTypes
 import SwiftHTML
 import SwiftWebCore
-import Vapor
 
 package enum SwiftWebDevHotReload {
   package static let reloadPath = "/__swiftweb/dev/reload"
@@ -11,11 +10,11 @@ package enum SwiftWebDevHotReload {
   package static let reloadTokenHeaderName = HTTPField.Name("X-SwiftWeb-Dev-Token")!
 
   package static var isEnabled: Bool {
-    Vapor.Environment.get("SWIFT_WEB_DEV") == "1" && !token.isEmpty
+    ProcessInfo.processInfo.environment["SWIFT_WEB_DEV"] == "1" && !token.isEmpty
   }
 
   package static var token: String {
-    Vapor.Environment.get("SWIFT_WEB_DEV_RELOAD_TOKEN") ?? ""
+    ProcessInfo.processInfo.environment["SWIFT_WEB_DEV_RELOAD_TOKEN"] ?? ""
   }
 
   package static func headers() -> HTTPFields {

@@ -1,5 +1,5 @@
 import ServiceContextModule
-import Vapor
+import SwiftWebCore
 
 struct SwiftWebDevContextMiddleware: Middleware {
     func respond(to request: Request, chainingTo next: any Responder) async throws -> Response {

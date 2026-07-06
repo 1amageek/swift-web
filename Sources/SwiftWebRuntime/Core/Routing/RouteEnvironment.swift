@@ -1,4 +1,3 @@
-import Vapor
 
 public struct RouteEnvironment: Sendable {
     public let method: String

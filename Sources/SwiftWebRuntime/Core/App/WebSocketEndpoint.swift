@@ -1,4 +1,3 @@
-import Vapor
 
 public struct WebSocketEndpoint<RouteType: WebSocketRoute>: Scene, _PrimitiveScene {
     private let path: String

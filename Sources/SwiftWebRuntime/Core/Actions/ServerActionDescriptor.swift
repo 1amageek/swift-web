@@ -1,5 +1,4 @@
 import Foundation
-import Vapor
 
 public struct ServerActionDescriptor: Sendable {
     public let method: ServerActionMethod

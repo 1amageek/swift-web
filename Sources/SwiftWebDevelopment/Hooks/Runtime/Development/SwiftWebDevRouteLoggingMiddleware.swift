@@ -1,10 +1,10 @@
 import Foundation
+import SwiftWebCore
 import Logging
-import Vapor
 
 final class SwiftWebDevRouteLoggingMiddleware: Middleware {
     static var isEnabled: Bool {
-        Vapor.Environment.get("SWIFT_WEB_DEV_ROUTE_LOG") == "1"
+        ProcessInfo.processInfo.environment["SWIFT_WEB_DEV_ROUTE_LOG"] == "1"
     }
 
     private let logLevel: Logger.Level

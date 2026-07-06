@@ -1,4 +1,3 @@
-import Vapor
 
 public struct StreamingPageEndpoint<Page: StreamingPage>: Scene, _PrimitiveScene {
     private let path: String

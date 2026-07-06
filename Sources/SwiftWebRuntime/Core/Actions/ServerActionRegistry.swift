@@ -1,6 +1,5 @@
 import Foundation
 import Synchronization
-import Vapor
 
 public final class ServerActionRegistry: Sendable {
     private struct State: Sendable {
@@ -62,7 +61,7 @@ private struct ServerActionRegistryStorageKey: StorageKey {
     typealias Value = ServerActionRegistry
 }
 
-public extension Application {
+public extension WebApplicationProtocol {
     var swiftWebServerActions: ServerActionRegistry {
         if let registry = storage[ServerActionRegistryStorageKey.self] {
             return registry

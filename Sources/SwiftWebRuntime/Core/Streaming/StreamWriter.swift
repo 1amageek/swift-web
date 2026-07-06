@@ -1,7 +1,6 @@
 import SwiftWebBrowserRuntime
-import NIOCore
+import SwiftWebHostKit
 import SwiftWebStyle
-import Vapor
 
 public struct StreamWriter: Sendable {
     private let writer: (any AsyncBodyStreamWriter)?
@@ -27,8 +26,7 @@ public struct StreamWriter: Sendable {
 
     public func write(_ string: String) async throws {
         if let writer {
-            let buffer = ByteBufferAllocator().buffer(string: string)
-            try await writer.write(.buffer(buffer))
+            try await writer.write(string)
             return
         }
 

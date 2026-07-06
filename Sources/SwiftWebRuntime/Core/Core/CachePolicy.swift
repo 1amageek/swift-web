@@ -1,5 +1,4 @@
 import HTTPTypes
-import Vapor
 
 public enum CachePolicy: Equatable, Sendable {
     case none
@@ -26,9 +25,8 @@ extension Response {
         guard policy != .none else {
             return self
         }
-        var currentHeaders = headers
-        currentHeaders[.cacheControl] = policy.headerValue
-        headers = currentHeaders
-        return self
+        var response = self
+        response.headers[.cacheControl] = policy.headerValue
+        return response
     }
 }

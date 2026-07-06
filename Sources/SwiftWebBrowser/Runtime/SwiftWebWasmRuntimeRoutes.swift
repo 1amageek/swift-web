@@ -1,8 +1,7 @@
 import Foundation
 import HTTPTypes
-import RoutingKit
+import SwiftWebHostKit
 import SwiftHTML
-import Vapor
 
 public enum SwiftWebWasmRuntimeRoutes {
     public static let hostScriptPath = "/__swiftweb/wasm/runtime-host.js"
@@ -34,9 +33,9 @@ public enum SwiftWebWasmRuntimeRoutes {
     }
 
     @discardableResult
-    public static func registerHost(on routes: any RoutesBuilder) -> [Route] {
+    public static func registerHost(on routes: any WebRoutesBuilder) -> [WebRoute] {
         [
-            routes.get("__swiftweb", "wasm", "runtime-host.js") { req async throws -> Response in
+            routes.get("__swiftweb", "wasm", "runtime-host.js") { req async throws -> WebResponse in
                 let body = SwiftWebWasmRuntimeHostScript.source
                 let etag = quotedETag("swiftweb-host-\(hostScriptVersion)")
                 let headers = cacheValidationHeaders(
@@ -44,11 +43,11 @@ public enum SwiftWebWasmRuntimeRoutes {
                     etag: etag
                 )
                 if matchesETag(req.headers[.ifNoneMatch], etag: etag) {
-                    return Response(status: .notModified, headers: headers, body: .empty)
+                    return WebResponse(status: .notModified, headers: headers, body: .empty)
                 }
-                return Response(headers: headers, body: .init(string: body))
+                return WebResponse(headers: headers, body: .init(string: body))
             },
-            routes.get("__swiftweb", "wasm", "javascript-kit-runtime.js") { req async throws -> Response in
+            routes.get("__swiftweb", "wasm", "javascript-kit-runtime.js") { req async throws -> WebResponse in
                 let body = try SwiftWebJavaScriptKitRuntimeScript.load()
                 let etag = quotedETag("swiftweb-javascript-kit-\(contentHash(of: body))")
                 let headers = cacheValidationHeaders(
@@ -56,22 +55,22 @@ public enum SwiftWebWasmRuntimeRoutes {
                     etag: etag
                 )
                 if matchesETag(req.headers[.ifNoneMatch], etag: etag) {
-                    return Response(status: .notModified, headers: headers, body: .empty)
+                    return WebResponse(status: .notModified, headers: headers, body: .empty)
                 }
-                return Response(headers: headers, body: .init(string: body))
+                return WebResponse(headers: headers, body: .init(string: body))
             },
         ]
     }
 
     @discardableResult
     public static func registerManifest(
-        on routes: any RoutesBuilder,
+        on routes: any WebRoutesBuilder,
         path: String,
         manifest: ClientBundleManifest
-    ) -> Route {
+    ) -> WebRoute {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
-        return routes.on(.get, vaporPathComponents(for: path)) { req async throws -> Response in
+        return routes.on(.get, webPathComponents(for: path)) { req async throws -> WebResponse in
             let data = try encoder.encode(manifest)
             let etag = quotedETag("swiftweb-manifest-\(contentHash(of: String(decoding: data, as: UTF8.self)))")
             let headers = cacheValidationHeaders(
@@ -79,18 +78,18 @@ public enum SwiftWebWasmRuntimeRoutes {
                 etag: etag
             )
             if matchesETag(req.headers[.ifNoneMatch], etag: etag) {
-                return Response(status: .notModified, headers: headers, body: .empty)
+                return WebResponse(status: .notModified, headers: headers, body: .empty)
             }
-            return Response(headers: headers, body: .init(data: data))
+            return WebResponse(headers: headers, body: .init(data: data))
         }
     }
 
     @discardableResult
     public static func registerWasmAsset(
-        on routes: any RoutesBuilder,
+        on routes: any WebRoutesBuilder,
         path: String,
         fileURL: URL
-    ) -> Route {
+    ) -> WebRoute {
         registerWasmAsset(on: routes, path: path) {
             fileURL
         }
@@ -98,11 +97,11 @@ public enum SwiftWebWasmRuntimeRoutes {
 
     @discardableResult
     public static func registerWasmAsset(
-        on routes: any RoutesBuilder,
+        on routes: any WebRoutesBuilder,
         path: String,
         fileURL: @escaping @Sendable () throws -> URL
-    ) -> Route {
-        return routes.on(.get, vaporPathComponents(for: path)) { req async throws -> Response in
+    ) -> WebRoute {
+        return routes.on(.get, webPathComponents(for: path)) { req async throws -> WebResponse in
             let resolvedFileURL = try fileURL()
             guard FileManager.default.fileExists(atPath: resolvedFileURL.path) else {
                 throw Abort(.notFound, reason: "WASM asset was not found at \(resolvedFileURL.path)")
@@ -114,13 +113,13 @@ public enum SwiftWebWasmRuntimeRoutes {
             let etag = try fileETag(for: asset.fileURL, contentEncoding: asset.contentEncoding)
             let headers = wasmAssetHeaders(etag: etag, contentEncoding: asset.contentEncoding)
             if matchesETag(req.headers[.ifNoneMatch], etag: etag) {
-                return Response(status: .notModified, headers: headers, body: .empty)
+                return WebResponse(status: .notModified, headers: headers, body: .empty)
             }
             let data = try Data(
                 contentsOf: asset.fileURL,
                 options: [.mappedIfSafe]
             )
-            return Response(
+            return WebResponse(
                 headers: headers,
                 body: .init(data: data)
             )
@@ -150,7 +149,7 @@ public enum SwiftWebWasmRuntimeRoutes {
         return (fileURL, nil)
     }
 
-    private static func vaporPathComponents(for path: String) -> [PathComponent] {
+    private static func webPathComponents(for path: String) -> [WebPathComponent] {
         path
             .split(separator: "/", omittingEmptySubsequences: true)
             .map { .constant(String($0)) }

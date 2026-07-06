@@ -1,5 +1,4 @@
 import HTTPTypes
-import Vapor
 
 public enum SecurityRequestValidator {
     public static func validateStateChangingRequest(
@@ -48,7 +47,7 @@ public enum SecurityRequestValidator {
         guard security.csrf.isEnabled else {
             return
         }
-        let expectedToken = request.cookies[security.csrf.cookieName]?.string
+        let expectedToken = request.cookies[security.csrf.cookieName]
         let headerToken = request.headers[security.csrf.headerName]
         let actualToken = suppliedCSRFToken ?? headerToken
         guard let expectedToken,
@@ -75,7 +74,7 @@ public enum SecurityRequestValidator {
     }
 }
 
-private struct CSRFTokenPayload: Content {
+private struct CSRFTokenPayload: Codable {
     private let fields: [String: String]
 
     init(from decoder: any Decoder) throws {

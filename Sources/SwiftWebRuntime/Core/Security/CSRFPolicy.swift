@@ -1,5 +1,4 @@
 import HTTPTypes
-import Vapor
 
 public enum CSRFTokenSource: Sendable {
     case header
@@ -33,7 +32,7 @@ public struct CSRFPolicy: Sendable {
     public var tokenByteCount: Int
     public var cookieMaxAge: Int?
     public var cookieIsSecure: Bool
-    public var cookieSameSite: HTTPCookies.SameSitePolicy
+    public var cookieSameSite: WebHTTPCookieValue.SameSitePolicy
     public var protectedMethods: Set<String>
     public var formTokenSource: CSRFTokenSource
     public var uploadTokenSource: CSRFTokenSource
@@ -46,7 +45,7 @@ public struct CSRFPolicy: Sendable {
         tokenByteCount: Int = 32,
         cookieMaxAge: Int? = 86_400,
         cookieIsSecure: Bool = false,
-        cookieSameSite: HTTPCookies.SameSitePolicy = .lax,
+        cookieSameSite: WebHTTPCookieValue.SameSitePolicy = .lax,
         protectedMethods: Set<String> = ["POST", "PUT", "PATCH", "DELETE"],
         formTokenSource: CSRFTokenSource = .headerOrFormField,
         uploadTokenSource: CSRFTokenSource = .header
@@ -72,8 +71,8 @@ public struct CSRFPolicy: Sendable {
         protectedMethods.contains(method.rawValue.uppercased())
     }
 
-    func cookieValue(token: String) -> HTTPCookies.Value {
-        HTTPCookies.Value(
+    func cookieValue(token: String) -> WebHTTPCookieValue {
+        WebHTTPCookieValue(
             string: token,
             maxAge: cookieMaxAge,
             path: "/",

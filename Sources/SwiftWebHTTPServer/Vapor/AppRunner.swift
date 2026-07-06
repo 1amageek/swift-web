@@ -20,7 +20,7 @@ public struct AppRunnerInstallation: Sendable {
         }
     }
 
-    public func shutdown(_ application: Application) async throws {
+    public func shutdown(_ application: Vapor.Application) async throws {
         shutdown()
         try await application.shutdown()
     }
@@ -29,13 +29,13 @@ public struct AppRunnerInstallation: Sendable {
 public struct AppRunner<Definition: App> {
     private let definition: Definition
     private let clientRuntime: ClientRuntimeConfiguration?
-    private let routeInstallers: [(Application) async throws -> Void]
+    private let routeInstallers: [(SwiftWebCore.Application) async throws -> Void]
     private let shutdownHandlers: [@Sendable () -> Void]
 
     public init(
         _ definition: Definition,
         clientRuntime: ClientRuntimeConfiguration? = nil,
-        routeInstallers: [(Application) async throws -> Void] = [],
+        routeInstallers: [(SwiftWebCore.Application) async throws -> Void] = [],
         shutdownHandlers: [@Sendable () -> Void] = []
     ) {
         self.definition = definition
@@ -45,7 +45,7 @@ public struct AppRunner<Definition: App> {
     }
 
     public func run() async throws {
-        let application = try await Application()
+        let application = try await Vapor.Application()
         let installation: AppRunnerInstallation
         do {
             installation = try await configure(application)
@@ -64,7 +64,7 @@ public struct AppRunner<Definition: App> {
     }
 
     @discardableResult
-    public func configure(_ application: Application) async throws -> AppRunnerInstallation {
+    public func configure(_ application: Vapor.Application) async throws -> AppRunnerInstallation {
         let developmentHooks = await SwiftWebDevelopmentSupport.shared.currentHooks()
         let devParentMonitor = developmentHooks.startParentMonitor(application.logger)
         let installation = AppRunnerInstallation(
@@ -73,24 +73,30 @@ public struct AppRunner<Definition: App> {
         )
 
         do {
+            let webApplication = VaporWebApplication(application)
             let security = developmentHooks.configureSecurity(definition.security)
-            application.securityConfiguration = security
+            webApplication.securityConfiguration = security
             application.sessions.configuration = .swiftWeb
-            var middlewares = Middlewares()
+
+            var chain = WebMiddlewares()
+            security.installMiddleware(on: &chain)
+            developmentHooks.installMiddlewares(&chain)
+
+            var middlewares = Vapor.Middlewares()
             middlewares.use(application.sessions.middleware)
-            security.installMiddleware(on: &middlewares)
-            developmentHooks.installMiddlewares(&middlewares)
+            middlewares.use(VaporWebMiddlewareChainBridge(chain: chain, application: webApplication))
             middlewares.use(ErrorMiddleware.default(environment: application.environment))
             application.middleware = middlewares
 
-            developmentHooks.registerRoutes(application)
-            ActionGateway.register(on: application)
+            developmentHooks.registerRoutes(webApplication.routes)
+            ActionGateway.register(on: webApplication)
             for installer in routeInstallers {
-                try await installer(application)
+                try await installer(webApplication)
             }
-            try await (clientRuntime ?? definition.clientRuntime).install(on: application)
-            try await definition.services.register(on: application)
-            try await _SceneRenderer.make(definition.body, in: .root(application))
+            try await (clientRuntime ?? definition.clientRuntime).install(on: webApplication)
+            try await definition.services.register(on: webApplication)
+            try await _SceneRenderer.make(definition.body, in: .root(webApplication))
+            webApplication.lowerPendingRoutes()
             return installation
         } catch {
             installation.shutdown()

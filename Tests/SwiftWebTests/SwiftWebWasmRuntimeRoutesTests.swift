@@ -4,6 +4,7 @@ import NIOCore
 import Testing
 import Vapor
 import VaporTesting
+import SwiftWebVapor
 
 @testable import SwiftWeb
 @testable import SwiftWebCore
@@ -12,7 +13,7 @@ import VaporTesting
 struct SwiftWebWasmRuntimeRoutesTests {
   @Test
   func servesBrotliSidecarWhenAccepted() async throws {
-    try await withApplication { application in
+    try await withApplication { application, webApplication in
       let root = try temporaryDirectory()
       defer {
         do {
@@ -24,14 +25,14 @@ struct SwiftWebWasmRuntimeRoutesTests {
       try Data("gzip".utf8).write(to: URL(fileURLWithPath: wasmURL.path + ".gz"))
       try Data("brotli".utf8).write(to: URL(fileURLWithPath: wasmURL.path + ".br"))
       SwiftWebWasmRuntimeRoutes.registerWasmAsset(
-        on: application,
+        on: webApplication.routes,
         path: "/assets/runtime.wasm",
         fileURL: wasmURL
       )
 
       var headers: HTTPFields = [:]
       headers[HTTPField.Name("Accept-Encoding")!] = "gzip, br"
-      let response = try await application.testing().sendRequest(
+      let response = try await sendRequest(application, webApplication,
         .get,
         "/assets/runtime.wasm",
         headers: headers
@@ -47,7 +48,7 @@ struct SwiftWebWasmRuntimeRoutesTests {
 
   @Test
   func servesGzipWhenItHasHigherQualityThanBrotli() async throws {
-    try await withApplication { application in
+    try await withApplication { application, webApplication in
       let root = try temporaryDirectory()
       defer {
         do {
@@ -59,14 +60,14 @@ struct SwiftWebWasmRuntimeRoutesTests {
       try Data("gzip".utf8).write(to: URL(fileURLWithPath: wasmURL.path + ".gz"))
       try Data("brotli".utf8).write(to: URL(fileURLWithPath: wasmURL.path + ".br"))
       SwiftWebWasmRuntimeRoutes.registerWasmAsset(
-        on: application,
+        on: webApplication.routes,
         path: "/assets/runtime.wasm",
         fileURL: wasmURL
       )
 
       var headers: HTTPFields = [:]
       headers[HTTPField.Name("Accept-Encoding")!] = "br;q=0.1, gzip;q=1.0"
-      let response = try await application.testing().sendRequest(
+      let response = try await sendRequest(application, webApplication,
         .get,
         "/assets/runtime.wasm",
         headers: headers
@@ -80,7 +81,7 @@ struct SwiftWebWasmRuntimeRoutesTests {
 
   @Test
   func servesRawWasmWhenEncodingIsNotAccepted() async throws {
-    try await withApplication { application in
+    try await withApplication { application, webApplication in
       let root = try temporaryDirectory()
       defer {
         do {
@@ -91,14 +92,14 @@ struct SwiftWebWasmRuntimeRoutesTests {
       try Data("raw".utf8).write(to: wasmURL)
       try Data("gzip".utf8).write(to: URL(fileURLWithPath: wasmURL.path + ".gz"))
       SwiftWebWasmRuntimeRoutes.registerWasmAsset(
-        on: application,
+        on: webApplication.routes,
         path: "/assets/runtime.wasm",
         fileURL: wasmURL
       )
 
       var headers: HTTPFields = [:]
       headers[HTTPField.Name("Accept-Encoding")!] = "gzip;q=0"
-      let response = try await application.testing().sendRequest(
+      let response = try await sendRequest(application, webApplication,
         .get,
         "/assets/runtime.wasm",
         headers: headers
@@ -112,7 +113,7 @@ struct SwiftWebWasmRuntimeRoutesTests {
 
   @Test
   func wasmAssetSupportsETagRevalidation() async throws {
-    try await withApplication { application in
+    try await withApplication { application, webApplication in
       let root = try temporaryDirectory()
       defer {
         do {
@@ -122,12 +123,12 @@ struct SwiftWebWasmRuntimeRoutesTests {
       let wasmURL = root.appendingPathComponent("runtime.wasm")
       try Data("raw".utf8).write(to: wasmURL)
       SwiftWebWasmRuntimeRoutes.registerWasmAsset(
-        on: application,
+        on: webApplication.routes,
         path: "/assets/runtime.wasm",
         fileURL: wasmURL
       )
 
-      let first = try await application.testing().sendRequest(
+      let first = try await sendRequest(application, webApplication,
         .get,
         "/assets/runtime.wasm"
       )
@@ -135,7 +136,7 @@ struct SwiftWebWasmRuntimeRoutesTests {
 
       var headers: HTTPFields = [:]
       headers[.ifNoneMatch] = etag
-      let second = try await application.testing().sendRequest(
+      let second = try await sendRequest(application, webApplication,
         .get,
         "/assets/runtime.wasm",
         headers: headers
@@ -153,10 +154,10 @@ struct SwiftWebWasmRuntimeRoutesTests {
 
   @Test
   func runtimeHostScriptSupportsETagRevalidation() async throws {
-    try await withApplication { application in
-      SwiftWebWasmRuntimeRoutes.registerHost(on: application)
+    try await withApplication { application, webApplication in
+      SwiftWebWasmRuntimeRoutes.registerHost(on: webApplication.routes)
 
-      let first = try await application.testing().sendRequest(
+      let first = try await sendRequest(application, webApplication,
         .get,
         SwiftWebWasmRuntimeRoutes.hostScriptPath
       )
@@ -164,7 +165,7 @@ struct SwiftWebWasmRuntimeRoutesTests {
 
       var headers: HTTPFields = [:]
       headers[.ifNoneMatch] = etag
-      let second = try await application.testing().sendRequest(
+      let second = try await sendRequest(application, webApplication,
         .get,
         SwiftWebWasmRuntimeRoutes.hostScriptPath,
         headers: headers
@@ -180,7 +181,7 @@ struct SwiftWebWasmRuntimeRoutesTests {
 
   @Test
   func explicitEncodingRejectionOverridesWildcardAcceptance() async throws {
-    try await withApplication { application in
+    try await withApplication { application, webApplication in
       let root = try temporaryDirectory()
       defer {
         do {
@@ -191,14 +192,14 @@ struct SwiftWebWasmRuntimeRoutesTests {
       try Data("raw".utf8).write(to: wasmURL)
       try Data("brotli".utf8).write(to: URL(fileURLWithPath: wasmURL.path + ".br"))
       SwiftWebWasmRuntimeRoutes.registerWasmAsset(
-        on: application,
+        on: webApplication.routes,
         path: "/assets/runtime.wasm",
         fileURL: wasmURL
       )
 
       var headers: HTTPFields = [:]
       headers[HTTPField.Name("Accept-Encoding")!] = "br;q=0, *;q=1"
-      let response = try await application.testing().sendRequest(
+      let response = try await sendRequest(application, webApplication,
         .get,
         "/assets/runtime.wasm",
         headers: headers
@@ -212,7 +213,7 @@ struct SwiftWebWasmRuntimeRoutesTests {
 
   @Test
   func resolvesWasmArtifactWhenRequestArrivesAfterBuild() async throws {
-    try await withApplication { application in
+    try await withApplication { application, webApplication in
       let root = try temporaryDirectory()
       defer {
         do {
@@ -243,7 +244,7 @@ struct SwiftWebWasmRuntimeRoutesTests {
         scratchDirectory: scratch
       )
       SwiftWebWasmRuntimeRoutes.registerWasmAsset(
-        on: application,
+        on: webApplication.routes,
         path: "/assets/storyboard-preview-wasm-runtime.wasm",
         fileURL: {
           try artifact.url()
@@ -251,7 +252,7 @@ struct SwiftWebWasmRuntimeRoutesTests {
       )
       try write("wasm", to: wasmURL)
 
-      let response = try await application.testing().sendRequest(
+      let response = try await sendRequest(application, webApplication,
         .get,
         "/assets/storyboard-preview-wasm-runtime.wasm"
       )
@@ -262,16 +263,28 @@ struct SwiftWebWasmRuntimeRoutesTests {
   }
 
   private func withApplication(
-    _ body: (Application) async throws -> Void
+    _ body: (Vapor.Application, VaporWebApplication) async throws -> Void
   ) async throws {
-    let application = try await Application()
+    let application = try await Vapor.Application()
+    let webApplication = VaporWebApplication(application)
     do {
-      try await body(application)
+      try await body(application, webApplication)
       try await application.shutdown()
     } catch {
       try await application.shutdown()
       throw error
     }
+  }
+
+  private func sendRequest(
+    _ application: Vapor.Application,
+    _ webApplication: VaporWebApplication,
+    _ method: HTTPRequest.Method,
+    _ path: String,
+    headers: HTTPFields = [:]
+  ) async throws -> TestingHTTPResponse {
+    webApplication.lowerPendingRoutes()
+    return try await application.testing().sendRequest(method, path, headers: headers)
   }
 
   private func temporaryDirectory() throws -> URL {

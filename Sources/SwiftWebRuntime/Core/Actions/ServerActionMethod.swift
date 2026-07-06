@@ -16,7 +16,7 @@ public enum ServerActionMethod: String, Sendable, Codable, CaseIterable {
         }
     }
 
-    var vaporMethod: HTTPRequest.Method {
+    var httpMethod: HTTPRequest.Method {
         switch self {
         case .get:
             .get

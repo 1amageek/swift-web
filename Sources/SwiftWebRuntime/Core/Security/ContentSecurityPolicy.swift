@@ -1,5 +1,4 @@
 import HTTPTypes
-import Vapor
 
 public struct ContentSecurityPolicy: Sendable {
     public var reportOnly: Bool

@@ -1,4 +1,3 @@
-import Vapor
 
 public struct PageGroup<Content: Scene>: Scene, _PrimitiveScene {
     private let path: RoutePath

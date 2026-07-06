@@ -1,4 +1,3 @@
-import Vapor
 
 public struct PageRouteScene<Route: PageRoute>: Scene, _PrimitiveScene {
     private let route: Route

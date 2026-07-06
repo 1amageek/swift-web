@@ -1,6 +1,5 @@
 import Foundation
 import HTTPTypes
-import Vapor
 
 public struct OriginPolicy: Sendable {
     public var allowsSameOrigin: Bool

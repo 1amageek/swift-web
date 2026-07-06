@@ -1,25 +1,25 @@
-import Vapor
-import WebSocketKit
+import SwiftWebHostKit
 
 public struct WebSocketContext: Sendable {
     public let request: Request
-    private let socket: WebSocket
+    private let channel: any WebSocketChannel
 
-    init(request: Request, socket: WebSocket) {
+    init(request: Request, channel: any WebSocketChannel) {
         self.request = request
-        self.socket = socket
+        self.channel = channel
     }
 
     public func send(_ text: String) async throws {
-        try await socket.send(text)
+        try await channel.send(text)
     }
 
     public func onText(_ handler: @Sendable @escaping (String) async throws -> Void) {
-        socket.onText { _, text async in
+        let logger = request.logger
+        channel.onText { text in
             do {
                 try await handler(text)
             } catch {
-                request.logger.error("WebSocket text handler failed: \(String(describing: error))")
+                logger.error("WebSocket text handler failed: \(String(describing: error))")
             }
         }
     }

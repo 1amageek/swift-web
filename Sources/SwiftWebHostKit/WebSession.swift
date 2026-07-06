@@ -1,5 +1,5 @@
-import Vapor
-
+/// The host-neutral session the SwiftWeb core programs against.
+/// Host adapters supply the closures from their native session store.
 public struct WebSession: Sendable {
     public static let userIDKey = "swiftweb.userID"
     public static let authenticationStateKey = "swiftweb.isAuthenticated"
@@ -26,7 +26,7 @@ public struct WebSession: Sendable {
         bool(forKey: Self.authenticationStateKey) ?? (userID != nil)
     }
 
-    package init(
+    public init(
         identifierReader: @Sendable @escaping () -> String?,
         valuesReader: @Sendable @escaping () -> [String: String],
         valueReader: @Sendable @escaping (String) -> String?,
@@ -88,46 +88,5 @@ public struct WebSession: Sendable {
 
     public func destroy() {
         destroyHandler()
-    }
-}
-
-extension WebSession {
-    package static func vapor(_ request: Request) -> WebSession {
-        WebSession(
-            identifierReader: {
-                guard request.hasSession else {
-                    return nil
-                }
-                return request.session.id?.string
-            },
-            valuesReader: {
-                guard request.hasSession else {
-                    return [:]
-                }
-                return request.session.data.snapshot
-            },
-            valueReader: { key in
-                guard request.hasSession else {
-                    return nil
-                }
-                return request.session.data[key]
-            },
-            valueWriter: { key, value in
-                guard value != nil || request.hasSession else {
-                    return
-                }
-                var data = request.session.data
-                data[key] = value
-                request.session.data = data
-            },
-            destroyHandler: {
-                guard request.hasSession else {
-                    return
-                }
-                let session = request.session
-                session.data = SessionData()
-                session.destroy()
-            }
-        )
     }
 }

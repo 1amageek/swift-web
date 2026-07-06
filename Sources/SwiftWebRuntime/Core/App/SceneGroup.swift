@@ -1,4 +1,3 @@
-import Vapor
 
 struct _AnyScene {
     private let makeScene: (_SceneContext) async throws -> Void

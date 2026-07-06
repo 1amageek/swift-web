@@ -1,6 +1,5 @@
 import Foundation
 import HTTPTypes
-import Vapor
 
 public struct RedirectPolicy: Sendable {
     public var origin: OriginPolicy
