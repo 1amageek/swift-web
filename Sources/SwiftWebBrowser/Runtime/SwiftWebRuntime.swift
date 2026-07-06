@@ -1,4 +1,8 @@
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 package enum SwiftWebRuntime {
     package static var streamsResponses: Bool {

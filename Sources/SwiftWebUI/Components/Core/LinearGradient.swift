@@ -2,7 +2,11 @@ import SwiftWebUITheme
 #if os(WASI)
 import WASILibc
 #else
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 #endif
 
 /// A linear gradient style that lowers to a CSS `linear-gradient()`, mirroring

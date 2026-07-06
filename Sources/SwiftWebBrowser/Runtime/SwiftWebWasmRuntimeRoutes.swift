@@ -1,4 +1,8 @@
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 import HTTPTypes
 import SwiftWebHostKit
 import SwiftHTML
@@ -187,9 +191,15 @@ public enum SwiftWebWasmRuntimeRoutes {
         contentEncoding: String?
     ) throws -> String {
         let attributes = try FileManager.default.attributesOfItem(atPath: fileURL.path)
-        let size = attributes[.size] as? NSNumber
         let modified = attributes[.modificationDate] as? Date
-        let sizeValue = size?.uint64Value ?? 0
+        let sizeValue: UInt64 =
+            if let size = attributes[.size] as? UInt64 {
+                size
+            } else if let size = attributes[.size] as? Int {
+                UInt64(size)
+            } else {
+                0
+            }
         let modifiedNanoseconds = UInt64((modified?.timeIntervalSince1970 ?? 0) * 1_000_000_000)
         let encoding = contentEncoding ?? "identity"
         return quotedETag("swiftweb-wasm-\(encoding)-\(sizeValue)-\(modifiedNanoseconds)")

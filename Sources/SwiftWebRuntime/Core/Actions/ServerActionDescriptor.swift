@@ -1,4 +1,8 @@
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 public struct ServerActionDescriptor: Sendable {
     public let method: ServerActionMethod

@@ -1,4 +1,8 @@
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 public enum SwiftPMWasmArtifact {
   public static func location(
@@ -164,26 +168,16 @@ public enum SwiftPMWasmArtifact {
   private static func localPackageDependencyRoots(for packageRoot: URL) -> [URL] {
     let packageFile = packageRoot.appendingPathComponent("Package.swift")
     let manifest: String
-    let regex: NSRegularExpression
 
     do {
       manifest = try String(contentsOf: packageFile, encoding: .utf8)
-      regex = try NSRegularExpression(
-        pattern: #"\.package\s*\(\s*path\s*:\s*"([^"]+)""#
-      )
     } catch {
       return []
     }
 
-    let range = NSRange(manifest.startIndex..<manifest.endIndex, in: manifest)
-    return regex.matches(in: manifest, range: range).compactMap { match in
-      guard match.numberOfRanges > 1,
-        let pathRange = Range(match.range(at: 1), in: manifest)
-      else {
-        return nil
-      }
-
-      let rawPath = String(manifest[pathRange])
+    let pattern = /\.package\s*\(\s*path\s*:\s*"([^"]+)"/
+    return manifest.matches(of: pattern).map { match in
+      let rawPath = String(match.output.1)
       if rawPath.hasPrefix("/") {
         return URL(fileURLWithPath: rawPath).standardizedFileURL
       }
@@ -198,7 +192,7 @@ public enum SwiftPMWasmArtifact {
     var output = ""
     for scalar in value.unicodeScalars {
       let character = Character(scalar)
-      if CharacterSet.uppercaseLetters.contains(scalar) {
+      if scalar.properties.isUppercase {
         if !output.isEmpty {
           output.append("-")
         }

@@ -1,4 +1,8 @@
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 public struct SecurityConfiguration: Sendable {
     public var cors: CORSPolicy

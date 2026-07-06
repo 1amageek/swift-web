@@ -1,4 +1,8 @@
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 enum SwiftWebDiagnostics {
     #if DEBUG
@@ -23,7 +27,13 @@ enum SwiftWebDiagnostics {
         }
 
         for line in formattedLines(for: diagnostics) {
+            #if canImport(FoundationEssentials)
+            // FoundationEssentials has no FileHandle; these hosts route
+            // standard output to the platform console.
+            print(line)
+            #else
             FileHandle.standardError.write(Data((line + "\n").utf8))
+            #endif
         }
     }
 }

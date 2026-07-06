@@ -1,5 +1,9 @@
 import SwiftWebBrowserRuntime
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 public enum ClientRuntimeConfiguration {
     case disabled
