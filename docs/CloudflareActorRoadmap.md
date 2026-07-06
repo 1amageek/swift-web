@@ -328,10 +328,17 @@ Object and dispatches envelopes on the app's `WebActorSystem` (async model A).
   `SwiftWebActorDO` via `idFromName` — the same path the browser fetch transport
   uses. Verified E2E in workerd: raw envelope POST → routing → activation → state
   across calls.
-- Remaining for WS-4/5: package generation that emits the templates + the DO wasm
-  package (path deps on the app / swift-web `SWIFTWEB_DO=1` / swift-web-cloudflare,
-  the launcher entry, and a build script with wasm-opt), and DO storage
-  (WS-5 `@ActorStorage`).
+- **Package generation: DONE** (`swiftweb-cloudflare install --app <Name>` in
+  swift-web-cloudflare): materializes `deploy/cloudflare` (worker) and `deploy/wasm`
+  (DO package + build.sh with wasm-opt) into an app package. **Full generated flow
+  verified E2E**: minimal app (`@Page` + `ActorGroup { MiniCounter(actorSystem: $0) }`)
+  → install → build.sh → wrangler dev → POSTing an envelope captured by a **native**
+  process returns 7 then 14 — per-identity DO state works, and **distributed target
+  mangling matches between native and wasm builds** (the basis for native-client →
+  edge type-safe calls). Note: Swift 6.4 rejects `actorSystem` (self-capture) inside
+  the factory; the factory now receives the system (`$0`).
+- Remaining for WS-4/5: point the browser fetch transport at the worker origin
+  (config), DO storage (WS-5 `@ActorStorage`), hibernatable WebSocket (with WS-6).
 
 ## 9. Document index
 
