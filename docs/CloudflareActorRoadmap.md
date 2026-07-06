@@ -68,7 +68,7 @@ Everything that must be built, grouped. Status: ☐ not started · ◐ in progre
 | ID | Workstream | Goal / key deliverables | Depends on | Status |
 |---|---|---|---|---|
 | **WS-1** | **Host-neutral core** | Remove Vapor types from `SwiftWebCore`: introduce host-neutral request/response, session, route, and `AppServices` abstractions. Refit `RequestContext`, `WebSession`, `Redirect`, `@Page`/`@ServerAction` route lowering, `PageRouteScene`. | — | ☑ |
-| **WS-2** | **`swift-http-server` host adapter** | A native/container host that lowers the core onto `NIOHTTPServer` (reuse the dev host setup). Minimal router + middleware + session/cookie. The default fast local-dev + Cloud Run host. | WS-1 | ☐ |
+| **WS-2** | **`swift-http-server` host adapter** | A native/container host that lowers the core onto `NIOHTTPServer` (reuse the dev host setup). Minimal router + middleware + session/cookie. The default fast local-dev + Cloud Run host. | WS-1 | ☑ |
 | **WS-3** | **Vapor as a separate package** | Extract `SwiftWebVapor` into an optional package/adapter mapping the core to Vapor; keep for those who want it, not the default. | WS-1 | ☐ |
 | **WS-4** | **Cloudflare Worker adapter** | Lower the app model into a Workers `fetch` entrypoint (TS shim + Swift/WASM). Routing `actor id → DO`. Build/deploy via `wrangler`. | WS-1 | ☐ |
 | **WS-5** | **Durable Object actor runtime** | JS DO class that hosts the Swift/WASM module; binds DO storage, alarms, and (hibernatable) WebSocket into Swift via JavaScriptKit; dispatches inbound invocations to the local actor and drives outbound pushes. | WS-4 | ☐ |
@@ -201,10 +201,27 @@ the full test suite (390 tests) is green through the rebuilt Vapor adapter.
   `Envelope.metadata.timestamp` (caught by the gateway test). `WebRequest.collectedBody()`
   exists for exactly this.
 
-**Remaining for Phase 1**: WS-2 (`swift-http-server` host adapter for *apps* — the seam
-is ready: implement `WebApplicationProtocol` + a trie matcher over the collected
-`WebRoute` table on `NIOHTTPServer`), WS-3 (move `SwiftWebVapor` out into its own
-package so its graph leaves the default resolve).
+**WS-2 landed the same day** — `SwiftWebHTTPServerHost` runs a full SwiftWeb `App` on
+`NIOHTTPServer` with **no framework**:
+
+- `WebRouteMatcher` (HostKit, zero-dep): matches the collected `WebRoute` table with
+  trie priority (constant > parameter > anything > catchall; HEAD→GET). Reusable by the
+  Cloudflare Worker adapter as-is.
+- `WebURLEncodedFormDecoder` (HostKit): query strings + form bodies → `Decodable`
+  (flat keys, repeated keys = arrays) — replaces Vapor's URL-encoded form support.
+- `HTTPServerAppRunner` mirrors `AppRunner.configure` (dev hooks, security, action
+  gateway, client runtime, scenes) and serves via `SwiftWebHostHTTPHandler`:
+  match → cookie session (lazy create; reading never sets a cookie) → SwiftWeb
+  middleware chain → handler → buffered or streamed write.
+- E2E-verified over a real socket: page render + security headers + CSRF cookie,
+  `:id` params (valid & invalid), `@Query` search params, decorated 404, session
+  round-trip, CSRF-protected form POST, SSE endpoint.
+- Not yet on this host: WebSocket upgrade (routes answer 501; `NIOWebSocket` later),
+  multipart field decoding, request-body streaming (`.stream` routes buffer within
+  a 16 MB limit).
+
+**Remaining for Phase 1**: WS-3 (move `SwiftWebVapor` out into its own package so its
+graph leaves the default resolve).
 
 ## 9. Document index
 

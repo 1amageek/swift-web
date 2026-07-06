@@ -63,6 +63,7 @@ let package = Package(
         .library(name: "SwiftWebHostKit", targets: ["SwiftWebHostKit"]),
         .library(name: "SwiftWebCore", targets: ["SwiftWebCore"]),
         .library(name: "SwiftWeb", targets: ["SwiftWeb"]),
+        .library(name: "SwiftWebHTTPServerHost", targets: ["SwiftWebHTTPServerHost"]),
         .library(name: "SwiftWebVapor", targets: ["SwiftWebVapor"]),
         .library(name: "SwiftWebVaporWebActors", targets: ["SwiftWebVaporWebActors"]),
         .library(name: "SwiftWebDevelopmentHooks", targets: ["SwiftWebDevelopmentHooks"]),
@@ -201,6 +202,19 @@ let package = Package(
                 "SwiftWebStyle",
             ],
             path: "Sources/SwiftWeb",
+            swiftSettings: swiftWebSwiftSettings
+        ),
+        .target(
+            name: "SwiftWebHTTPServerHost",
+            dependencies: [
+                .product(name: "HTTPAPIs", package: "swift-http-api-proposal"),
+                .product(name: "NIOHTTPServer", package: "swift-http-server"),
+                .product(name: "NIOCore", package: "swift-nio"),
+                .product(name: "HTTPTypes", package: "swift-http-types"),
+                .product(name: "Logging", package: "swift-log"),
+                "SwiftWebCore",
+            ],
+            path: "Sources/SwiftWebHTTPServer/Host",
             swiftSettings: swiftWebSwiftSettings
         ),
         .target(
@@ -379,6 +393,7 @@ let package = Package(
                 "SwiftWeb",
                 "SwiftWebBrowserRuntime",
                 "SwiftWebDevServer",
+                "SwiftWebHTTPServerHost",
                 "SwiftWebVapor",
                 "SwiftWebVaporWebActors",
                 "SwiftWebUI",
