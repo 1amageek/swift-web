@@ -96,10 +96,9 @@ extension EnvironmentValues {
     }
 
     /// The environment established by enclosing scene `.environment()`
-    /// modifiers, empty outside any. Read via the whole-values key path;
-    /// switch to `EnvironmentValues.current` once swift-html 0.9.2 ships it.
+    /// modifiers, empty outside any.
     static var swiftWebAmbient: EnvironmentValues {
-        Environment(\.self).wrappedValue
+        EnvironmentValues.current
     }
 
     static var swiftWebCurrent: EnvironmentValues {

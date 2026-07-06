@@ -87,7 +87,7 @@ let package = Package(
         .executable(name: "sweb", targets: ["SwiftWebCLI"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/1amageek/swift-html.git", from: "0.9.1"),
+        .package(url: "https://github.com/1amageek/swift-html.git", from: "0.9.2"),
         .package(url: "https://github.com/1amageek/JavaScriptKit.git", from: "0.57.0"),
         .package(url: "https://github.com/1amageek/swift-actor-runtime.git", exact: "0.6.0"),
         .package(url: "https://github.com/apple/swift-http-types", from: "1.0.0"),
