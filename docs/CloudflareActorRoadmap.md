@@ -312,10 +312,18 @@ Object and dispatches envelopes on the app's `WebActorSystem` (async model A).
   as strings via the `__swiftwebEnvelope` global + wasm exports
   (`swiftwebStart`/`swiftwebInvoke` forwarded to the host library), with
   `swiftwebReady/swiftwebFailed/swiftwebComplete/swiftwebInvokeFailed` signals.
+- **Size: SOLVED (same day).** The FoundationEssentials sweep across swift-web AND
+  swift-html (which had been re-exporting full Foundation) plus stdlib rewrites of the
+  remaining NSString APIs drops the DO binary from 70 MB raw / 23 MB gzip to
+  **10.1 MB raw / 3.36 MB gzip after `wasm-opt -Oz`** — comfortably inside the paid
+  tier, with the probe green (27 ms cold start). ⚠ swift-html's sweep is committed
+  locally (`~/Desktop/swift-html` @ 18f0503) but **not tagged**; swift-web pins
+  `from: 0.9.1`, so normal resolves won't see it until 0.9.2 is tagged and pushed.
+  The probe verified it via `swift package edit`.
 - Remaining for WS-4/5: `CloudflarePackageFormat` codegen (wrangler config + worker
   TS + DO wasm package + entry file with the two exports; decide `@Page`
-  pre-expansion vs page-free projection), Worker `id → stub` routing, size work
-  (unconditional `import Foundation` sweep + wasm-opt), DO storage (WS-5 `@ActorStorage`).
+  pre-expansion vs page-free projection), Worker `id → stub` routing, DO storage
+  (WS-5 `@ActorStorage`).
 
 ## 9. Document index
 
