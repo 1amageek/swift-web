@@ -197,6 +197,37 @@ private struct WasmBridgeScopedEnvironmentRoot: Component, Sendable {
     }
 }
 
+private struct WasmBridgeRevealingBadge: ClientComponent, Sendable {
+    @Environment(\.wasmBridgeValue) private var value: String
+    @State private var revealed = false
+
+    var body: some HTML {
+        // Read during server rendering too, so the value enters the snapshot.
+        let value = self.value
+        return div {
+            span {
+                revealed ? value : "waiting"
+            }
+            button(.type(ButtonType.button), .onClick {
+                revealed = true
+            }) {
+                "Reveal"
+            }
+        }
+    }
+}
+
+private struct WasmBridgeEnvironmentPage: Component, Sendable {
+    var body: some HTML {
+        div {
+            span {
+                "server prefix"
+            }
+            WasmBridgeRevealingBadge()
+        }
+    }
+}
+
 private enum WasmBridgeHotReloadFixture {
     nonisolated(unsafe) static var text = "Before"
 }
@@ -1371,6 +1402,49 @@ struct SwiftWebUIRuntimeClientRuntimeBridgeTests {
         #expect(textValues.contains("server-right"))
         #expect(!textValues.contains("client-left"))
         #expect(!textValues.contains("client-right"))
+    }
+
+    @Test
+    func mountedComponentReadsSceneEnvironmentAfterDispatch() throws {
+        let serverArtifact = WasmBridgeEnvironmentPage()
+            .environment(\.wasmBridgeValue, "scene-injected")
+            .renderArtifact()
+        let serverIndex = serverArtifact.browserHydrationIndex()
+        let registry = ClientEnvironmentRegistry()
+            .registering(WasmBridgeEnvironmentKey.self)
+        let bridge = ClientRuntimeBridge<WasmBridgeRevealingBadge>(
+            environmentRegistry: registry,
+            componentMount: ClientComponentMount(WasmBridgeRevealingBadge.self)
+        ) { _ in
+            WasmBridgeRevealingBadge()
+        }
+
+        let bootstrap = try bridge.bootstrap(
+            ClientRuntimeBootstrapRequest(
+                hydrationIndex: serverIndex,
+                location: ClientRuntimeBootstrapLocation(
+                    href: "http://127.0.0.1:8080/environment",
+                    search: ""
+                )
+            )
+        )
+        let bootstrapTexts = bootstrap.hydrationIndex?.nodes.compactMap { node in
+            node.role == .text ? node.text : nil
+        } ?? []
+        #expect(bootstrapTexts.contains("waiting"))
+
+        let handler = try #require(serverIndex.handlers.first)
+        let update = try bridge.dispatch(
+            ClientRuntimeEventRequest(
+                handlerID: handler.handlerID,
+                event: DOMEvent()
+            )
+        )
+        let updatedTexts = update.hydrationIndex?.nodes.compactMap { node in
+            node.role == .text ? node.text : nil
+        } ?? []
+        #expect(updatedTexts.contains("scene-injected"))
+        #expect(!updatedTexts.contains("default"))
     }
 
     private func assertCommandTargetsResolve(

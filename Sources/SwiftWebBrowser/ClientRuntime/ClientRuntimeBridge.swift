@@ -146,8 +146,25 @@ public final class ClientRuntimeBridge<Root: HTML> {
         self.stateStore = stateStore
         self.actorResolverRegistry = actorResolverRegistry
         self.actorSystem = actorSystem ?? Self.defaultActorSystem()
-        self.environmentFactory = { _ in
-            EnvironmentValues()
+        self.environmentFactory = { request in
+            // A mounted component renders with local paths that never match the
+            // server index's page-level paths, so path-keyed overrides cannot
+            // deliver values provided outside the mount (scene/page
+            // `.environment()`). Those values are uniform across the mounted
+            // subtree: decode the mount's own snapshot into the session's root
+            // environment instead. `.environment()` applied inside the
+            // component body re-executes during client rendering and needs no
+            // restoration.
+            guard let componentMount,
+                  let mounted = Self.component(in: request.hydrationIndex, matching: componentMount),
+                  !mounted.environmentSnapshot.values.isEmpty
+            else {
+                return EnvironmentValues()
+            }
+            return try environmentRegistry.environment(
+                from: mounted.environmentSnapshot,
+                base: EnvironmentValues()
+            )
         }
         self.componentEnvironmentFactory = { request, base in
             try environmentRegistry.componentEnvironments(from: request.hydrationIndex, base: base)
