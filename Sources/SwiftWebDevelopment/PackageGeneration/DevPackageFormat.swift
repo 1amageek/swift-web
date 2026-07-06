@@ -112,7 +112,7 @@ struct DevPackageFormat: GeneratedPackageFormat {
           name: "AppDevelopmentServerLauncher",
           dependencies: [
               .product(name: "\(context.appProductName)", package: "\(context.appPackageDependencyName)"),
-              .product(name: "SwiftWebVapor", package: "swift-web"),
+              .product(name: "SwiftWebHTTPServerHost", package: "swift-web"),
               .product(name: "SwiftWebDevelopmentHooks", package: "swift-web"),
           ],
           path: "Sources/AppDevelopmentServerLauncher",

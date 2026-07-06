@@ -36,7 +36,7 @@ struct ServerPackageFormat: GeneratedPackageFormat {
     guard let runtimeTarget = context.wasmRuntimeTargets.first else {
       return """
         import \(context.appProductName)
-        import SwiftWebVapor\(developmentImport)
+        import SwiftWebHTTPServerHost\(developmentImport)
 
         @main
         struct AppServerLauncher {
@@ -85,7 +85,7 @@ struct ServerPackageFormat: GeneratedPackageFormat {
     return """
       import \(context.appProductName)
       import Foundation
-      import SwiftWebVapor\(developmentImport)
+      import SwiftWebHTTPServerHost\(developmentImport)
 
       @main
       struct AppServerLauncher {
@@ -135,7 +135,7 @@ struct ServerPackageFormat: GeneratedPackageFormat {
           name: "AppServerLauncher",
           dependencies: [
               .product(name: "\(context.appProductName)", package: "\(context.appPackageDependencyName)"),
-              .product(name: "SwiftWebVapor", package: "swift-web"),
+              .product(name: "SwiftWebHTTPServerHost", package: "swift-web"),
           ],
           path: "Sources/AppServerLauncher",
           swiftSettings: swiftSettings
