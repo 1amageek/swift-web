@@ -297,6 +297,26 @@ struct SupportApp: App {
   an app slice that avoids page macros. Decide when building
   `CloudflarePackageFormat`.
 
+## 8f. Progress log — 2026-07-06 (SwiftWebCloudflareHost: the DO host adapter exists)
+
+Platform adapters live outside swift-web (owner rule; same as swift-web-vapor):
+**`~/Desktop/swift-web-cloudflare`** now provides `SwiftWebCloudflareHost` —
+`CloudflareActorHost.start(App.self)` lowers the app's scenes inside the Durable
+Object and dispatches envelopes on the app's `WebActorSystem` (async model A).
+
+- Verified in workerd with the real user-facing declaration
+  (`ActorGroup { ProbeCounter(actorSystem: actorSystem) }`): per-ID activation on
+  first message, state across calls (5 → 10), **cold start 39 ms including scene
+  lowering**. Reference worker: `EdgeActorSpike/jskit-async/worker`.
+- **JS protocol is closure-free**: `JSClosure` traps in workerd, so envelopes cross
+  as strings via the `__swiftwebEnvelope` global + wasm exports
+  (`swiftwebStart`/`swiftwebInvoke` forwarded to the host library), with
+  `swiftwebReady/swiftwebFailed/swiftwebComplete/swiftwebInvokeFailed` signals.
+- Remaining for WS-4/5: `CloudflarePackageFormat` codegen (wrangler config + worker
+  TS + DO wasm package + entry file with the two exports; decide `@Page`
+  pre-expansion vs page-free projection), Worker `id → stub` routing, size work
+  (unconditional `import Foundation` sweep + wasm-opt), DO storage (WS-5 `@ActorStorage`).
+
 ## 9. Document index
 
 - `PlatformHostArchitecture.md` — host-neutral core & adapter model (foundation for WS-1/2/3/4).
