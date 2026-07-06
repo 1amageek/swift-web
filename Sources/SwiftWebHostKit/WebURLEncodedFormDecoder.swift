@@ -1,9 +1,3 @@
-#if canImport(FoundationEssentials)
-import FoundationEssentials
-#else
-import Foundation
-#endif
-
 /// Decodes `application/x-www-form-urlencoded` payloads and URL query strings
 /// into `Decodable` values, replacing Vapor's URL-encoded form support for
 /// hosts without it.
@@ -33,9 +27,44 @@ public struct WebURLEncodedFormDecoder: Sendable {
         return fields
     }
 
+    /// Pure-Swift form unescaping (`+` → space, `%XX` → byte), so the decoder
+    /// stays Foundation-free and compiles for every host including WASM.
+    /// Malformed escapes are kept literally, like browsers do.
     private static func unescape(_ string: String) -> String {
-        let plusDecoded = string.replacingOccurrences(of: "+", with: " ")
-        return plusDecoded.removingPercentEncoding ?? plusDecoded
+        let utf8 = Array(string.utf8)
+        var bytes: [UInt8] = []
+        bytes.reserveCapacity(utf8.count)
+        var index = 0
+        while index < utf8.count {
+            let byte = utf8[index]
+            if byte == UInt8(ascii: "+") {
+                bytes.append(UInt8(ascii: " "))
+                index += 1
+            } else if byte == UInt8(ascii: "%"),
+                      index + 2 < utf8.count,
+                      let high = hexValue(utf8[index + 1]),
+                      let low = hexValue(utf8[index + 2]) {
+                bytes.append(high << 4 | low)
+                index += 3
+            } else {
+                bytes.append(byte)
+                index += 1
+            }
+        }
+        return String(decoding: bytes, as: UTF8.self)
+    }
+
+    private static func hexValue(_ byte: UInt8) -> UInt8? {
+        switch byte {
+        case UInt8(ascii: "0")...UInt8(ascii: "9"):
+            byte - UInt8(ascii: "0")
+        case UInt8(ascii: "a")...UInt8(ascii: "f"):
+            byte - UInt8(ascii: "a") + 10
+        case UInt8(ascii: "A")...UInt8(ascii: "F"):
+            byte - UInt8(ascii: "A") + 10
+        default:
+            nil
+        }
     }
 }
 

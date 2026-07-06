@@ -54,6 +54,9 @@ let package = Package(
         .library(name: "SwiftWebUITheme", targets: ["SwiftWebUITheme"]),
         .library(name: "SwiftWebUI", targets: ["SwiftWebUI"]),
         .library(name: "SwiftWebUIRuntime", targets: ["SwiftWebUIRuntime"]),
+        .library(name: "SwiftWebHostKit", targets: ["SwiftWebHostKit"]),
+        .library(name: "SwiftWebBrowserRuntime", targets: ["SwiftWebBrowserRuntime"]),
+        .library(name: "SwiftWebCore", targets: ["SwiftWebCore"]),
     ] : [
         .library(name: "SwiftWebActors", targets: ["SwiftWebActors"]),
         .library(name: "SwiftWebStyle", targets: ["SwiftWebStyle"]),
@@ -78,13 +81,13 @@ let package = Package(
         .package(url: "https://github.com/1amageek/swift-html.git", from: "0.9.1"),
         .package(url: "https://github.com/1amageek/JavaScriptKit.git", from: "0.57.0"),
         .package(url: "https://github.com/1amageek/swift-actor-runtime.git", exact: "0.6.0"),
+        .package(url: "https://github.com/apple/swift-http-types", from: "1.0.0"),
+        .package(url: "https://github.com/apple/swift-log.git", from: "1.6.0"),
     ] + (swiftWebCoreOnly ? [] : [
         .package(url: "https://github.com/swift-server/async-http-client.git", revision: "393104434ea57710f2469036e816672fe15e8212"),
         .package(url: "https://github.com/swift-server/swift-http-server", revision: "b1c4f775dfbdc74800c0f29fda79c8984a5e9073"),
         .package(url: "https://github.com/apple/swift-http-api-proposal.git", revision: "d58fd6fa157e08bff44aa360ff83ebd424783392"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.82.0"),
-        .package(url: "https://github.com/apple/swift-http-types", from: "1.0.0"),
-        .package(url: "https://github.com/apple/swift-log.git", from: "1.6.0"),
         .package(url: "https://github.com/apple/swift-service-context.git", from: "1.3.0"),
         .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "602.0.0"),
     ]),
@@ -119,6 +122,42 @@ let package = Package(
             name: "SwiftWebUIRuntime",
             dependencies: swiftWebUIRuntimeDependencies,
             path: "Sources/SwiftWebBrowser/ClientRuntime",
+            swiftSettings: swiftWebSwiftSettings
+        ),
+        .target(
+            name: "SwiftWebHostKit",
+            dependencies: [
+                .product(name: "HTTPTypes", package: "swift-http-types"),
+                .product(name: "Logging", package: "swift-log"),
+            ],
+            swiftSettings: swiftWebSwiftSettings
+        ),
+        .target(
+            name: "SwiftWebBrowserRuntime",
+            dependencies: [
+                swiftHTMLDependency,
+                .product(name: "HTTPTypes", package: "swift-http-types"),
+                "SwiftWebActors",
+                "SwiftWebHostKit",
+                "SwiftWebStyle",
+            ],
+            path: "Sources/SwiftWebBrowser/Runtime",
+            swiftSettings: swiftWebSwiftSettings
+        ),
+        .target(
+            name: "SwiftWebCore",
+            dependencies: [
+                swiftHTMLDependency,
+                "SwiftWebHostKit",
+                .product(name: "ActorRuntime", package: "swift-actor-runtime"),
+                .product(name: "HTTPTypes", package: "swift-http-types"),
+                .product(name: "Logging", package: "swift-log"),
+                "SwiftWebActors",
+                "SwiftWebBrowserRuntime",
+                "SwiftWebStyle",
+            ],
+            path: "Sources/SwiftWebRuntime/Core",
+            exclude: ["README.md"],
             swiftSettings: swiftWebSwiftSettings
         ),
     ] : [

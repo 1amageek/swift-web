@@ -275,6 +275,28 @@ struct SupportApp: App {
   Worker id→stub routing) is the WS-4/5 work; the declaration and activation semantics
   are now fixed.
 
+## 8e. Progress log — 2026-07-06 (WS-4/5 groundwork: core is WASM-clean)
+
+- **`SwiftWebCore` compiles and links for wasm32 unchanged** (HostKit + BrowserRuntime +
+  Core; only fix needed was making `WebURLEncodedFormDecoder` Foundation-free with a
+  pure-Swift unescaper). The DO package therefore depends on swift-web directly —
+  **no core source mirroring**.
+- The **core-only manifest branch (`SWIFTWEB_CORE_ONLY=1`) now exposes
+  `SwiftWebHostKit` / `SwiftWebBrowserRuntime` / `SwiftWebCore`**. This is the DO
+  package's dependency path: the 6.3.1 wasm toolchain cannot resolve the full manifest
+  (swift-http-server/http-api-proposal require tools 6.4), and core-only also keeps
+  macros/swift-syntax out of the wasm graph.
+- Size datapoint: probe + full core chain = 70 MB raw / 23 MB gzip **unoptimized** —
+  over budget. Known levers, in order: sweep unconditional `import Foundation` in
+  core/BrowserRuntime to the `FoundationEssentials` conditional (full Foundation is
+  being linked today), `wasm-opt -Oz --strip-debug` (Phase 0: 16.9 → 8 MB raw), and
+  excluding the page-serving slice from the DO build if still needed.
+- **Open item for the DO package format**: the app's own sources use `@Page` /
+  `@ServerAction` macros, which core-only excludes. Either pre-expand `@Page` at
+  generation time (the `@Actor` pre-expansion machinery is the precedent) or project
+  an app slice that avoids page macros. Decide when building
+  `CloudflarePackageFormat`.
+
 ## 9. Document index
 
 - `PlatformHostArchitecture.md` — host-neutral core & adapter model (foundation for WS-1/2/3/4).
