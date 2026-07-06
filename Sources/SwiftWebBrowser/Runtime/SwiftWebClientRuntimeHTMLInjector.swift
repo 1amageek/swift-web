@@ -60,18 +60,26 @@ package struct SwiftWebClientRuntimeHTMLInjector {
     }
 
     private func injectHeadMarkup(_ markup: String, into html: String) -> String {
-        if let headEndRange = html.range(of: "</head>", options: [.caseInsensitive, .backwards]) {
+        // Last case-insensitive occurrence, without Foundation's
+        // range(of:options:): search the lowercased copy and map the offset back.
+        let lowered = html.lowercased()
+        if let range = lowered.ranges(of: "</head>").last {
             var output = html
-            output.insert(contentsOf: markup, at: headEndRange.lowerBound)
+            let offset = lowered.distance(from: lowered.startIndex, to: range.lowerBound)
+            output.insert(contentsOf: markup, at: output.index(output.startIndex, offsetBy: offset))
             return output
         }
         return markup + html
     }
 
     private func injectBodyMarkup(_ markup: String, into html: String) -> String {
-        if let bodyEndRange = html.range(of: "</body>", options: [.caseInsensitive, .backwards]) {
+        // Last case-insensitive occurrence, without Foundation's
+        // range(of:options:): search the lowercased copy and map the offset back.
+        let lowered = html.lowercased()
+        if let range = lowered.ranges(of: "</body>").last {
             var output = html
-            output.insert(contentsOf: markup, at: bodyEndRange.lowerBound)
+            let offset = lowered.distance(from: lowered.startIndex, to: range.lowerBound)
+            output.insert(contentsOf: markup, at: output.index(output.startIndex, offsetBy: offset))
             return output
         }
         return html + markup

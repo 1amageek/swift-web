@@ -1,3 +1,4 @@
+import SwiftHTML
 import SwiftWebStyle
 
 enum SwiftWebHeadAssets {
@@ -19,15 +20,15 @@ enum SwiftWebHeadAssets {
             registry.registerScript(id: script.id, body: script.body)
         }
 
-        guard let bodyStart = html.range(of: "<body"),
-            let tagEnd = html.range(of: ">", range: bodyStart.upperBound..<html.endIndex)
+        guard let bodyStart = html.firstRange(of: "<body"),
+            let tagEnd = html[bodyStart.upperBound...].firstRange(of: ">")
         else {
             return html
         }
 
         var openTag = String(html[bodyStart.lowerBound..<tagEnd.lowerBound])
         let rootClass = escapedAttribute(provider.rootClass)
-        if let classRange = openTag.range(of: " class=\"") {
+        if let classRange = openTag.firstRange(of: " class=\"") {
             openTag.replaceSubrange(classRange, with: " class=\"\(rootClass) ")
         } else {
             openTag += " class=\"\(rootClass)\""
@@ -36,10 +37,9 @@ enum SwiftWebHeadAssets {
             openTag += " data-color-scheme=\"\(escapedAttribute(scheme))\""
         }
         openTag += " data-theme=\"\(escapedAttribute(provider.themeID))\""
-        return html.replacingCharacters(
-            in: bodyStart.lowerBound..<tagEnd.lowerBound,
-            with: openTag
-        )
+        var output = html
+        output.replaceSubrange(bodyStart.lowerBound..<tagEnd.lowerBound, with: openTag)
+        return output
     }
 
     /// Applies the document style bootstrap to one streamed chunk: registers

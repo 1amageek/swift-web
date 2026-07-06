@@ -369,8 +369,12 @@ private extension StyleBreakpoint {
     }
 
     private func trimmed(_ value: Double) -> String {
-        let string = String(format: "%.2f", value)
-        return string
-            .replacingOccurrences(of: #"\.?0+$"#, with: "", options: .regularExpression)
+        // Round to two decimals and print the shortest form, matching the old
+        // "%.2f then strip trailing zeros" without Foundation's String(format:).
+        let rounded = (value * 100).rounded() / 100
+        if rounded == rounded.rounded() {
+            return String(Int(rounded))
+        }
+        return String(rounded)
     }
 }
