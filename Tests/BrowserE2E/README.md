@@ -11,6 +11,15 @@ npm run page-access:perf
 npm run page-access:stress
 ```
 
+`env-badge-smoke.mjs` is a focused smoke (not part of the npm scripts): given a
+running dev server whose app renders `ClientEnvironmentBadge`, it verifies the
+scene `.environment()` value travels SSR snapshot → wasm hydration →
+`@Environment` after a client-side state change:
+
+```bash
+node env-badge-smoke.mjs http://127.0.0.1:<port>
+```
+
 For the stronger local stability gate, install WebKit and require the smoke pass:
 
 ```bash

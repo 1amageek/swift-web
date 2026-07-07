@@ -33,7 +33,8 @@ Sources/
   SwiftWeb/
   SwiftWebRuntime/{Core,Actors}/
   SwiftWebBrowser/{Runtime,ClientRuntime}/
-  SwiftWebHTTPServer/{Vapor,VaporWebActors}/
+  SwiftWebHostKit/
+  SwiftWebHTTPServer/Host/
   SwiftWebUI/{Components,Style,Theme}/
   SwiftWebDevelopment/{Facade,Hooks,DevServer,PackageGeneration,WasmBuild,StoryboardTooling,Storyboard}/
   SwiftWebCLI/
@@ -47,8 +48,8 @@ Sources/
 | `SwiftWebActors` | `Sources/SwiftWebRuntime/Actors/` | Transport-neutral distributed actor invocation support. |
 | `SwiftWebBrowserRuntime` | `Sources/SwiftWebBrowser/Runtime/` | Browser runtime descriptors, WASM asset routes, host scripts, and HTML runtime injection. |
 | `SwiftWebUIRuntime` | `Sources/SwiftWebBrowser/ClientRuntime/` | Browser-side WASM bridge and JavaScriptKit runtime adapter for client components. |
-| `SwiftWebVapor` | `Sources/SwiftWebHTTPServer/Vapor/` | HTTP server adapter for local development workers, Cloud Run, and native/container server builds. |
-| `SwiftWebVaporWebActors` | `Sources/SwiftWebHTTPServer/VaporWebActors/` | Optional HTTP server gateway for actor RPC. |
+| `SwiftWebHostKit` | `Sources/SwiftWebHostKit/` | Host-neutral lowering contracts (route tables, request/response bridging) that platform adapters implement. |
+| `SwiftWebHTTPServerHost` | `Sources/SwiftWebHTTPServer/Host/` | Default HTTP server host on `swift-http-server` for local development workers, Cloud Run, and native/container server builds. |
 | `SwiftWebUI` | `Sources/SwiftWebUI/Components/` | SwiftUI-inspired component layer built on top of SwiftHTML. |
 | `SwiftWebStyle` | `Sources/SwiftWebUI/Style/` | Atomic style classes, typed selectors, and CSS-safe declaration registration. |
 | `SwiftWebUITheme` | `Sources/SwiftWebUI/Theme/` | Host-neutral theme tokens, the `Theme` model, root stylesheet, colors, materials, and spacing values. |
@@ -61,17 +62,31 @@ Sources/
 | `SwiftWebDevelopment` | `Sources/SwiftWebDevelopment/Facade/` | Convenience facade that re-exports development modules. |
 | `sweb` | `Sources/SwiftWebCLI/` | CLI for new projects, dev server, Storyboard, and production builds. |
 
-## Architecture Direction
+## Architecture
 
-SwiftWeb is moving toward a host-neutral runtime core with separate host adapters for
-Vapor/container servers and Cloudflare Workers. Vapor remains the native server host
-for local development, Cloud Run, and other container targets, while Cloudflare support
-should lower the same `App`/`Scene`/`Page`/`Worker` model into generated TypeScript
-entrypoints and Swift/Wasm artifacts.
+The runtime core is host-neutral: `SwiftWebHostKit` defines the lowering
+contracts, and platform adapters serve the same `App`/`Scene`/`Page` model on
+different hosts. The built-in default host is `SwiftWebHTTPServerHost` on
+[`swift-http-server`](https://github.com/swift-server/swift-http-server).
+Platform-specific adapters live in sibling packages:
 
-See [Platform Host Architecture](docs/PlatformHostArchitecture.md) for the target
-responsibility split, `Worker` model, `@Session` API, Cloudflare placement, and Vapor
-extraction plan. See [Directory And File Structure Design](docs/DirectoryFileStructureDesign.md)
+- [`swift-web-cloudflare`](https://github.com/1amageek/swift-web-cloudflare) —
+  Cloudflare Workers + per-identity Durable Object actor hosting (WebSocket
+  actor transport included), with a `swiftweb-cloudflare` installer CLI for the
+  deploy layout.
+- [`swift-web-vapor`](https://github.com/1amageek/swift-web-vapor) — Vapor
+  host adapter. Consumable via `branch:`/`revision:` only until Vapor 5 ships a
+  release with stable dependencies.
+
+Distributed actors are declared per identity with the `ActorGroup` scene, are
+reachable over HTTP (`/_swiftweb/actors/invoke`) and WebSocket
+(`/_swiftweb/actors/ws`), and scene-level `.environment()` values flow to
+pages, actions, streams, actors, and client-visible keys into WASM hydration.
+
+See [Platform Host Architecture](docs/PlatformHostArchitecture.md) for the
+responsibility split and [Cloudflare Actor Roadmap](docs/CloudflareActorRoadmap.md)
+for the distributed-actor program.
+See [Directory And File Structure Design](docs/DirectoryFileStructureDesign.md)
 for the source layout and file placement rules. See [Actor Injection Design](docs/ActorInjectionDesign.md)
 for the `@Actor` client component API over Apple's `@Resolvable` distributed
 actor model.
@@ -117,15 +132,13 @@ manifest declares a newer tools version than the installed toolchain, which is
 why the 6.3.1 toolchain fails at `swift package resolve`.
 
 This is also why SwiftWeb ships as a developer preview: the host stack rides
-Apple's still-evolving 6.4-era server APIs (pinned to specific revisions). Once
+Apple's still-evolving 6.4-era server APIs (`swift-http-server` 0.x). Once
 Swift 6.4 reaches general availability, the release Xcode toolchain satisfies
 this on its own and the `DEVELOPER_DIR` override below is no longer needed.
 
 ## Installation
 
-SwiftWeb's first developer-preview release is `0.1.0`. Depend on it by version.
-The host-side HTTP stack is still pinned to specific upstream revisions, so a
-resolved build pulls those exact revisions transitively:
+The current developer-preview release is `0.2.1`. Depend on it by version:
 
 ```swift
 // swift-tools-version: 6.3
@@ -140,8 +153,8 @@ let package = Package(
         .library(name: "MyApp", targets: ["MyApp"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/1amageek/swift-web.git", from: "0.1.0"),
-        .package(url: "https://github.com/1amageek/swift-html.git", from: "0.8.1"),
+        .package(url: "https://github.com/1amageek/swift-web.git", from: "0.2.1"),
+        .package(url: "https://github.com/1amageek/swift-html.git", from: "0.9.2"),
     ],
     targets: [
         .target(
@@ -174,7 +187,7 @@ let package = Package(
 ### Install The CLI With Mint
 
 Mint can install the `sweb` executable product directly from the repository. Pin
-`@0.1.0` for a reproducible install; `@main` tracks the latest development.
+`@0.2.1` for a reproducible install; `@main` tracks the latest development.
 
 Mint invokes `swift` from `PATH`, so it must find the **6.4** toolchain (the
 default 6.3.1 fails to resolve the host HTTP stack). Put the 6.4 toolchain first:
@@ -182,17 +195,17 @@ default 6.3.1 fails to resolve the host HTTP stack). Put the 6.4 toolchain first
 ```bash
 XBIN=/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin
 env DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer PATH="$XBIN:$PATH" \
-  mint install 1amageek/swift-web@0.1.0 sweb
+  mint install 1amageek/swift-web@0.2.1 sweb
 ```
 
 | Need | Command |
 |---|---|
-| Install and link `sweb` globally | `mint install 1amageek/swift-web@0.1.0 sweb` |
-| Run without linking | `mint run 1amageek/swift-web@0.1.0 sweb <command>` |
-| Print the installed executable path | `mint which 1amageek/swift-web@0.1.0 sweb` |
+| Install and link `sweb` globally | `mint install 1amageek/swift-web@0.2.1 sweb` |
+| Run without linking | `mint run 1amageek/swift-web@0.2.1 sweb <command>` |
+| Print the installed executable path | `mint which 1amageek/swift-web@0.2.1 sweb` |
 
 ```bash
-mint install 1amageek/swift-web@0.1.0 sweb
+mint install 1amageek/swift-web@0.2.1 sweb
 sweb --help
 sweb new MyApp --output ../MyApp
 ```
@@ -747,10 +760,10 @@ WASM content hash so unchanged artifacts are not recompressed.
 | Topic | Current contract |
 |---|---|
 | Swift version | Keep `Package.swift` at `// swift-tools-version: 6.3`. |
-| `swift-html` | Released dependency for generated apps: `0.7.1`. Storyboard development can still use a local sibling checkout when present. |
-| Host compatibility | Current Vapor 5 HTTP stack may require an Xcode Swift toolchain for host/dev builds. |
+| `swift-html` | Released dependency: `0.9.2`. Storyboard development can still use a local sibling checkout when present. |
+| Host compatibility | The `swift-http-server` host stack requires a Swift 6.4 toolchain for host/dev builds (see Why Swift 6.4). |
 | WASM compatibility | Browser runtime remains pinned to Swift 6.3.1 and the matching WASM SDK. |
-| Versioned SwiftPM release | Blocked until branch/revision host dependencies are replaced or explicitly scoped out. |
+| Versioned SwiftPM release | Released: every dependency resolves behind a version requirement as of `0.2.1`. |
 
 ## License
 

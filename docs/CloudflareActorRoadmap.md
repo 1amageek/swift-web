@@ -366,6 +366,33 @@ connection.
   use plain `accept()`; the one-way-push rule matters once hibernation lands),
   reconnect/resume, backpressure, browser-E2E via the storyboard flow, `@ActorStorage`.
 
+### 8h. Scene-environment E2E verification + the release train (2026-07-06/07)
+
+- **Scene env → ClientComponent (wasm) verified end-to-end in a real browser**
+  (`Tests/BrowserE2E/env-badge-smoke.mjs`): `.environment()` on a scene → SSR
+  snapshot → wasm hydration → `@Environment` read after a client-side state
+  change. Three real defects surfaced and were fixed on the way:
+  - The generated wasm entrypoint only knew framework environment keys;
+    app-defined `ClientEnvironmentKey`s now auto-register (SwiftSyntax
+    discovery of public top-level conformances → `.registering(...)`).
+  - A mounted ClientComponent read `defaultValue` on every post-hydration
+    render: path-keyed overrides never match across server/local path spaces,
+    so the mount's own snapshot now seeds the hydration session's root
+    environment.
+  - `SwiftWebHTTPServerHost` lacked the `@_exported import SwiftWebCore`
+    contract the Vapor host had, breaking every generated launcher.
+- **Release train**: swift-html `0.9.2` (FoundationEssentials +
+  `EnvironmentValues.current`), swift-web `0.2.1`, swift-web-cloudflare
+  `0.1.0`, swift-web-vapor published untagged.
+- `0.2.0` postmortem: SwiftPM rejects version-pinned packages with
+  revision-pinned dependencies, so the tag could not be consumed. `0.2.1`
+  moved async-http-client/swift-http-server/swift-http-api-proposal to
+  released versions and migrated both HTTP handlers to the reshaped
+  `HTTPServerRequestHandler` (final-element reader, `sendAndFinish`).
+- swift-web-vapor cannot be version-tagged until Vapor 5 ships a release with
+  stable dependencies (every current prerelease depends on revision-pinned
+  packages, which SwiftPM rejects behind a version requirement).
+
 ## 9. Document index
 
 - `PlatformHostArchitecture.md` — host-neutral core & adapter model (foundation for WS-1/2/3/4).
