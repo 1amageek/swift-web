@@ -77,6 +77,36 @@ public struct ClientEnvironmentBadge: ClientComponent, Sendable {
   }
 
   @Test
+  func discoversExtensionAndNestedConformances() throws {
+    let source = """
+      public struct Detached {}
+      extension Detached: ClientEnvironmentKey {
+          public static let defaultValue = 0
+      }
+
+      public enum Keys {
+          public struct Theme: ClientEnvironmentKey {
+              public static let defaultValue = "light"
+          }
+      }
+
+      struct PrivateOuter {
+          public struct Hidden: ClientEnvironmentKey {
+              public static let defaultValue = 0
+          }
+      }
+      """
+    let names = try discover(source)
+    // Extension-added conformance is found by the extended type name.
+    #expect(names.contains("Detached"))
+    // Nested public keys are reported fully qualified so `.registering` resolves.
+    #expect(names.contains("Keys.Theme"))
+    // A public key nested in a non-public type cannot be referenced from the
+    // separate entrypoint target, so it must not be registered.
+    #expect(!names.contains("PrivateOuter.Hidden"))
+  }
+
+  @Test
   func ignoresSourcesWithoutKeys() throws {
     let names = try discover("public struct Plain {}\n")
     #expect(names.isEmpty)

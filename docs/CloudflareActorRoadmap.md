@@ -393,6 +393,42 @@ connection.
   stable dependencies (every current prerelease depends on revision-pinned
   packages, which SwiftPM rejects behind a version requirement).
 
+### 8i. Security review — actor exposure hardening (2026-07-07)
+
+A full-repo review surfaced defects. Fixed immediately (see git history):
+env-key discovery missed `extension`/nested conformances (hydration would
+abort with `missingDecoder`); the dev host echoed its reload token to
+unauthenticated callers, defeating the SSE gate; the dev proxy collected
+request bodies with no size limit.
+
+Still OPEN — these are design decisions, not one-line fixes, and MUST be
+resolved before distributed actors are used with per-user/tenant identities
+in production:
+
+- **Authorization seam (highest priority).** `ActorInvocationEndpoint` and the
+  WebSocket path run only origin + CSRF validation, which proves "same-origin"
+  but not "this caller may talk to THIS actor". `recipientID`
+  (`"<contract>:<name>"`) is fully attacker-controlled, so an app that
+  addresses actors per identity (e.g. `ChatAgent:<userID>`) exposes a
+  framework-level IDOR: any unauthenticated visitor can address another user's
+  actor and invoke any `distributed func` on it. Proposed fix: an app-supplied
+  authorizer `(authenticated identity, recipientID, target) -> Bool` invoked
+  before dispatch in `WebActorSystem`, wired through both the HTTP endpoint and
+  the WS transport. Origin/CSRF must not be conflated with authorization.
+- **Virtual-actor population bound.** `WebActorSystem` activations register in
+  `ActorRegistry` with strong refs and no eviction/TTL; unlimited distinct
+  `recipientID`s grow memory unbounded (DoS). `ActorGroup`'s doc comment
+  already assumes eviction "after the host evicts the instance" that does not
+  exist. Proposed fix: idle eviction / LRU / per-caller quota.
+- **WebSocket senderID binding.** `WebSocketActorTransport.receive` trusts the
+  client-supplied `senderID`, which `WebSocketSessionRouter.register` uses as
+  the push routing key — a client can claim a victim's observer-actor ID and
+  hijack their server→client pushes. Proposed fix: derive senderID server-side
+  from the authenticated connection; ignore/reject client-claimed IDs.
+- **Secure-by-default transport.** Session and CSRF cookies default
+  `isSecure: false` and there is no default CSP. Proposed fix: default cookie
+  `Secure` on (or gate by forwarded-proto) and consider CSP-on by default.
+
 ## 9. Document index
 
 - `PlatformHostArchitecture.md` — host-neutral core & adapter model (foundation for WS-1/2/3/4).

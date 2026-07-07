@@ -7,10 +7,14 @@ import SwiftSyntax
 /// them. Without registration, hydration aborts with `missingDecoder` for any
 /// scene- or request-provided value whose key the framework does not know.
 ///
-/// Only `public` top-level declarations are collected: the generated
-/// entrypoint lives in a separate target (and package), so other access
-/// levels cannot be referenced from it. A non-public key still fails loudly
-/// at hydration through the registry's `missingDecoder` error.
+/// Conformances are collected wherever they are declared — on the type itself,
+/// through an `extension`, and at any nesting depth — mirroring
+/// `SwiftWebClientComponentDiscovery`. Nested types are reported by their
+/// fully qualified name so the generated `.registering(...)` resolves. A
+/// type-declaration conformance is only collected when the type and every
+/// enclosing type are `public`/`open`, since the generated entrypoint is a
+/// separate target; a non-public key surfaces as a build error there rather
+/// than as a silent miss that would abort hydration at runtime.
 struct SwiftWebClientEnvironmentKeyDiscovery {
     static func discover(
         in swiftFiles: [(url: URL, relativePath: String)]
@@ -19,41 +23,75 @@ struct SwiftWebClientEnvironmentKeyDiscovery {
         for file in swiftFiles {
             let source = try String(contentsOf: file.url, encoding: .utf8)
             let syntax = Parser.parse(source: source)
-            for statement in syntax.statements {
-                collect(topLevel: Syntax(statement.item), into: &typeNames)
-            }
+            let visitor = ClientEnvironmentKeyVisitor(viewMode: .sourceAccurate)
+            visitor.walk(syntax)
+            typeNames.formUnion(visitor.typeNames)
         }
         return typeNames.sorted()
     }
+}
 
-    private static func collect(topLevel node: Syntax, into typeNames: inout Set<String>) {
-        if let declaration = node.as(StructDeclSyntax.self),
-           isPublic(declaration.modifiers),
-           inheritsClientEnvironmentKey(declaration.inheritanceClause)
-        {
-            typeNames.insert(declaration.name.text)
+private final class ClientEnvironmentKeyVisitor: SyntaxVisitor {
+    private(set) var typeNames: Set<String> = []
+    private var scope: [(name: String, isPublic: Bool)] = []
+
+    override func visit(_ node: StructDeclSyntax) -> SyntaxVisitorContinueKind {
+        enterType(node.name.text, node.modifiers, node.inheritanceClause)
+        return .visitChildren
+    }
+    override func visitPost(_ node: StructDeclSyntax) { scope.removeLast() }
+
+    override func visit(_ node: EnumDeclSyntax) -> SyntaxVisitorContinueKind {
+        enterType(node.name.text, node.modifiers, node.inheritanceClause)
+        return .visitChildren
+    }
+    override func visitPost(_ node: EnumDeclSyntax) { scope.removeLast() }
+
+    override func visit(_ node: ClassDeclSyntax) -> SyntaxVisitorContinueKind {
+        enterType(node.name.text, node.modifiers, node.inheritanceClause)
+        return .visitChildren
+    }
+    override func visitPost(_ node: ClassDeclSyntax) { scope.removeLast() }
+
+    override func visit(_ node: ActorDeclSyntax) -> SyntaxVisitorContinueKind {
+        enterType(node.name.text, node.modifiers, node.inheritanceClause)
+        return .visitChildren
+    }
+    override func visitPost(_ node: ActorDeclSyntax) { scope.removeLast() }
+
+    override func visit(_ node: ExtensionDeclSyntax) -> SyntaxVisitorContinueKind {
+        // An extension adds the conformance to an already-declared type; the
+        // extended type name is used as written (already qualified). The key's
+        // members must be public to be referenced from the entrypoint, so no
+        // extra public gate is applied here.
+        let name = node.extendedType.trimmedDescription
+        if inheritsClientEnvironmentKey(node.inheritanceClause) {
+            typeNames.insert(name)
         }
+        scope.append((name, true))
+        return .visitChildren
+    }
+    override func visitPost(_ node: ExtensionDeclSyntax) { scope.removeLast() }
 
-        if let declaration = node.as(EnumDeclSyntax.self),
-           isPublic(declaration.modifiers),
-           inheritsClientEnvironmentKey(declaration.inheritanceClause)
-        {
-            typeNames.insert(declaration.name.text)
+    private func enterType(
+        _ name: String,
+        _ modifiers: DeclModifierListSyntax,
+        _ inheritance: InheritanceClauseSyntax?
+    ) {
+        let isPublic = isPublicOrOpen(modifiers)
+        if inheritsClientEnvironmentKey(inheritance), isPublic, scope.allSatisfy(\.isPublic) {
+            typeNames.insert((scope.map(\.name) + [name]).joined(separator: "."))
         }
+        scope.append((name, isPublic))
+    }
 
-        if let declaration = node.as(ClassDeclSyntax.self),
-           isPublic(declaration.modifiers),
-           inheritsClientEnvironmentKey(declaration.inheritanceClause)
-        {
-            typeNames.insert(declaration.name.text)
+    private func isPublicOrOpen(_ modifiers: DeclModifierListSyntax) -> Bool {
+        modifiers.contains {
+            $0.name.tokenKind == .keyword(.public) || $0.name.tokenKind == .keyword(.open)
         }
     }
 
-    private static func isPublic(_ modifiers: DeclModifierListSyntax) -> Bool {
-        modifiers.contains { $0.name.tokenKind == .keyword(.public) }
-    }
-
-    private static func inheritsClientEnvironmentKey(
+    private func inheritsClientEnvironmentKey(
         _ inheritanceClause: InheritanceClauseSyntax?
     ) -> Bool {
         guard let inheritanceClause else {

@@ -16,6 +16,12 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
     typealias Reader = NIOHTTPServer.Reader
     typealias ResponseSender = NIOHTTPServer.ResponseSender
 
+    /// Bounds proxied request bodies so a large upload cannot exhaust dev-host
+    /// memory. Matches the production host's default collection limit.
+    static let defaultMaxBodySize = 16 * 1024 * 1024
+
+    struct BodyTooLargeError: Error {}
+
     private let devToken: String
     private let eventLog: SwiftWebDevEventLog
     private let workerRegistry: SwiftWebDevWorkerRegistry
@@ -41,7 +47,17 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
     ) async throws {
         let body: ByteBuffer?
         do {
-            body = try await Self.collectRequestBody(reader)
+            body = try await Self.collectRequestBody(reader, limit: Self.defaultMaxBodySize)
+        } catch is BodyTooLargeError {
+            return try await Self.sendBytes(
+                status: .contentTooLarge,
+                headers: [
+                    .contentType: "text/plain; charset=utf-8",
+                    .cacheControl: "no-cache, no-transform",
+                ],
+                bytes: Array("Request body exceeds the dev host limit".utf8),
+                responseSender: responseSender
+            )
         } catch {
             if SwiftWebDevExpectedTermination.isExpected(error) {
                 logger.debug(
@@ -178,21 +194,34 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
         target: SwiftWebDevHostRequestTarget,
         responseSender: consuming sending NIOHTTPServer.ResponseSender
     ) async throws {
-        if target.query["token"] == devToken {
-            do {
-                try await Task.sleep(nanoseconds: 60_000_000_000)
-            } catch {
-                if error is CancellationError {
-                    try await Self.sendBytes(
-                        status: .noContent,
-                        headers: [.cacheControl: "no-cache, no-transform"],
-                        bytes: [],
-                        responseSender: responseSender
-                    )
-                    return
-                }
-                throw error
+        // The reload token gates the SSE event stream; never echo it to a
+        // caller that did not already present it, or the gate is defeated.
+        guard target.query["token"] == devToken else {
+            try await Self.sendBytes(
+                status: .unauthorized,
+                headers: [
+                    .contentType: "text/plain; charset=utf-8",
+                    .cacheControl: "no-cache, no-transform",
+                ],
+                bytes: Array("invalid SwiftWeb dev reload token".utf8),
+                responseSender: responseSender
+            )
+            return
+        }
+
+        do {
+            try await Task.sleep(nanoseconds: 60_000_000_000)
+        } catch {
+            if error is CancellationError {
+                try await Self.sendBytes(
+                    status: .noContent,
+                    headers: [.cacheControl: "no-cache, no-transform"],
+                    bytes: [],
+                    responseSender: responseSender
+                )
+                return
             }
+            throw error
         }
 
         try await Self.sendBytes(
@@ -295,7 +324,8 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
     }
 
     private static func collectRequestBody(
-        _ reader: consuming sending NIOHTTPServer.Reader
+        _ reader: consuming sending NIOHTTPServer.Reader,
+        limit: Int
     ) async throws -> ByteBuffer? {
         var reader = reader
         var collected = UniqueArray<UInt8>()
@@ -306,6 +336,9 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
                 if let final {
                     finalElement = final
                 }
+            }
+            if collected.count > limit {
+                throw BodyTooLargeError()
             }
         }
         guard !collected.isEmpty else {
