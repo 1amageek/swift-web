@@ -1,6 +1,7 @@
 import SwiftWebPackageGeneration
 import SwiftWebWasmBuild
 import AsyncHTTPClient
+import BasicContainers
 import Foundation
 import HTTPAPIs
 import HTTPTypes
@@ -11,8 +12,9 @@ import NIOHTTPServer
 import SwiftWebDevelopmentHooks
 
 struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
-    typealias RequestReader = HTTPRequestConcludingAsyncReader
-    typealias ResponseWriter = HTTPResponseConcludingAsyncWriter
+    typealias RequestContext = NIOHTTPServer.RequestContext
+    typealias Reader = NIOHTTPServer.Reader
+    typealias ResponseSender = NIOHTTPServer.ResponseSender
 
     private let devToken: String
     private let eventLog: SwiftWebDevEventLog
@@ -33,13 +35,13 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
 
     func handle(
         request: HTTPRequest,
-        requestContext: HTTPRequestContext,
-        requestBodyAndTrailers: consuming sending HTTPRequestConcludingAsyncReader,
-        responseSender: consuming sending HTTPResponseSender<HTTPResponseConcludingAsyncWriter>
+        requestContext: consuming NIOHTTPServer.RequestContext,
+        reader: consuming sending NIOHTTPServer.Reader,
+        responseSender: consuming sending NIOHTTPServer.ResponseSender
     ) async throws {
         let body: ByteBuffer?
         do {
-            body = try await Self.collectRequestBody(requestBodyAndTrailers)
+            body = try await Self.collectRequestBody(reader)
         } catch {
             if SwiftWebDevExpectedTermination.isExpected(error) {
                 logger.debug(
@@ -72,7 +74,7 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
     }
 
     private func sendStatus(
-        responseSender: consuming sending HTTPResponseSender<HTTPResponseConcludingAsyncWriter>
+        responseSender: consuming sending NIOHTTPServer.ResponseSender
     ) async throws {
         let data = try JSONEncoder.swiftWebDevEvent.encode(workerRegistry.status())
         try await Self.sendBytes(
@@ -87,7 +89,7 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
     }
 
     private func sendClientScript(
-        responseSender: consuming sending HTTPResponseSender<HTTPResponseConcludingAsyncWriter>
+        responseSender: consuming sending NIOHTTPServer.ResponseSender
     ) async throws {
         try await Self.sendBytes(
             status: .ok,
@@ -99,7 +101,7 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
 
     private func sendDevEvents(
         target: SwiftWebDevHostRequestTarget,
-        responseSender: consuming sending HTTPResponseSender<HTTPResponseConcludingAsyncWriter>
+        responseSender: consuming sending NIOHTTPServer.ResponseSender
     ) async throws {
         guard target.query["token"] == devToken else {
             try await Self.sendBytes(
@@ -114,7 +116,7 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
             return
         }
 
-        let writer = try await responseSender.send(
+        var writer = try await responseSender.send(
             HTTPResponse(
                 status: .ok,
                 headerFields: [
@@ -124,41 +126,42 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
             )
         )
         do {
-            try await writer.produceAndConclude { responseBodyWriter in
-                var responseBodyWriter = responseBodyWriter
-                var lastEventID = target.query["lastEventID"]
-                if lastEventID == nil {
-                    let latestEventID = try eventLog.latestEventID()
-                    let connected: SwiftWebDevEvent
-                    if let latestEventID {
-                        connected = SwiftWebDevEvent(id: latestEventID, kind: .connected)
-                    } else {
-                        connected = SwiftWebDevEvent(kind: .connected)
-                        try eventLog.append(connected)
-                    }
-                    try await responseBodyWriter.write(Array(SwiftWebDevHotReload.sseData(for: connected).utf8).span)
-                    lastEventID = connected.id
+            var lastEventID = target.query["lastEventID"]
+            if lastEventID == nil {
+                let latestEventID = try eventLog.latestEventID()
+                let connected: SwiftWebDevEvent
+                if let latestEventID {
+                    connected = SwiftWebDevEvent(id: latestEventID, kind: .connected)
+                } else {
+                    connected = SwiftWebDevEvent(kind: .connected)
+                    try eventLog.append(connected)
                 }
-
-                var nextHeartbeat = Date().addingTimeInterval(30)
-                while !Task.isCancelled {
-                    let events = try eventLog.events(after: lastEventID)
-                    if events.isEmpty {
-                        if Date() >= nextHeartbeat {
-                            try await responseBodyWriter.write(Array(": swift-web-dev heartbeat\n\n".utf8).span)
-                            nextHeartbeat = Date().addingTimeInterval(30)
-                        }
-                        try await Task.sleep(nanoseconds: 300_000_000)
-                        continue
-                    }
-
-                    for event in events {
-                        try await responseBodyWriter.write(Array(SwiftWebDevHotReload.sseData(for: event).utf8).span)
-                        lastEventID = event.id
-                    }
-                }
-                return ((), nil)
+                var buffer = try UniqueArray<UInt8>(copying: Array(SwiftWebDevHotReload.sseData(for: connected).utf8).span)
+                try await writer.write(buffer: &buffer)
+                lastEventID = connected.id
             }
+
+            var nextHeartbeat = Date().addingTimeInterval(30)
+            while !Task.isCancelled {
+                let events = try eventLog.events(after: lastEventID)
+                if events.isEmpty {
+                    if Date() >= nextHeartbeat {
+                        var buffer = UniqueArray<UInt8>(copying: Array(": swift-web-dev heartbeat\n\n".utf8).span)
+                        try await writer.write(buffer: &buffer)
+                        nextHeartbeat = Date().addingTimeInterval(30)
+                    }
+                    try await Task.sleep(nanoseconds: 300_000_000)
+                    continue
+                }
+
+                for event in events {
+                    var buffer = try UniqueArray<UInt8>(copying: Array(SwiftWebDevHotReload.sseData(for: event).utf8).span)
+                    try await writer.write(buffer: &buffer)
+                    lastEventID = event.id
+                }
+            }
+            var trailing = UniqueArray<UInt8>()
+            try await writer.finish(buffer: &trailing, finalElement: nil)
         } catch {
             if SwiftWebDevExpectedTermination.isExpected(error) {
                 logger.debug(
@@ -173,7 +176,7 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
 
     private func sendReload(
         target: SwiftWebDevHostRequestTarget,
-        responseSender: consuming sending HTTPResponseSender<HTTPResponseConcludingAsyncWriter>
+        responseSender: consuming sending NIOHTTPServer.ResponseSender
     ) async throws {
         if target.query["token"] == devToken {
             do {
@@ -208,7 +211,7 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
         request: HTTPRequest,
         target requestTarget: SwiftWebDevHostRequestTarget,
         body: ByteBuffer?,
-        responseSender: consuming sending HTTPResponseSender<HTTPResponseConcludingAsyncWriter>
+        responseSender: consuming sending NIOHTTPServer.ResponseSender
     ) async throws {
         guard let workerTarget = workerRegistry.activeTarget() else {
             try await Self.sendBytes(
@@ -253,19 +256,18 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
             )
             var responseHeaders = Self.forwardHeaders(from: workerResponse.headers)
             responseHeaders[HTTPField.Name("Connection")!] = "close"
-            let writer = try await responseSender.send(
+            var writer = try await responseSender.send(
                 HTTPResponse(
                     status: .init(code: Int(workerResponse.status.code)),
                     headerFields: responseHeaders
                 )
             )
-            try await writer.produceAndConclude { responseBodyWriter in
-                var responseBodyWriter = responseBodyWriter
-                for try await buffer in workerResponse.body {
-                    try await responseBodyWriter.write(Array(buffer.readableBytesView).span)
-                }
-                return ((), nil)
+            for try await chunk in workerResponse.body {
+                var buffer = UniqueArray<UInt8>(copying: Array(chunk.readableBytesView).span)
+                try await writer.write(buffer: &buffer)
             }
+            var trailing = UniqueArray<UInt8>()
+            try await writer.finish(buffer: &trailing, finalElement: nil)
         } catch {
             if SwiftWebDevExpectedTermination.isExpected(error) {
                 logger.debug(
@@ -282,41 +284,36 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
         status: HTTPResponse.Status,
         headers: HTTPFields,
         bytes: [UInt8],
-        responseSender: consuming sending HTTPResponseSender<HTTPResponseConcludingAsyncWriter>
+        responseSender: consuming sending NIOHTTPServer.ResponseSender
     ) async throws {
-        let writer = try await responseSender.send(
-            HTTPResponse(status: status, headerFields: headers)
+        var buffer = UniqueArray<UInt8>(copying: bytes.span)
+        try await responseSender.sendAndFinish(
+            HTTPResponse(status: status, headerFields: headers),
+            buffer: &buffer,
+            trailer: nil
         )
-        try await writer.produceAndConclude { responseBodyWriter in
-            var responseBodyWriter = responseBodyWriter
-            if !bytes.isEmpty {
-                try await responseBodyWriter.write(bytes.span)
-            }
-            return ((), nil)
-        }
     }
 
     private static func collectRequestBody(
-        _ requestBodyAndTrailers: consuming sending HTTPRequestConcludingAsyncReader
+        _ reader: consuming sending NIOHTTPServer.Reader
     ) async throws -> ByteBuffer? {
-        let collected = try await requestBodyAndTrailers.consumeAndConclude { reader in
-            var reader = reader
-            var body = ByteBuffer()
-            while true {
-                let reachedEnd = try await reader.read { buffer in
-                    if buffer.isEmpty {
-                        return true
-                    }
-                    body.writeBytes(buffer.span.bytes)
-                    return false
-                }
-                if reachedEnd {
-                    break
+        var reader = reader
+        var collected = UniqueArray<UInt8>()
+        var finalElement: HTTPFields?? = nil
+        while finalElement == nil {
+            try await reader.read { buffer, final in
+                collected.append(moving: buffer.startIndex..<buffer.endIndex, from: &buffer)
+                if let final {
+                    finalElement = final
                 }
             }
-            return body
         }
-        return collected.0.readableBytes > 0 ? collected.0 : nil
+        guard !collected.isEmpty else {
+            return nil
+        }
+        var body = ByteBuffer()
+        body.writeBytes(collected.span.bytes)
+        return body
     }
 
     private static func httpClientRequest(

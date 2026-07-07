@@ -1,12 +1,13 @@
 {
-  "originHash" : "180455226521c479881ef5d929c75a12b405ea0010eff38203e0e51fb9e4db02",
+  "originHash" : "2f2a126e75a5e15d7550709f1ff0408831effcb6ef5cc96c27c9020508c767b6",
   "pins" : [
     {
       "identity" : "async-http-client",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/swift-server/async-http-client.git",
       "state" : {
-        "revision" : "393104434ea57710f2469036e816672fe15e8212"
+        "revision" : "4603a8036d921ea999fadb742931546c341f4bd7",
+        "version" : "1.35.0"
       }
     },
     {
@@ -50,7 +51,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-async-algorithms.git",
       "state" : {
-        "revision" : "3bd2de010e30f8d41481e6c7a49a7e7222a878cf"
+        "revision" : "3da39bbc4e687d4192af7c9cf4eab805745a0b9c",
+        "version" : "1.1.5"
       }
     },
     {
@@ -121,7 +123,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-http-api-proposal.git",
       "state" : {
-        "revision" : "d58fd6fa157e08bff44aa360ff83ebd424783392"
+        "revision" : "638af2b908d8109857389689d361e1f45f6617ea",
+        "version" : "0.2.0"
       }
     },
     {
@@ -129,7 +132,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/swift-server/swift-http-server",
       "state" : {
-        "revision" : "b1c4f775dfbdc74800c0f29fda79c8984a5e9073"
+        "revision" : "c571f7635f63ca6c9f5a1d682d5757c980c246d6",
+        "version" : "0.1.0"
       }
     },
     {

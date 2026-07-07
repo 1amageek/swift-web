@@ -1,3 +1,4 @@
+import BasicContainers
 import HTTPAPIs
 import HTTPTypes
 import Logging
@@ -8,8 +9,9 @@ import SwiftWebCore
 /// Serves the app's collected routes on `NIOHTTPServer`:
 /// match → session → middleware chain → handler → write (buffered or streamed).
 struct SwiftWebHostHTTPHandler: HTTPServerRequestHandler {
-    typealias RequestReader = HTTPRequestConcludingAsyncReader
-    typealias ResponseWriter = HTTPResponseConcludingAsyncWriter
+    typealias RequestContext = NIOHTTPServer.RequestContext
+    typealias Reader = NIOHTTPServer.Reader
+    typealias ResponseSender = NIOHTTPServer.ResponseSender
 
     /// Applied when a route uses `.collect(maxSize: nil)`.
     static let defaultMaxBodySize = 16 * 1024 * 1024
@@ -22,9 +24,9 @@ struct SwiftWebHostHTTPHandler: HTTPServerRequestHandler {
 
     func handle(
         request: HTTPRequest,
-        requestContext: HTTPRequestContext,
-        requestBodyAndTrailers: consuming sending HTTPRequestConcludingAsyncReader,
-        responseSender: consuming sending HTTPResponseSender<HTTPResponseConcludingAsyncWriter>
+        requestContext: consuming NIOHTTPServer.RequestContext,
+        reader: consuming sending NIOHTTPServer.Reader,
+        responseSender: consuming sending NIOHTTPServer.ResponseSender
     ) async throws {
         let rawPath = request.path ?? "/"
         let pathOnly = String(rawPath.split(separator: "?", maxSplits: 1, omittingEmptySubsequences: false).first ?? "/")
@@ -42,7 +44,7 @@ struct SwiftWebHostHTTPHandler: HTTPServerRequestHandler {
 
         let bodyBytes: [UInt8]?
         do {
-            bodyBytes = try await Self.collectRequestBody(requestBodyAndTrailers, limit: bodyLimit)
+            bodyBytes = try await Self.collectRequestBody(reader, limit: bodyLimit)
         } catch let error as BodyTooLargeError {
             _ = error
             let response = HTTPServerErrorResponder.errorResponse(
@@ -96,74 +98,62 @@ struct SwiftWebHostHTTPHandler: HTTPServerRequestHandler {
 
     private static func send(
         _ response: WebResponse,
-        responseSender: consuming sending HTTPResponseSender<HTTPResponseConcludingAsyncWriter>
+        responseSender: consuming sending NIOHTTPServer.ResponseSender
     ) async throws {
-        let writer = try await responseSender.send(
-            HTTPResponse(status: response.status, headerFields: response.headers)
-        )
+        let head = HTTPResponse(status: response.status, headerFields: response.headers)
         if let produce = response.body.stream {
-            try await writer.produceAndConclude { responseBodyWriter in
-                var responseBodyWriter = responseBodyWriter
-                // The body writer is not Sendable, so the producer yields
-                // chunks through a stream and this loop performs the writes.
-                let (chunks, continuation) = AsyncThrowingStream<[UInt8], any Error>.makeStream()
-                async let producing: Void = {
-                    do {
-                        try await produce(HTTPServerWebBodyWriter(continuation: continuation))
-                        continuation.finish()
-                    } catch {
-                        continuation.finish(throwing: error)
-                    }
-                }()
-                for try await chunk in chunks {
-                    try await responseBodyWriter.write(chunk.span)
+            var writer = try await responseSender.send(head)
+            // The body writer is not Sendable, so the producer yields chunks
+            // through a stream and this loop performs the writes.
+            let (chunks, continuation) = AsyncThrowingStream<[UInt8], any Error>.makeStream()
+            async let producing: Void = {
+                do {
+                    try await produce(HTTPServerWebBodyWriter(continuation: continuation))
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
                 }
-                await producing
-                return ((), nil)
+            }()
+            for try await chunk in chunks {
+                var buffer = UniqueArray<UInt8>(copying: chunk.span)
+                try await writer.write(buffer: &buffer)
             }
+            await producing
+            var trailing = UniqueArray<UInt8>()
+            try await writer.finish(buffer: &trailing, finalElement: nil)
         } else {
             let bytes = response.body.bytes ?? []
-            try await writer.produceAndConclude { responseBodyWriter in
-                var responseBodyWriter = responseBodyWriter
-                if !bytes.isEmpty {
-                    try await responseBodyWriter.write(bytes.span)
-                }
-                return ((), nil)
-            }
+            var buffer = UniqueArray<UInt8>(copying: bytes.span)
+            try await responseSender.sendAndFinish(head, buffer: &buffer, trailer: nil)
         }
     }
 
     struct BodyTooLargeError: Error {}
 
     private static func collectRequestBody(
-        _ requestBodyAndTrailers: consuming sending HTTPRequestConcludingAsyncReader,
+        _ reader: consuming sending NIOHTTPServer.Reader,
         limit: Int
     ) async throws -> [UInt8]? {
-        let collected = try await requestBodyAndTrailers.consumeAndConclude { reader in
-            var reader = reader
-            var body = ByteBuffer()
-            while true {
-                let reachedEnd = try await reader.read { buffer in
-                    if buffer.isEmpty {
-                        return true
-                    }
-                    body.writeBytes(buffer.span.bytes)
-                    return false
-                }
-                if body.readableBytes > limit {
-                    throw BodyTooLargeError()
-                }
-                if reachedEnd {
-                    break
+        var reader = reader
+        var collected = UniqueArray<UInt8>()
+        var finalElement: HTTPFields?? = nil
+        while finalElement == nil {
+            try await reader.read { buffer, final in
+                collected.append(moving: buffer.startIndex..<buffer.endIndex, from: &buffer)
+                if let final {
+                    finalElement = final
                 }
             }
-            return body
+            if collected.count > limit {
+                throw BodyTooLargeError()
+            }
         }
-        var body = collected.0
-        guard body.readableBytes > 0 else {
+        guard !collected.isEmpty else {
             return nil
         }
-        return body.readBytes(length: body.readableBytes)
+        var bytes = ByteBuffer()
+        bytes.writeBytes(collected.span.bytes)
+        return bytes.readBytes(length: bytes.readableBytes)
     }
 }
 

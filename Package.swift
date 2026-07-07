@@ -95,10 +95,11 @@ let package = Package(
     ] + (swiftWebDO ? [
         .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "602.0.0"),
     ] : []) + (swiftWebCoreOnly ? [] : [
-        .package(url: "https://github.com/swift-server/async-http-client.git", revision: "393104434ea57710f2469036e816672fe15e8212"),
-        .package(url: "https://github.com/swift-server/swift-http-server", revision: "b1c4f775dfbdc74800c0f29fda79c8984a5e9073"),
-        .package(url: "https://github.com/apple/swift-http-api-proposal.git", revision: "d58fd6fa157e08bff44aa360ff83ebd424783392"),
+        .package(url: "https://github.com/swift-server/async-http-client.git", from: "1.35.0"),
+        .package(url: "https://github.com/swift-server/swift-http-server", from: "0.1.0"),
+        .package(url: "https://github.com/apple/swift-http-api-proposal.git", from: "0.2.0"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.82.0"),
+        .package(url: "https://github.com/apple/swift-collections.git", from: "1.6.0"),
         .package(url: "https://github.com/apple/swift-service-context.git", from: "1.3.0"),
         .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "602.0.0"),
     ]),
@@ -279,6 +280,7 @@ let package = Package(
         .target(
             name: "SwiftWebHTTPServerHost",
             dependencies: [
+                .product(name: "BasicContainers", package: "swift-collections"),
                 .product(name: "HTTPAPIs", package: "swift-http-api-proposal"),
                 .product(name: "NIOHTTPServer", package: "swift-http-server"),
                 .product(name: "NIOCore", package: "swift-nio"),
@@ -338,6 +340,7 @@ let package = Package(
             dependencies: [
                 swiftHTMLDependency,
                 .product(name: "AsyncHTTPClient", package: "async-http-client"),
+                .product(name: "BasicContainers", package: "swift-collections"),
                 .product(name: "HTTPAPIs", package: "swift-http-api-proposal"),
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "Logging", package: "swift-log"),
