@@ -289,14 +289,14 @@ flowchart TD
 
   F["Client WASM service call"] --> G["@Resolvable protocol"]
   G --> H["$Protocol.resolve(id:using:)"]
-  H --> I["WebActorGateway from SwiftWebVaporWebActors"]
+  H --> I["ActorInvocationEndpoint"]
   I --> J["typed distributed actor result"]
 ```
 
 | Method | Use when | Developer-facing API | Runtime path | Result model |
 |---|---|---|---|---|
 | Server Action | A button/form intentionally mutates server state and the page should refresh, redirect, or return a command result. | `@ServerAction` + generated `ActionReference` consumed by `Button`/`Form`. | HTTP method + path -> page-local Vapor route -> generated action bridge. | `ActionResult` or another typed codable output. |
-| Resolvable RPC | Client WASM needs to talk to a typed service directly, especially for stateful sessions or repeated service calls. | Apple `@Resolvable protocol`; the standard component surface is `@Actor var service: any ServiceProtocol`, backed by `$Protocol.resolve(id:using:)`. | ActorRuntime envelope -> `WebActorGateway` -> `WebActorSystem`. | Direct typed `distributed func` return value. |
+| Resolvable RPC | Client WASM needs to talk to a typed service directly, especially for stateful sessions or repeated service calls. | Apple `@Resolvable protocol`; the standard component surface is `@Actor var service: any ServiceProtocol`, backed by `$Protocol.resolve(id:using:)`. | ActorRuntime envelope -> `ActorInvocationEndpoint` -> `WebActorSystem`. | Direct typed `distributed func` return value. |
 
 `ActionReference` is a form/action handle. It is not Apple's `@Resolvable` model. Client-visible typed service APIs should use an `@Resolvable` protocol. Conversely, a `@Resolvable` protocol is not a replacement for a page mutation action when the intended result is page invalidation.
 
@@ -425,20 +425,20 @@ flowchart LR
   A["Client WASM"] --> B["$ServiceProtocol.resolve"]
   B --> C["WebActorSystem remote stub"]
   C --> D["JavaScriptKitWebActorTransport"]
-  D --> E["SwiftWebVaporWebActors WebActorGateway"]
+  D --> E["ActorInvocationEndpoint"]
   E --> F["WebActorSystem.shared.invoke"]
   F --> G["distributed actor service"]
   G --> H["ResponseEnvelope"]
 ```
 
-`WebActorGateway` is provided by `SwiftWebVaporWebActors` and is mounted at `/_swiftweb/actors/invoke` only when that adapter is imported and registered. It validates state-changing request security, decodes the raw ActorRuntime `InvocationEnvelope`, dispatches through `WebActorSystem.shared`, and returns a `ResponseEnvelope`. Browser WASM clients use `SwiftWebUIRuntime.JavaScriptKitWebActorTransport` to post the envelope with same-origin credentials and the active CSRF header from the runtime security descriptor.
+`ActorInvocationEndpoint` is the host-neutral actor RPC route mounted at `/_swiftweb/actors/invoke` when an `ActorGroup` is lowered. It validates state-changing request security, decodes the raw ActorRuntime `InvocationEnvelope`, authorizes the actor recipient/target through `SecurityConfiguration.actors`, dispatches through `WebActorSystem.shared`, and returns a `ResponseEnvelope`. The default actor policy denies external RPC; apps that expose per-user or per-tenant actors must install an authorizer that checks the authenticated principal against the actor identity. Browser WASM clients use `SwiftWebUIRuntime.JavaScriptKitWebActorTransport` to post the envelope with same-origin credentials and the active CSRF header from the runtime security descriptor.
 
 Resolvable RPC should be the default for client-owned interaction loops:
 
 | Trait | Resolvable RPC behavior |
 |---|---|
 | Transport | ActorRuntime envelope over `WebActorTransport`. |
-| Security | Gateway request validation plus application middleware around the actor gateway route. |
+| Security | Gateway request validation, application middleware, and `SecurityConfiguration.actors` authorization before actor dispatch. |
 | State ownership | Actor identity represents the service/session being called. |
 | UI update | Client code decides how to update local state from the typed result. |
 | API shape | Client components use `@Actor` as the resolved service object and call `distributed func` as if it were local. |
@@ -482,7 +482,7 @@ Vapor hosts the transport and security boundary. For Server Action, the service 
 | `Application.swiftWebServerActions` | Holds generated action descriptors keyed by HTTP method and path. |
 | Vapor middleware | Provides session, authentication, CSRF, rate limiting, tracing, and request IDs. |
 | `ActionGateway` | Registers page-local action routes, decodes input, builds `ActionInvocationContext`, invokes the generated action bridge, maps errors, and encodes `ActionResult`. |
-| `SwiftWebVaporWebActors.WebActorGateway` | Receives raw ActorRuntime invocation envelopes for `@Resolvable` distributed service calls. |
+| `ActorInvocationEndpoint` | Receives raw ActorRuntime invocation envelopes for `@Resolvable` distributed service calls and authorizes them before dispatch. |
 | Page or service handler | Owns server state, domain mutation, external side effects, and session-scoped behavior. |
 
 ```mermaid

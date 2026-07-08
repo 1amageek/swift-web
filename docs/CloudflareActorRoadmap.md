@@ -401,30 +401,16 @@ abort with `missingDecoder`); the dev host echoed its reload token to
 unauthenticated callers, defeating the SSE gate; the dev proxy collected
 request bodies with no size limit.
 
-Still OPEN — these are design decisions, not one-line fixes, and MUST be
-resolved before distributed actors are used with per-user/tenant identities
-in production:
+Resolved in the 2026-07-08 hardening pass:
 
-- **Authorization seam (highest priority).** `ActorInvocationEndpoint` and the
-  WebSocket path run only origin + CSRF validation, which proves "same-origin"
-  but not "this caller may talk to THIS actor". `recipientID`
-  (`"<contract>:<name>"`) is fully attacker-controlled, so an app that
-  addresses actors per identity (e.g. `ChatAgent:<userID>`) exposes a
-  framework-level IDOR: any unauthenticated visitor can address another user's
-  actor and invoke any `distributed func` on it. Proposed fix: an app-supplied
-  authorizer `(authenticated identity, recipientID, target) -> Bool` invoked
-  before dispatch in `WebActorSystem`, wired through both the HTTP endpoint and
-  the WS transport. Origin/CSRF must not be conflated with authorization.
-- **Virtual-actor population bound.** `WebActorSystem` activations register in
-  `ActorRegistry` with strong refs and no eviction/TTL; unlimited distinct
-  `recipientID`s grow memory unbounded (DoS). `ActorGroup`'s doc comment
-  already assumes eviction "after the host evicts the instance" that does not
-  exist. Proposed fix: idle eviction / LRU / per-caller quota.
-- **WebSocket senderID binding.** `WebSocketActorTransport.receive` trusts the
-  client-supplied `senderID`, which `WebSocketSessionRouter.register` uses as
-  the push routing key — a client can claim a victim's observer-actor ID and
-  hijack their server→client pushes. Proposed fix: derive senderID server-side
-  from the authenticated connection; ignore/reject client-claimed IDs.
+| Finding | Resolution |
+|---|---|
+| **Authorization seam (highest priority)** | `WebActorSystem.invoke` now accepts `WebActorInvocationContext`, `WebActorAuthorization`, and `WebActorActivationPolicy`. The host-neutral HTTP endpoint builds the request context and rejects denied invocations before dispatch. `SecurityConfiguration.defaults.actors` denies external actor RPC unless the app explicitly installs an authorizer. Origin/CSRF is no longer treated as actor authorization. |
+| **Virtual-actor population bound** | `WebActorSystem` now tracks virtual activations separately from the actor registry and enforces `WebActorActivationPolicy` with a default max count plus idle timeout. When the limit is reached, virtual actors are evicted by least-recent access before new activation. |
+| **WebSocket senderID binding** | `WebSocketActorTransport` no longer trusts client-supplied `senderID` by default. Server routes can bind the accepted peer ID to the connection with `WebSocketInboundSenderPolicy.bind`, and spoofed sender IDs are rejected before routing registration. |
+
+Still OPEN before production hardening:
+
 - **Secure-by-default transport.** Session and CSRF cookies default
   `isSecure: false` and there is no default CSP. Proposed fix: default cookie
   `Secure` on (or gate by forwarded-proto) and consider CSP-on by default.

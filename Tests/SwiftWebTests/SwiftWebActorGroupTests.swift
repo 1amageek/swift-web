@@ -96,6 +96,100 @@ struct SwiftWebActorGroupTests {
     }
 
     @Test
+    func actorGroupHTTPRejectsExternalActorByDefault() async throws {
+        try await withHost(LockedActorGroupHostApp()) { client, base in
+            let id = WebActorSystem.actorID(for: ActorGroupCounter.self, named: "locked-1")
+            let envelope = try await capturedEnvelope(id: id, incrementBy: 1)
+            var request = URLRequest(url: URL(string: "\(base)/_swiftweb/actors/invoke")!)
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try JSONEncoder().encode(envelope)
+
+            let (data, response) = try await client.data(for: request)
+
+            #expect((response as? HTTPURLResponse)?.statusCode == 403)
+            #expect(String(decoding: data, as: UTF8.self).contains("External actor invocation is disabled"))
+        }
+    }
+
+    @Test
+    func boundActorsOnlyRejectsExternalVirtualActorWithoutAuthorizer() async throws {
+        let system = WebActorSystem()
+        system.registerActivator(for: ActorGroupCounter.self) {
+            _ = ActorGroupCounter(actorSystem: system)
+        }
+        let id = WebActorSystem.actorID(for: ActorGroupCounter.self, named: "locked-1")
+
+        await #expect(throws: WebActorAuthorizationError.self) {
+            _ = try await system.invoke(
+                envelope: capturedEnvelope(id: id, incrementBy: 1),
+                context: WebActorInvocationContext(transport: .http),
+                authorization: .boundActorsOnly
+            )
+        }
+    }
+
+    @Test
+    func authenticatedPrincipalAuthorizerAllowsOnlyOwnedActorName() async throws {
+        let system = WebActorSystem()
+        system.registerActivator(for: ActorGroupCounter.self) {
+            _ = ActorGroupCounter(actorSystem: system)
+        }
+        let allowedID = WebActorSystem.actorID(for: ActorGroupCounter.self, named: "alice")
+        let deniedID = WebActorSystem.actorID(for: ActorGroupCounter.self, named: "bob")
+
+        let allowed = try await system.invoke(
+            envelope: capturedEnvelope(id: allowedID, incrementBy: 2),
+            context: WebActorInvocationContext(transport: .http, principalID: "alice"),
+            authorization: .authenticatedPrincipalMatchesActorName()
+        )
+        #expect(try decodedValue(allowed) == 2)
+
+        await #expect(throws: WebActorAuthorizationError.self) {
+            _ = try await system.invoke(
+                envelope: capturedEnvelope(id: deniedID, incrementBy: 1),
+                context: WebActorInvocationContext(transport: .http, principalID: "alice"),
+                authorization: .authenticatedPrincipalMatchesActorName()
+            )
+        }
+    }
+
+    @Test
+    func externalVirtualActorActivationEvictsLeastRecentlyUsedActor() async throws {
+        let system = WebActorSystem()
+        system.registerActivator(for: ActorGroupCounter.self) {
+            _ = ActorGroupCounter(actorSystem: system)
+        }
+        let context = WebActorInvocationContext(transport: .http, principalID: "tester")
+        let activation = WebActorActivationPolicy(maximumVirtualActorCount: 1, idleTimeout: nil)
+        let firstID = WebActorSystem.actorID(for: ActorGroupCounter.self, named: "first")
+        let secondID = WebActorSystem.actorID(for: ActorGroupCounter.self, named: "second")
+
+        let first = try await system.invoke(
+            envelope: capturedEnvelope(id: firstID, incrementBy: 1),
+            context: context,
+            authorization: .allowAll,
+            activationPolicy: activation
+        )
+        let second = try await system.invoke(
+            envelope: capturedEnvelope(id: secondID, incrementBy: 1),
+            context: context,
+            authorization: .allowAll,
+            activationPolicy: activation
+        )
+        let firstAfterEviction = try await system.invoke(
+            envelope: capturedEnvelope(id: firstID, incrementBy: 1),
+            context: context,
+            authorization: .allowAll,
+            activationPolicy: activation
+        )
+
+        #expect(try decodedValue(first) == 1)
+        #expect(try decodedValue(second) == 1)
+        #expect(try decodedValue(firstAfterEviction) == 1)
+    }
+
+    @Test
     func sceneEnvironmentResolvesInsideActorGroupActors() async throws {
         let application = TestWebApplication()
         let system = WebActorSystem()
@@ -332,6 +426,29 @@ private struct ActorGroupEnvironmentFixture {
 }
 
 private struct ActorGroupHostApp: App {
+    static let system = WebActorSystem()
+
+    var actorSystem: WebActorSystem {
+        Self.system
+    }
+
+    var security: SecurityConfiguration {
+        var configuration = SecurityConfiguration.defaults
+        configuration.csrf = .disabled
+        configuration.actors = .allowAll
+        return configuration
+    }
+
+    var body: some Scene {
+        ActorGroupRootPage()
+
+        ActorGroup {
+            ActorGroupCounter(actorSystem: actorSystem)
+        }
+    }
+}
+
+private struct LockedActorGroupHostApp: App {
     static let system = WebActorSystem()
 
     var actorSystem: WebActorSystem {

@@ -20,6 +20,10 @@ public final class WebSocketActorTransport: WebActorTransport, Sendable {
 
     private struct State: Sendable {
         var system: WebActorSystem?
+        var invocationContext: WebActorInvocationContext = .trusted
+        var authorization: WebActorAuthorization = .allowAll
+        var activationPolicy: WebActorActivationPolicy = .unbounded
+        var inboundSenderPolicy: WebSocketInboundSenderPolicy = .ignore
         var pending: [String: CheckedContinuation<ResponseEnvelope, any Error>] = [:]
         var onInboundSender: (@Sendable (String, WebSocketActorTransport) -> Void)?
     }
@@ -33,10 +37,14 @@ public final class WebSocketActorTransport: WebActorTransport, Sendable {
     ///     pushes to (the client passes its observer actor's ID). Stamped on
     ///     outgoing invocations so the other side learns where to push.
     ///   - sendFrame: Writes one text frame to the underlying socket.
-    public init(senderID: String? = nil, sendFrame: @escaping SendFrame) {
+    public init(
+        senderID: String? = nil,
+        inboundSenderPolicy: WebSocketInboundSenderPolicy = .ignore,
+        sendFrame: @escaping SendFrame
+    ) {
         self.senderID = senderID
         self.sendFrame = sendFrame
-        self.state = Mutex(State())
+        self.state = Mutex(State(inboundSenderPolicy: inboundSenderPolicy))
     }
 
     /// The actor system that hosts this peer's local actors. Inbound
@@ -44,6 +52,20 @@ public final class WebSocketActorTransport: WebActorTransport, Sendable {
     /// with an error response.
     public func bind(_ system: WebActorSystem) {
         state.withLock { $0.system = system }
+    }
+
+    public func bind(
+        _ system: WebActorSystem,
+        context: WebActorInvocationContext,
+        authorization: WebActorAuthorization,
+        activationPolicy: WebActorActivationPolicy = .defaults
+    ) {
+        state.withLock { state in
+            state.system = system
+            state.invocationContext = context
+            state.authorization = authorization
+            state.activationPolicy = activationPolicy
+        }
     }
 
     /// Called with the sender ID of every inbound invocation that carries
@@ -98,16 +120,40 @@ public final class WebSocketActorTransport: WebActorTransport, Sendable {
         case .response(let response):
             resume(callID: response.callID, with: .success(response))
         case .invocation(let invocation):
-            if let sender = invocation.senderID {
-                let handler = state.withLock { $0.onInboundSender }
-                handler?(sender, self)
+            let inboundSender: String?
+            do {
+                inboundSender = try acceptedInboundSender(for: invocation)
+            } catch {
+                reject(invocation, reason: String(describing: error))
+                return
             }
-            let system = state.withLock { $0.system }
+            if let inboundSender {
+                let handler = state.withLock { $0.onInboundSender }
+                handler?(inboundSender, self)
+            }
+            let dispatch = state.withLock { state in
+                (
+                    system: state.system,
+                    context: state.invocationContext,
+                    authorization: state.authorization,
+                    activationPolicy: state.activationPolicy
+                )
+            }
             Task {
                 let response: ResponseEnvelope
-                if let system {
+                if let system = dispatch.system {
                     do {
-                        response = try await system.invoke(envelope: invocation)
+                        response = try await system.invoke(
+                            envelope: invocation,
+                            context: dispatch.context,
+                            authorization: dispatch.authorization,
+                            activationPolicy: dispatch.activationPolicy
+                        )
+                    } catch let error as WebActorAuthorizationError {
+                        response = ResponseEnvelope(
+                            callID: invocation.callID,
+                            result: .failure(.transportFailed("Actor invocation denied: \(error.reason)"))
+                        )
                     } catch let error as RuntimeError {
                         response = ResponseEnvelope(callID: invocation.callID, result: .failure(error))
                     } catch {
@@ -131,6 +177,34 @@ public final class WebSocketActorTransport: WebActorTransport, Sendable {
                     // The socket failed while replying; the caller's own
                     // correlation timeout/close handling reports it.
                 }
+            }
+        }
+    }
+
+    private func acceptedInboundSender(for invocation: InvocationEnvelope) throws -> String? {
+        let policy = state.withLock { $0.inboundSenderPolicy }
+        switch policy {
+        case .ignore:
+            return nil
+        case .bind(let boundSenderID):
+            if let senderID = invocation.senderID, senderID != boundSenderID {
+                throw RuntimeError.transportFailed("WebSocket senderID is not bound to this connection")
+            }
+            return boundSenderID
+        case .trustClientSupplied:
+            return invocation.senderID
+        }
+    }
+
+    private func reject(_ invocation: InvocationEnvelope, reason: String) {
+        Task {
+            let response = ResponseEnvelope(
+                callID: invocation.callID,
+                result: .failure(.transportFailed(reason))
+            )
+            do {
+                try await sendFrame(try Self.encodeFrame(.response(response)))
+            } catch {
             }
         }
     }

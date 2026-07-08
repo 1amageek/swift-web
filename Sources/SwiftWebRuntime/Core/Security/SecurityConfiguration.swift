@@ -1,4 +1,5 @@
 import SwiftHTML
+import SwiftWebActors
 #if canImport(FoundationEssentials)
 import FoundationEssentials
 #else
@@ -12,6 +13,7 @@ public struct SecurityConfiguration: Sendable {
     public var redirects: RedirectPolicy
     public var headers: SecurityHeadersPolicy
     public var forwardedHeaders: ForwardedHeadersPolicy
+    public var actors: WebActorSecurityPolicy
 
     public init(
         cors: CORSPolicy = .sameOrigin,
@@ -19,7 +21,8 @@ public struct SecurityConfiguration: Sendable {
         origin: OriginPolicy = .sameOrigin,
         redirects: RedirectPolicy = .sameOrigin,
         headers: SecurityHeadersPolicy = .browserDefaults,
-        forwardedHeaders: ForwardedHeadersPolicy = .ignore
+        forwardedHeaders: ForwardedHeadersPolicy = .ignore,
+        actors: WebActorSecurityPolicy = .defaults
     ) {
         self.cors = cors
         self.csrf = csrf
@@ -27,6 +30,7 @@ public struct SecurityConfiguration: Sendable {
         self.redirects = redirects
         self.headers = headers
         self.forwardedHeaders = forwardedHeaders
+        self.actors = actors
     }
 
     public static let defaults = SecurityConfiguration()

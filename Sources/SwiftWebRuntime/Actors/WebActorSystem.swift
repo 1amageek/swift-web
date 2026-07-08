@@ -20,6 +20,7 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
     private let registry = ActorRegistry()
     private let transportBox: Mutex<(any WebActorTransport)?>
     private let activators = Mutex<[String: WebActorActivator]>([:])
+    private let activationRecords = Mutex<[ActorID: WebActorActivationRecord]>([:])
     private let activationLock = Mutex<Void>(())
 
     public init(transport: (any WebActorTransport)? = nil) {
@@ -75,6 +76,7 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
     }
 
     public func resignID(_ id: ActorID) {
+        activationRecords.withLock { $0[id] = nil }
         registry.unregister(id: id)
     }
 
@@ -149,11 +151,43 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
     public func invoke(envelope: InvocationEnvelope) async throws -> ResponseEnvelope {
         try await execute(
             envelope: envelope,
-            target: RemoteCallTarget(envelope.target)
+            target: RemoteCallTarget(envelope.target),
+            activationPolicy: .unbounded
+        )
+    }
+
+    public func invoke(
+        envelope: InvocationEnvelope,
+        context: WebActorInvocationContext,
+        authorization: WebActorAuthorization,
+        activationPolicy: WebActorActivationPolicy = .defaults
+    ) async throws -> ResponseEnvelope {
+        let target = RemoteCallTarget(envelope.target)
+        let recipient = WebActorRecipient(actorID: envelope.recipientID)
+        let state = actorAuthorizationState(for: recipient)
+        let request = WebActorAuthorizationRequest(
+            envelope: envelope,
+            recipient: recipient,
+            targetIdentifier: envelope.target,
+            context: context,
+            isRegistered: state.isRegistered,
+            isVirtualActor: state.isVirtualActor
+        )
+        switch await authorization.authorize(request) {
+        case .allow:
+            break
+        case .deny(let reason):
+            throw WebActorAuthorizationError(reason)
+        }
+        return try await execute(
+            envelope: envelope,
+            target: target,
+            activationPolicy: activationPolicy
         )
     }
 
     public func shutdown() {
+        activationRecords.withLock { $0.removeAll() }
         registry.clear()
     }
 
@@ -162,7 +196,7 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
         target: RemoteCallTarget
     ) async throws -> ResponseEnvelope {
         if registry.find(id: envelope.recipientID) != nil {
-            return try await execute(envelope: envelope, target: target)
+            return try await execute(envelope: envelope, target: target, activationPolicy: .unbounded)
         }
 
         guard let transport else {
@@ -173,16 +207,25 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
 
     private func execute(
         envelope: InvocationEnvelope,
-        target: RemoteCallTarget
+        target: RemoteCallTarget,
+        activationPolicy: WebActorActivationPolicy
     ) async throws -> ResponseEnvelope {
         #if !hasFeature(Embedded)
         if let environment = registeredEnvironment(for: envelope.recipientID) {
             return try await EnvironmentValues.withValue(environment) {
-                try await self.executeResolved(envelope: envelope, target: target)
+                try await self.executeResolved(
+                    envelope: envelope,
+                    target: target,
+                    activationPolicy: activationPolicy
+                )
             }
         }
         #endif
-        return try await executeResolved(envelope: envelope, target: target)
+        return try await executeResolved(
+            envelope: envelope,
+            target: target,
+            activationPolicy: activationPolicy
+        )
     }
 
     private func registeredEnvironment(for id: ActorID) -> EnvironmentValues? {
@@ -194,9 +237,19 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
 
     private func executeResolved(
         envelope: InvocationEnvelope,
-        target: RemoteCallTarget
+        target: RemoteCallTarget,
+        activationPolicy: WebActorActivationPolicy
     ) async throws -> ResponseEnvelope {
-        guard let actor = try registry.find(id: envelope.recipientID) ?? activatedActor(id: envelope.recipientID) else {
+        let now = Date()
+        let registeredActor = registry.find(id: envelope.recipientID)
+        if registeredActor != nil {
+            markVirtualActorAccess(id: envelope.recipientID, at: now)
+        }
+        guard let actor = try registeredActor ?? activatedActor(
+            id: envelope.recipientID,
+            activationPolicy: activationPolicy,
+            now: now
+        ) else {
             throw RuntimeError.actorNotFound(envelope.recipientID)
         }
 
@@ -222,7 +275,11 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
     /// Activates the virtual actor an ID targets when an `ActorGroup` factory
     /// is registered for its contract. The lock makes activation per-ID
     /// single-flight: concurrent messages for the same ID get one instance.
-    private func activatedActor(id: ActorID) throws -> (any DistributedActor)? {
+    private func activatedActor(
+        id: ActorID,
+        activationPolicy: WebActorActivationPolicy,
+        now: Date
+    ) throws -> (any DistributedActor)? {
         guard let separator = id.firstIndex(of: ":") else {
             return nil
         }
@@ -232,8 +289,14 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
         }
         return try activationLock.withLock { _ in
             if let existing = registry.find(id: id) {
+                markVirtualActorAccess(id: id, at: now)
                 return existing
             }
+            guard activationPolicy.maximumVirtualActorCount > 0 else {
+                throw RuntimeError.transportFailed("Virtual actor activation is disabled")
+            }
+            purgeExpiredVirtualActors(now: now, policy: activationPolicy)
+            evictLeastRecentlyUsedVirtualActorsIfNeeded(policy: activationPolicy)
             WebActorActivationContext.withValue(WebActorPendingID(id)) {
                 activator.activate()
             }
@@ -243,7 +306,81 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
                     underlying: "The factory must construct the actor with the app's actor system"
                 )
             }
+            recordVirtualActor(id: id, contract: contract, at: now)
             return activated
+        }
+    }
+
+    private func actorAuthorizationState(
+        for recipient: WebActorRecipient
+    ) -> (isRegistered: Bool, isVirtualActor: Bool) {
+        let isRegistered = registry.find(id: recipient.actorID) != nil
+        let isTrackedVirtual = activationRecords.withLock { $0[recipient.actorID] != nil }
+        let canActivate = recipient.contract.map { contract in
+            activators.withLock { $0[contract] != nil }
+        } ?? false
+        return (
+            isRegistered: isRegistered,
+            isVirtualActor: isTrackedVirtual || (!isRegistered && canActivate)
+        )
+    }
+
+    private func recordVirtualActor(id: ActorID, contract: String, at date: Date) {
+        activationRecords.withLock { records in
+            records[id] = WebActorActivationRecord(id: id, contract: contract, lastAccess: date)
+        }
+    }
+
+    private func markVirtualActorAccess(id: ActorID, at date: Date) {
+        activationRecords.withLock { records in
+            guard var record = records[id] else {
+                return
+            }
+            record.lastAccess = date
+            records[id] = record
+        }
+    }
+
+    private func purgeExpiredVirtualActors(now: Date, policy: WebActorActivationPolicy) {
+        guard let idleTimeout = policy.idleTimeout else {
+            return
+        }
+        let expiredIDs = activationRecords.withLock { records in
+            let expiredIDs = records.values
+                .filter { now.timeIntervalSince($0.lastAccess) >= idleTimeout }
+                .map(\.id)
+            for id in expiredIDs {
+                records[id] = nil
+            }
+            return expiredIDs
+        }
+        for id in expiredIDs {
+            registry.unregister(id: id)
+        }
+    }
+
+    private func evictLeastRecentlyUsedVirtualActorsIfNeeded(
+        policy: WebActorActivationPolicy
+    ) {
+        guard policy.maximumVirtualActorCount < Int.max else {
+            return
+        }
+        let evictedIDs = activationRecords.withLock { records in
+            guard records.count >= policy.maximumVirtualActorCount else {
+                return [] as [ActorID]
+            }
+            let removalCount = records.count - policy.maximumVirtualActorCount + 1
+            let evictedIDs = records.values
+                .sorted { left, right in left.lastAccess < right.lastAccess }
+                .prefix(removalCount)
+                .map(\.id)
+            for id in evictedIDs {
+                records[id] = nil
+            }
+            return evictedIDs
+        }
+        for id in evictedIDs {
+            registry.unregister(id: id)
         }
     }
 }
@@ -251,6 +388,12 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
 private struct WebActorActivator: Sendable {
     let environment: EnvironmentValues
     let activate: @Sendable () -> Void
+}
+
+private struct WebActorActivationRecord: Sendable {
+    let id: WebActorSystem.ActorID
+    let contract: String
+    var lastAccess: Date
 }
 
 private actor WebActorInvocationResultStore {

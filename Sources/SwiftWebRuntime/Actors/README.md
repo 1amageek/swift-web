@@ -14,6 +14,7 @@ It owns the `WebActorSystem` adapter, invocation envelope encoding/decoding, res
 | Invocation codec | Wraps ActorRuntime's Codable invocation encoder and decoder with SwiftWeb's `Codable & Sendable` requirement. |
 | Result handling | Encodes successful returns, void returns, and typed runtime failures into `ResponseEnvelope`. |
 | Transport boundary | Defines `WebActorTransport` so clients can send `InvocationEnvelope` values to a server gateway. Browser-specific transport implementations live outside this module. |
+| Actor RPC security | Defines invocation context, authorization, activation limits, and WebSocket sender binding primitives used by host adapters before dispatch. |
 
 ## Runtime Flow
 
@@ -103,8 +104,12 @@ Server Actions are page-local HTTP handlers backed by SwiftWeb action descriptor
 
 - `WebActorSystem.resolve(id:as:)` returns a local actor only when the ID exists in the local registry.
 - Missing local actors are treated as remote, allowing Swift's distributed actor machinery to create stubs for `@Resolvable` protocols.
-- `WebActorTransport` moves raw ActorRuntime envelopes; it must not depend on Vapor types.
-- Vapor integration belongs in `SwiftWebVaporWebActors.WebActorGateway`.
+- External actor invocations should enter through `invoke(envelope:context:authorization:activationPolicy:)`. The direct `invoke(envelope:)` overload is for trusted in-process calls and compatibility paths.
+- `WebActorSecurityPolicy.defaults` denies external RPC. Apps that expose browser or WebSocket actor calls must install an authorizer that validates the caller principal, recipient actor ID, and target method.
+- Virtual `ActorGroup` activations are tracked separately from the local actor registry so hosts can enforce max-count and idle-time eviction without changing the Distributed Actor registry contract.
+- WebSocket routes should bind a server-derived peer ID with `WebSocketInboundSenderPolicy.bind` before registering the socket for push routing.
+- `WebActorTransport` moves raw ActorRuntime envelopes; it must not depend on host or HTTP framework types.
+- HTTP host integration belongs in SwiftWebCore's actor endpoint and the concrete host adapters that mount collected routes.
 - Browser fetch integration belongs in `SwiftWebUIRuntime.JavaScriptKitWebActorTransport`.
 - `ActionReference` is not this module's responsibility and is not Apple's `@Resolvable` model.
 - `@Actor` must remain a component injection convenience over `$Protocol.resolve(id:using:)`; it must not add a second SwiftWeb-owned RPC protocol.

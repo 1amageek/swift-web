@@ -29,7 +29,7 @@ struct WebSocketActorTransportTests {
         let clientTransport = WebSocketActorTransport(senderID: observer.id) { text in
             serverEnd.take().receive(text)
         }
-        let serverTransport = WebSocketActorTransport { text in
+        let serverTransport = WebSocketActorTransport(inboundSenderPolicy: .bind(observer.id)) { text in
             clientEnd.take().receive(text)
         }
         clientEnd.fill(clientTransport)
@@ -74,6 +74,41 @@ struct WebSocketActorTransportTests {
             _ = try result.get()
         }
     }
+
+    @Test
+    func boundWebSocketSenderRejectsSpoofedSenderID() async throws {
+        let frames = SentFrameStore()
+        let transport = WebSocketActorTransport(inboundSenderPolicy: .bind("observer-1")) { text in
+            frames.append(text)
+        }
+        transport.onInboundSender { _, _ in
+            Issue.record("Spoofed sender must not be registered for push routing")
+        }
+        let invocation = InvocationEnvelope(
+            callID: "spoof-call",
+            recipientID: "agent-1",
+            senderID: "attacker-observer",
+            target: "noop",
+            arguments: []
+        )
+
+        transport.receive(String(decoding: try JSONEncoder().encode(Envelope.invocation(invocation)), as: UTF8.self))
+        try await Task.sleep(for: .milliseconds(20))
+
+        guard let text = frames.first() else {
+            Issue.record("Expected a rejection response frame")
+            return
+        }
+        guard case .response(let response) = try JSONDecoder().decode(Envelope.self, from: Data(text.utf8)) else {
+            Issue.record("Expected a response envelope")
+            return
+        }
+        guard case .failure(let error) = response.result else {
+            Issue.record("Expected a failed response")
+            return
+        }
+        #expect(String(describing: error).contains("senderID is not bound"))
+    }
 }
 
 private final class TransportBox: Sendable {
@@ -88,6 +123,18 @@ private final class TransportBox: Sendable {
             preconditionFailure("transport used before wiring completed")
         }
         return transport
+    }
+}
+
+private final class SentFrameStore: Sendable {
+    private let frames = Mutex<[String]>([])
+
+    func append(_ frame: String) {
+        frames.withLock { $0.append(frame) }
+    }
+
+    func first() -> String? {
+        frames.withLock { $0.first }
     }
 }
 

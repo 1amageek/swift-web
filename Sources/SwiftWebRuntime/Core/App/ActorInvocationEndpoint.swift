@@ -31,7 +31,30 @@ enum ActorInvocationEndpoint {
                 throw Abort(.badRequest, reason: "Actor invocation body is missing")
             }
             let envelope = try JSONDecoder().decode(InvocationEnvelope.self, from: Data(body))
-            let response = try await actorSystem.invoke(envelope: envelope)
+            let actorSecurity = request.application.securityConfiguration.actors
+            let context = WebActorInvocationContext(
+                transport: .http,
+                principalID: request.session.userID,
+                sessionID: request.session.id,
+                remoteAddress: request.remoteAddress
+            )
+            let response: ResponseEnvelope
+            do {
+                response = try await actorSystem.invoke(
+                    envelope: envelope,
+                    context: context,
+                    authorization: actorSecurity.authorization,
+                    activationPolicy: actorSecurity.activation
+                )
+            } catch let error as WebActorAuthorizationError {
+                var headers = HTTPFields()
+                headers[.contentType] = "text/plain; charset=utf-8"
+                return Response(
+                    status: .forbidden,
+                    headers: headers,
+                    body: .init(string: error.reason)
+                )
+            }
 
             var headers = HTTPFields()
             headers[.contentType] = "application/json; charset=utf-8"
