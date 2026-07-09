@@ -22,9 +22,24 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
     private let activators = Mutex<[String: WebActorActivator]>([:])
     private let activationRecords = Mutex<[ActorID: WebActorActivationRecord]>([:])
     private let activationLock = Mutex<Void>(())
+    private let persistentStoreBox: Mutex<(any WebActorPersistentStore)?>
+    private let persistentState = ActorPersistentStateRegistry()
 
     public init(transport: (any WebActorTransport)? = nil) {
         self.transportBox = Mutex(transport)
+        self.persistentStoreBox = Mutex(nil)
+    }
+
+    /// Installs the store that backs `@ActorStorage` grain state. Without one,
+    /// `@ActorStorage` values are in-memory only (no durability). The Cloudflare
+    /// host installs a Durable Object-backed store; native hosts can install any
+    /// durable store, or `InMemoryActorPersistentStore` for a process-lifetime one.
+    public func setPersistentStore(_ store: any WebActorPersistentStore) {
+        persistentStoreBox.withLock { $0 = store }
+    }
+
+    private var persistentStore: (any WebActorPersistentStore)? {
+        persistentStoreBox.withLock { $0 }
     }
 
     /// Installs the transport for outbound calls to non-local actors. Hosts
@@ -77,6 +92,7 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
 
     public func resignID(_ id: ActorID) {
         activationRecords.withLock { $0[id] = nil }
+        persistentState.forget(id: id)
         registry.unregister(id: id)
     }
 
@@ -253,6 +269,9 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
             throw RuntimeError.actorNotFound(envelope.recipientID)
         }
 
+        // Restore grain state before the first dispatch sees the actor.
+        try await persistentState.loadIfNeeded(id: envelope.recipientID, store: persistentStore)
+
         var decoder = try WebActorInvocationDecoder(envelope: envelope)
         let resultStore = WebActorInvocationResultStore()
         let handler = WebActorResultHandler(callID: envelope.callID) { response in
@@ -265,6 +284,10 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
             invocationDecoder: &decoder,
             handler: handler
         )
+
+        // Persist grain state after the invocation. A save failure fails the
+        // call rather than silently dropping the mutation.
+        try await persistentState.save(id: envelope.recipientID, store: persistentStore)
 
         guard let response = await resultStore.response else {
             throw RuntimeError.executionFailed("No result captured", underlying: "Unknown")
@@ -297,8 +320,11 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
             }
             purgeExpiredVirtualActors(now: now, policy: activationPolicy)
             evictLeastRecentlyUsedVirtualActorsIfNeeded(policy: activationPolicy)
+            let storageCollector = ActorStorageActivationContext.Collector()
             WebActorActivationContext.withValue(WebActorPendingID(id)) {
-                activator.activate()
+                ActorStorageActivationContext.withValue(storageCollector) {
+                    activator.activate()
+                }
             }
             guard let activated = registry.find(id: id) else {
                 throw RuntimeError.executionFailed(
@@ -306,6 +332,7 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
                     underlying: "The factory must construct the actor with the app's actor system"
                 )
             }
+            persistentState.bind(id: id, boxes: storageCollector.collected())
             recordVirtualActor(id: id, contract: contract, at: now)
             return activated
         }

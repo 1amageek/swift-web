@@ -461,8 +461,41 @@ only usable with `.allowAll`.
   which conflicts with the Workers types, was corrected); the auth claim logic
   ships with 8 unit tests (`npm test`, emulator-mode, dependency-free).
 
-Still OPEN for the edge: DO-storage persistence (WS-5 `@ActorStorage`) and the
-hibernatable WebSocket, then secure-cookie/CSP defaults and CI.
+Still OPEN for the edge: the hibernatable WebSocket, then secure-cookie/CSP
+defaults and CI.
+
+### 8l. `@ActorStorage` grain-state persistence (WS-5, core verified) (2026-07-10)
+
+Actor state that previously lived only in wasm memory (lost on eviction) can now
+be made durable. `@ActorStorage("key") var x` marks a distributed actor's own
+stored value — its Orleans-style grain state — as persistent.
+
+- **Isolation-safe design** (`SwiftWebActors`): the wrapped value lives in a
+  `Sendable`, `Mutex`-backed box the actor mutates through the wrapper and the
+  runtime persists through a type-erased `PersistentValueBox` — so the actor
+  system never crosses the actor's isolation. Boxes are collected during
+  activation via a task-local (mirroring `WebActorActivationContext`).
+- **Runtime** (`WebActorSystem`): loads state from the installed
+  `WebActorPersistentStore` once per activation before the first dispatch, and
+  saves after each invocation; a load gate makes the load single-flight, and a
+  save failure fails the call rather than dropping the mutation. `resignID`
+  forgets the binding so reactivation reloads. Without a store installed the
+  value is in-memory only (documented, not a silent fallback).
+- **Cloudflare backing** (`swift-web-cloudflare`): `DurableObjectActorStateStore`
+  persists one row per actor ID in the DO's own SQLite via a synchronous,
+  closure-free bridge (`swiftwebStorageLoad`/`Save` over `ctx.storage.sql`),
+  disambiguated by a per-DO storage token. Installed automatically by
+  `CloudflareActorHost` when the token is present.
+- **Verified**: the core mechanism is proven end-to-end by a native runtime test
+  — activate → mutate → **evict** → reactivate reloads state, and a **fresh actor
+  system sharing the store** (a fresh DO instance) reloads persisted state. The
+  Cloudflare store compiles for wasm and the Worker bridge typechecks; a workerd
+  E2E of the SQLite path is the remaining verification.
+
+For queryable/related/unbounded domain data (not grain state), the heavy DB is a
+separate concern — `database-framework` already runs in a DO over DO SQLite via
+the released `database-framework-cloudflare`; `@ActorStorage` is the lightweight
+per-actor layer, not a query engine.
 
 ## 9. Document index
 
