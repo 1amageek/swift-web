@@ -70,15 +70,15 @@ Everything that must be built, grouped. Status: ☐ not started · ◐ in progre
 | **WS-1** | **Host-neutral core** | Remove Vapor types from `SwiftWebCore`: introduce host-neutral request/response, session, route, and `AppServices` abstractions. Refit `RequestContext`, `WebSession`, `Redirect`, `@Page`/`@ServerAction` route lowering, `PageRouteScene`. | — | ☑ |
 | **WS-2** | **`swift-http-server` host adapter** | A native/container host that lowers the core onto `NIOHTTPServer` (reuse the dev host setup). Minimal router + middleware + session/cookie. The default fast local-dev + Cloud Run host. | WS-1 | ☑ |
 | **WS-3** | **Vapor as a separate package** | Extract `SwiftWebVapor` into an optional package/adapter mapping the core to Vapor; keep for those who want it, not the default. | WS-1 | ☑ |
-| **WS-4** | **Cloudflare Worker adapter** | Lower the app model into a Workers `fetch` entrypoint (TS shim + Swift/WASM). Routing `actor id → DO`. Build/deploy via `wrangler`. | WS-1 | ☐ |
-| **WS-5** | **Durable Object actor runtime** | JS DO class that hosts the Swift/WASM module; binds DO storage, alarms, and (hibernatable) WebSocket into Swift via JavaScriptKit; dispatches inbound invocations to the local actor and drives outbound pushes. | WS-4 | ☐ |
+| **WS-4** | **Cloudflare Worker adapter** | Lower the app model into a Workers `fetch` entrypoint (TS shim + Swift/WASM). Routing `actor id → DO`. Build/deploy via `wrangler`. | WS-1 | ◐ |
+| **WS-5** | **Durable Object actor runtime** | JS DO class that hosts the Swift/WASM module; binds DO storage, alarms, and (hibernatable) WebSocket into Swift via JavaScriptKit; dispatches inbound invocations to the local actor and drives outbound pushes. | WS-4 | ◐ |
 | **WS-6** | **Actor transports** | `DurableObjectActorTransport` (`call` → `get(id).fetch(envelope)`) **and** `WebSocketActorTransport` (bidirectional, multiplexed, push). Both satisfy `WebActorTransport`. | WS-5 | ☑ |
 | **WS-7** | **Client-side inbound dispatch** | The client must *receive* server-initiated invocations (route to client-hosted observer actors), not only send. Mirror the server dispatch machinery. | WS-6 | ☑ |
-| **WS-8** | **Agent runtime & programming model** | The product layer: `Agent`/`AgentClient` distributed actors, run loop, streaming push, tool-calls, cancellation, lifecycle. | WS-6, WS-7 | ☐ |
-| **WS-9** | **Edge auth** | Verify Firebase ID token at the Worker (WebCrypto + JWKS via fetch), bind the session/observer, gate DO access. Reuse `FirebaseAuth` claim logic. | WS-4 | ☐ |
+| **WS-8** | **Agent runtime & programming model** | The product layer: `Agent`/`AgentClient` distributed actors, run loop, streaming push, tool-calls, cancellation, lifecycle. | WS-6, WS-7 | ◐ |
+| **WS-9** | **Edge auth** | Verify Firebase ID token at the Worker (WebCrypto + JWKS via fetch), bind the session/observer, gate DO access. Reuse `FirebaseAuth` claim logic. | WS-4 | ◐ |
 | **WS-10** | **Firestore REST client** *(deferred)* | Reuse `FirebaseAPI`'s `FirestoreCore`/`FirestoreCodable`, add a `fetch`-based REST transport + REST-JSON value mapping + WebCrypto service-account auth. No gRPC/protobuf. | WS-4 | ☐ (deferred) |
-| **WS-11** | **WASM build & deploy pipeline** | Swift → WASM toolchain into a DO, `wrangler` deploy, **binary-size & cold-start budget**, compression, CI. | WS-4 | ☐ |
-| **WS-12** | **Dev experience** | Two loops: fast **native** (swift-http-server, actors in-process) for logic; **`wrangler dev`** (Miniflare) for DO-accurate behavior. | WS-2, WS-4 | ☐ |
+| **WS-11** | **WASM build & deploy pipeline** | Swift → WASM toolchain into a DO, `wrangler` deploy, **binary-size & cold-start budget**, compression, CI. | WS-4 | ◐ |
+| **WS-12** | **Dev experience** | Two loops: fast **native** (swift-http-server, actors in-process) for logic; **`wrangler dev`** (Miniflare) for DO-accurate behavior. | WS-2, WS-4 | ◐ |
 
 Already in place (reused, not rebuilt):
 
@@ -180,7 +180,7 @@ actor runtime.
 `SwiftWebBrowserRuntime` build **without Vapor / RoutingKit / WebSocketKit / NIO**;
 the full test suite (390 tests) is green through the rebuilt Vapor adapter.
 
-- **`SwiftWebHostKit`** (deps: `swift-http-types` + `swift-log` only) now carries the
+- **`SwiftWebHost`** (deps: `swift-http-types` + `swift-log` only) now carries the
   host-neutral contracts: `WebRequest` (mirrors Vapor 5's request API — `content.decode`
   / `query.decode` / `parameters.get` — so core diffs stayed minimal), `WebResponse`
   (buffered + streaming bodies), `WebSession`, `WebRoutesBuilder`/`WebRoutes` (route
@@ -282,7 +282,7 @@ struct SupportApp: App {
   pure-Swift unescaper). The DO package therefore depends on swift-web directly —
   **no core source mirroring**.
 - The **core-only manifest branch (`SWIFTWEB_CORE_ONLY=1`) now exposes
-  `SwiftWebHostKit` / `SwiftWebBrowserRuntime` / `SwiftWebCore`**. This is the DO
+  `SwiftWebHost` / `SwiftWebBrowserRuntime` / `SwiftWebCore`**. This is the DO
   package's dependency path: the 6.3.1 wasm toolchain cannot resolve the full manifest
   (swift-http-server/http-api-proposal require tools 6.4), and core-only also keeps
   macros/swift-syntax out of the wasm graph.
@@ -414,6 +414,55 @@ Still OPEN before production hardening:
 - **Secure-by-default transport.** Session and CSRF cookies default
   `isSecure: false` and there is no default CSP. Proposed fix: default cookie
   `Secure` on (or gate by forwarded-proto) and consider CSP-on by default.
+
+### 8j. Cloudflare host: the authorization seam reaches the edge (2026-07-10)
+
+The §8i hardening had landed only on the swift-http-server host; the Cloudflare
+Durable Object host (`swift-web-cloudflare`) still dispatched every envelope
+through the unauthenticated, unbounded `WebActorSystem.invoke(envelope:)`, so
+the actual edge target was an open, unbounded actor RPC endpoint. Fixed:
+
+| Finding | Resolution |
+|---|---|
+| **Cloudflare host bypassed authorization + activation bound** | `CloudflareActorHost` now dispatches both the HTTP `/invoke` path and inbound WebSocket invocations through `invoke(envelope:context:authorization:activationPolicy:)`, using the app's `security.actors`. Edge traffic is stamped `.http`/`.webSocket` (external), so the default `.trustedOnly` policy denies it until the app installs an authorizer. Denied HTTP invocations return **403** (a new `swiftwebInvokeDenied` trampoline signal), matching the native endpoint. |
+| **WebSocket push routing broke under the §8i sender default** | The DO socket transport now binds with an explicit `.trustClientSupplied` inbound-sender policy, restoring agent → observer push (the observer ID is a return address, not a principal); server-derived binding lands with WS-9. |
+| **Trampoline readiness cross-wire** | Protocol globals install once per isolate instead of once per start; readiness is correlated by a start ID (mirroring the socket-ID pattern), so concurrent DO cold-starts in one isolate cannot resolve each other's start promises. |
+
+`SwiftWebCloudflareHost` compiles against local swift-web for wasm
+(`SWIFTWEB_CORE_ONLY=1`, `swift-6.3.1-RELEASE_wasm`). Still OPEN for the edge:
+WS-9 token verification to supply the principal, DO-storage persistence (WS-5
+`@ActorStorage`), and the hibernatable WebSocket API. During development
+`swift-web-cloudflare` pins swift-web by local path (the §8i APIs postdate
+0.2.1); restore the URL + tag before tagging the adapter.
+
+### 8k. Edge auth lands at the Worker (WS-9, first cut) (2026-07-10)
+
+The Worker now verifies the caller's ID token before touching a Durable
+Object, and forwards the verified principal to the actor authorizer — closing
+the gap where the §8j authorization gate had no identity to match and so was
+only usable with `.allowAll`.
+
+- **Worker verifier** (`deploy/cloudflare/src/auth.ts`): WebCrypto RS256 over
+  the Firebase JWKS, `kid`-keyed key cache honoring `Cache-Control`, and the
+  documented claim checks (`iss`/`aud`/`exp`/`sub`) — mirroring
+  `FirebaseIDTokenVerifier`. Emulator mode (`SWIFTWEB_AUTH_EMULATOR_HOST`)
+  skips only the signature. Config via `wrangler.toml` `[vars]`
+  (`SWIFTWEB_AUTH_PROJECT_ID`); unset disables edge verification and leaves the
+  actor policy as the sole gate.
+- **Principal threading**: the token is read from `Authorization: Bearer` (HTTP
+  invoke) or `?access_token=` (WebSocket upgrade, since browsers cannot set
+  handshake headers); a missing/invalid token is **401**. The Worker strips any
+  client-supplied principal and sets the verified uid on the trusted Worker → DO
+  hop (`X-SwiftWeb-Principal`); `CloudflareActorHost` reads it synchronously
+  into `WebActorInvocationContext.principalID` on both paths, so
+  `.authenticatedPrincipalMatchesActorName()` binds each user to their actor.
+- **Verified**: host adapter compiles for wasm; `auth.ts`/`index.ts` typecheck
+  against `@cloudflare/workers-types` (the template tsconfig's `WebWorker` lib,
+  which conflicts with the Workers types, was corrected); the auth claim logic
+  ships with 8 unit tests (`npm test`, emulator-mode, dependency-free).
+
+Still OPEN for the edge: DO-storage persistence (WS-5 `@ActorStorage`) and the
+hibernatable WebSocket, then secure-cookie/CSP defaults and CI.
 
 ## 9. Document index
 
