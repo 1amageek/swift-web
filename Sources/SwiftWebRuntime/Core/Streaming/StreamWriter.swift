@@ -1,5 +1,5 @@
 import SwiftWebBrowserRuntime
-import SwiftWebHostKit
+import SwiftWebHost
 import SwiftWebStyle
 
 public struct StreamWriter: Sendable {

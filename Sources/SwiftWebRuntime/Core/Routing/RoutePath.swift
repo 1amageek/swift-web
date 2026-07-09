@@ -1,4 +1,4 @@
-import SwiftWebHostKit
+import SwiftWebHost
 
 public struct RoutePath: Sendable {
     public let components: [String]

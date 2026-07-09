@@ -82,7 +82,7 @@ let package = Package(
         .library(name: "SwiftWebUITheme", targets: ["SwiftWebUITheme"]),
         .library(name: "SwiftWebUI", targets: ["SwiftWebUI"]),
         .library(name: "SwiftWebUIRuntime", targets: ["SwiftWebUIRuntime"]),
-        .library(name: "SwiftWebHostKit", targets: ["SwiftWebHostKit"]),
+        .library(name: "SwiftWebHost", targets: ["SwiftWebHost"]),
         .library(name: "SwiftWebBrowserRuntime", targets: ["SwiftWebBrowserRuntime"]),
         .library(name: "SwiftWebCore", targets: ["SwiftWebCore"]),
     ] + (swiftWebDO ? [
@@ -94,7 +94,7 @@ let package = Package(
         .library(name: "SwiftWebUI", targets: ["SwiftWebUI"]),
         .library(name: "SwiftWebUIRuntime", targets: ["SwiftWebUIRuntime"]),
         .library(name: "SwiftWebBrowserRuntime", targets: ["SwiftWebBrowserRuntime"]),
-        .library(name: "SwiftWebHostKit", targets: ["SwiftWebHostKit"]),
+        .library(name: "SwiftWebHost", targets: ["SwiftWebHost"]),
         .library(name: "SwiftWebCore", targets: ["SwiftWebCore"]),
         .library(name: "SwiftWeb", targets: ["SwiftWeb"]),
         .library(name: "SwiftWebHTTPServerHost", targets: ["SwiftWebHTTPServerHost"]),
@@ -158,7 +158,7 @@ let package = Package(
             swiftSettings: swiftWebSwiftSettings
         ),
         .target(
-            name: "SwiftWebHostKit",
+            name: "SwiftWebHost",
             dependencies: [
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "Logging", package: "swift-log"),
@@ -171,7 +171,7 @@ let package = Package(
                 swiftHTMLDependency,
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 "SwiftWebActors",
-                "SwiftWebHostKit",
+                "SwiftWebHost",
                 "SwiftWebStyle",
             ],
             path: "Sources/SwiftWebBrowser/Runtime",
@@ -181,7 +181,7 @@ let package = Package(
             name: "SwiftWebCore",
             dependencies: [
                 swiftHTMLDependency,
-                "SwiftWebHostKit",
+                "SwiftWebHost",
                 .product(name: "ActorRuntime", package: "swift-actor-runtime"),
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "Logging", package: "swift-log"),
@@ -256,14 +256,14 @@ let package = Package(
                 swiftHTMLDependency,
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 "SwiftWebActors",
-                "SwiftWebHostKit",
+                "SwiftWebHost",
                 "SwiftWebStyle",
             ],
             path: "Sources/SwiftWebBrowser/Runtime",
             swiftSettings: swiftWebSwiftSettings
         ),
         .target(
-            name: "SwiftWebHostKit",
+            name: "SwiftWebHost",
             dependencies: [
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "Logging", package: "swift-log"),
@@ -274,7 +274,7 @@ let package = Package(
             name: "SwiftWebCore",
             dependencies: [
                 swiftHTMLDependency,
-                "SwiftWebHostKit",
+                "SwiftWebHost",
                 .product(name: "ActorRuntime", package: "swift-actor-runtime"),
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "Logging", package: "swift-log"),

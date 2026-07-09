@@ -4,7 +4,7 @@ import FoundationEssentials
 import Foundation
 #endif
 import HTTPTypes
-import SwiftWebHostKit
+import SwiftWebHost
 import SwiftHTML
 
 public enum SwiftWebWasmRuntimeRoutes {

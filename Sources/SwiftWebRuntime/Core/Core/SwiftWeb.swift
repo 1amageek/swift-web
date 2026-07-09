@@ -1,5 +1,5 @@
 @_exported import SwiftHTML
-@_exported import SwiftWebHostKit
+@_exported import SwiftWebHost
 @_exported import HTTPTypes
 
 public typealias Environment = SwiftHTML.Environment

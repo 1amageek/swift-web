@@ -1,4 +1,4 @@
-import SwiftWebHostKit
+import SwiftWebHost
 
 public struct WebSocketContext: Sendable {
     public let request: Request

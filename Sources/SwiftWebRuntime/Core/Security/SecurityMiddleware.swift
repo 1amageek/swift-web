@@ -1,4 +1,4 @@
-import SwiftWebHostKit
+import SwiftWebHost
 
 struct SecurityMiddleware: Middleware {
     let configuration: SecurityConfiguration

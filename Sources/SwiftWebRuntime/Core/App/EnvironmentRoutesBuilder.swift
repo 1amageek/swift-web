@@ -1,6 +1,6 @@
 import HTTPTypes
 import SwiftHTML
-import SwiftWebHostKit
+import SwiftWebHost
 
 /// Wraps a routes builder so every handler registered through it runs with
 /// the scene's environment established. This is how `.environment()` on a

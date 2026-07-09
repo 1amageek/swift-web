@@ -1,5 +1,5 @@
 import SwiftHTML
-import SwiftWebHostKit
+import SwiftWebHost
 
 public enum SwiftWebClientRuntime: Sendable, Equatable {
     case disabled

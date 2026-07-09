@@ -33,7 +33,7 @@ Sources/
   SwiftWeb/
   SwiftWebRuntime/{Core,Actors}/
   SwiftWebBrowser/{Runtime,ClientRuntime}/
-  SwiftWebHostKit/
+  SwiftWebHost/
   SwiftWebHTTPServer/Host/
   SwiftWebUI/{Components,Style,Theme}/
   SwiftWebDevelopment/{Facade,Hooks,DevServer,PackageGeneration,WasmBuild,StoryboardTooling,Storyboard}/
@@ -48,7 +48,7 @@ Sources/
 | `SwiftWebActors` | `Sources/SwiftWebRuntime/Actors/` | Transport-neutral distributed actor invocation support. |
 | `SwiftWebBrowserRuntime` | `Sources/SwiftWebBrowser/Runtime/` | Browser runtime descriptors, WASM asset routes, host scripts, and HTML runtime injection. |
 | `SwiftWebUIRuntime` | `Sources/SwiftWebBrowser/ClientRuntime/` | Browser-side WASM bridge and JavaScriptKit runtime adapter for client components. |
-| `SwiftWebHostKit` | `Sources/SwiftWebHostKit/` | Host-neutral lowering contracts (route tables, request/response bridging) that platform adapters implement. |
+| `SwiftWebHost` | `Sources/SwiftWebHost/` | Host-neutral lowering contracts (route tables, request/response bridging) that platform adapters implement. |
 | `SwiftWebHTTPServerHost` | `Sources/SwiftWebHTTPServer/Host/` | Default HTTP server host on `swift-http-server` for local development workers, Cloud Run, and native/container server builds. |
 | `SwiftWebUI` | `Sources/SwiftWebUI/Components/` | SwiftUI-inspired component layer built on top of SwiftHTML. |
 | `SwiftWebStyle` | `Sources/SwiftWebUI/Style/` | Atomic style classes, typed selectors, and CSS-safe declaration registration. |
@@ -64,7 +64,7 @@ Sources/
 
 ## Architecture
 
-The runtime core is host-neutral: `SwiftWebHostKit` defines the lowering
+The runtime core is host-neutral: `SwiftWebHost` defines the lowering
 contracts, and platform adapters serve the same `App`/`Scene`/`Page` model on
 different hosts. The built-in default host is `SwiftWebHTTPServerHost` on
 [`swift-http-server`](https://github.com/swift-server/swift-http-server).
