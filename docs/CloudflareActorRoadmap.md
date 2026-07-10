@@ -561,6 +561,24 @@ secure-cookie `Secure`/CSP defaults (a `swift-http-server` page-host hardening,
 off the actor edge path); a hibernation-specific E2E; and
 reconnect/backpressure/limits.
 
+### 8o. Release train shipped (2026-07-10)
+
+The Cloudflare actor stack is released and consistency-checked
+(`git rev-list -1 <tag>` == `origin/main` for each):
+
+| Package | Tag | Contents |
+|---|---|---|
+| swift-html | **0.9.3** | `#Preview` compiles for WebAssembly |
+| swift-web | **0.3.0** | SwiftWebHost rename, `@ActorStorage`, the edge authorization seam; pins swift-html 0.9.3 |
+| swift-web-cloudflare | **0.2.0** | edge auth (WS-9), `@ActorStorage` DO-SQLite backing, hibernatable WebSocket, CI; depends on swift-web 0.3.0 (URL) |
+
+swift-web-vapor tracks swift-web 0.3.0 on `main` but stays **untagged** — Vapor
+5's prerelease dependencies are revision-pinned, which SwiftPM rejects behind a
+version requirement. Verified before tagging: swift-web full build + **392 unit
+tests green** (swift-html 0.9.3), swift-html **136 tests green**, the
+swift-web-cloudflare host builds for wasm against the released swift-web, and the
+workerd E2E (§8n) exercised the whole path including `@ActorStorage` persistence.
+
 ## 9. Document index
 
 - `PlatformHostArchitecture.md` — host-neutral core & adapter model (foundation for WS-1/2/3/4).
