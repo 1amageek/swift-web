@@ -1384,6 +1384,116 @@ package enum RootStylesheet {
           .borderRadius("calc(var(--swui-radius-small) - 1px)")
       }
 
+      // MARK: CalendarView
+      // A month grid on the surface: weekday column headers over one cell per
+      // day. The cell header is a fixed-size pill showing the day number
+      // (today tinted, the selected day filled with the accent), and the body
+      // below is free-form caller content. Day state arrives as data
+      // attributes stamped by CalendarView/CalendarCellHeader.
+      // Fluid width: the table fills its container (the caller constrains it
+      // with a frame). Sizing is customizable through the
+      // `--swui-calendar-*` custom properties.
+      rule(cls("swui-calendar")) {
+        .width("100%")
+          .tableLayout("fixed")
+          .borderCollapse("separate")
+          .borderSpacing("var(--swui-calendar-cell-gap, 2px)")
+          .custom("padding", "var(--swui-calendar-padding, var(--swui-space-sm))")
+          .backgroundColor("var(--swui-surface)")
+          .border("1px solid var(--swui-border)")
+          .borderRadius("var(--swui-radius-large)")
+          .boxSizing("border-box")
+      }
+      rule(cls("swui-calendar-grid-header-cell")) {
+        .padding(.space(.xsmall))
+          .fontSize("12px")
+          .fontWeight("500")
+          .textAlign("center")
+          .color("var(--swui-text-muted)")
+      }
+      rule(cls("swui-calendar-cell")) {
+        .padding("2px 0")
+          .textAlign("center")
+          .verticalAlign("top")
+      }
+      rule(cls("swui-calendar-cell-content")) {
+        .display("flex")
+          .flexDirection("column")
+          .alignItems("center")
+          .justifyContent("flex-start")
+          .gap(.px(2))
+          .width("100%")
+      }
+      rule(cls("swui-calendar-cell-header-wrapper")) {
+        .display("flex")
+          .width("100%")
+          .justifyContent("center")
+          .alignItems("center")
+      }
+      rule(cls("swui-calendar-cell-header")) {
+        .display("inline-flex")
+          .width("var(--swui-calendar-day-size, 32px)")
+          .height("var(--swui-calendar-day-size, 32px)")
+          .alignItems("center")
+          .justifyContent("center")
+          .flex("none")
+          .borderRadius("var(--swui-radius-pill)")
+          .fontSize("14px")
+          .color("var(--swui-text)")
+      }
+      rule(cls("swui-calendar-cell-header").attribute("data-outside-month", equals: "true")) {
+        .color("var(--swui-text-muted)")
+          .opacity("0.5")
+      }
+      // Today reads as an accent tint; the accent fill is reserved for the
+      // selected day so the two states stay distinguishable (UICalendarView's
+      // separation of today and selection).
+      rule(cls("swui-calendar-cell-header").attribute("data-today", equals: "true")) {
+        .backgroundColor("color-mix(in srgb, var(--swui-accent) 14%, transparent)")
+          .color("var(--swui-accent)")
+          .fontWeight("600")
+      }
+      rule(cls("swui-calendar-cell-header").attribute("data-selected", equals: "true")) {
+        .backgroundColor("var(--swui-accent)")
+          .color("var(--swui-accent-text)")
+          .fontWeight("600")
+          .opacity("1")
+      }
+      // A cell wrapped in a button (a selectable day) fills its cell, drops
+      // the button chrome — including the control min-width/padding, which
+      // would otherwise push the cell content past the column edge — and
+      // shows a hover tint on the day number.
+      rule(cls("swui-calendar-cell").descendant(cls("swui-button"))) {
+        .display("block")
+          .width("100%")
+          .minWidth("0")
+          .minHeight("0")
+          .padding(.zero)
+          .border("none")
+          .background("transparent")
+          .font("inherit")
+          .color("inherit")
+          .cursor("pointer")
+      }
+      rule(
+        cls("swui-calendar-cell")
+          .descendant(cls("swui-button").pseudo(.hover))
+          .descendant(cls("swui-calendar-cell-header").not(.attribute("data-selected")))
+      ) {
+        .backgroundColor("color-mix(in srgb, var(--swui-text) 8%, transparent)")
+      }
+      // Center per-day markers under the day number and reserve a consistent
+      // strip so rows keep an even height whether or not a given day carries
+      // body content.
+      rule(cls("swui-calendar-cell-body")) {
+        .display("flex")
+          .justifyContent("center")
+          .alignItems("flex-start")
+          .gap(.px(2))
+          .width("100%")
+          .minHeight("6px")
+      }
+
       // MARK: Picker — segmented / inline
       // The `.segmented` style composes the `bar` material as a pill track;
       // each option is a hidden radio whose label span is the visual

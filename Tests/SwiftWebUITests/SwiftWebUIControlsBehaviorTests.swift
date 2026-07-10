@@ -216,6 +216,110 @@ struct SwiftWebUIControlsBehaviorTests {
     #expect(opaque.contains("value=\"#3366ff\""))
     #expect(translucent.contains("type=\"color\""))
   }
+
+  // MARK: CalendarView
+
+  /// A fixed gregorian/UTC calendar and a past month (June 2024) so the grid
+  /// math is deterministic and no rendered cell is "today".
+  private static func fixedCalendar() -> Calendar {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+    calendar.firstWeekday = 1
+    return calendar
+  }
+
+  private static func june2024(in calendar: Calendar) throws -> Date {
+    try #require(calendar.date(from: DateComponents(year: 2024, month: 6, day: 15)))
+  }
+
+  @Test
+  func calendarViewRendersMonthGridWithSlotAnatomy() throws {
+    let calendar = Self.fixedCalendar()
+    let month = try Self.june2024(in: calendar)
+
+    let rendered = CalendarView(month: month, calendar: calendar).render()
+
+    // June 2024 starts on a Saturday: 6 leading pad days + 30 days fill
+    // exactly 6 weeks of 7 cells.
+    #expect(rendered.contains("class=\"swui-calendar\""))
+    #expect(rendered.contains("role=\"grid\""))
+    #expect(rendered.contains("data-slot=\"grid\""))
+    #expect(occurrenceCount(of: "data-slot=\"grid-header-cell\"", in: rendered) == 7)
+    #expect(occurrenceCount(of: "data-slot=\"grid-body-row\"", in: rendered) == 6)
+    #expect(occurrenceCount(of: "data-slot=\"cell\"", in: rendered) == 42)
+    #expect(rendered.contains("data-date=\"2024-06-01\""))
+    // The grid starts on the previous Sunday, an adjacent-month pad day.
+    #expect(rendered.contains("data-date=\"2024-05-26\""))
+    #expect(rendered.contains("data-outside-month=\"true\""))
+    #expect(!rendered.contains("data-today"))
+  }
+
+  @Test
+  func calendarViewDefaultCellsComposeContentAndHeader() throws {
+    let calendar = Self.fixedCalendar()
+    let month = try Self.june2024(in: calendar)
+
+    let rendered = CalendarView(month: month, calendar: calendar).render()
+
+    // Without a cell closure every cell renders the day number through the
+    // CalendarCellContent > CalendarCellHeader composition.
+    #expect(occurrenceCount(of: "data-slot=\"cell-content\"", in: rendered) == 42)
+    #expect(occurrenceCount(of: "data-slot=\"cell-header\"", in: rendered) == 42)
+  }
+
+  @Test
+  func calendarViewCustomCellsComposeBodyContent() throws {
+    let calendar = Self.fixedCalendar()
+    let month = try Self.june2024(in: calendar)
+
+    let rendered = CalendarView(month: month, calendar: calendar) { day in
+      CalendarCellContent {
+        CalendarCellHeader(day)
+        CalendarCellBody {
+          if !day.isOutsideMonth, day.day == 14 {
+            Text("event").as(.span)
+          }
+        }
+      }
+    }
+    .render()
+
+    #expect(occurrenceCount(of: "data-slot=\"cell-body\"", in: rendered) == 42)
+    #expect(occurrenceCount(of: "event", in: rendered) == 1)
+  }
+
+  @Test
+  func calendarCellHeaderStampsSelectionState() throws {
+    let calendar = Self.fixedCalendar()
+    let month = try Self.june2024(in: calendar)
+
+    let rendered = CalendarView(month: month, calendar: calendar) { day in
+      CalendarCellContent {
+        CalendarCellHeader(day, isSelected: !day.isOutsideMonth && day.day == 14)
+      }
+    }
+    .render()
+
+    // Selection is caller state; exactly one day carries the stamp.
+    #expect(occurrenceCount(of: "data-selected=\"true\"", in: rendered) == 1)
+  }
+
+  @Test
+  func calendarViewWeekdaySymbolsReplaceHeaderLabels() throws {
+    let calendar = Self.fixedCalendar()
+    let month = try Self.june2024(in: calendar)
+
+    let rendered = CalendarView(
+      month: month,
+      calendar: calendar,
+      weekdaySymbols: ["S", "M", "T", "W", "T", "F", "S"]
+    )
+    .render()
+
+    // Sunday and Saturday both render "S".
+    #expect(occurrenceCount(of: "<span>S</span>", in: rendered) == 2)
+    #expect(!rendered.contains("<span>Sun</span>"))
+  }
 }
 
 private final class EditingChangeRecorder: Sendable {
