@@ -186,7 +186,7 @@ public struct StoryboardDetailIsland: ClientComponent, Sendable {
             AnimationDetail(selection: selection, ui: $ui)
         case "menu", "picker":
             PickersDetail(selection: selection, ui: $ui)
-        case "securefield", "texteditor", "toggle", "slider", "stepper", "datepicker", "colorpicker", "form", "textfield":
+        case "securefield", "texteditor", "toggle", "slider", "stepper", "datepicker", "calendar", "colorpicker", "form", "textfield":
             InputsDetail(selection: selection, ui: $ui, due: $due)
         case "color":
             FoundationsDetail(selection: selection, state: ui)

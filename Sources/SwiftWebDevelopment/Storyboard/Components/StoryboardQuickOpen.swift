@@ -2,6 +2,10 @@ import Foundation
 import SwiftHTML
 import SwiftWebUI
 
+// SwiftHTML ships a `CharacterSet` polyfill for FoundationEssentials-only hosts;
+// on the WASM target both it and Foundation's are in scope, so pin the name here.
+private typealias CharacterSet = Foundation.CharacterSet
+
 /// The catalog's quick-open search: a real, working ⌘K palette.
 ///
 /// The trigger renders in the top bar; opening it filters the whole catalog by
@@ -97,7 +101,7 @@ public struct StoryboardQuickOpen: ClientComponent, Sendable {
     }
 
     private var matches: [CatalogItem] {
-        let needle = query.trimmingCharacters(in: .whitespaces).lowercased()
+        let needle = query.trimmingCharacters(in: CharacterSet.whitespaces).lowercased()
         let allItems = catalogCategories.flatMap(\.items)
         guard !needle.isEmpty else {
             return Array(allItems.prefix(9))

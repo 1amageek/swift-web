@@ -1,6 +1,10 @@
 import Foundation
 import SwiftHTML
 
+// SwiftHTML ships a `CharacterSet` polyfill for FoundationEssentials-only hosts;
+// on the WASM target both it and Foundation's are in scope, so pin the name here.
+private typealias CharacterSet = Foundation.CharacterSet
+
 /// Indents contract markup one element per line so the DOM contract reads as a
 /// tree instead of a single overflowing string.
 func storyboardPrettyPrintedHTML(_ html: String) -> String {
@@ -13,7 +17,7 @@ func storyboardPrettyPrintedHTML(_ html: String) -> String {
     var remainder = html[...]
 
     func append(_ text: Substring, at depth: Int) {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         lines.append(String(repeating: "  ", count: max(0, depth)) + trimmed)
     }

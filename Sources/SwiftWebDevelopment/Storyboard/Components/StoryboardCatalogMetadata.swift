@@ -183,6 +183,14 @@ private func catalogProperties(for id: String) -> [CatalogProperty] {
             CatalogProperty("displayedComponents", values: ".date / .hourAndMinute", summary: "Chooses which native controls are visible."),
             CatalogProperty("label", values: "String", summary: "Accessible field label."),
         ]
+    case "calendar":
+        return [
+            CatalogProperty("month", values: "Date", summary: "Any date within the month to display."),
+            CatalogProperty("cell", values: "(CalendarDay) -> some HTML", summary: "Builds each day cell; branch on isToday / isOutsideMonth / isWeekend. Omit it for the default day-number cell."),
+            CatalogProperty("cell composition", values: "CalendarCellContent / CalendarCellHeader / CalendarCellBody", summary: "Stack the day number and per-day content inside each cell; CalendarCellHeader(day, isSelected:) fills the selected day."),
+            CatalogProperty("weekdaySymbols", values: "[String]?", summary: "Header labels indexed by weekday 1...7 (defaults to English)."),
+            CatalogProperty("calendar", values: "Calendar", summary: "Drives weeks, first weekday, and today."),
+        ]
     case "colorpicker":
         return [
             CatalogProperty("selection", values: "Binding<String>", summary: "Hex color string."),

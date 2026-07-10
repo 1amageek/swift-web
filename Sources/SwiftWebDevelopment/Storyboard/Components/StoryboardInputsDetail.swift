@@ -36,6 +36,8 @@ struct InputsDetail: Component {
                 .disabled(state.controlFlag("stepper", "disabled"))
         case "datepicker":
             datePickerDemo()
+        case "calendar":
+            calendarDemo()
         case "colorpicker":
             ColorPicker("Accent", selection: ui.string("colorpicker.value"))
                 .disabled(state.controlFlag("colorpicker", "disabled"))
@@ -72,6 +74,96 @@ struct InputsDetail: Component {
         case "large": return .large
         default: return .regular
         }
+    }
+
+    // The CalendarView showcase drives the real operations: the pager steps
+    // the displayed month, clicking a day selects it (filled back through
+    // CalendarCellHeader(isSelected:)), and the knobs vary the weekday
+    // symbols and the event markers in CalendarCellBody.
+    private static let calendarEventDays: Set<Int> = [3, 8, 14, 21, 27]
+    private static let calendarMonthNames = [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December",
+    ]
+
+    /// A fixed gregorian, Sunday-first calendar so the server render and the
+    /// client (WASM) re-render agree on the column order — `Calendar.current`
+    /// resolves to different first weekdays across the two runtimes.
+    private static var calendarDemoCalendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.firstWeekday = 1
+        return calendar
+    }
+
+    @HTMLBuilder
+    private func calendarDemo() -> some HTML {
+        let calendar = Self.calendarDemoCalendar
+        let narrow = state.control("calendar", "weekdays") == "narrow"
+        let events = state.controlFlag("calendar", "events")
+        let selected = state.control("calendar", "selected")
+        let ui = self.ui
+        VStack(alignment: .center, spacing: .small) {
+            calendarPager(calendar: calendar)
+            CalendarView(
+                month: due.wrappedValue,
+                calendar: calendar,
+                weekdaySymbols: narrow ? ["S", "M", "T", "W", "T", "F", "S"] : nil,
+                accessibilityLabel: "Calendar demo"
+            ) { day in
+                Button(action: { ui.string("calendar.selected").wrappedValue = day.isoDate }) {
+                    CalendarCellContent {
+                        CalendarCellHeader(day, isSelected: day.isoDate == selected)
+                        if events {
+                            CalendarCellBody {
+                                if !day.isOutsideMonth, Self.calendarEventDays.contains(day.day) {
+                                    calendarEventDot()
+                                }
+                            }
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+            .frame(maxWidth: 320)
+            Text(selected.isEmpty ? "Tap a day to select it" : "selected = \(selected)")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    /// The month pager: ‹ steps back, › steps forward, the title names the
+    /// visible month.
+    @HTMLBuilder
+    private func calendarPager(calendar: Calendar) -> some HTML {
+        let due = self.due
+        let components = calendar.dateComponents([.year, .month], from: due.wrappedValue)
+        let monthName = Self.calendarMonthNames[(((components.month ?? 1) - 1) + 12) % 12]
+        HStack(spacing: .medium) {
+            Button(action: { Self.stepMonth(due, by: -1, calendar: calendar) }) {
+                Text("‹")
+            }
+            Text("\(monthName) \(String(components.year ?? 0))")
+                .font(.headline)
+                .frame(minWidth: 140)
+            Button(action: { Self.stepMonth(due, by: 1, calendar: calendar) }) {
+                Text("›")
+            }
+        }
+    }
+
+    private static func stepMonth(_ due: Binding<Date>, by months: Int, calendar: Calendar) {
+        guard let next = calendar.date(byAdding: .month, value: months, to: due.wrappedValue) else {
+            assertionFailure("Calendar failed to step \(months) month(s) from \(due.wrappedValue)")
+            return
+        }
+        due.wrappedValue = next
+    }
+
+    /// A small accent dot standing in for per-day content such as events.
+    private func calendarEventDot() -> some HTML {
+        Text("").as(.span)
+            .frame(width: 5, height: 5)
+            .background(Color.accent, in: .capsule)
     }
 
     @HTMLBuilder

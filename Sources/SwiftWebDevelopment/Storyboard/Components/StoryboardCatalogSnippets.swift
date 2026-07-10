@@ -580,6 +580,24 @@ func catalogSnippet(for id: String, state: [String: String] = [:]) -> String {
     let disabled = state.controlFlag(id, "disabled")
     return "DatePicker(\n    \"Event\",\n    selection: $due,\n    displayedComponents: \(comps)\n)" + (disabled ? "\n.disabled()" : "")
 
+  case "calendar":
+    let narrow = state.control(id, "weekdays") == "narrow"
+    let events = state.controlFlag(id, "events")
+    let selected = state.control(id, "selected")
+    let symbols = narrow ? ",\n    weekdaySymbols: [\"S\", \"M\", \"T\", \"W\", \"T\", \"F\", \"S\"]" : ""
+    let body = events
+      ? "\n            CalendarCellBody {\n                if hasEvents(day) { EventDot() }\n            }"
+      : ""
+    return "CalendarView(month: month\(symbols)) { day in\n"
+      + "    Button(action: { selected = day.isoDate }) {\n"
+      + "        CalendarCellContent {\n"
+      + "            CalendarCellHeader(day, isSelected: day.isoDate == selected)\(body)\n"
+      + "        }\n"
+      + "    }\n"
+      + "    .buttonStyle(.plain)\n"
+      + "}\n"
+      + "// ‹ › step month; selected = \(selected.isEmpty ? "nil" : q(selected))"
+
   case "colorpicker":
     let value = state.control(id, "value")
     let disabled = state.controlFlag(id, "disabled")

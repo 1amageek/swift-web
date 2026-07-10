@@ -82,6 +82,11 @@ func inputPresentationDiscussion(for id: String) -> [String]? {
             "DatePicker binds a Date, and displayedComponents picks the native control: .date lowers to input[type=date], .hourAndMinute to time, and both together to datetime-local — the calendar and clock UI are the browser's own.",
             "The bound Date stays an absolute instant; the rendered value and the parsed input both use the runtime's Calendar.current, the same explicit choice SwiftUI makes through its environment calendar. Clearing the field or typing an unparseable value keeps the prior date, because Binding<Date> cannot represent an empty selection.",
         ]
+    case "calendar":
+        return [
+            "CalendarView shows one month as a grid of weekday columns: one cell per day, including the adjacent-month days that pad the first and last weeks. month: selects the month — any date within it works — and the view's Calendar drives the weeks, the first weekday, and today. The grid math is pure Calendar arithmetic, no DateFormatter, so the same component runs in the WebAssembly runtime, and the grid lowers to a real <table role=\"grid\"> so assistive technology reads it as one.",
+            "Each day cell is built by the cell closure from a CalendarDay: the day's date plus isToday, isOutsideMonth, and isWeekend. Compose the cell from CalendarCellContent, CalendarCellHeader — the day number, with today tinted by the accent — and CalendarCellBody for per-day content such as event markers; omit the closure entirely for the default day-number cell. Days become selectable by wrapping the content in a plain Button: selection lives in caller state and flows back through CalendarCellHeader(day, isSelected:), which fills the selected day.",
+        ]
     case "colorpicker":
         return [
             "ColorPicker binds a color selection to a native color well — input[type=color] — so the swatch, eyedropper, and picker popover are the platform's own. The selection is a #rrggbb hex string, the exact value format the native input speaks; the API deliberately binds that string instead of inventing a lossy Color round-trip.",
@@ -134,6 +139,8 @@ func inputPresentationParity(for id: String) -> String? {
         return "Same shape as SwiftUI's Picker(_:selection:content:) with pickerStyle(_:); the wheel and palette styles are intentionally absent on the web."
     case "datepicker":
         return "Same shape as SwiftUI's DatePicker(_:selection:displayedComponents:); the presentation is the browser's native control rather than datePickerStyle variants."
+    case "calendar":
+        return "SwiftUI has no calendar view; the month grid mirrors UIKit's UICalendarView, with composable cells (CalendarCellContent/Header/Body) for custom per-day content."
     case "colorpicker":
         return "Same shape as SwiftUI's ColorPicker(_:selection:supportsOpacity:), with the selection bound as the hex string the native control uses."
     case "color":
@@ -171,6 +178,8 @@ func inputPresentationVariants(for id: String) -> [CatalogVariant]? {
         return pickerVariants()
     case "datepicker":
         return datePickerVariants()
+    case "calendar":
+        return calendarVariants()
     case "colorpicker":
         return colorPickerVariants()
     case "color":
@@ -424,6 +433,58 @@ private func datePickerVariants() -> [CatalogVariant] {
         CatalogVariant("Disabled", detail: ".disabled(true) dims the field and blocks the native picker.") {
             DatePicker("Due date", selection: constant(variantDate), displayedComponents: [.date])
                 .disabled(true)
+        },
+    ]
+}
+
+/// Days that carry an event marker in the custom-cell calendar variant.
+private let calendarVariantEventDays: Set<Int> = [3, 8, 14, 21, 27]
+
+/// A fixed gregorian, Sunday-first calendar so variant cards render the same
+/// column order on every host, independent of the runtime locale.
+private var calendarVariantCalendar: Calendar {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.firstWeekday = 1
+    return calendar
+}
+
+/// A small accent dot standing in for per-day content such as events.
+private func calendarVariantEventDot() -> some HTML {
+    Text("").as(.span)
+        .frame(width: 5, height: 5)
+        .background(Color.accent, in: .capsule)
+}
+
+private func calendarVariants() -> [CatalogVariant] {
+    [
+        CatalogVariant("Default cells", detail: "Without a cell closure each day renders CalendarCellContent { CalendarCellHeader(day) }; today fills with the accent.") {
+            CalendarView(month: variantDate, calendar: calendarVariantCalendar)
+                .frame(maxWidth: 280)
+        },
+        CatalogVariant("Custom cells", detail: "CalendarCellBody stacks per-day content — here an event dot — under the day number.") {
+            CalendarView(month: variantDate, calendar: calendarVariantCalendar) { day in
+                CalendarCellContent {
+                    CalendarCellHeader(day)
+                    CalendarCellBody {
+                        if !day.isOutsideMonth, calendarVariantEventDays.contains(day.day) {
+                            calendarVariantEventDot()
+                        }
+                    }
+                }
+            }
+            .frame(maxWidth: 280)
+        },
+        CatalogVariant("Selected day", detail: "Selection lives in caller state and flows back through CalendarCellHeader(day, isSelected:), which fills the day with the accent.") {
+            CalendarView(month: variantDate, calendar: calendarVariantCalendar) { day in
+                CalendarCellContent {
+                    CalendarCellHeader(day, isSelected: !day.isOutsideMonth && day.day == 15)
+                }
+            }
+            .frame(maxWidth: 280)
+        },
+        CatalogVariant("Narrow weekdays", detail: "weekdaySymbols swaps the header labels, indexed by weekday 1...7.") {
+            CalendarView(month: variantDate, calendar: calendarVariantCalendar, weekdaySymbols: ["S", "M", "T", "W", "T", "F", "S"])
+                .frame(maxWidth: 280)
         },
     ]
 }

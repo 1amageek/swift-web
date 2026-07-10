@@ -458,6 +458,11 @@ func storyboardControls(for id: String) -> [StoryboardControl] {
             .segmented(label: "displayedComponents", key: "components", options: [.init("date", ".date"), .init("time", ".hourAndMinute"), .init("dateAndTime", "Both")]),
             .toggle(label: "disabled", key: "disabled"),
         ]
+    case "calendar":
+        return [
+            .segmented(label: "weekdaySymbols", key: "weekdays", options: [.init("short", "Short"), .init("narrow", "Narrow")]),
+            .toggle(label: "event markers", key: "events"),
+        ]
     case "colorpicker":
         return [
             .color(label: "selection", key: "value"),
@@ -563,6 +568,7 @@ let storyboardControlDefaults: [String: String] = [
     "stepper.value": "3", "stepper.tint": "accent", "stepper.disabled": "false",
     "picker.value": "grid", "picker.style": "segmented", "picker.disabled": "false",
     "datepicker.components": "dateAndTime", "datepicker.disabled": "false",
+    "calendar.weekdays": "short", "calendar.events": "true", "calendar.selected": "",
     "colorpicker.value": "#3366ff", "colorpicker.disabled": "false",
     "color.name": "blue", "color.opacity": "1", "color.custom": "#22a06b",
     "progressview.value": "0.35", "progressview.indeterminate": "false", "progressview.label": "true",

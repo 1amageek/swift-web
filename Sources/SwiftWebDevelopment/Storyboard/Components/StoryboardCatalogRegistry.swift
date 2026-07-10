@@ -90,6 +90,7 @@ public let catalogCategories: [CatalogCategory] = [
         CatalogItem(id: "stepper", name: "Stepper", code: "Stepper(_:value:in:)", summary: "Increment or decrement a discrete value within bounds."),
         CatalogItem(id: "picker", name: "Picker", code: "Picker(selection:) { } label: { }", summary: "pickerStyle(_:) chooses dropdown, segmented, inline, or menu without changing the binding."),
         CatalogItem(id: "datepicker", name: "DatePicker", code: "DatePicker(selection:) { }", summary: "datePickerStyle picks the presentation while the binding owns the selected date."),
+        CatalogItem(id: "calendar", name: "Calendar", code: "CalendarView(month:) { day in }", summary: "A month grid whose cells you fill with a content closure; each cell carries today, weekend, and adjacent-month state."),
         CatalogItem(id: "colorpicker", name: "ColorPicker", code: "ColorPicker(selection:) { }", summary: "A native color well bound to a hex string."),
         CatalogItem(id: "color", name: "Color & tint", code: ".tint(.accent)", summary: "tint(_:) applies a semantic or custom color to a control without changing the global color scheme."),
     ]),
