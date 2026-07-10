@@ -509,11 +509,47 @@ per-actor layer, not a query engine.
   unit tests. The Swift/WASM host build joins CI once swift-web is a tagged URL
   dependency again (local path during development is not CI-resolvable).
 
-Still OPEN before full production: secure-cookie `Secure`/CSP defaults (a
-`swift-http-server` page-host hardening, off the actor edge path — the session
-cookie is hardcoded `isSecure: false` and needs gating on request-secure like
-`SecurityHeadersPolicy` already does); a workerd E2E of the persistence and
-hibernation paths; and reconnect/backpressure/limits.
+### 8n. Full workerd E2E — the service runs, persistence proven (2026-07-10)
+
+Scaffolded a sample with `sweb new SampleApp` (Counter distributed actor with
+`@ActorStorage("count")` + `ActorGroup`), installed the adapter, built the DO
+wasm, and ran it in `wrangler dev`:
+
+- **Build pipeline**: `sweb new` → `swiftweb-cloudflare install` → `build.sh`
+  (`SWIFTWEB_DO=1`, wasm SDK) → `wasm-opt -Oz` produced `app.wasm` at
+  **10.16 MB raw / 3.24 MB gzip** (matches §8f), with the real JavaScriptKit
+  `runtime.mjs`.
+- **Runs in workerd**: `wrangler dev` booted with the `SWIFTWEB_ACTOR` DO
+  binding; `/__swiftweb/health` → `ok`.
+- **Type-safe distributed invoke E2E**: a native client (reusing the app's
+  `Counter`, so target mangling matches) posting `InvocationEnvelope`s to
+  `/_swiftweb/actors/invoke` got `increment` → 1, 2, 3.
+- **@ActorStorage persistence proven on real DO SQLite**: after **restarting
+  wrangler** (fresh workerd process — the DO instance and its wasm memory are
+  gone), `current` returned **3** (reloaded from DO SQLite), and further
+  `increment`s continued 4, 5, 6. Grain state survives eviction end to end.
+
+Template/flow defects surfaced by the E2E (open, for the owner):
+
+1. **`sweb new --platform cloudflare` is broken.** `sweb.json` `path` points at
+   `templates/new`, but the templates live at
+   `Sources/swiftweb-cloudflare/Templates/new`; and even corrected, the
+   `--platform` flow copies only that dir (the worker), missing the shared
+   `wasm-package` (`deploy/wasm`). The working, verified flow is
+   `swiftweb-cloudflare install`. Decide: align `--platform` (path + wasm
+   package) or make `install` the documented path.
+2. **The DO wasm build rejects `#Preview`.** The default scaffold emits
+   `#Preview` in every page; the client wasm build strips it
+   (`SwiftWebClientPreviewStripper`), but the DO build path-references the app's
+   real sources and fails with `no macro named 'Preview'`. Every real app fails
+   the DO build until this is handled (strip in the DO build, make `#Preview` a
+   no-op in `SWIFTWEB_DO`, or guard the scaffolded preview).
+3. **Cosmetic**: `wrangler` warns the `CompiledWasm` module rule lacks
+   `fallthrough`; add `fallthrough = true|false` to the `wrangler.toml` rule.
+
+Still OPEN before full production: the three E2E defects above; secure-cookie
+`Secure`/CSP defaults (a `swift-http-server` page-host hardening, off the actor
+edge path); a hibernation-specific E2E; and reconnect/backpressure/limits.
 
 ## 9. Document index
 
