@@ -529,27 +529,36 @@ wasm, and ran it in `wrangler dev`:
   gone), `current` returned **3** (reloaded from DO SQLite), and further
   `increment`s continued 4, 5, 6. Grain state survives eviction end to end.
 
-Template/flow defects surfaced by the E2E (open, for the owner):
+Template/flow defects surfaced by the E2E:
 
-1. **`sweb new --platform cloudflare` is broken.** `sweb.json` `path` points at
-   `templates/new`, but the templates live at
-   `Sources/swiftweb-cloudflare/Templates/new`; and even corrected, the
-   `--platform` flow copies only that dir (the worker), missing the shared
-   `wasm-package` (`deploy/wasm`). The working, verified flow is
-   `swiftweb-cloudflare install`. Decide: align `--platform` (path + wasm
-   package) or make `install` the documented path.
-2. **The DO wasm build rejects `#Preview`.** The default scaffold emits
-   `#Preview` in every page; the client wasm build strips it
+1. **`#Preview` broke the DO wasm build — FIXED** (swift-html). The default
+   scaffold emits `#Preview` in every page; the client wasm build strips it
    (`SwiftWebClientPreviewStripper`), but the DO build path-references the app's
-   real sources and fails with `no macro named 'Preview'`. Every real app fails
-   the DO build until this is handled (strip in the DO build, make `#Preview` a
-   no-op in `SWIFTWEB_DO`, or guard the scaffolded preview).
-3. **Cosmetic**: `wrangler` warns the `CompiledWasm` module rule lacks
-   `fallthrough`; add `fallthrough = true|false` to the `wrangler.toml` rule.
+   real sources and failed with `no macro named 'Preview'`. Root cause: the
+   `#Preview` *declaration* was gated on `canImport(WebKit)`, so it did not exist
+   on WASI even though its *expansion* already self-gates on
+   `#if DEBUG && canImport(WebKit)`. Fixed by declaring `#Preview` unconditionally
+   in swift-html, so it compiles to nothing off Apple platforms; verified by
+   rebuilding the DO wasm with `#Preview` restored. (swift-html needs a release
+   for consumers.)
+2. **`wrangler` CompiledWasm rule warning — FIXED**: added `fallthrough = true`
+   to the `wrangler.toml` rule in both templates.
+3. **`sweb new --platform cloudflare` does not work — OPEN (owner design).** Per
+   `PlatformAdapterTemplateContract.md`, an adapter exposes `sweb.json` at its
+   repo root with templates at `templates/<name>`, and `--platform` substitutes
+   only `{{app.name|moduleName|kebabName}}`. This adapter keeps its templates
+   under `Sources/swiftweb-cloudflare/Templates/` (for the CLI's `Bundle.module`)
+   — so there are no repo-root `templates/` — and the wasm package uses path
+   placeholders (`{{app.relativePath}}`, `{{swiftWebCloudflare.relativePath}}`)
+   that `--platform` never fills. Making it work needs contract-compliant
+   repo-root templates with URL (not path) dependencies — a github-flow change
+   not verifiable from a local checkout. Until then the verified path is
+   `swiftweb-cloudflare install` (used for this E2E).
 
-Still OPEN before full production: the three E2E defects above; secure-cookie
-`Secure`/CSP defaults (a `swift-http-server` page-host hardening, off the actor
-edge path); a hibernation-specific E2E; and reconnect/backpressure/limits.
+Still OPEN before full production: the `--platform` contract gap above;
+secure-cookie `Secure`/CSP defaults (a `swift-http-server` page-host hardening,
+off the actor edge path); a hibernation-specific E2E; and
+reconnect/backpressure/limits.
 
 ## 9. Document index
 
