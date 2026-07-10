@@ -539,8 +539,9 @@ Template/flow defects surfaced by the E2E:
    on WASI even though its *expansion* already self-gates on
    `#if DEBUG && canImport(WebKit)`. Fixed by declaring `#Preview` unconditionally
    in swift-html, so it compiles to nothing off Apple platforms; verified by
-   rebuilding the DO wasm with `#Preview` restored. (swift-html needs a release
-   for consumers.)
+   rebuilding the DO wasm with `#Preview` restored. Released as **swift-html
+   0.9.3** (`from: "0.9.2"` consumers pick it up), so real apps' DO builds work
+   without a local override.
 2. **`wrangler` CompiledWasm rule warning — FIXED**: added `fallthrough = true`
    to the `wrangler.toml` rule in both templates.
 3. **`sweb new --platform cloudflare` does not work — OPEN (owner design).** Per
