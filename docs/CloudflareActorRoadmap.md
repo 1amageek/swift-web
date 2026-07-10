@@ -461,9 +461,6 @@ only usable with `.allowAll`.
   which conflicts with the Workers types, was corrected); the auth claim logic
   ships with 8 unit tests (`npm test`, emulator-mode, dependency-free).
 
-Still OPEN for the edge: the hibernatable WebSocket, then secure-cookie/CSP
-defaults and CI.
-
 ### 8l. `@ActorStorage` grain-state persistence (WS-5, core verified) (2026-07-10)
 
 Actor state that previously lived only in wasm memory (lost on eviction) can now
@@ -496,6 +493,27 @@ For queryable/related/unbounded domain data (not grain state), the heavy DB is a
 separate concern — `database-framework` already runs in a DO over DO SQLite via
 the released `database-framework-cloudflare`; `@ActorStorage` is the lightweight
 per-actor layer, not a query engine.
+
+### 8m. Hibernatable WebSocket + CI (2026-07-10)
+
+- **Hibernatable WebSocket** (`swift-web-cloudflare`): the DO now accepts sockets
+  with `ctx.acceptWebSocket` and handles frames via `webSocketMessage`/`Close`/
+  `Error`, so it can hibernate while a socket stays open. The Worker-verified
+  principal rides in the socket attachment to survive a wake; on wake the handler
+  runs on a fresh instance and re-opens the socket in Swift (whose socket map was
+  lost). Server → client pushes stay one-way and durable state is `@ActorStorage`,
+  so nothing that must outlive a wake lives in socket memory. Typechecked; a
+  workerd hibernation E2E remains.
+- **CI** (`swift-web-cloudflare/.github/workflows/ci.yml`): matrix over the
+  new/chat templates — materialize, `npm install`, `tsc --noEmit`, and the auth
+  unit tests. The Swift/WASM host build joins CI once swift-web is a tagged URL
+  dependency again (local path during development is not CI-resolvable).
+
+Still OPEN before full production: secure-cookie `Secure`/CSP defaults (a
+`swift-http-server` page-host hardening, off the actor edge path — the session
+cookie is hardcoded `isSecure: false` and needs gating on request-secure like
+`SecurityHeadersPolicy` already does); a workerd E2E of the persistence and
+hibernation paths; and reconnect/backpressure/limits.
 
 ## 9. Document index
 
