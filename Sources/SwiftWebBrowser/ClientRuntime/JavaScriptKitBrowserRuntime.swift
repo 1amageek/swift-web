@@ -266,10 +266,42 @@ public enum JavaScriptKitBrowserRuntime {
             reportUnresolvedTarget(nodeID, operation: "replaceSubtree")
             return
         }
-        let range = document.createRange()
-        _ = range.selectNode(node)
-        let fragment = range.createContextualFragment(html)
-        _ = node.replaceWith(fragment)
+        let nodes = parseHTMLNodes(html)
+        if nodes.isEmpty {
+            _ = node.remove()
+            return
+        }
+        let parent: JSValue = node.parentNode
+        for replacement in nodes {
+            _ = parent.insertBefore(replacement, node)
+        }
+        _ = node.remove()
+    }
+
+    /// Parses an HTML fragment with the context-independent `<template>`
+    /// parser and returns the resulting nodes.
+    ///
+    /// `Range.createContextualFragment` applies the context element's HTML
+    /// insertion mode: a top-level `<td>`/`<tr>` parsed against `body` or any
+    /// non-table parent is a parse error and is dropped (its children splice
+    /// flat into the parent), while non-table content parsed in a table
+    /// context is foster-parented out of the table. The template parser
+    /// preserves the emitted structure verbatim regardless of the insertion
+    /// point. (Raw-text hosts like `<style>`/`<script>` still need the
+    /// contextual path — see `replaceRawHTMLContents`.)
+    private static func parseHTMLNodes(_ html: String) -> [JSValue] {
+        let template: JSValue = document.createElement("template")
+        template.innerHTML = JSValue.string(html)
+        let content: JSValue = template.content
+        let childNodes: JSValue = content.childNodes
+        let count = Int(childNodes.length.number ?? 0)
+        // Copy out of the live NodeList before the nodes are re-inserted.
+        var nodes: [JSValue] = []
+        nodes.reserveCapacity(count)
+        for index in 0..<count {
+            nodes.append(childNodes[index])
+        }
+        return nodes
     }
 
     private static func replaceRenderedRange(
@@ -280,12 +312,18 @@ public enum JavaScriptKitBrowserRuntime {
         guard let boundary = renderedBoundary(for: record, hydrationIndex: hydrationIndex) else {
             return false
         }
+        // Capture the insertion anchor before deleting the range: the range
+        // includes `boundary.last`, so its `nextSibling` must be read first.
+        let parent: JSValue = boundary.first.parentNode
+        let reference: JSValue = boundary.last.nextSibling
+        let nodes = parseHTMLNodes(html)
         let range = document.createRange()
         _ = range.setStartBefore(boundary.first)
         _ = range.setEndAfter(boundary.last)
-        let fragment = range.createContextualFragment(html)
         _ = range.deleteContents()
-        _ = range.insertNode(fragment)
+        for node in nodes {
+            _ = parent.insertBefore(node, reference)
+        }
         return true
     }
 
@@ -496,9 +534,12 @@ public enum JavaScriptKitBrowserRuntime {
             reportUnresolvedTarget(parentID, operation: "insertHTML")
             return
         }
-        let range = document.createRange()
-        let fragment = range.createContextualFragment(html)
-        _ = context.parent.insertBefore(fragment, context.reference ?? .null)
+        // An unpositioned Range parses in the document (body) context, which
+        // drops table tags: an inserted `<td>` subtree would lose its wrapper.
+        let reference = context.reference ?? .null
+        for node in parseHTMLNodes(html) {
+            _ = context.parent.insertBefore(node, reference)
+        }
     }
 
     private static func removeNode(

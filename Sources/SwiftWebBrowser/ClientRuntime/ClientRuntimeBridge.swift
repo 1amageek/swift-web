@@ -274,9 +274,26 @@ public final class ClientRuntimeBridge<Root: HTML> {
                     appliesDOMCommandsInRuntime: domHost != nil
                 )
             }
+            // Normalize the mounted DOM's event attributes to the local
+            // render's handler ids. The server rendered the whole document
+            // with one handler counter while the island renders with its own,
+            // so the two id spaces disagree from the first paint; rewriting
+            // the attributes once here makes the DOM speak the local id space,
+            // and every later re-render keeps it in sync through the
+            // fingerprint-aware attribute diff.
+            let syncBatch = BrowserDOMCommandBatch(
+                commands: Self.eventAttributeSyncCommands(
+                    localIndex: localIndex,
+                    nodeMap: initialNodeMap
+                )
+            )
+            if let domHost, !syncBatch.commands.isEmpty {
+                try domHost.apply(syncBatch, currentIndex: request.hydrationIndex)
+            }
             return ClientRuntimeResponse(
-                commandBatch: BrowserDOMCommandBatch(commands: []),
-                hydrationIndex: request.hydrationIndex
+                commandBatch: syncBatch,
+                hydrationIndex: request.hydrationIndex,
+                appliesDOMCommandsInRuntime: domHost != nil
             )
         }
 
@@ -284,6 +301,24 @@ public final class ClientRuntimeBridge<Root: HTML> {
             commandBatch: BrowserDOMCommandBatch(commands: []),
             hydrationIndex: session?.artifact.browserHydrationIndex()
         )
+    }
+
+    /// One `setProperty` per event binding, rewriting the mounted element's
+    /// `data-event-*` attribute to the local render's handler id.
+    private static func eventAttributeSyncCommands(
+        localIndex: BrowserHydrationIndex,
+        nodeMap: [HTMLNodeID: HTMLNodeID]
+    ) -> [BrowserDOMCommand] {
+        localIndex.handlers.compactMap { binding in
+            guard let mountedNodeID = nodeMap[binding.nodeID] else {
+                return nil
+            }
+            return .setProperty(
+                node: mountedNodeID,
+                name: HTMLRuntimeMarkers.eventAttribute(binding.eventName),
+                value: binding.handlerID.rawValue
+            )
+        }
     }
 
     public func snapshotState() throws -> ClientRuntimeStateSnapshot {
@@ -441,6 +476,13 @@ public final class ClientRuntimeBridge<Root: HTML> {
         _ mountedHandlerID: HandlerID,
         in session: HydrationRuntimeSession<Root>
     ) -> HandlerID {
+        // The DOM's event attributes are normalized to the local id space at
+        // bootstrap and kept in sync by the attribute diff, so an id that
+        // resolves directly in the current artifact needs no translation.
+        let localIndex = session.artifact.browserHydrationIndex()
+        if localIndex.handlers.contains(where: { $0.handlerID == mountedHandlerID }) {
+            return mountedHandlerID
+        }
         guard componentMount != nil,
               let mountedHydrationIndex,
               let mountedBinding = mountedHydrationIndex.handlers.first(where: { binding in
@@ -457,7 +499,6 @@ public final class ClientRuntimeBridge<Root: HTML> {
             return mountedHandlerID
         }
 
-        let localIndex = session.artifact.browserHydrationIndex()
         return localIndex.handlers.first { binding in
             binding.nodeID == localNodeID
                 && binding.eventName == mountedBinding.eventName
@@ -997,6 +1038,7 @@ public final class ClientRuntimeBridge<Root: HTML> {
                 continue
             }
             if let mountedID = mountedKeyed[key],
+               !usedMountedIDs.contains(mountedID),
                let mountedNode = mountedIndex.node(mountedID),
                nodesAreCompatible(localNode, mountedNode) {
                 matches[localID] = mountedID
@@ -1029,6 +1071,34 @@ public final class ClientRuntimeBridge<Root: HTML> {
             }
             matches[localID] = mountedID
             usedMountedIDs.insert(mountedID)
+        }
+
+        // Keyed children whose keys did not line up (the rendered data changed
+        // between the mounted render and this one — e.g. a calendar grid whose
+        // per-day keys all move on a month change) still need a DOM anchor:
+        // pair the remaining keyed locals with the remaining keyed mounted
+        // children in order. Without this pass an unmatched keyed child is
+        // assigned a synthetic node id that resolves to no DOM element, so its
+        // patches are silently dropped and the keyed wrapper vanishes from the
+        // DOM on re-render.
+        var keyedCursor = 0
+        for localID in localChildren where matches[localID] == nil {
+            guard let localNode = localIndex.node(localID), localNode.key != nil else {
+                continue
+            }
+            while keyedCursor < mountedChildren.count {
+                let mountedID = mountedChildren[keyedCursor]
+                keyedCursor += 1
+                guard !usedMountedIDs.contains(mountedID),
+                      let mountedNode = mountedIndex.node(mountedID),
+                      mountedNode.key != nil,
+                      nodesAreCompatible(localNode, mountedNode) else {
+                    continue
+                }
+                matches[localID] = mountedID
+                usedMountedIDs.insert(mountedID)
+                break
+            }
         }
 
         var mountedCursor = 0
@@ -1423,13 +1493,15 @@ public final class ClientRuntimeBridge<Root: HTML> {
         guard let mappedNodeID = nodeMap[binding.nodeID] else {
             return nil
         }
-        let mountedHandlerID = mountedIndex.handlers.first { mountedBinding in
-            mountedBinding.nodeID == mappedNodeID
-                && mountedBinding.eventName == binding.eventName
-        }?.handlerID ?? binding.handlerID
+        // Keep the LOCAL handler id: the DOM's `data-event-*` attributes are
+        // normalized to the local id space at bootstrap and kept in sync by
+        // the attribute diff, so the rebased index must describe the same id
+        // space the DOM carries. Preserving the mounted (server) id here would
+        // desynchronize `translatedHandlerID` from the attributes and route
+        // events to a neighboring handler.
         return BrowserHydrationEventBinding(
             nodeID: mappedNodeID,
-            handlerID: mountedHandlerID,
+            handlerID: binding.handlerID,
             eventName: binding.eventName,
             componentID: binding.componentID.flatMap { componentIDMap[$0] }
         )

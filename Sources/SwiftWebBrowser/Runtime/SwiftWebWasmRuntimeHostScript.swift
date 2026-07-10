@@ -2347,9 +2347,20 @@ package enum SwiftWebWasmRuntimeHostScript {
       const range = document.createRange();
       range.setStartBefore(boundary.first);
       range.setEndAfter(boundary.last);
-      const fragment = range.createContextualFragment(html || "");
+      // Parse with the context-independent template parser instead of
+      // range.createContextualFragment: a component's replacement HTML is
+      // wrapper-less, and contextual parsing applies the insertion parent's
+      // HTML insertion mode — dropping table tags (a top-level <td> parsed
+      // under a non-table parent is ignored, splicing its children flat) or
+      // foster-parenting non-table content out of a table context. The
+      // template parser preserves the emitted structure verbatim.
+      const nodes = parseHTML(html || "");
+      const parent = boundary.first.parentNode;
+      const reference = boundary.last.nextSibling;
       range.deleteContents();
-      range.insertNode(fragment);
+      for (const node of nodes) {
+        parent.insertBefore(node, reference);
+      }
       return true;
     }
 
