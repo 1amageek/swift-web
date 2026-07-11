@@ -15,6 +15,8 @@ public enum SwiftWebDevRuntimeError: Error, Sendable, CustomStringConvertible {
     case wasmToolchainNotFound(sdkName: String, searched: [String])
     case unsupportedWasmSDK(String)
     case initialWasmBuildFailed(component: String, product: String, reason: String)
+    case workerBuildFailed(command: String, status: Int32, firstErrorLine: String?, logPath: String)
+    case workerExitedDuringStartup(status: Int32)
 
     public var description: String {
         switch self {
@@ -60,6 +62,17 @@ public enum SwiftWebDevRuntimeError: Error, Sendable, CustomStringConvertible {
             SwiftWeb cannot start the dev server because ClientComponent actions would be rendered but non-interactive.
             Reason: \(reason)
             """
+        case .workerBuildFailed(let command, let status, let firstErrorLine, let logPath):
+            var lines = ["dev server build failed with status \(status)"]
+            if let firstErrorLine {
+                lines.append(firstErrorLine)
+            } else {
+                lines.append(command)
+            }
+            lines.append("Full build log: \(logPath)")
+            return lines.joined(separator: "\n")
+        case .workerExitedDuringStartup(let status):
+            return "dev worker exited with status \(status) before becoming ready"
         }
     }
 
@@ -71,7 +84,8 @@ public enum SwiftWebDevRuntimeError: Error, Sendable, CustomStringConvertible {
             return 69
         case .processFailed, .executableNotFound, .hostReadinessTimeout, .workerPortAllocationFailed,
              .workerReadinessTimeout, .hostSwiftToolchainNotFound, .wasmToolchainNotFound,
-             .unsupportedWasmSDK, .initialWasmBuildFailed:
+             .unsupportedWasmSDK, .initialWasmBuildFailed, .workerBuildFailed,
+             .workerExitedDuringStartup:
             return 70
         }
     }

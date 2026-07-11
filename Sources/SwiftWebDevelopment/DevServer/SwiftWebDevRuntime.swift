@@ -3,11 +3,11 @@ import SwiftWebWasmBuild
 import Foundation
 import Logging
 import SwiftWebDevelopmentHooks
+import Synchronization
 
-public struct SwiftWebDevRuntime {
+public struct SwiftWebDevRuntime: Sendable {
   private let configuration: SwiftWebDevRuntimeConfiguration
   private let logger: Logger
-  private let childStatusCheckInterval: TimeInterval = 1
 
   public init(configuration: SwiftWebDevRuntimeConfiguration) {
     self.configuration = configuration
@@ -22,6 +22,13 @@ public struct SwiftWebDevRuntime {
     self.logger = logger
   }
 
+  /// Bootstraps the dev host and hands the loop to the reconciler.
+  ///
+  /// Error policy (docs/DevServerReconcilerDesign.md §4.4): environment
+  /// errors that no file edit can fix — missing manifest, occupied port, dev
+  /// host or initial WASM failure — still throw and exit. Everything after
+  /// the dev host is listening is reconciler state: app compile errors and
+  /// worker crashes surface through status and events, never as an exit.
   public func run() async throws {
     let packageFile = configuration.packageDirectory.appendingPathComponent("Package.swift")
     guard FileManager.default.fileExists(atPath: packageFile.path) else {
@@ -66,11 +73,14 @@ public struct SwiftWebDevRuntime {
       workerRegistry: workerRegistry,
       logger: logger
     )
-    var server = SwiftWebDevServerProcess(
-      configuration: try workerConfiguration(from: serverConfiguration),
-      devToken: devToken
+    // FSEvents fire before the reconciler exists; the relay buffers the
+    // wiring, not the events — a pre-wiring event is only a lost *hint*, the
+    // first timer tick converges regardless.
+    let wakeRelay = SwiftWebDevWakeRelay()
+    let watcher = SwiftWebDevFileChangeWatcher(
+      roots: watchRoots,
+      onFileEvent: { wakeRelay.invoke() }
     )
-    let watcher = SwiftWebDevFileChangeWatcher(roots: watchRoots)
     let buildProcess = SwiftWebDevBuildProcess(configuration: serverConfiguration)
     SwiftWebDevSignalHandler.install()
 
@@ -86,106 +96,307 @@ public struct SwiftWebDevRuntime {
       ])
     )
 
+    guard !SwiftWebDevPortProbe.isListening(host: configuration.host, port: configuration.port)
+    else {
+      logger.error("SwiftWeb dev port is already in use", metadata: metadata())
+      throw SwiftWebDevRuntimeError.portInUse(host: configuration.host, port: configuration.port)
+    }
+
+    try await devHost.start()
+
     do {
-      guard !SwiftWebDevPortProbe.isListening(host: configuration.host, port: configuration.port)
-      else {
-        logger.error("SwiftWeb dev port is already in use", metadata: metadata())
-        throw SwiftWebDevRuntimeError.portInUse(host: configuration.host, port: configuration.port)
-      }
-
-      try await devHost.start()
-
       try buildInitialWasmRuntimes(
         generatedPackage.wasmRuntimes,
         eventLog: eventLog,
         buildProcess: buildProcess
       )
-
-      logger.info("SwiftWeb dev child product building and starting", metadata: metadata())
-      do {
-        try server.start()
-      } catch {
-        logger.error(
-          "SwiftWeb dev child process failed to start",
-          metadata: metadata([
-            "error": .string(String(describing: error))
-          ])
-        )
-        throw error
-      }
-      if SwiftWebDevPortProbe.wait(
-        host: server.target.host,
-        port: server.target.port,
-        timeout: configuration.readinessTimeout
-      ) {
-        workerRegistry.activate(server.target)
-        logger.info("SwiftWeb dev server ready at \(url)", metadata: metadata())
-      } else {
-        logger.warning(
-          "SwiftWeb dev server did not become ready before startup timeout",
-          metadata: metadata([
-            "readinessTimeoutSeconds": .string(String(configuration.readinessTimeout))
-          ])
-        )
-        throw SwiftWebDevRuntimeError.workerReadinessTimeout(
-          host: server.target.host,
-          port: server.target.port,
-          timeout: configuration.readinessTimeout
-        )
-      }
-      watcher.discardPendingChanges()
-
-      while !SwiftWebDevSignalHandler.shouldStop {
-        let changes = watcher.waitForChangeSet(timeout: childStatusCheckInterval)
-        if !changes.isEmpty {
-          let refreshedGeneratedPackage = try materializer.materialize()
-          let classifier = SwiftWebDevChangeClassifier(
-            appPackageDirectory: configuration.packageDirectory,
-            generatedPackage: refreshedGeneratedPackage
-          )
-          let plan = classifier.classify(changes)
-          logger.info(
-            "SwiftWeb dev change detected",
-            metadata: metadata([
-              "changedPaths": .string(plan.changedPaths.joined(separator: ",")),
-              "styleFileCount": .string(String(plan.styleFiles.count)),
-              "clientRuntimeCount": .string(String(plan.clientRuntimes.count)),
-              "requiresServerRestart": .string(String(plan.requiresServerRestart)),
-            ])
-          )
-          try handle(
-            plan: plan,
-            eventLog: eventLog,
-            buildProcess: buildProcess,
-            serverConfiguration: serverConfiguration,
-            workerRegistry: workerRegistry,
-            devToken: devToken,
-            server: &server
-          )
-        } else if let terminationStatus = server.clearExitedProcess() {
-          workerRegistry.markUnavailable(
-            message: "SwiftWeb worker exited",
-            detail: "terminationStatus=\(terminationStatus)"
-          )
-          logger.warning(
-            "SwiftWeb dev child process exited. Waiting for changes",
-            metadata: metadata([
-              "terminationStatus": .string(String(terminationStatus))
-            ])
-          )
-        }
-      }
     } catch {
-      logger.info("SwiftWeb dev server stopping", metadata: metadata())
-      server.stop()
       await devHost.stop()
       throw error
     }
 
+    // ---- Reconciler wiring (docs/DevServerReconcilerDesign.md §4) ----
+
+    let scanner = SwiftWebDevSourceFingerprintScanner(roots: watchRoots)
+    let packageStore = SwiftWebDevGeneratedPackageStore(generatedPackage)
+    let builder = SwiftWebDevWorkerBuilder(
+      configuration: serverConfiguration,
+      prepareInputs: {
+        // Materialization is build preparation: it runs only on the build
+        // path, never on css-only wakes (§4.6).
+        let refreshed = try materializer.materialize()
+        packageStore.update(refreshed)
+      }
+    )
+    let launcher = SwiftWebDevWorkerLauncher(
+      configuration: serverConfiguration,
+      devToken: devToken
+    )
+    let observer = makeReconcilerObserver(
+      workerRegistry: workerRegistry,
+      eventLog: eventLog
+    )
+    let appPackageDirectory = configuration.packageDirectory
+    let fastPath: @Sendable () async -> Void = {
+      await applyFastPathChanges(
+        watcher: watcher,
+        appPackageDirectory: appPackageDirectory,
+        packageStore: packageStore,
+        eventLog: eventLog,
+        buildProcess: buildProcess
+      )
+    }
+    let reconciler = SwiftWebDevReconciler(
+      fingerprinting: scanner,
+      builder: builder,
+      launcher: launcher,
+      observer: observer,
+      fastPath: fastPath
+    )
+    wakeRelay.setTarget { reconciler.wake() }
+    workerRegistry.markStarting(message: "SwiftWeb dev worker building")
+
+    let reconcilerTask = Task {
+      await reconciler.run()
+    }
+
+    while !SwiftWebDevSignalHandler.shouldStop {
+      do {
+        try await Task.sleep(nanoseconds: 200_000_000)
+      } catch {
+        break
+      }
+    }
+
     logger.info("SwiftWeb dev server stopping", metadata: metadata())
-    server.stop()
+    reconciler.shutdown()
+    await reconcilerTask.value
+    await reconciler.stopWorkerForShutdown()
     await devHost.stop()
   }
+
+  // MARK: - Reconciler observer
+
+  private func makeReconcilerObserver(
+    workerRegistry: SwiftWebDevWorkerRegistry,
+    eventLog: SwiftWebDevEventLog
+  ) -> SwiftWebDevReconcilerObserver {
+    let logger = self.logger
+    let url = self.url
+    let baseMetadata = metadata()
+    let hasBuiltBefore = SwiftWebDevOnceFlag()
+    let hasActivatedBefore = SwiftWebDevOnceFlag()
+
+    let merged: @Sendable (Logger.Metadata) -> Logger.Metadata = { extra in
+      var values = baseMetadata
+      for (key, value) in extra {
+        values[key] = value
+      }
+      return values
+    }
+
+    let append: @Sendable (SwiftWebDevEvent) -> Void = { event in
+      do {
+        try eventLog.append(event)
+      } catch {
+        logger.error(
+          "SwiftWeb dev failed to record HMR event",
+          metadata: merged(["error": .string(String(describing: error))])
+        )
+      }
+    }
+
+    var observer = SwiftWebDevReconcilerObserver()
+
+    observer.transitionStarted = { fingerprint in
+      workerRegistry.markBuilding(
+        message: "SwiftWeb server rebuilding",
+        detail: "sources \(fingerprint.short)"
+      )
+      append(SwiftWebDevEvent(kind: .serverBuildStarted, message: "SwiftWeb server rebuilding"))
+      if hasBuiltBefore.consumeFirst() {
+        logger.info(
+          "SwiftWeb dev child product building and starting",
+          metadata: merged(["fingerprint": .string(fingerprint.short)])
+        )
+      } else {
+        logger.info(
+          "SwiftWeb dev server rebuild required",
+          metadata: merged(["reasons": .string("sources \(fingerprint.short)")])
+        )
+      }
+    }
+
+    observer.workerActivated = { handle, _ in
+      workerRegistry.activate(handle.target)
+      append(SwiftWebDevEvent(kind: .serverRestarted, message: "SwiftWeb server restarted"))
+      let fingerprintMetadata = merged(["fingerprint": .string(handle.fingerprint.short)])
+      if hasActivatedBefore.consumeFirst() {
+        logger.info("SwiftWeb dev server ready at \(url)", metadata: fingerprintMetadata)
+      } else {
+        logger.info("SwiftWeb dev server ready after reload at \(url)", metadata: fingerprintMetadata)
+      }
+    }
+
+    observer.transitionFailed = { fingerprint, error in
+      let summary = String(describing: error)
+      workerRegistry.markError(message: "SwiftWeb server rebuild failed", detail: summary)
+      append(SwiftWebDevEvent(kind: .error, message: "Server rebuild failed: \(summary)"))
+      logger.error(
+        "SwiftWeb dev server build failed",
+        metadata: merged([
+          "fingerprint": .string(fingerprint.short),
+          "errorSummary": .string(summary.split(separator: "\n").first.map(String.init) ?? summary),
+          "error": .string(summary),
+        ])
+      )
+    }
+
+    observer.workerCrashed = { status, willRelaunch in
+      if willRelaunch {
+        workerRegistry.markRestarting(
+          message: "SwiftWeb worker crashed; relaunching",
+          detail: "terminationStatus=\(status)"
+        )
+        logger.warning(
+          "SwiftWeb dev worker crashed; relaunching",
+          metadata: merged(["terminationStatus": .string(String(status))])
+        )
+      } else {
+        workerRegistry.markUnavailable(
+          message: "SwiftWeb worker crash-looping",
+          detail: "terminationStatus=\(status)"
+        )
+        append(SwiftWebDevEvent(kind: .error, message: "SwiftWeb worker is crash-looping"))
+        logger.error(
+          "SwiftWeb dev worker crash-looping; waiting for changes",
+          metadata: merged(["terminationStatus": .string(String(status))])
+        )
+      }
+    }
+
+    observer.changesQueuedDuringTransition = { fingerprint in
+      logger.info(
+        "SwiftWeb dev changes queued during rebuild",
+        metadata: merged(["sources": .string(fingerprint.short)])
+      )
+    }
+
+    return observer
+  }
+
+  // MARK: - Fast path (§4.6)
+
+  /// Emits style patches and rebuilds WASM client runtimes for the pending
+  /// watcher diff. Best effort: failures become error events, never exits —
+  /// the fingerprint covers the same files, so the reconciler's slow loop
+  /// guarantees the served binary converges regardless.
+  private func applyFastPathChanges(
+    watcher: SwiftWebDevFileChangeWatcher,
+    appPackageDirectory: URL,
+    packageStore: SwiftWebDevGeneratedPackageStore,
+    eventLog: SwiftWebDevEventLog,
+    buildProcess: SwiftWebDevBuildProcess
+  ) async {
+    let changes = watcher.changes()
+    guard !changes.isEmpty else {
+      return
+    }
+
+    let classifier = SwiftWebDevChangeClassifier(
+      appPackageDirectory: appPackageDirectory,
+      generatedPackage: packageStore.current
+    )
+    let plan = classifier.classify(changes)
+    logger.info(
+      "SwiftWeb dev change detected",
+      metadata: metadata([
+        "changedPaths": .string(plan.changedPaths.joined(separator: ",")),
+        "styleFileCount": .string(String(plan.styleFiles.count)),
+        "clientRuntimeCount": .string(String(plan.clientRuntimes.count)),
+        "requiresServerRestart": .string(String(plan.requiresServerRestart)),
+      ])
+    )
+
+    for styleFile in plan.styleFiles {
+      do {
+        let css = try String(contentsOf: styleFile, encoding: .utf8)
+        try eventLog.append(
+          SwiftWebDevEvent(
+            kind: .stylePatch,
+            stylePatch: SwiftWebDevStylePatch(
+              id: "dev-style-hmr-\(abs(styleFile.path.hashValue))",
+              css: css
+            ),
+            changedPaths: plan.changedPaths
+          ))
+        logger.info(
+          "SwiftWeb dev style HMR event emitted",
+          metadata: metadata(["styleFile": .string(styleFile.path)])
+        )
+      } catch {
+        recordFastPathError(
+          "Style HMR failed: \(String(describing: error))",
+          changedPaths: plan.changedPaths,
+          eventLog: eventLog
+        )
+      }
+    }
+
+    for runtime in plan.clientRuntimes {
+      do {
+        try eventLog.append(
+          SwiftWebDevEvent(
+            kind: .clientBuildStarted,
+            message: "SwiftWeb Client WASM rebuilding",
+            changedPaths: plan.changedPaths
+          ))
+        let manifest = try buildProcess.buildWasmRuntime(runtime)
+        try eventLog.append(
+          SwiftWebDevEvent(
+            kind: .clientComponentUpdate,
+            clientComponentUpdate: manifest,
+            changedPaths: plan.changedPaths
+          ))
+        logger.info(
+          "SwiftWeb dev client component HMR event emitted",
+          metadata: metadata([
+            "component": .string(runtime.componentTypeName),
+            "product": .string(runtime.productName),
+          ])
+        )
+      } catch {
+        recordFastPathError(
+          "Client WASM HMR failed for \(runtime.componentTypeName): \(String(describing: error))",
+          changedPaths: plan.changedPaths,
+          eventLog: eventLog
+        )
+      }
+    }
+  }
+
+  private func recordFastPathError(
+    _ message: String,
+    changedPaths: [String],
+    eventLog: SwiftWebDevEventLog
+  ) {
+    logger.error(
+      "SwiftWeb dev fast path failed",
+      metadata: metadata(["error": .string(message)])
+    )
+    do {
+      try eventLog.append(
+        SwiftWebDevEvent(kind: .error, message: message, changedPaths: changedPaths)
+      )
+    } catch {
+      logger.error(
+        "SwiftWeb dev failed to record HMR event",
+        metadata: metadata(["error": .string(String(describing: error))])
+      )
+    }
+  }
+
+  // MARK: - Initial WASM build
 
   private func buildInitialWasmRuntimes(
     _ runtimes: [SwiftWebGeneratedWasmRuntime],
@@ -248,191 +459,7 @@ public struct SwiftWebDevRuntime {
     }
   }
 
-  private func handle(
-    plan: SwiftWebDevChangePlan,
-    eventLog: SwiftWebDevEventLog,
-    buildProcess: SwiftWebDevBuildProcess,
-    serverConfiguration: SwiftWebDevRuntimeConfiguration,
-    workerRegistry: SwiftWebDevWorkerRegistry,
-    devToken: String,
-    server: inout SwiftWebDevServerProcess
-  ) throws {
-    guard !plan.isEmpty else {
-      return
-    }
-
-    for styleFile in plan.styleFiles {
-      do {
-        let css = try String(contentsOf: styleFile, encoding: .utf8)
-        try eventLog.append(
-          SwiftWebDevEvent(
-            kind: .stylePatch,
-            stylePatch: SwiftWebDevStylePatch(
-              id: "dev-style-hmr-\(abs(styleFile.path.hashValue))",
-              css: css
-            ),
-            changedPaths: plan.changedPaths
-          ))
-        logger.info(
-          "SwiftWeb dev style HMR event emitted",
-          metadata: metadata(["styleFile": .string(styleFile.path)])
-        )
-      } catch {
-        try eventLog.append(
-          SwiftWebDevEvent(
-            kind: .error,
-            message: "Style HMR failed: \(String(describing: error))",
-            changedPaths: plan.changedPaths
-          ))
-        logger.error(
-          "SwiftWeb dev style HMR failed",
-          metadata: metadata([
-            "styleFile": .string(styleFile.path),
-            "error": .string(String(describing: error)),
-          ])
-        )
-      }
-    }
-
-    for runtime in plan.clientRuntimes {
-      do {
-        try eventLog.append(
-          SwiftWebDevEvent(
-            kind: .clientBuildStarted,
-            message: "SwiftWeb Client WASM rebuilding",
-            changedPaths: plan.changedPaths
-          ))
-        let manifest = try buildProcess.buildWasmRuntime(runtime)
-        try eventLog.append(
-          SwiftWebDevEvent(
-            kind: .clientComponentUpdate,
-            clientComponentUpdate: manifest,
-            changedPaths: plan.changedPaths
-          ))
-        logger.info(
-          "SwiftWeb dev client component HMR event emitted",
-          metadata: metadata([
-            "component": .string(runtime.componentTypeName),
-            "product": .string(runtime.productName),
-          ])
-        )
-      } catch {
-        try eventLog.append(
-          SwiftWebDevEvent(
-            kind: .error,
-            message:
-              "Client WASM HMR failed for \(runtime.componentTypeName): \(String(describing: error))",
-            changedPaths: plan.changedPaths
-          ))
-        logger.error(
-          "SwiftWeb dev client component HMR failed",
-          metadata: metadata([
-            "component": .string(runtime.componentTypeName),
-            "product": .string(runtime.productName),
-            "error": .string(String(describing: error)),
-          ])
-        )
-      }
-    }
-
-    guard plan.requiresServerRestart else {
-      return
-    }
-
-    try eventLog.append(
-      SwiftWebDevEvent(
-        kind: .serverBuildStarted,
-        message: "SwiftWeb server rebuilding",
-        changedPaths: plan.changedPaths
-      ))
-    workerRegistry.markBuilding(
-      message: "SwiftWeb server rebuilding",
-      detail: plan.changedPaths.joined(separator: ",")
-    )
-    logger.info(
-      "SwiftWeb dev server rebuild required",
-      metadata: metadata([
-        "reasons": .string(plan.serverRestartReasons.joined(separator: ","))
-      ])
-    )
-    logger.info("SwiftWeb dev child process building replacement", metadata: metadata())
-    var replacement = SwiftWebDevServerProcess(
-      configuration: try workerConfiguration(from: serverConfiguration),
-      devToken: devToken
-    )
-    do {
-      try replacement.start()
-    } catch {
-      replacement.stop()
-      workerRegistry.markError(
-        message: "SwiftWeb server rebuild failed",
-        detail: String(describing: error)
-      )
-      try eventLog.append(
-        SwiftWebDevEvent(
-          kind: .error,
-          message: "Server restart failed: \(String(describing: error))",
-          changedPaths: plan.changedPaths
-        ))
-      logger.error(
-        "SwiftWeb dev child replacement failed to start",
-        metadata: metadata([
-          "error": .string(String(describing: error))
-        ])
-      )
-      throw error
-    }
-    if SwiftWebDevPortProbe.wait(
-      host: replacement.target.host,
-      port: replacement.target.port,
-      timeout: configuration.readinessTimeout
-    ) {
-      let oldServer = server
-      server = replacement
-      workerRegistry.activate(replacement.target)
-      var stoppedServer = oldServer
-      stoppedServer.stop()
-      try eventLog.append(
-        SwiftWebDevEvent(
-          kind: .serverRestarted,
-          message: "SwiftWeb server restarted",
-          changedPaths: plan.changedPaths
-        ))
-      logger.info("SwiftWeb dev server ready after reload at \(url)", metadata: metadata())
-    } else {
-      replacement.stop()
-      workerRegistry.markError(
-        message: "SwiftWeb server rebuild timed out",
-        detail: "\(replacement.target.url) did not become ready"
-      )
-      logger.warning(
-        "SwiftWeb dev server did not become ready before reload timeout",
-        metadata: metadata([
-          "readinessTimeoutSeconds": .string(String(configuration.readinessTimeout))
-        ])
-      )
-      try eventLog.append(
-        SwiftWebDevEvent(
-          kind: .error,
-          message: "Server restart failed: worker did not become ready",
-          changedPaths: plan.changedPaths
-        ))
-      throw SwiftWebDevRuntimeError.workerReadinessTimeout(
-        host: replacement.target.host,
-        port: replacement.target.port,
-        timeout: configuration.readinessTimeout
-      )
-    }
-  }
-
-  private func workerConfiguration(from serverConfiguration: SwiftWebDevRuntimeConfiguration) throws
-    -> SwiftWebDevRuntimeConfiguration
-  {
-    var configuration = serverConfiguration
-    configuration.host = "127.0.0.1"
-    configuration.port = try SwiftWebDevPortAllocator.allocateLoopbackPort()
-    return configuration
-  }
+  // MARK: - Helpers
 
   private func uniqueRoots(_ roots: [URL]) -> [URL] {
     var seen = Set<String>()
@@ -487,5 +514,52 @@ public struct SwiftWebDevRuntime {
     logger[metadataKey: "product"] = .string(configuration.product)
     logger[metadataKey: "url"] = .string("http://\(configuration.host):\(configuration.port)")
     return logger
+  }
+}
+
+/// Buffers the FSEvents → reconciler wiring: the watcher starts before the
+/// reconciler exists.
+private final class SwiftWebDevWakeRelay: Sendable {
+  private let target = Mutex<(@Sendable () -> Void)?>(nil)
+
+  func setTarget(_ handler: @escaping @Sendable () -> Void) {
+    target.withLock { $0 = handler }
+  }
+
+  func invoke() {
+    let handler = target.withLock { $0 }
+    handler?()
+  }
+}
+
+/// Shares the freshest materialized package between the builder (which
+/// refreshes it) and the fast path (which classifies against it).
+private final class SwiftWebDevGeneratedPackageStore: Sendable {
+  private let stored: Mutex<SwiftWebGeneratedPackage>
+
+  init(_ package: SwiftWebGeneratedPackage) {
+    self.stored = Mutex(package)
+  }
+
+  var current: SwiftWebGeneratedPackage {
+    stored.withLock { $0 }
+  }
+
+  func update(_ package: SwiftWebGeneratedPackage) {
+    stored.withLock { $0 = package }
+  }
+}
+
+/// Returns true exactly once — distinguishes the first build/activation for
+/// log wording.
+private final class SwiftWebDevOnceFlag: Sendable {
+  private let isFirst = Mutex(true)
+
+  func consumeFirst() -> Bool {
+    isFirst.withLock { value in
+      let output = value
+      value = false
+      return output
+    }
   }
 }

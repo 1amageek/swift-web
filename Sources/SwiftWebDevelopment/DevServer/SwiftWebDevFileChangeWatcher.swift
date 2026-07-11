@@ -5,34 +5,36 @@ import CoreServices
 import Foundation
 import Synchronization
 
-final class SwiftWebDevFileChangeWatcher {
+/// Produces snapshot diffs of the watched roots for the fast path (style and
+/// WASM HMR). FSEvents marks pending work and forwards a wake hint; the
+/// reconciler's fingerprint scan is the correctness path, so a missed event
+/// here can only delay a fast-path patch, never lose a change
+/// (docs/DevServerReconcilerDesign.md §4.6, §7).
+final class SwiftWebDevFileChangeWatcher: Sendable {
     private let roots: [URL]
-    private let coalescingInterval: TimeInterval
     private let snapshot: Mutex<SwiftWebDevFileSnapshot>
-    private let pendingEvent = Mutex(false)
-    private let changeSignal = SwiftWebDevChangeSignal()
-    private var eventStream: SwiftWebDevFileEventStream?
+    private let pendingEvent: SwiftWebDevPendingEventFlag
+    private let eventStream: SwiftWebDevFileEventStream?
 
     init(
         roots: [URL],
-        coalescingInterval: TimeInterval = 0.08,
-        usesFileEvents: Bool = true
+        usesFileEvents: Bool = true,
+        onFileEvent: (@Sendable () -> Void)? = nil
     ) {
-        self.roots = roots.map(\.standardizedFileURL)
-        self.coalescingInterval = max(coalescingInterval, 0)
-        self.snapshot = Mutex(SwiftWebDevFileSnapshot.capture(roots: self.roots))
+        let standardizedRoots = roots.map(\.standardizedFileURL)
+        let pendingEvent = SwiftWebDevPendingEventFlag()
+        self.roots = standardizedRoots
+        self.snapshot = Mutex(SwiftWebDevFileSnapshot.capture(roots: standardizedRoots))
+        self.pendingEvent = pendingEvent
 
         if usesFileEvents {
-            let stream = SwiftWebDevFileEventStream(roots: self.roots) { [weak self] in
-                guard let self else {
-                    return
-                }
-                pendingEvent.withLock { $0 = true }
-                changeSignal.signal()
+            let stream = SwiftWebDevFileEventStream(roots: standardizedRoots) {
+                pendingEvent.raise()
+                onFileEvent?()
             }
-            if stream.start() {
-                self.eventStream = stream
-            }
+            self.eventStream = stream.start() ? stream : nil
+        } else {
+            self.eventStream = nil
         }
     }
 
@@ -40,54 +42,19 @@ final class SwiftWebDevFileChangeWatcher {
         eventStream?.stop()
     }
 
-    func hasChanges() -> Bool {
-        !changes().isEmpty
-    }
-
+    /// The changes since the previous call. With FSEvents active this is
+    /// stat-free unless an event arrived; without FSEvents every call
+    /// reconciles the snapshot.
     func changes() -> [SwiftWebDevFileChange] {
         if eventStream == nil {
             return reconcileSnapshot()
         }
 
-        let hasPendingEvent = pendingEvent.withLock { value in
-            let output = value
-            value = false
-            return output
-        }
-
-        guard hasPendingEvent else {
+        guard pendingEvent.consume() else {
             return []
         }
 
         return reconcileSnapshot()
-    }
-
-    func waitForChanges(timeout: TimeInterval) -> Bool {
-        !waitForChangeSet(timeout: timeout).isEmpty
-    }
-
-    func waitForChangeSet(timeout: TimeInterval) -> [SwiftWebDevFileChange] {
-        if eventStream == nil {
-            Thread.sleep(forTimeInterval: timeout)
-            return coalescedChangeSet(startingWith: reconcileSnapshot())
-        }
-
-        let observedGeneration = changeSignal.currentGeneration()
-        let immediateChanges = changes()
-        if !immediateChanges.isEmpty {
-            return coalescedChangeSet(startingWith: immediateChanges)
-        }
-
-        changeSignal.waitForChange(after: observedGeneration, timeout: timeout)
-        return coalescedChangeSet(startingWith: changes())
-    }
-
-    func discardPendingChanges() {
-        pendingEvent.withLock { $0 = false }
-        let current = SwiftWebDevFileSnapshot.capture(roots: roots)
-        snapshot.withLock { stored in
-            stored = current
-        }
     }
 
     private func reconcileSnapshot() -> [SwiftWebDevFileChange] {
@@ -100,36 +67,6 @@ final class SwiftWebDevFileChangeWatcher {
             stored = current
             return changes
         }
-    }
-
-    private func coalescedChangeSet(
-        startingWith initialChanges: [SwiftWebDevFileChange]
-    ) -> [SwiftWebDevFileChange] {
-        guard !initialChanges.isEmpty, coalescingInterval > 0 else {
-            return SwiftWebDevFileChangeCoalescer.coalesce(initialChanges)
-        }
-
-        var changes = initialChanges
-        var quietDeadline = Date().addingTimeInterval(coalescingInterval)
-        while Date() < quietDeadline {
-            let remaining = quietDeadline.timeIntervalSinceNow
-            if remaining > 0 {
-                if eventStream == nil {
-                    Thread.sleep(forTimeInterval: remaining)
-                } else {
-                    let generation = changeSignal.currentGeneration()
-                    changeSignal.waitForChange(after: generation, timeout: remaining)
-                }
-            }
-
-            let nextChanges = self.changes()
-            if !nextChanges.isEmpty {
-                changes.append(contentsOf: nextChanges)
-                quietDeadline = Date().addingTimeInterval(coalescingInterval)
-            }
-        }
-
-        return SwiftWebDevFileChangeCoalescer.coalesce(changes)
     }
 }
 
@@ -151,49 +88,37 @@ package struct SwiftWebDevFileChange: Sendable, Equatable {
     }
 }
 
-private final class SwiftWebDevChangeSignal {
-    private let condition = NSCondition()
-    private var generation: UInt64 = 0
+private final class SwiftWebDevPendingEventFlag: Sendable {
+    private let raised = Mutex(false)
 
-    func signal() {
-        condition.lock()
-        generation &+= 1
-        condition.signal()
-        condition.unlock()
+    func raise() {
+        raised.withLock { $0 = true }
     }
 
-    func currentGeneration() -> UInt64 {
-        condition.lock()
-        let output = generation
-        condition.unlock()
-        return output
-    }
-
-    func waitForChange(after observedGeneration: UInt64, timeout: TimeInterval) {
-        condition.lock()
-        if generation == observedGeneration {
-            condition.wait(until: Date().addingTimeInterval(timeout))
+    func consume() -> Bool {
+        raised.withLock { value in
+            let output = value
+            value = false
+            return output
         }
-        condition.unlock()
     }
 }
 
-private final class SwiftWebDevFileEventStream: NSObject {
+private final class SwiftWebDevFileEventStream: Sendable {
     private struct State {
         var streamAddress: UInt?
         var started = false
     }
 
     private let roots: [URL]
-    private let onChange: () -> Void
+    private let onChange: @Sendable () -> Void
     private let queue = DispatchQueue(label: "codes.swiftweb.dev.file-events")
     private let queueKey = DispatchSpecificKey<Void>()
     private let state = Mutex(State())
 
-    init(roots: [URL], onChange: @escaping () -> Void) {
+    init(roots: [URL], onChange: @escaping @Sendable () -> Void) {
         self.roots = roots
         self.onChange = onChange
-        super.init()
         queue.setSpecific(key: queueKey, value: ())
     }
 
@@ -281,15 +206,20 @@ private final class SwiftWebDevFileEventStream: NSObject {
     }
 }
 
+private struct SwiftWebDevFileSnapshotKey: Hashable {
+    let rootPath: String
+    let relativePath: String
+}
+
 private struct SwiftWebDevFileSnapshot: Equatable {
-    let files: [String: SwiftWebDevFileStamp]
+    let files: [SwiftWebDevFileSnapshotKey: SwiftWebDevFileStamp]
 
     static func capture(roots: [URL]) -> SwiftWebDevFileSnapshot {
-        var files: [String: SwiftWebDevFileStamp] = [:]
+        var files: [SwiftWebDevFileSnapshotKey: SwiftWebDevFileStamp] = [:]
         for root in roots {
-            let snapshot = capture(root: root)
-            for (path, stamp) in snapshot.files {
-                files["\(root.standardizedFileURL.path):\(path)"] = stamp
+            let rootPath = root.standardizedFileURL.path
+            for (path, stamp) in captureRelativeStamps(root: root) {
+                files[SwiftWebDevFileSnapshotKey(rootPath: rootPath, relativePath: path)] = stamp
             }
         }
         return SwiftWebDevFileSnapshot(files: files)
@@ -326,42 +256,27 @@ private struct SwiftWebDevFileSnapshot: Equatable {
         }
     }
 
-    private static func change(for key: String, kind: SwiftWebDevFileChange.Kind) -> SwiftWebDevFileChange {
-        let parts = key.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
-        if parts.count == 2 {
-            let root = String(parts[0])
-            let relativePath = String(parts[1])
-            return SwiftWebDevFileChange(
-                path: relativePath,
-                url: URL(fileURLWithPath: root).appendingPathComponent(relativePath),
-                kind: kind
-            )
-        }
-
-        return SwiftWebDevFileChange(
-            path: key,
-            url: URL(fileURLWithPath: key),
+    private static func change(
+        for key: SwiftWebDevFileSnapshotKey,
+        kind: SwiftWebDevFileChange.Kind
+    ) -> SwiftWebDevFileChange {
+        SwiftWebDevFileChange(
+            path: key.relativePath,
+            url: URL(fileURLWithPath: key.rootPath).appendingPathComponent(key.relativePath),
             kind: kind
         )
     }
 
-    static func capture(root: URL) -> SwiftWebDevFileSnapshot {
+    private static func captureRelativeStamps(root: URL) -> [String: SwiftWebDevFileStamp] {
         let fileManager = FileManager.default
         guard let enumerator = fileManager.enumerator(
             at: root,
             includingPropertiesForKeys: [.isDirectoryKey, .contentModificationDateKey, .fileSizeKey],
             options: []
         ) else {
-            return SwiftWebDevFileSnapshot(files: [:])
+            return [:]
         }
 
-        let excludedDirectories: Set<String> = [
-            ".build",
-            ".git",
-            ".swiftweb",
-            ".swiftpm",
-            "DerivedData",
-        ]
         var files: [String: SwiftWebDevFileStamp] = [:]
 
         for case let url as URL in enumerator {
@@ -374,13 +289,13 @@ private struct SwiftWebDevFileSnapshot: Equatable {
                 ])
 
                 if values.isDirectory == true {
-                    if excludedDirectories.contains(name) {
+                    if SwiftWebDevWatchedFilePolicy.isExcludedDirectory(named: name) {
                         enumerator.skipDescendants()
                     }
                     continue
                 }
 
-                guard shouldWatch(url) else {
+                guard SwiftWebDevWatchedFilePolicy.isWatchedFile(url) else {
                     continue
                 }
 
@@ -393,21 +308,7 @@ private struct SwiftWebDevFileSnapshot: Equatable {
             }
         }
 
-        return SwiftWebDevFileSnapshot(files: files)
-    }
-
-    private static func shouldWatch(_ url: URL) -> Bool {
-        let name = url.lastPathComponent
-        if name == "Package.swift" || name.hasSuffix(".swift") {
-            return true
-        }
-
-        switch url.pathExtension {
-        case "css", "json", "html", "leaf":
-            return true
-        default:
-            return false
-        }
+        return files
     }
 
     private static func relativePath(for url: URL, root: URL) -> String {

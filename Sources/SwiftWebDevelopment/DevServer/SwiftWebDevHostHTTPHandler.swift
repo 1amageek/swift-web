@@ -157,9 +157,13 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
                 lastEventID = connected.id
             }
 
+            // The incremental reader decodes only appended bytes per poll;
+            // re-reading the whole log every 300 ms grew quadratically over a
+            // dev session (docs/DevServerReconcilerDesign.md §8).
+            let reader = try SwiftWebDevEventLogReader(log: eventLog, after: lastEventID)
             var nextHeartbeat = Date().addingTimeInterval(30)
             while !Task.isCancelled {
-                let events = try eventLog.events(after: lastEventID)
+                let events = try reader.poll()
                 if events.isEmpty {
                     if Date() >= nextHeartbeat {
                         var buffer = UniqueArray<UInt8>(copying: Array(": swift-web-dev heartbeat\n\n".utf8).span)
@@ -173,7 +177,6 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
                 for event in events {
                     var buffer = try UniqueArray<UInt8>(copying: Array(SwiftWebDevHotReload.sseData(for: event).utf8).span)
                     try await writer.write(buffer: &buffer)
-                    lastEventID = event.id
                 }
             }
             var trailing = UniqueArray<UInt8>()

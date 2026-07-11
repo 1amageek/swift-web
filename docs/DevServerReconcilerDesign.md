@@ -101,10 +101,15 @@ one type per file per repo convention, so the scanner is its own file):
    (`Package.swift`, `*.swift`, `css/json/html/leaf`) — reuse or extract the
    logic currently in `SwiftWebDevFileChangeWatcher.swift:348-411` so watcher
    and fingerprint can never disagree.
-2. **Exclude `Package.resolved`** everywhere. It is an *output* of the build
-   (rewritten by `swift build` / `swift package resolve` during
-   materialization) and is the reason the old code needed
-   `discardPendingChanges()` at all.
+2. **Exclude `Package.resolved`** everywhere, as an explicit invariant. It is
+   an *output* of dependency resolution (rewritten by `swift build` /
+   `swift package resolve`), not a build input. Implementation note
+   (verified during T1): its `resolved` extension was never in the watched
+   set, so this exclusion is defensive — it keeps the invariant true even if
+   the watched-extension list grows. It also means `discardPendingChanges()`
+   has **no known legitimate trigger**: builds write only into excluded
+   directories (`.build`, `.swiftweb`), so the discard only ever swallows
+   real user edits.
 3. Per file compute `contentHash = SHA-256(bytes)`, cached in
    `Mutex<[String: CachedFileHash]>` keyed by absolute path where
    `CachedFileHash = (mtimeNanoseconds, size, hash)`. A scan whose
@@ -366,9 +371,11 @@ payload. No SSE protocol change.
 `SwiftWebDevFileChangeWatcher` mostly survives:
 
 - **Delete** `discardPendingChanges()` (`SwiftWebDevFileChangeWatcher.swift:85-91`)
-  and its call site (`SwiftWebDevRuntime.swift:136`). Nothing replaces it —
-  the fingerprint excludes `Package.resolved`, which was the churn the
-  discard existed to swallow.
+  and its call site (`SwiftWebDevRuntime.swift:136`). Nothing replaces it:
+  builds write only into excluded directories and `Package.resolved` is
+  outside the watched set (see §3), so there is no init-window churn to
+  swallow — the discard only ever dropped real user edits, and the
+  reconciler converges on those instead.
 - The FSEvents stream's callback now feeds the reconciler wake stream.
 - The snapshot/diff machinery (`SwiftWebDevFileSnapshot`) merges with the
   fingerprint scanner (§3) so there is exactly one definition of "watched

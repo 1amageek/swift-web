@@ -336,31 +336,19 @@ struct SwiftWebDevHMRTests {
     let second = root.appendingPathComponent("Sources/App/Counter.css")
     let watcher = SwiftWebDevFileChangeWatcher(
       roots: [root],
-      coalescingInterval: 0.25,
       usesFileEvents: false
     )
     try write("public struct ClientCounter: ClientComponent {}", to: first)
-    let writerCompletion = SwiftWebDevTestThreadCompletion()
-    let writer = Thread {
-      Thread.sleep(forTimeInterval: 0.02)
-      do {
-        try write(".counter { color: green; }", to: second)
-        writerCompletion.complete()
-      } catch {
-        writerCompletion.complete(error: String(describing: error))
-      }
-    }
-    writer.start()
+    try write(".counter { color: green; }", to: second)
 
-    let changes = watcher.waitForChangeSet(timeout: 0)
-    if let writerError = writerCompletion.wait(timeout: 2) {
-      Issue.record("SwiftWeb watcher coalescing writer failed: \(writerError)")
-    }
+    let changes = watcher.changes()
 
     #expect(Set(changes.map(\.path)) == [
       "Sources/App/ClientCounter.swift",
       "Sources/App/Counter.css",
     ])
+    // A second poll with no further writes reports nothing new.
+    #expect(watcher.changes().isEmpty)
   }
 
   @Test

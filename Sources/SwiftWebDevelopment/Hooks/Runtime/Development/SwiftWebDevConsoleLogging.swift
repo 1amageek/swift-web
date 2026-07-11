@@ -85,6 +85,17 @@ private struct SwiftWebDevConsoleLogHandler: LogHandler {
             writeStatus("build", "server restart (\(reasons))", color: colors.yellow)
         case "SwiftWeb dev child process exited. Waiting for changes":
             writeStatus("warn", "server worker exited; waiting for changes", color: colors.yellow)
+        case "SwiftWeb dev server build failed":
+            let summary = stringValue(metadata["errorSummary"]) ?? "see /__dev/status"
+            writeStatus("error", "build failed: \(summary)", color: colors.red)
+        case "SwiftWeb dev worker crashed; relaunching":
+            let status = stringValue(metadata["terminationStatus"]) ?? "?"
+            writeStatus("warn", "worker exited (status \(status)); relaunching", color: colors.yellow)
+        case "SwiftWeb dev worker crash-looping; waiting for changes":
+            writeStatus("error", "worker crash-looping; waiting for changes", color: colors.red)
+        case "SwiftWeb dev changes queued during rebuild":
+            let sources = stringValue(metadata["sources"]) ?? "sources"
+            writeStatus("note", "changes arrived during rebuild — rebuilding for \(sources)", color: colors.cyan)
         case "SwiftWeb dev server stopping":
             return
         default:
