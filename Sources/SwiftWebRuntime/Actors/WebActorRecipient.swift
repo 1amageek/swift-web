@@ -1,3 +1,4 @@
+#if SWIFTWEB_ACTORS
 public struct WebActorRecipient: Sendable, Equatable, Hashable {
     public let actorID: WebActorSystem.ActorID
     public let contract: String?
@@ -14,3 +15,4 @@ public struct WebActorRecipient: Sendable, Equatable, Hashable {
         self.name = String(actorID[actorID.index(after: separator)...])
     }
 }
+#endif

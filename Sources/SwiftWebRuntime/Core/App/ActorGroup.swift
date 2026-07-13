@@ -1,3 +1,4 @@
+#if SWIFTWEB_ACTORS
 import Distributed
 import SwiftWebActors
 
@@ -48,3 +49,4 @@ where ActorType.ActorSystem == WebActorSystem {
         )
     }
 }
+#endif

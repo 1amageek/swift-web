@@ -1,3 +1,4 @@
+#if SWIFTWEB_ACTORS
 #if canImport(FoundationEssentials)
 import FoundationEssentials
 #elseif canImport(Foundation)
@@ -23,3 +24,4 @@ public struct WebActorActivationPolicy: Sendable, Equatable {
         idleTimeout: nil
     )
 }
+#endif

@@ -1,3 +1,4 @@
+#if SWIFTWEB_ACTORS
 @preconcurrency import ActorRuntime
 #if canImport(FoundationEssentials)
 import FoundationEssentials
@@ -66,3 +67,4 @@ enum ActorInvocationEndpoint {
         }
     }
 }
+#endif

@@ -1,3 +1,4 @@
+#if SWIFTWEB_ACTORS
 @preconcurrency import ActorRuntime
 @preconcurrency import Distributed
 
@@ -26,3 +27,4 @@ public struct WebActorInvocationDecoder: DistributedTargetInvocationDecoder {
         try base.decodeErrorType()
     }
 }
+#endif

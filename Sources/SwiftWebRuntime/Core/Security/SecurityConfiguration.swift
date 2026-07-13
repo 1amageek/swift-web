@@ -13,6 +13,7 @@ public struct SecurityConfiguration: Sendable {
     public var redirects: RedirectPolicy
     public var headers: SecurityHeadersPolicy
     public var forwardedHeaders: ForwardedHeadersPolicy
+    #if SWIFTWEB_ACTORS
     public var actors: WebActorSecurityPolicy
 
     public init(
@@ -32,6 +33,23 @@ public struct SecurityConfiguration: Sendable {
         self.forwardedHeaders = forwardedHeaders
         self.actors = actors
     }
+    #else
+    public init(
+        cors: CORSPolicy = .sameOrigin,
+        csrf: CSRFPolicy = .enabled,
+        origin: OriginPolicy = .sameOrigin,
+        redirects: RedirectPolicy = .sameOrigin,
+        headers: SecurityHeadersPolicy = .browserDefaults,
+        forwardedHeaders: ForwardedHeadersPolicy = .ignore
+    ) {
+        self.cors = cors
+        self.csrf = csrf
+        self.origin = origin
+        self.redirects = redirects
+        self.headers = headers
+        self.forwardedHeaders = forwardedHeaders
+    }
+    #endif
 
     public static let defaults = SecurityConfiguration()
 

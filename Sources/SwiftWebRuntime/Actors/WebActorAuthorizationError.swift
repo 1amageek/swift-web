@@ -1,3 +1,4 @@
+#if SWIFTWEB_ACTORS
 public struct WebActorAuthorizationError: Error, Sendable, Equatable, CustomStringConvertible {
     public let reason: String
 
@@ -9,3 +10,4 @@ public struct WebActorAuthorizationError: Error, Sendable, Equatable, CustomStri
         reason
     }
 }
+#endif

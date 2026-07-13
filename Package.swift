@@ -5,6 +5,7 @@ import PackageDescription
 
 let swiftWebSwiftSettings: [SwiftSetting] = [
     .enableUpcomingFeature("ApproachableConcurrency"),
+    .define("SWIFTWEB_ACTORS", .when(traits: ["Actors"])),
 ]
 
 // Why this manifest branches on environment variables:
@@ -58,10 +59,16 @@ let swiftWebUIRuntimeDependencies: [Target.Dependency] = [
 
 let swiftWebUsesMacros = !swiftWebCoreOnly || swiftWebDO
 
+let actorRuntimeDependency: Target.Dependency = .product(
+    name: "ActorRuntime",
+    package: "swift-actor-runtime",
+    condition: .when(traits: ["Actors"])
+)
+
 let swiftWebActorsDependencies: [Target.Dependency] =
     [
         swiftHTMLDependency,
-        .product(name: "ActorRuntime", package: "swift-actor-runtime"),
+        actorRuntimeDependency,
     ] + (swiftWebUsesMacros ? ["SwiftWebMacros"] : [])
 
 // The @Actor accessor macro declaration is gated behind SWIFTWEB_MACROS so that
@@ -106,6 +113,16 @@ let package = Package(
         .library(name: "SwiftWebDevelopment", targets: ["SwiftWebDevelopment"]),
         .library(name: "SwiftWebStoryboard", targets: ["SwiftWebStoryboard"]),
         .executable(name: "sweb", targets: ["SwiftWebCLI"]),
+    ],
+    // The Actors trait (SE-0450, default-enabled) carries the distributed
+    // actor runtime: SwiftWebActors' Distributed/ActorRuntime surface,
+    // ActorGroup/ActorScene lowering, and the actor security policy. Disable
+    // it for page-serving-only deployments (e.g. Cloudflare Worker SSR) to
+    // keep ActorRuntime and the Distributed runtime out of the binary; a
+    // minimal WebActorSystem stub keeps the App/Scene API shape.
+    traits: [
+        .default(enabledTraits: ["Actors"]),
+        .trait(name: "Actors"),
     ],
     dependencies: [
         .package(url: "https://github.com/1amageek/swift-html.git", from: "0.9.4"),
@@ -182,7 +199,7 @@ let package = Package(
             dependencies: [
                 swiftHTMLDependency,
                 "SwiftWebHost",
-                .product(name: "ActorRuntime", package: "swift-actor-runtime"),
+                actorRuntimeDependency,
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "Logging", package: "swift-log"),
                 "SwiftWebActors",
@@ -275,7 +292,7 @@ let package = Package(
             dependencies: [
                 swiftHTMLDependency,
                 "SwiftWebHost",
-                .product(name: "ActorRuntime", package: "swift-actor-runtime"),
+                actorRuntimeDependency,
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "Logging", package: "swift-log"),
                 "SwiftWebActors",

@@ -1,3 +1,4 @@
+#if SWIFTWEB_ACTORS
 #if SWIFTWEB_MACROS
 /// Injects the resolved distributed actor service for the declared contract type.
 ///
@@ -10,4 +11,5 @@
 /// declaration is compiled out because SWIFTWEB_MACROS is not defined there.
 @attached(accessor)
 public macro Actor() = #externalMacro(module: "SwiftWebMacros", type: "ActorMacro")
+#endif
 #endif

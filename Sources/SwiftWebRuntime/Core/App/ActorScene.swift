@@ -1,3 +1,4 @@
+#if SWIFTWEB_ACTORS
 import SwiftWebActors
 
 public struct ActorScene<Content: Scene, ActorType: SwiftWebActorExporting>: Scene, _PrimitiveScene {
@@ -24,3 +25,4 @@ public extension Scene {
         ActorScene(content: self, actor: actor)
     }
 }
+#endif

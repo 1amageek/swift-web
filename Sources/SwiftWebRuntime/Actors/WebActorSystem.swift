@@ -1,3 +1,4 @@
+#if SWIFTWEB_ACTORS
 @preconcurrency import ActorRuntime
 @preconcurrency import Distributed
 #if canImport(FoundationEssentials)
@@ -434,3 +435,19 @@ private actor WebActorInvocationResultStore {
         storedResponse = response
     }
 }
+#else
+
+/// The actor-free stand-in compiled when the `Actors` trait is disabled.
+///
+/// It keeps the `App`/`Scene` API shape (`actorSystem` parameters and
+/// defaults) without linking `Distributed` or `ActorRuntime`. Hosting
+/// distributed actors — `ActorGroup`, transports, persistent stores —
+/// requires the trait, so none of that surface exists here.
+public final class WebActorSystem: Sendable {
+    public typealias ActorID = String
+
+    public static let shared = WebActorSystem()
+
+    public init() {}
+}
+#endif

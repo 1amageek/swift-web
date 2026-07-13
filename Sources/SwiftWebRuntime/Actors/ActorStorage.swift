@@ -1,3 +1,4 @@
+#if SWIFTWEB_ACTORS
 #if canImport(FoundationEssentials)
 import FoundationEssentials
 #elseif canImport(Foundation)
@@ -123,3 +124,4 @@ enum ActorStorageActivationContext {
         current?.add(box)
     }
 }
+#endif

@@ -1,3 +1,4 @@
+#if SWIFTWEB_ACTORS
 #if canImport(FoundationEssentials)
 import FoundationEssentials
 #elseif canImport(Foundation)
@@ -22,3 +23,4 @@ public final class InMemoryActorPersistentStore: WebActorPersistentStore {
         storage.withLock { $0[actorID] = values }
     }
 }
+#endif

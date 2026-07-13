@@ -1,3 +1,4 @@
+#if SWIFTWEB_ACTORS
 @preconcurrency import ActorRuntime
 @preconcurrency import Distributed
 
@@ -41,3 +42,4 @@ public struct WebActorInvocationEncoder: DistributedTargetInvocationEncoder {
         try base.makeInvocationEnvelope(recipientID: recipientID, senderID: senderID)
     }
 }
+#endif

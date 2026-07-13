@@ -1,3 +1,4 @@
+#if SWIFTWEB_ACTORS
 public struct WebActorSecurityPolicy: Sendable {
     public var authorization: WebActorAuthorization
     public var activation: WebActorActivationPolicy
@@ -27,3 +28,4 @@ public struct WebActorSecurityPolicy: Sendable {
         activation: .defaults
     )
 }
+#endif

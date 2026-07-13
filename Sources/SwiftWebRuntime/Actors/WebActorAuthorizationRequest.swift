@@ -1,3 +1,4 @@
+#if SWIFTWEB_ACTORS
 @preconcurrency import ActorRuntime
 
 public struct WebActorAuthorizationRequest: Sendable {
@@ -24,3 +25,4 @@ public struct WebActorAuthorizationRequest: Sendable {
         self.isVirtualActor = isVirtualActor
     }
 }
+#endif

@@ -1,3 +1,4 @@
+#if SWIFTWEB_ACTORS
 @preconcurrency import ActorRuntime
 @preconcurrency import Distributed
 #if canImport(FoundationEssentials)
@@ -42,3 +43,4 @@ public struct WebActorResultHandler: DistributedTargetInvocationResultHandler, S
         try await sendResponse(ResponseEnvelope(callID: callID, result: .failure(runtimeError)))
     }
 }
+#endif

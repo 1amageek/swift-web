@@ -12,5 +12,7 @@ public macro ServerAction(_ path: String) = #externalMacro(module: "SwiftWebMacr
 @attached(peer, names: arbitrary)
 public macro ServerAction(_ method: ServerActionMethod, _ path: String) = #externalMacro(module: "SwiftWebMacros", type: "ServerActionMacro")
 
+#if SWIFTWEB_ACTORS
 @attached(extension, conformances: SwiftWebActorExporting, names: named(SwiftWebActorContract), named(swiftWebActorContractKey), named(_swiftWebActorContractTypeCheck))
 public macro ResolvableActor(_ contract: Any.Type) = #externalMacro(module: "SwiftWebMacros", type: "ResolvableActorMacro")
+#endif

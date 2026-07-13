@@ -1,3 +1,4 @@
+#if SWIFTWEB_ACTORS
 import Synchronization
 
 /// Tracks the `@ActorStorage` boxes bound to each active actor and drives their
@@ -93,3 +94,4 @@ private actor LoadGate {
         done = true
     }
 }
+#endif

@@ -1,3 +1,4 @@
+#if SWIFTWEB_ACTORS
 #if canImport(FoundationEssentials)
 import FoundationEssentials
 #elseif canImport(Foundation)
@@ -15,3 +16,4 @@ public protocol WebActorPersistentStore: Sendable {
     func load(actorID: String) async throws -> [String: Data]?
     func save(actorID: String, values: [String: Data]) async throws
 }
+#endif

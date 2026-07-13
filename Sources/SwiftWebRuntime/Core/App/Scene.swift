@@ -80,6 +80,7 @@ public struct _SceneContext {
         )
     }
 
+    #if SWIFTWEB_ACTORS
     package func adding<ActorType: SwiftWebActorExporting>(_ actor: ActorType) -> _SceneContext {
         _SceneContext(
             application: application,
@@ -89,6 +90,7 @@ public struct _SceneContext {
             actorBindings: actorBindings.adding(actor)
         )
     }
+    #endif
 
     package func withEnvironment(_ environment: EnvironmentValues) -> _SceneContext {
         _SceneContext(

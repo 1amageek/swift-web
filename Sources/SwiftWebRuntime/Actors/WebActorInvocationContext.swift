@@ -1,3 +1,4 @@
+#if SWIFTWEB_ACTORS
 public struct WebActorInvocationContext: Sendable, Equatable {
     public enum Transport: String, Sendable, Codable {
         case trusted
@@ -31,3 +32,4 @@ public struct WebActorInvocationContext: Sendable, Equatable {
         transport != .trusted
     }
 }
+#endif

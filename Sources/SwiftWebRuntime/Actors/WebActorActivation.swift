@@ -1,3 +1,4 @@
+#if SWIFTWEB_ACTORS
 import Synchronization
 
 /// The virtual-actor ID a factory is being activated for. The first actor the
@@ -48,3 +49,4 @@ enum WebActorActivationContext {
     }
     #endif
 }
+#endif

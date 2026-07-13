@@ -1,4 +1,6 @@
+#if SWIFTWEB_ACTORS
 @preconcurrency import Distributed
+#endif
 
 public struct SwiftWebActorContractKey: Sendable, Hashable, Codable {
     public let rawValue: String
@@ -7,10 +9,12 @@ public struct SwiftWebActorContractKey: Sendable, Hashable, Codable {
         self.rawValue = rawValue
     }
 
+    #if SWIFTWEB_ACTORS
     public init<ActorType: DistributedActor>(_ actorType: ActorType.Type)
     where ActorType.ID == WebActorSystem.ActorID, ActorType.ActorSystem == WebActorSystem {
         self.rawValue = String(reflecting: actorType)
     }
+    #endif
 }
 
 public struct SwiftWebActorBindingRecord: Sendable, Codable, Equatable {
@@ -31,6 +35,7 @@ public struct SwiftWebActorResolver: Sendable {
     public let contract: SwiftWebActorContractKey
     private let resolveValue: @Sendable (WebActorSystem.ActorID, WebActorSystem) throws -> any Sendable
 
+    #if SWIFTWEB_ACTORS
     public init<Contract: DistributedActor>(_ contract: Contract.Type)
     where Contract.ID == WebActorSystem.ActorID, Contract.ActorSystem == WebActorSystem {
         self.init(contract: SwiftWebActorContractKey(contract), actorContract: contract)
@@ -45,6 +50,7 @@ public struct SwiftWebActorResolver: Sendable {
             try actorContract.resolve(id: actorID, using: actorSystem)
         }
     }
+    #endif
 
     public init(
         contract: SwiftWebActorContractKey,
@@ -162,6 +168,7 @@ public struct SwiftWebActorBindingScope: Sendable {
         return try resolver.resolve(service, actorID: binding.actorID, actorSystem: system)
     }
 
+    #if SWIFTWEB_ACTORS
     public func adding<ActorType: SwiftWebActorExporting>(
         _ actor: ActorType
     ) -> SwiftWebActorBindingScope {
@@ -186,6 +193,7 @@ public struct SwiftWebActorBindingScope: Sendable {
             actorSystems: systems
         )
     }
+    #endif
 }
 
 public enum SwiftWebActorBindingContext {

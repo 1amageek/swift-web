@@ -1,3 +1,4 @@
+#if SWIFTWEB_ACTORS
 @preconcurrency import ActorRuntime
 #if canImport(FoundationEssentials)
 import FoundationEssentials
@@ -259,3 +260,4 @@ public final class WebSocketSessionRouter: WebActorTransport, Sendable {
         return try await transport.call(envelope)
     }
 }
+#endif
