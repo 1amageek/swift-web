@@ -76,7 +76,7 @@ public struct OriginPolicy: Sendable {
     }
 
     static func normalizedOrigin(_ value: String) -> String? {
-        guard var components = URLComponents(string: value.trimmingCharacters(in: .whitespacesAndNewlines)),
+        guard var components = URLComponents(string: value.trimmedWhitespace()),
               let scheme = components.scheme?.lowercased(),
               let host = components.host?.lowercased(),
               scheme == "http" || scheme == "https" else {

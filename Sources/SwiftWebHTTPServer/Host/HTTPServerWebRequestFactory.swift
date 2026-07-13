@@ -73,10 +73,22 @@ enum HTTPServerWebRequestFactory {
         guard let bodyBytes, !bodyBytes.isEmpty else {
             throw Abort(.badRequest, reason: "Request body is empty")
         }
+        // Trim without `CharacterSet.whitespaces`: the member is declared by
+        // both Foundation and FoundationEssentials on Linux and the lookup is
+        // ambiguous there.
         let mediaType = contentType?
             .split(separator: ";", maxSplits: 1)
             .first
-            .map { $0.trimmingCharacters(in: .whitespaces).lowercased() }
+            .map { slice in
+                var trimmed = slice
+                while let first = trimmed.first, first.isWhitespace {
+                    trimmed = trimmed.dropFirst()
+                }
+                while let last = trimmed.last, last.isWhitespace {
+                    trimmed = trimmed.dropLast()
+                }
+                return trimmed.lowercased()
+            }
         switch mediaType {
         case "application/json":
             return try JSONDecoder().decode(type, from: Data(bodyBytes))

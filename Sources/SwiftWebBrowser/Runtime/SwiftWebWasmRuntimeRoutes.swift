@@ -209,13 +209,28 @@ public enum SwiftWebWasmRuntimeRoutes {
         "\"\(value)\""
     }
 
+    /// Trims leading/trailing whitespace without `CharacterSet`:
+    /// `whitespacesAndNewlines` is declared by both Foundation and
+    /// FoundationEssentials on Linux, and transitive module loading makes the
+    /// member lookup ambiguous there.
+    private static func trimmedWhitespace(_ value: Substring) -> String {
+        var slice = value
+        while let first = slice.first, first.isWhitespace {
+            slice = slice.dropFirst()
+        }
+        while let last = slice.last, last.isWhitespace {
+            slice = slice.dropLast()
+        }
+        return String(slice)
+    }
+
     private static func matchesETag(_ header: String?, etag: String) -> Bool {
         guard let header else {
             return false
         }
         return header
             .split(separator: ",")
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .map { trimmedWhitespace($0) }
             .contains { candidate in
                 candidate == etag || candidate == "*"
             }
@@ -229,7 +244,7 @@ public enum SwiftWebWasmRuntimeRoutes {
         for value in header.lowercased().split(separator: ",") {
             let parts = value
                 .split(separator: ";")
-                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .map { trimmedWhitespace($0) }
             guard let name = parts.first else {
                 continue
             }
@@ -261,12 +276,12 @@ public enum SwiftWebWasmRuntimeRoutes {
     private static func qualityParameter(_ value: String) -> Double? {
         let parts = value.split(separator: "=", maxSplits: 1)
         guard parts.count == 2,
-              parts[0].trimmingCharacters(in: .whitespacesAndNewlines) == "q"
+              trimmedWhitespace(parts[0]) == "q"
         else {
             return nil
         }
 
-        let rawValue = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
+        let rawValue = trimmedWhitespace(parts[1])
         guard let quality = Double(rawValue) else {
             return nil
         }

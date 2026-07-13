@@ -50,7 +50,7 @@ public enum ForwardedHeadersPolicy: Sendable {
         value?
             .split(separator: ",", maxSplits: 1)
             .first
-            .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+            .map { $0.trimmedWhitespace() }
     }
 
     private func configuredHost(for request: Request) -> String? {

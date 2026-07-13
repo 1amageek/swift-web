@@ -50,7 +50,7 @@ public struct RedirectPolicy: Sendable {
         for request: Request,
         forwardedHeaders: ForwardedHeadersPolicy
     ) -> String? {
-        let trimmed = location.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = location.trimmedWhitespace()
         guard !trimmed.isEmpty else {
             return nil
         }

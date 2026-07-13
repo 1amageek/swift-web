@@ -7,6 +7,13 @@ import FoundationEssentials
 #else
 import Foundation
 #endif
+// `atan2` comes from the C library; FoundationEssentials does not re-export it
+// on Linux, so import the platform C library explicitly.
+#if canImport(Glibc)
+import Glibc
+#elseif canImport(Musl)
+import Musl
+#endif
 #endif
 
 /// A linear gradient style that lowers to a CSS `linear-gradient()`, mirroring
