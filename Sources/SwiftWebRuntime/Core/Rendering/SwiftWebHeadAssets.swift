@@ -108,3 +108,9 @@ enum SwiftWebHeadAssets {
             .replacingOccurrences(of: ">", with: "&gt;")
     }
 }
+
+extension SwiftWebHeadAssets {
+    static func headLinks(from registry: StyleRegistry) -> String {
+        registry.headLinks().joined()
+    }
+}

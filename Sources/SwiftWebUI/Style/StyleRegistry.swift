@@ -17,6 +17,8 @@ public final class StyleRegistry: Sendable {
         var bodies: [String: String] = [:]
         var stylesheetOrder: [String] = []
         var stylesheets: Set<String> = []
+        var headLinkOrder: [String] = []
+        var headLinks: Set<String> = []
         var scriptOrder: [String] = []
         var scripts: [String: String] = [:]
     }
@@ -86,6 +88,25 @@ public final class StyleRegistry: Sendable {
 
     public func stylesheets() -> [String] {
         collected.withLock { $0.stylesheetOrder }
+    }
+
+    /// Registers a `<link>` for the document head (e.g. hreflang
+    /// alternates, canonical). Emitted through the `<!--swui-head-links-->`
+    /// placeholder in the page document; duplicates collapse.
+    public func registerHeadLink(_ attributes: [(name: String, value: String)]) {
+        guard !attributes.isEmpty else { return }
+        let rendered = "<link "
+            + attributes.map { "\($0.name)=\"\(HeadLinkEscaping.escape($0.value))\"" }.joined(separator: " ")
+            + ">"
+        collected.withLock { store in
+            if store.headLinks.insert(rendered).inserted {
+                store.headLinkOrder.append(rendered)
+            }
+        }
+    }
+
+    public func headLinks() -> [String] {
+        collected.withLock { $0.headLinkOrder }
     }
 
     public func registerScript(id: String, body: String) {
@@ -262,5 +283,21 @@ private struct AtomicStyleAttributeTransformer: HTMLAttributeTransformer {
             return remaining
         }
         return [.class(classTokens.joined(separator: " "))] + remaining
+    }
+}
+
+enum HeadLinkEscaping {
+    static func escape(_ value: String) -> String {
+        var result = ""
+        for character in value {
+            switch character {
+            case "&": result += "&amp;"
+            case "\"": result += "&quot;"
+            case "<": result += "&lt;"
+            case ">": result += "&gt;"
+            default: result.append(character)
+            }
+        }
+        return result
     }
 }

@@ -40,3 +40,16 @@ public struct HTMLAttributeModifier: ComponentModifier {
         }
     }
 }
+
+public extension HTML {
+    /// Sets a plain HTML attribute on the content's rendered root element,
+    /// for contracts expressed as data attributes (e.g. WebMapKit's
+    /// `data-mapkit-select` selection triggers) and ARIA annotations.
+    ///
+    /// Attaches via `RootAttributes` — no wrapper node is introduced, so
+    /// parent CSS contracts (grid/flex children, direct-child selectors)
+    /// are preserved.
+    func attribute(_ name: String, _ value: String? = nil) -> some HTML {
+        RootAttributes([.attribute(name, value)]) { self }
+    }
+}

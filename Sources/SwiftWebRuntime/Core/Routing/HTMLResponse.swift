@@ -48,6 +48,7 @@ extension HTML {
             document: documentStyle
         )
         let renderedHTML = documentHTML
+            .replacingOccurrences(of: "<!--swui-head-links-->", with: SwiftWebHeadAssets.headLinks(from: styleRegistry))
             .replacingOccurrences(of: "<!--swui-base-->", with: SwiftWebHeadAssets.baseStyle(from: styleRegistry, nonce: nonce))
             .replacingOccurrences(of: "<!--swui-atomic-->", with: SwiftWebHeadAssets.atomicStyle(from: styleRegistry, nonce: nonce))
             .replacingOccurrences(of: "<!--swui-head-scripts-->", with: SwiftWebHeadAssets.scripts(from: styleRegistry, nonce: nonce))

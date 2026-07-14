@@ -26,6 +26,7 @@ public struct PageDocument<Content: HTML>: Component {
                     if let description = metadata.description {
                         meta(.name("description"), .content(description))
                     }
+                    rawHTML("<!--swui-head-links-->")
                     rawHTML("<!--swui-base-->")
                     rawHTML("<!--swui-atomic-->")
                     rawHTML("<!--swui-head-scripts-->")

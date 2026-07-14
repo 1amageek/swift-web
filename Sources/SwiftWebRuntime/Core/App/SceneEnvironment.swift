@@ -9,6 +9,7 @@ extension Scene {
     ///         SupportAgent(actorSystem: actorSystem)
     ///     }
     ///     .environment(\.model, claude)
+    #if !hasFeature(Embedded)
     public func environment<Value: Sendable>(
         _ keyPath: WritableKeyPath<EnvironmentValues, Value> & Sendable,
         _ value: Value
@@ -17,6 +18,7 @@ extension Scene {
             values[keyPath: keyPath] = value
         }
     }
+    #endif
 
     /// Sets a type-keyed environment value, mirroring `HTML.environment(_:)`.
     public func environment<Value: Sendable>(_ value: Value) -> some Scene {
@@ -24,20 +26,37 @@ extension Scene {
             values[Value.self] = value
         }
     }
+
+    /// Mutation-closure form of `environment(_:_:)` — the profile-neutral
+    /// spelling (key-path literals cannot compile under Embedded Swift),
+    /// mirroring `HTML.transformEnvironment(_:)`.
+    public func transformEnvironment(
+        _ transform: @escaping @Sendable (inout EnvironmentValues) -> Void
+    ) -> some Scene {
+        _EnvironmentScene(content: self, transform: transform)
+    }
 }
 
 extension PageRoute {
     /// Sets an environment value for this page's rendering, mirroring the
     /// scene modifier so pages compose the same way scenes do.
+    #if !hasFeature(Embedded)
     public func environment<Value: Sendable>(
         _ keyPath: WritableKeyPath<EnvironmentValues, Value> & Sendable,
         _ value: Value
     ) -> some Scene {
         PageRouteScene(self).environment(keyPath, value)
     }
+    #endif
 
     public func environment<Value: Sendable>(_ value: Value) -> some Scene {
         PageRouteScene(self).environment(value)
+    }
+
+    public func transformEnvironment(
+        _ transform: @escaping @Sendable (inout EnvironmentValues) -> Void
+    ) -> some Scene {
+        PageRouteScene(self).transformEnvironment(transform)
     }
 }
 
