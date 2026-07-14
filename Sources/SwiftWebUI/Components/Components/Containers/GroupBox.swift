@@ -1,7 +1,7 @@
 import SwiftWebUITheme
 import SwiftHTML
 
-public struct GroupBox<Label: HTML, Content: HTML>: WebUIAttributeComponent {
+public struct GroupBox<Label: HTML, Content: HTML>: AttributeComponent {
     private let label: Label
     private let showsLabel: Bool
     private let attributes: [HTMLAttribute]

@@ -1,3 +1,6 @@
+#if !hasFeature(Embedded)
+// SSE/streaming routes decode Codable search params and stream
+// over the native host; full profiles only.
 public struct SSEEvent: Sendable {
     public let event: String?
     public let id: String?
@@ -34,3 +37,4 @@ public struct SSEEvent: Sendable {
         return output
     }
 }
+#endif

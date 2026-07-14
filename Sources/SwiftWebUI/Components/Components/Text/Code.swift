@@ -1,7 +1,7 @@
 import SwiftWebUITheme
 import SwiftHTML
 
-public struct Code: WebUIAttributeComponent {
+public struct Code: AttributeComponent {
     private let source: String
     private let language: String?
     private let startLine: Int

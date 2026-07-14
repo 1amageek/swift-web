@@ -2,13 +2,13 @@ import SwiftWebUITheme
 import SwiftHTML
 import SwiftWebStyle
 
-public protocol WebUIAttributeMutableHTML: HTML {
+public protocol AttributeMutableHTML: HTML {
     func addingAttributes(_ attributes: [HTMLAttribute]) -> Self
 }
 
-public protocol WebUIAttributeComponent: Component, WebUIAttributeMutableHTML {}
+public protocol AttributeComponent: Component, AttributeMutableHTML {}
 
-extension ModifiedContent: WebUIAttributeMutableHTML where Content: WebUIAttributeMutableHTML {
+extension ModifiedContent: AttributeMutableHTML where Content: AttributeMutableHTML {
     public func addingAttributes(_ attributes: [HTMLAttribute]) -> Self {
         ModifiedContent(
             content: content.addingAttributes(attributes),
@@ -49,7 +49,7 @@ public struct Alignment: Sendable, Equatable {
     }
 }
 
-public extension WebUIAttributeMutableHTML {
+public extension AttributeMutableHTML {
     func attribute(_ attribute: HTMLAttribute) -> Self {
         addingAttributes([attribute])
     }
@@ -305,7 +305,7 @@ func edgePaddingStyle(edges: Edge.Set, value: String) -> Style {
     return style
 }
 
-public struct Frame<Content: HTML>: WebUIAttributeComponent {
+public struct Frame<Content: HTML>: AttributeComponent {
     private let width: Double?
     private let minWidth: Double?
     private let idealWidth: Double?

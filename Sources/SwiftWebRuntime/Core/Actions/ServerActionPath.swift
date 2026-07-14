@@ -1,3 +1,6 @@
+#if !hasFeature(Embedded)
+// Server actions are a Codable JSON API boundary; the embedded SSR
+// profile does not serve them.
 public enum ServerActionPath {
     public static func renderedPath(_ path: String) -> String {
         if isAbsolute(path) {
@@ -29,3 +32,4 @@ public enum ServerActionPath {
         return RoutePath(base + relative).string
     }
 }
+#endif

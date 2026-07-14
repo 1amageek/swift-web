@@ -3,8 +3,8 @@ public struct RequestValues: Sendable {
     public let request: Request
     public let security: RequestSecurityContext?
 
-    private let paramsValue: any Sendable
-    private let searchParamsValue: any Sendable
+    private let paramsBox: any AnyRuntimeBox
+    private let searchParamsBox: any AnyRuntimeBox
 
     public init<Params: Sendable, SearchParams: Sendable>(
         request: Request,
@@ -14,20 +14,20 @@ public struct RequestValues: Sendable {
     ) {
         self.request = request
         self.security = security ?? request.securityContext
-        self.paramsValue = params
-        self.searchParamsValue = searchParams
+        self.paramsBox = RuntimeBox(params)
+        self.searchParamsBox = RuntimeBox(searchParams)
     }
 
-    public func params<Params>(as type: Params.Type = Params.self) -> Params {
-        guard let params = self.paramsValue as? Params else {
-            preconditionFailure("Request context does not contain params of type \(Params.self)")
+    public func params<Params: Sendable>(as type: Params.Type = Params.self) -> Params {
+        guard let params = unboxRuntimeValue(paramsBox, as: Params.self) else {
+            preconditionFailure("Request context does not contain params of type \(RuntimeTypeLabel.of(Params.self))")
         }
         return params
     }
 
-    public func searchParams<SearchParams>(as type: SearchParams.Type = SearchParams.self) -> SearchParams {
-        guard let searchParams = self.searchParamsValue as? SearchParams else {
-            preconditionFailure("Request context does not contain search params of type \(SearchParams.self)")
+    public func searchParams<SearchParams: Sendable>(as type: SearchParams.Type = SearchParams.self) -> SearchParams {
+        guard let searchParams = unboxRuntimeValue(searchParamsBox, as: SearchParams.self) else {
+            preconditionFailure("Request context does not contain search params of type \(RuntimeTypeLabel.of(SearchParams.self))")
         }
         return searchParams
     }
@@ -37,8 +37,8 @@ public struct RequestValues: Sendable {
             method: request.method.rawValue,
             url: request.url.string,
             path: request.url.path,
-            params: paramsValue,
-            searchParams: searchParamsValue
+            paramsBox: paramsBox,
+            searchParamsBox: searchParamsBox
         )
     }
 }

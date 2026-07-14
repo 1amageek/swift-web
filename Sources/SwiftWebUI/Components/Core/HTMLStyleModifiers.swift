@@ -8,11 +8,11 @@ public struct ForegroundStylesModifier: ComponentModifier {
         self.styles = styles
     }
 
-    @Environment(\.theme) private var theme: Theme
-    @Environment(\.colorScheme) private var colorScheme: ColorScheme
-    @Environment(\.layoutDirection) private var layoutDirection: LayoutDirection
-    @Environment(\.controlState) private var controlState: ControlState
-    @Environment(\.isEnabled) private var isEnabled: Bool
+    @Environment({ $0.theme }) private var theme: Theme
+    @Environment({ $0.colorScheme }) private var colorScheme: ColorScheme
+    @Environment({ $0.layoutDirection }) private var layoutDirection: LayoutDirection
+    @Environment({ $0.controlState }) private var controlState: ControlState
+    @Environment({ $0.isEnabled }) private var isEnabled: Bool
 
     @HTMLBuilder
     public func body(content: ModifierContent) -> some HTML {
@@ -52,7 +52,7 @@ public struct ForegroundStylesModifier: ComponentModifier {
         let resolved = resolvedStyles
         var style = Style()
         if let primary = resolved.first {
-            style.append(WebStyleProperty.foreground.style(for: primary))
+            style.append(StyleProperty.foreground.style(for: primary))
         }
         // The primary level paints `color`; every level is also published as a
         // `--swui-foreground-{primary,secondary,tertiary,…}` custom property so
@@ -65,7 +65,7 @@ public struct ForegroundStylesModifier: ComponentModifier {
             // property in terms of itself is a custom-property cycle in CSS
             // (the declaration becomes invalid); omitting it keeps the
             // inherited level, which is what the identity mapping means.
-            if resolvedStyle.cssValue.contains("var(\(name)") {
+            if resolvedStyle.cssValue.containsSubstring("var(\(name)") {
                 continue
             }
             style.append(.custom(name, resolvedStyle.cssValue))
@@ -79,8 +79,8 @@ public struct ForegroundStylesModifier: ComponentModifier {
                 "swui-modifier",
                 "swui-style",
                 HTMLModifierRole.textStyle.className,
-                WebStyleProperty.foreground.modifierClassName,
-            ] + resolvedStyles.flatMap(\.classNames)
+                StyleProperty.foreground.modifierClassName,
+            ] + resolvedStyles.flatMap { $0.classNames }
         )
         .joined(separator: " ")
     }
@@ -108,11 +108,11 @@ public struct ShapeBackgroundStyleModifier<S: ShapeStyle>: ComponentModifier {
         self.shape = shape
     }
 
-    @Environment(\.theme) private var theme: Theme
-    @Environment(\.colorScheme) private var colorScheme: ColorScheme
-    @Environment(\.layoutDirection) private var layoutDirection: LayoutDirection
-    @Environment(\.controlState) private var controlState: ControlState
-    @Environment(\.isEnabled) private var isEnabled: Bool
+    @Environment({ $0.theme }) private var theme: Theme
+    @Environment({ $0.colorScheme }) private var colorScheme: ColorScheme
+    @Environment({ $0.layoutDirection }) private var layoutDirection: LayoutDirection
+    @Environment({ $0.controlState }) private var controlState: ControlState
+    @Environment({ $0.isEnabled }) private var isEnabled: Bool
 
     @HTMLBuilder
     public func body(content: ModifierContent) -> some HTML {
@@ -147,7 +147,7 @@ public struct ShapeBackgroundStyleModifier<S: ShapeStyle>: ComponentModifier {
     }
 
     private var styleValue: Style {
-        var style = WebStyleProperty.background.style(for: resolvedStyle)
+        var style = StyleProperty.background.style(for: resolvedStyle)
         style.append(.borderRadius(shape.cornerRadiusValue))
         return style
     }
@@ -158,7 +158,7 @@ public struct ShapeBackgroundStyleModifier<S: ShapeStyle>: ComponentModifier {
                 "swui-modifier",
                 "swui-style",
                 HTMLModifierRole.box.className,
-                WebStyleProperty.background.modifierClassName,
+                StyleProperty.background.modifierClassName,
                 "swui-style-shaped-background",
             ] + resolvedStyle.classNames
         )
@@ -173,14 +173,14 @@ public struct BackgroundStyleModifier<S: ShapeStyle>: ComponentModifier {
         self.style = style
     }
 
-    @Environment(\.theme) private var theme: Theme
-    @Environment(\.colorScheme) private var colorScheme: ColorScheme
-    @Environment(\.layoutDirection) private var layoutDirection: LayoutDirection
-    @Environment(\.controlState) private var controlState: ControlState
+    @Environment({ $0.theme }) private var theme: Theme
+    @Environment({ $0.colorScheme }) private var colorScheme: ColorScheme
+    @Environment({ $0.layoutDirection }) private var layoutDirection: LayoutDirection
+    @Environment({ $0.controlState }) private var controlState: ControlState
 
     @HTMLBuilder
     public func body(content: ModifierContent) -> some HTML {
-        content.environment(\.backgroundStyle, resolvedBackgroundStyle)
+        content.transformEnvironment({ $0.backgroundStyle = resolvedBackgroundStyle })
     }
 
     private var resolvedBackgroundStyle: String {
@@ -200,7 +200,7 @@ public struct EnvironmentBackgroundModifier: ComponentModifier {
         self.shape = shape
     }
 
-    @Environment(\.backgroundStyle) private var backgroundStyle: String?
+    @Environment({ $0.backgroundStyle }) private var backgroundStyle: String?
 
     @HTMLBuilder
     public func body(content: ModifierContent) -> some HTML {
@@ -227,7 +227,7 @@ public struct EnvironmentBackgroundModifier: ComponentModifier {
             "swui-modifier",
             "swui-style",
             HTMLModifierRole.box.className,
-            WebStyleProperty.background.modifierClassName,
+            StyleProperty.background.modifierClassName,
             "swui-style-shaped-background",
         ]
         .joined(separator: " ")
@@ -237,8 +237,8 @@ public struct EnvironmentBackgroundModifier: ComponentModifier {
 public extension HTML {
     func foregroundStyle<S: ShapeStyle>(
         _ style: S
-    ) -> ModifiedContent<Self, WebStyleModifier<S>> {
-        modifier(WebStyleModifier(property: .foreground, style: style))
+    ) -> ModifiedContent<Self, StyleModifier<S>> {
+        modifier(StyleModifier(property: .foreground, style: style))
     }
 
     func foregroundStyle<Primary: ShapeStyle, Secondary: ShapeStyle>(
@@ -266,8 +266,8 @@ public extension HTML {
     func background<S: ShapeStyle>(
         _ style: S,
         ignoresSafeAreaEdges edges: Edge.Set = .all
-    ) -> ModifiedContent<Self, WebStyleModifier<S>> {
-        modifier(WebStyleModifier(property: .background, style: style, ignoredSafeAreaEdges: edges))
+    ) -> ModifiedContent<Self, StyleModifier<S>> {
+        modifier(StyleModifier(property: .background, style: style, ignoredSafeAreaEdges: edges))
     }
 
     func background<S: ShapeStyle>(
@@ -308,8 +308,8 @@ public extension HTML {
     func border<S: ShapeStyle>(
         _ style: S,
         width: Length = 1
-    ) -> ModifiedContent<Self, WebStyleModifier<S>> {
-        modifier(WebStyleModifier(property: .border(width: width), style: style))
+    ) -> ModifiedContent<Self, StyleModifier<S>> {
+        modifier(StyleModifier(property: .border(width: width), style: style))
     }
 
     func controlSize(_ size: ControlSize) -> ModifiedContent<Self, ControlSizeModifier> {

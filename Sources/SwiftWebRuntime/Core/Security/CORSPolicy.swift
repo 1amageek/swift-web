@@ -55,10 +55,10 @@ public struct CORSPolicy: Sendable {
             originPolicy: origin,
             forwardedHeaders: forwardedHeaders,
             allowedMethods: allowedMethods.map { "\($0)" }.joined(separator: ", "),
-            allowedHeaders: effectiveAllowedHeaders.map(\.canonicalName).joined(separator: ", "),
+            allowedHeaders: effectiveAllowedHeaders.map { $0.canonicalName }.joined(separator: ", "),
             exposedHeaders: exposedHeaders.isEmpty
                 ? nil
-                : exposedHeaders.map(\.canonicalName).joined(separator: ", "),
+                : exposedHeaders.map { $0.canonicalName }.joined(separator: ", "),
             allowsCredentials: allowsCredentials,
             cacheExpiration: cacheExpiration
         )

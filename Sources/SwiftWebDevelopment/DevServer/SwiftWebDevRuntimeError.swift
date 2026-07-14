@@ -17,6 +17,7 @@ public enum SwiftWebDevRuntimeError: Error, Sendable, CustomStringConvertible {
     case initialWasmBuildFailed(component: String, product: String, reason: String)
     case workerBuildFailed(command: String, status: Int32, firstErrorLine: String?, logPath: String)
     case workerExitedDuringStartup(status: Int32)
+    case artifactSnapshotFailed(source: String, destination: String, reason: String)
 
     public var description: String {
         switch self {
@@ -73,6 +74,8 @@ public enum SwiftWebDevRuntimeError: Error, Sendable, CustomStringConvertible {
             return lines.joined(separator: "\n")
         case .workerExitedDuringStartup(let status):
             return "dev worker exited with status \(status) before becoming ready"
+        case .artifactSnapshotFailed(let source, let destination, let reason):
+            return "dev worker artifact snapshot failed from \(source) to \(destination): \(reason)"
         }
     }
 
@@ -85,7 +88,7 @@ public enum SwiftWebDevRuntimeError: Error, Sendable, CustomStringConvertible {
         case .processFailed, .executableNotFound, .hostReadinessTimeout, .workerPortAllocationFailed,
              .workerReadinessTimeout, .hostSwiftToolchainNotFound, .wasmToolchainNotFound,
              .unsupportedWasmSDK, .initialWasmBuildFailed, .workerBuildFailed,
-             .workerExitedDuringStartup:
+             .workerExitedDuringStartup, .artifactSnapshotFailed:
             return 70
         }
     }

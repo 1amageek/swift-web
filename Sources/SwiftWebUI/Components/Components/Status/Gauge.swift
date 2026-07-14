@@ -5,13 +5,13 @@ import SwiftHTML
 ///
 /// Lowers to a native `<meter>` element. The meter track composes the shared
 /// ultra-thin material so its fill tracks the active design style.
-public struct Gauge<Label: HTML>: WebUIAttributeComponent {
+public struct Gauge<Label: HTML>: AttributeComponent {
     private let value: Double
     private let bounds: ClosedRange<Double>
     private let label: Label
     private let attributes: [HTMLAttribute]
-    @Environment(\.gaugeStyle) private var gaugeStyle: GaugeStyleKind
-    @Environment(\.tint) private var tint: Color?
+    @Environment({ $0.gaugeStyle }) private var gaugeStyle: GaugeStyleKind
+    @Environment({ $0.tint }) private var tint: Color?
 
     public init(
         value: Double,

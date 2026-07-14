@@ -4,7 +4,7 @@
 /// semantic colors (`.accent`, `.surface`, `.primary`, …, resolving to root custom
 /// properties), and the results of `opacity(_:)`/`mix(with:by:)` are all `Color`,
 /// so they compose without type erasure.
-public struct Color: ShapeStyle, Sendable, Equatable, Codable {
+public struct Color: ShapeStyle, Sendable, Equatable {
     /// The resolved CSS color value (`#rrggbb`, `rgba(...)`, `var(--swui-…)`,
     /// `color-mix(...)`, or `transparent`).
     public let cssValue: String
@@ -117,3 +117,7 @@ public extension ShapeStyle where Self == Color {
     static var surfaceRaised: Color { Color(cssValue: "var(--swui-surface-raised)") }
     static var border: Color { Color(cssValue: "var(--swui-border)") }
 }
+
+#if !hasFeature(Embedded)
+extension Color: Codable {}
+#endif

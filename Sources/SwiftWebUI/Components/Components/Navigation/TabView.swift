@@ -10,7 +10,7 @@ import SwiftHTML
 /// keeps the selection binding in sync, so switching tabs works without a client
 /// runtime while server-side state stays consistent. The binding's current value
 /// chooses the initially selected tab.
-public struct TabView<Content: HTML>: WebUIAttributeComponent {
+public struct TabView<Content: HTML>: AttributeComponent {
     private let selection: Binding<String>
     private let attributes: [HTMLAttribute]
     private let content: Content
@@ -21,8 +21,8 @@ public struct TabView<Content: HTML>: WebUIAttributeComponent {
     private let sourceLine: Int
     private let sourceColumn: Int
 
-    @Environment(\.isEnabled) private var isEnabled: Bool
-    @Environment(\.tabViewStyle) private var tabViewStyle: TabViewStyleKind
+    @Environment({ $0.isEnabled }) private var isEnabled: Bool
+    @Environment({ $0.tabViewStyle }) private var tabViewStyle: TabViewStyleKind
 
     public init(
         selection: Binding<String>,
@@ -50,8 +50,8 @@ public struct TabView<Content: HTML>: WebUIAttributeComponent {
             )
         ) {
             content
-                .environment(\.tabSelection, selection.wrappedValue)
-                .environment(\.tabGroupName, groupName)
+                .transformEnvironment({ $0.tabSelection = selection.wrappedValue })
+                .transformEnvironment({ $0.tabGroupName = groupName })
         }
     }
 

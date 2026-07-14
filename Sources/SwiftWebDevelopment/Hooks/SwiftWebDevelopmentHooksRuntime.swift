@@ -1,3 +1,4 @@
+import Foundation
 import SwiftWebCore
 
 public enum SwiftWebDevelopmentHooksRuntime {
@@ -23,6 +24,11 @@ extension SwiftWebDevelopmentHooks {
             installMiddlewares: { middlewares in
                 if SwiftWebDevHotReload.isEnabled {
                     middlewares.use(SwiftWebDevContextMiddleware())
+                    if let fingerprintMiddleware = SwiftWebDevBuildFingerprintMiddleware(
+                        environment: ProcessInfo.processInfo.environment
+                    ) {
+                        middlewares.use(fingerprintMiddleware)
+                    }
                     if SwiftWebDevRouteLoggingMiddleware.isEnabled {
                         middlewares.use(SwiftWebDevRouteLoggingMiddleware(logLevel: .info))
                     }

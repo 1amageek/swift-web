@@ -6,7 +6,7 @@ import SwiftHTML
 /// are `.swiftWeb` (`.default`), `.material`, and `.liquidGlass`; apply one with
 /// `.environment(\.theme, ...)`. Start a custom theme from a built-in and
 /// override only what differs, so every component always resolves a fallback.
-public struct Theme: Codable, Sendable, Equatable, Identifiable {
+public struct Theme: Sendable, Equatable, Identifiable {
     public var id: String
     var root: Root
     var layout: Layout
@@ -97,7 +97,7 @@ public struct Theme: Codable, Sendable, Equatable, Identifiable {
 }
 
 extension Theme {
-    struct Override: Codable, Sendable, Equatable {
+    struct Override: Sendable, Equatable {
         var id: String?
         var root: Root.Override?
         var layout: Layout.Override?
@@ -143,7 +143,7 @@ extension Theme {
         }
     }
 
-    struct Root: Codable, Sendable, Equatable {
+    struct Root: Sendable, Equatable {
         var pageInlinePadding: String
         var stackSpacing: String
 
@@ -159,7 +159,7 @@ extension Theme {
             )
         }
 
-        struct Override: Codable, Sendable, Equatable {
+        struct Override: Sendable, Equatable {
             var pageInlinePadding: String?
             var stackSpacing: String?
 
@@ -170,7 +170,7 @@ extension Theme {
         }
     }
 
-    struct Layout: Codable, Sendable, Equatable {
+    struct Layout: Sendable, Equatable {
         var lazyIntrinsicSize: String
 
         init(lazyIntrinsicSize: String) {
@@ -183,7 +183,7 @@ extension Theme {
             )
         }
 
-        struct Override: Codable, Sendable, Equatable {
+        struct Override: Sendable, Equatable {
             var lazyIntrinsicSize: String?
 
             init(lazyIntrinsicSize: String? = nil) {
@@ -192,7 +192,7 @@ extension Theme {
         }
     }
 
-    struct Surface: Codable, Sendable, Equatable {
+    struct Surface: Sendable, Equatable {
         var containerBorder: String
         var containerRadius: String
         var containerShadow: String
@@ -215,7 +215,7 @@ extension Theme {
             )
         }
 
-        struct Override: Codable, Sendable, Equatable {
+        struct Override: Sendable, Equatable {
             var containerBorder: String?
             var containerRadius: String?
             var containerShadow: String?
@@ -232,7 +232,7 @@ extension Theme {
         }
     }
 
-    struct Typography: Codable, Sendable, Equatable {
+    struct Typography: Sendable, Equatable {
         var pageHeadingSize: String
         var pageHeadingLineHeight: String
         var sectionHeadingSize: String
@@ -259,7 +259,7 @@ extension Theme {
             )
         }
 
-        struct Override: Codable, Sendable, Equatable {
+        struct Override: Sendable, Equatable {
             var pageHeadingSize: String?
             var pageHeadingLineHeight: String?
             var sectionHeadingSize: String?
@@ -279,7 +279,7 @@ extension Theme {
         }
     }
 
-    struct Control: Codable, Sendable, Equatable {
+    struct Control: Sendable, Equatable {
         var miniHeight: String
         var smallHeight: String
         var regularHeight: String
@@ -314,7 +314,7 @@ extension Theme {
             )
         }
 
-        struct Override: Codable, Sendable, Equatable {
+        struct Override: Sendable, Equatable {
             var miniHeight: String?
             var smallHeight: String?
             var regularHeight: String?
@@ -340,7 +340,7 @@ extension Theme {
         }
     }
 
-    struct Button: Codable, Sendable, Equatable {
+    struct Button: Sendable, Equatable {
         var radius: String
         var primaryBackground: String
         var primaryForeground: String
@@ -383,7 +383,7 @@ extension Theme {
             )
         }
 
-        struct Override: Codable, Sendable, Equatable {
+        struct Override: Sendable, Equatable {
             var radius: String?
             var primaryBackground: String?
             var primaryForeground: String?
@@ -415,7 +415,7 @@ extension Theme {
         }
     }
 
-    struct Field: Codable, Sendable, Equatable {
+    struct Field: Sendable, Equatable {
         var background: String
         var border: String
         var radius: String
@@ -440,7 +440,7 @@ extension Theme {
             )
         }
 
-        struct Override: Codable, Sendable, Equatable {
+        struct Override: Sendable, Equatable {
             var background: String?
             var border: String?
             var radius: String?
@@ -463,7 +463,7 @@ extension Theme {
         }
     }
 
-    struct Badge: Codable, Sendable, Equatable {
+    struct Badge: Sendable, Equatable {
         var background: String
         var border: String
         var foreground: String
@@ -488,7 +488,7 @@ extension Theme {
             )
         }
 
-        struct Override: Codable, Sendable, Equatable {
+        struct Override: Sendable, Equatable {
             var background: String?
             var border: String?
             var foreground: String?
@@ -511,7 +511,7 @@ extension Theme {
         }
     }
 
-    struct Navigation: Codable, Sendable, Equatable {
+    struct Navigation: Sendable, Equatable {
         var gap: String
         var linkForeground: String
         var linkDecoration: String
@@ -533,7 +533,7 @@ extension Theme {
             )
         }
 
-        struct Override: Codable, Sendable, Equatable {
+        struct Override: Sendable, Equatable {
             var gap: String?
             var linkForeground: String?
             var linkDecoration: String?
@@ -553,7 +553,7 @@ extension Theme {
         }
     }
 
-    struct Toggle: Codable, Sendable, Equatable {
+    struct Toggle: Sendable, Equatable {
         var width: String
         var height: String
         var thumbSize: String
@@ -578,7 +578,7 @@ extension Theme {
             )
         }
 
-        struct Override: Codable, Sendable, Equatable {
+        struct Override: Sendable, Equatable {
             var width: String?
             var height: String?
             var thumbSize: String?
@@ -601,7 +601,7 @@ extension Theme {
         }
     }
 
-    struct Motion: Codable, Sendable, Equatable {
+    struct Motion: Sendable, Equatable {
         var quick: String
         var standard: String
 
@@ -617,7 +617,7 @@ extension Theme {
             )
         }
 
-        struct Override: Codable, Sendable, Equatable {
+        struct Override: Sendable, Equatable {
             var quick: String?
             var standard: String?
 
@@ -636,7 +636,7 @@ extension Theme {
     /// component code reads as a plain surface; glass styles enable blur, rim and
     /// SVG refraction. `solidFill` is the opaque fallback used where
     /// `backdrop-filter` is unsupported or reduced-transparency is requested.
-    struct Material: Codable, Sendable, Equatable {
+    struct Material: Sendable, Equatable {
         var tint: String
         var opacity: String
         var opacityStep: String
@@ -683,7 +683,7 @@ extension Theme {
             )
         }
 
-        struct Override: Codable, Sendable, Equatable {
+        struct Override: Sendable, Equatable {
             var tint: String?
             var opacity: String?
             var opacityStep: String?
@@ -958,3 +958,108 @@ public extension Theme {
         }
     }
 }
+
+#if !hasFeature(Embedded)
+extension Theme: Codable {}
+#endif
+
+#if !hasFeature(Embedded)
+extension Theme.Override: Codable {}
+#endif
+
+#if !hasFeature(Embedded)
+extension Theme.Root: Codable {}
+#endif
+
+#if !hasFeature(Embedded)
+extension Theme.Root.Override: Codable {}
+#endif
+
+#if !hasFeature(Embedded)
+extension Theme.Layout: Codable {}
+#endif
+
+#if !hasFeature(Embedded)
+extension Theme.Layout.Override: Codable {}
+#endif
+
+#if !hasFeature(Embedded)
+extension Theme.Surface: Codable {}
+#endif
+
+#if !hasFeature(Embedded)
+extension Theme.Surface.Override: Codable {}
+#endif
+
+#if !hasFeature(Embedded)
+extension Theme.Typography: Codable {}
+#endif
+
+#if !hasFeature(Embedded)
+extension Theme.Typography.Override: Codable {}
+#endif
+
+#if !hasFeature(Embedded)
+extension Theme.Control: Codable {}
+#endif
+
+#if !hasFeature(Embedded)
+extension Theme.Control.Override: Codable {}
+#endif
+
+#if !hasFeature(Embedded)
+extension Theme.Button: Codable {}
+#endif
+
+#if !hasFeature(Embedded)
+extension Theme.Button.Override: Codable {}
+#endif
+
+#if !hasFeature(Embedded)
+extension Theme.Field: Codable {}
+#endif
+
+#if !hasFeature(Embedded)
+extension Theme.Field.Override: Codable {}
+#endif
+
+#if !hasFeature(Embedded)
+extension Theme.Badge: Codable {}
+#endif
+
+#if !hasFeature(Embedded)
+extension Theme.Badge.Override: Codable {}
+#endif
+
+#if !hasFeature(Embedded)
+extension Theme.Navigation: Codable {}
+#endif
+
+#if !hasFeature(Embedded)
+extension Theme.Navigation.Override: Codable {}
+#endif
+
+#if !hasFeature(Embedded)
+extension Theme.Toggle: Codable {}
+#endif
+
+#if !hasFeature(Embedded)
+extension Theme.Toggle.Override: Codable {}
+#endif
+
+#if !hasFeature(Embedded)
+extension Theme.Motion: Codable {}
+#endif
+
+#if !hasFeature(Embedded)
+extension Theme.Motion.Override: Codable {}
+#endif
+
+#if !hasFeature(Embedded)
+extension Theme.Material: Codable {}
+#endif
+
+#if !hasFeature(Embedded)
+extension Theme.Material.Override: Codable {}
+#endif
+

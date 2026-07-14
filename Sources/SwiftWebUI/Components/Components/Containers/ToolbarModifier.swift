@@ -37,21 +37,21 @@ struct ToolbarLayout<Content: HTML, Items: HTML>: Component {
             Element("header", attributes: [.class("\(Self.barClassName) swui-toolbar-top")]) {
                 Element("div", attributes: [.class("swui-toolbar-zone swui-toolbar-leading")]) {
                     items
-                        .environment(\.toolbarRegion, ToolbarItemPlacement.Region.leading)
+                        .transformEnvironment({ $0.toolbarRegion = ToolbarItemPlacement.Region.leading })
                 }
                 Element("div", attributes: [.class("swui-toolbar-zone swui-toolbar-principal")]) {
                     items
-                        .environment(\.toolbarRegion, ToolbarItemPlacement.Region.principal)
+                        .transformEnvironment({ $0.toolbarRegion = ToolbarItemPlacement.Region.principal })
                 }
                 Element("div", attributes: [.class("swui-toolbar-zone swui-toolbar-trailing")]) {
                     items
-                        .environment(\.toolbarRegion, ToolbarItemPlacement.Region.trailing)
+                        .transformEnvironment({ $0.toolbarRegion = ToolbarItemPlacement.Region.trailing })
                 }
             }
             content
             Element("footer", attributes: [.class("\(Self.barClassName) swui-toolbar-bottom")]) {
                 items
-                    .environment(\.toolbarRegion, ToolbarItemPlacement.Region.bottom)
+                    .transformEnvironment({ $0.toolbarRegion = ToolbarItemPlacement.Region.bottom })
             }
         }
     }

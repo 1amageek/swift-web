@@ -11,19 +11,25 @@ package protocol SwiftWebDevWorkerBuilding: Sendable {
     /// the executable URL. Throws `SwiftWebDevRuntimeError.workerBuildFailed`
     /// with the first compiler error line and the captured log path when the
     /// build fails.
-    func build() async throws -> URL
+    func build(for fingerprint: SwiftWebDevSourceFingerprint) async throws -> URL
+    func cleanupArtifacts()
+}
+
+extension SwiftWebDevWorkerBuilding {
+    package func cleanupArtifacts() {}
 }
 
 package final class SwiftWebDevWorkerBuilder: SwiftWebDevWorkerBuilding {
-    package typealias PrepareInputs = @Sendable () async throws -> Void
+    package typealias PrepareInputs = @Sendable (SwiftWebDevSourceFingerprint) async throws -> Void
 
     private let configuration: SwiftWebDevRuntimeConfiguration
     private let commandRunner: any SwiftWebDevBuildCommandRunning
-    /// Regenerates the build inputs (package materialization) before the
-    /// compiler runs. Injected so materialization cost is paid only on the
-    /// build path, never on css-only change wakes
-    /// (docs/DevServerReconcilerDesign.md §4.6).
+    /// Ensures generated packages and Client WASM artifacts match the target
+    /// fingerprint before the server compiler runs. The coordinator shared
+    /// with the fast path makes repeated preparation for one fingerprint a
+    /// no-op (docs/DevServerReconcilerDesign.md §4.6).
     private let prepareInputs: PrepareInputs
+    private let artifactRoot: URL
     /// `--show-bin-path` is configuration-derived and stable for the process
     /// lifetime — deleting `.build` does not move it — so it is resolved once
     /// instead of spawning a second SwiftPM invocation per rebuild.
@@ -32,16 +38,21 @@ package final class SwiftWebDevWorkerBuilder: SwiftWebDevWorkerBuilding {
     package init(
         configuration: SwiftWebDevRuntimeConfiguration,
         commandRunner: any SwiftWebDevBuildCommandRunning,
-        prepareInputs: @escaping PrepareInputs = {}
+        prepareInputs: @escaping PrepareInputs = { _ in }
     ) {
         self.configuration = configuration
         self.commandRunner = commandRunner
         self.prepareInputs = prepareInputs
+        self.artifactRoot = (configuration.scratchDirectory
+            ?? configuration.packageDirectory.appendingPathComponent(".swiftweb", isDirectory: true))
+            .appendingPathComponent("worker-artifacts", isDirectory: true)
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+            .standardizedFileURL
     }
 
     package convenience init(
         configuration: SwiftWebDevRuntimeConfiguration,
-        prepareInputs: @escaping PrepareInputs = {}
+        prepareInputs: @escaping PrepareInputs = { _ in }
     ) {
         self.init(
             configuration: configuration,
@@ -50,8 +61,8 @@ package final class SwiftWebDevWorkerBuilder: SwiftWebDevWorkerBuilding {
         )
     }
 
-    package func build() async throws -> URL {
-        try await prepareInputs()
+    package func build(for fingerprint: SwiftWebDevSourceFingerprint) async throws -> URL {
+        try await prepareInputs(fingerprint)
 
         var buildArguments = swiftBuildArguments()
         buildArguments.append("--quiet")
@@ -64,7 +75,7 @@ package final class SwiftWebDevWorkerBuilder: SwiftWebDevWorkerBuilding {
         guard FileManager.default.isExecutableFile(atPath: executableURL.path) else {
             throw SwiftWebDevRuntimeError.executableNotFound(executableURL.path)
         }
-        return executableURL
+        return try snapshotExecutable(executableURL, fingerprint: fingerprint)
     }
 
     private func resolvedBinPath() async throws -> URL {
@@ -105,5 +116,45 @@ package final class SwiftWebDevWorkerBuilder: SwiftWebDevWorkerBuilding {
         }
 
         return arguments
+    }
+
+    private func snapshotExecutable(
+        _ executableURL: URL,
+        fingerprint: SwiftWebDevSourceFingerprint
+    ) throws -> URL {
+        let directory = artifactRoot
+            .appendingPathComponent(fingerprint.digest, isDirectory: true)
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let destination = directory.appendingPathComponent(configuration.product)
+        do {
+            try FileManager.default.createDirectory(
+                at: directory,
+                withIntermediateDirectories: true
+            )
+            try FileManager.default.copyItem(at: executableURL, to: destination)
+        } catch {
+            throw SwiftWebDevRuntimeError.artifactSnapshotFailed(
+                source: executableURL.path,
+                destination: destination.path,
+                reason: String(describing: error)
+            )
+        }
+        return destination
+    }
+
+    package func cleanupArtifacts() {
+        guard FileManager.default.fileExists(atPath: artifactRoot.path) else {
+            return
+        }
+        do {
+            try FileManager.default.removeItem(at: artifactRoot)
+        } catch {
+            FileHandle.standardError.write(
+                Data(
+                    "Failed to remove SwiftWeb worker artifacts at \(artifactRoot.path): \(String(describing: error))\n"
+                        .utf8
+                )
+            )
+        }
     }
 }

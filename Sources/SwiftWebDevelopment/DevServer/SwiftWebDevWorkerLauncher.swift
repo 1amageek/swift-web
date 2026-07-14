@@ -75,7 +75,12 @@ package final class SwiftWebDevWorkerLauncher: SwiftWebDevWorkerLaunching {
             handle.markExited(status: process.terminationStatus)
             process.terminationHandler = nil
         }
-        try process.run()
+        do {
+            try process.run()
+        } catch {
+            process.terminationHandler = nil
+            throw error
+        }
         return handle
     }
 

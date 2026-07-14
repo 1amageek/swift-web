@@ -1,28 +1,28 @@
 import SwiftWebUITheme
 import SwiftHTML
 
-public enum ToggleStyleKind: String, Codable, Sendable, Equatable {
+public enum ToggleStyleKind: String, Sendable, Equatable {
     case automatic
     case `switch`
     case checkbox
     case button
 }
 
-public enum TextFieldStyleKind: String, Codable, Sendable, Equatable {
+public enum TextFieldStyleKind: String, Sendable, Equatable {
     case automatic
     case plain
     case roundedBorder
     case squareBorder
 }
 
-public enum LabelStyleKind: String, Codable, Sendable, Equatable {
+public enum LabelStyleKind: String, Sendable, Equatable {
     case automatic
     case titleAndIcon
     case titleOnly
     case iconOnly
 }
 
-public enum ListStyleKind: String, Codable, Sendable, Equatable {
+public enum ListStyleKind: String, Sendable, Equatable {
     case automatic
     case plain
     case inset
@@ -31,32 +31,32 @@ public enum ListStyleKind: String, Codable, Sendable, Equatable {
     case sidebar
 }
 
-public enum FormStyleKind: String, Codable, Sendable, Equatable {
+public enum FormStyleKind: String, Sendable, Equatable {
     case automatic
     case grouped
     case columns
 }
 
-public enum MenuStyleKind: String, Codable, Sendable, Equatable {
+public enum MenuStyleKind: String, Sendable, Equatable {
     case automatic
     case button
     case borderlessButton
 }
 
-public enum ProgressViewStyleKind: String, Codable, Sendable, Equatable {
+public enum ProgressViewStyleKind: String, Sendable, Equatable {
     case automatic
     case linear
     case circular
 }
 
-public enum GaugeStyleKind: String, Codable, Sendable, Equatable {
+public enum GaugeStyleKind: String, Sendable, Equatable {
     case automatic
     case linearCapacity
     case accessoryCircular
     case accessoryLinear
 }
 
-public enum TabViewStyleKind: String, Codable, Sendable, Equatable {
+public enum TabViewStyleKind: String, Sendable, Equatable {
     case automatic
     case tabBar
     case page
@@ -64,41 +64,41 @@ public enum TabViewStyleKind: String, Codable, Sendable, Equatable {
 
 public extension HTML {
     func toggleStyle(_ style: ToggleStyleKind) -> some HTML {
-        environment(\.toggleStyle, style)
+        transformEnvironment({ $0.toggleStyle = style })
     }
 
     func textFieldStyle(_ style: TextFieldStyleKind) -> some HTML {
-        environment(\.textFieldStyle, style)
+        transformEnvironment({ $0.textFieldStyle = style })
     }
 
     func labelStyle(_ style: LabelStyleKind) -> some HTML {
-        environment(\.labelStyle, style)
+        transformEnvironment({ $0.labelStyle = style })
     }
 
     func listStyle(_ style: ListStyleKind) -> some HTML {
-        environment(\.listStyle, style)
+        transformEnvironment({ $0.listStyle = style })
     }
 
     func formStyle(_ style: FormStyleKind) -> some HTML {
-        environment(\.formStyle, style)
+        transformEnvironment({ $0.formStyle = style })
     }
 
     func menuStyle(_ style: MenuStyleKind) -> some HTML {
-        environment(\.menuStyle, style)
+        transformEnvironment({ $0.menuStyle = style })
     }
 
     func progressViewStyle(
         _ style: ProgressViewStyleKind
     ) -> some HTML {
-        environment(\.progressViewStyle, style)
+        transformEnvironment({ $0.progressViewStyle = style })
     }
 
     func gaugeStyle(_ style: GaugeStyleKind) -> some HTML {
-        environment(\.gaugeStyle, style)
+        transformEnvironment({ $0.gaugeStyle = style })
     }
 
     func tabViewStyle(_ style: TabViewStyleKind) -> some HTML {
-        environment(\.tabViewStyle, style)
+        transformEnvironment({ $0.tabViewStyle = style })
     }
 }
 
@@ -147,3 +147,31 @@ func controlClassName(_ parts: String?...) -> String {
     }
     .joined(separator: " ")
 }
+
+#if !hasFeature(Embedded)
+extension FormStyleKind: Codable {}
+#endif
+#if !hasFeature(Embedded)
+extension GaugeStyleKind: Codable {}
+#endif
+#if !hasFeature(Embedded)
+extension LabelStyleKind: Codable {}
+#endif
+#if !hasFeature(Embedded)
+extension ListStyleKind: Codable {}
+#endif
+#if !hasFeature(Embedded)
+extension MenuStyleKind: Codable {}
+#endif
+#if !hasFeature(Embedded)
+extension ProgressViewStyleKind: Codable {}
+#endif
+#if !hasFeature(Embedded)
+extension TabViewStyleKind: Codable {}
+#endif
+#if !hasFeature(Embedded)
+extension TextFieldStyleKind: Codable {}
+#endif
+#if !hasFeature(Embedded)
+extension ToggleStyleKind: Codable {}
+#endif

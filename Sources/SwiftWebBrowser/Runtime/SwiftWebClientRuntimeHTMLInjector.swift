@@ -1,3 +1,4 @@
+#if !hasFeature(Embedded)
 #if canImport(FoundationEssentials)
 import FoundationEssentials
 #elseif canImport(Foundation)
@@ -93,3 +94,4 @@ package struct SwiftWebClientRuntimeHTMLInjector {
             .replacingOccurrences(of: "&", with: "\\u0026")
     }
 }
+#endif

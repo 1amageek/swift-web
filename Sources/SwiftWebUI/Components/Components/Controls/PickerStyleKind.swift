@@ -4,7 +4,7 @@ import SwiftWebUITheme
 /// Only the styles that map to an honest native HTML control are exposed. Web
 /// has no wheel or palette equivalent, so those SwiftUI cases are intentionally
 /// omitted rather than silently degraded to another control.
-public enum PickerStyleKind: String, Codable, Sendable, Equatable {
+public enum PickerStyleKind: String, Sendable, Equatable {
     /// The system default. On the web this resolves to a pop-up menu, the same
     /// control SwiftUI picks for a picker in a form.
     case automatic
@@ -27,3 +27,7 @@ public enum PickerStyleKind: String, Codable, Sendable, Equatable {
         }
     }
 }
+
+#if !hasFeature(Embedded)
+extension PickerStyleKind: Codable {}
+#endif

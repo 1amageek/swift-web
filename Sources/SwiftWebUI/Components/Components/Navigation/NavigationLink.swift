@@ -6,17 +6,17 @@ import Foundation
 #endif
 import SwiftHTML
 
-public struct NavigationLink<Label: HTML>: WebUIAttributeComponent {
+public struct NavigationLink<Label: HTML>: AttributeComponent {
     private let destination: URL
     private let attributes: [HTMLAttribute]
     private let label: Label
-    @Environment(\.theme) private var theme: Theme
-    @Environment(\.colorScheme) private var colorScheme: ColorScheme
-    @Environment(\.layoutDirection) private var layoutDirection: LayoutDirection
-    @Environment(\.controlSize) private var controlSize: ControlSize
-    @Environment(\.isEnabled) private var isEnabled: Bool
-    @Environment(\.tint) private var tint: Color?
-    @Environment(\.buttonStyle) private var buttonStyle: ButtonStyleKind
+    @Environment({ $0.theme }) private var theme: Theme
+    @Environment({ $0.colorScheme }) private var colorScheme: ColorScheme
+    @Environment({ $0.layoutDirection }) private var layoutDirection: LayoutDirection
+    @Environment({ $0.controlSize }) private var controlSize: ControlSize
+    @Environment({ $0.isEnabled }) private var isEnabled: Bool
+    @Environment({ $0.tint }) private var tint: Color?
+    @Environment({ $0.buttonStyle }) private var buttonStyle: ButtonStyleKind
 
     public init(
         destination: URL,

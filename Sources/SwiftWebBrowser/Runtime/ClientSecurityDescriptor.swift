@@ -1,4 +1,4 @@
-public struct ClientSecurityDescriptor: Sendable, Codable, Equatable {
+public struct ClientSecurityDescriptor: Sendable, Equatable {
     public let csrfToken: String?
     public let csrfHeaderName: String
     public let csrfFieldName: String
@@ -13,3 +13,7 @@ public struct ClientSecurityDescriptor: Sendable, Codable, Equatable {
         self.csrfFieldName = csrfFieldName
     }
 }
+
+#if !hasFeature(Embedded)
+extension ClientSecurityDescriptor: Codable {}
+#endif

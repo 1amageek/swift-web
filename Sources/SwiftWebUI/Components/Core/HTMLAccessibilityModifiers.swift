@@ -282,7 +282,7 @@ public extension HTML {
     }
 }
 
-public extension WebUIAttributeMutableHTML {
+public extension AttributeMutableHTML {
     func accessibilityIdentifier(_ identifier: String) -> Self {
         addingAttributes([.data("accessibility-identifier", identifier)])
     }

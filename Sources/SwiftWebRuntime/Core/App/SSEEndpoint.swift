@@ -1,3 +1,5 @@
+#if !hasFeature(Embedded)
+// Rides the gated streaming subsystem; full profiles only.
 
 public struct SSEEndpoint<RouteType: SSERoute>: Scene, _PrimitiveScene {
     private let path: String
@@ -10,3 +12,4 @@ public struct SSEEndpoint<RouteType: SSERoute>: Scene, _PrimitiveScene {
         SSERouteBuilder.register(RouteType.self, on: context.routes, path: path)
     }
 }
+#endif

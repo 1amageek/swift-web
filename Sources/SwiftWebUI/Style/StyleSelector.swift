@@ -38,7 +38,7 @@ public struct StyleSelector: Sendable, Equatable, Hashable, CustomStringConverti
 
     public static func list(_ selectors: [Self]) -> Self {
         precondition(!selectors.isEmpty, "Selector list cannot be empty")
-        return Self(selectors.map(\.rawValue).joined(separator: ",\n"))
+        return Self(selectors.map { $0.rawValue }.joined(separator: ",\n"))
     }
 
     public static func list(_ selectors: Self...) -> Self {

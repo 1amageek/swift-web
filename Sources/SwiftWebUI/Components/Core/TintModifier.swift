@@ -8,14 +8,14 @@ public struct TintModifier<S: ShapeStyle>: ComponentModifier {
         self.style = style
     }
 
-    @Environment(\.theme) private var theme: Theme
-    @Environment(\.colorScheme) private var colorScheme: ColorScheme
-    @Environment(\.layoutDirection) private var layoutDirection: LayoutDirection
-    @Environment(\.controlState) private var controlState: ControlState
+    @Environment({ $0.theme }) private var theme: Theme
+    @Environment({ $0.colorScheme }) private var colorScheme: ColorScheme
+    @Environment({ $0.layoutDirection }) private var layoutDirection: LayoutDirection
+    @Environment({ $0.controlState }) private var controlState: ControlState
 
     @HTMLBuilder
     public func body(content: ModifierContent) -> some HTML {
-        content.environment(\.tint, resolvedTint)
+        content.transformEnvironment({ $0.tint = resolvedTint })
     }
 
     private var resolvedTint: Color {

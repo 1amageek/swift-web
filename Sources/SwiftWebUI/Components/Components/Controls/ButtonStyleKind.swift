@@ -1,5 +1,5 @@
 import SwiftWebUITheme
-public enum ButtonStyleKind: String, Codable, Sendable, Equatable {
+public enum ButtonStyleKind: String, Sendable, Equatable {
     case automatic
     case bordered
     case borderedProminent
@@ -80,3 +80,7 @@ public enum ButtonStyleKind: String, Codable, Sendable, Equatable {
         }
     }
 }
+
+#if !hasFeature(Embedded)
+extension ButtonStyleKind: Codable {}
+#endif

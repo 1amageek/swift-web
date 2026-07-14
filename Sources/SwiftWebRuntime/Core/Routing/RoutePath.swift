@@ -13,8 +13,8 @@ public struct RoutePath: Sendable {
         self.components = components
     }
 
-    public var webComponents: [WebPathComponent] {
-        components.map { WebPathComponent($0) }
+    public var webComponents: [PathComponent] {
+        components.map { PathComponent($0) }
     }
 
     public var string: String {

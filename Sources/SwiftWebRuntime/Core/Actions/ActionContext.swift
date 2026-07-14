@@ -1,3 +1,6 @@
+#if !hasFeature(Embedded)
+// Server actions are a Codable JSON API boundary; the embedded SSR
+// profile does not serve them.
 
 public struct ActionContext<Params: Decodable & Sendable, Input: Decodable & Sendable>: Sendable {
     public let request: Request
@@ -10,3 +13,4 @@ public struct ActionContext<Params: Decodable & Sendable, Input: Decodable & Sen
         self.input = input
     }
 }
+#endif

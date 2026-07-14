@@ -49,7 +49,7 @@ package enum SwiftWebClientHydrationIndexPruner {
             }
 
         let components = index.components.filter { keptNodeIDs.contains($0.nodeID) }
-        let componentIDs = Set(components.map(\.id))
+        let componentIDs = Set(components.map { $0.id })
         let serverSlots = index.serverSlots.filter { slot in
             componentIDs.contains(slot.ownerComponentID) || keptNodeIDs.contains(slot.nodeID)
         }

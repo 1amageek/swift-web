@@ -1,7 +1,7 @@
 import SwiftWebUITheme
 import SwiftHTML
 
-public struct Pane<Content: HTML>: WebUIAttributeComponent {
+public struct Pane<Content: HTML>: AttributeComponent {
     private let span: Int
     private let attributes: [HTMLAttribute]
     private let content: Content

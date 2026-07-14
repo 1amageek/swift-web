@@ -42,7 +42,7 @@ struct SwiftWebDevSourceFingerprintTests {
   }
 
   @Test
-  func excludesBuildProductsAndPackageResolved() throws {
+  func includesPackageAndSourceInputsWhileExcludingBuildProducts() throws {
     let root = try makeTemporaryRoot()
     defer { removeTemporaryRoot(root) }
     try write("struct A {}", to: root.appendingPathComponent("Sources/App/A.swift"))
@@ -50,20 +50,24 @@ struct SwiftWebDevSourceFingerprintTests {
     let scanner = SwiftWebDevSourceFingerprintScanner(roots: [root])
     let before = scanner.fingerprint()
 
-    // None of these are build inputs; adding or changing them must not move
-    // the fingerprint.
+    // Package pins and arbitrary files under Sources are valid SwiftPM inputs.
     try write("{}", to: root.appendingPathComponent("Package.resolved"))
+    try write("binary", to: root.appendingPathComponent("Sources/App/logo.png"))
+    let withInputs = scanner.fingerprint()
+
+    #expect(before != withInputs)
+    #expect(withInputs.fileCount == 3)
+
+    // Generated and repository metadata must not move the fingerprint.
     try write("built", to: root.appendingPathComponent(".build/module.swift"))
     try write("ref", to: root.appendingPathComponent(".git/config.json"))
     try write("gen", to: root.appendingPathComponent(".swiftweb/generated/Package.swift"))
     try write("pin", to: root.appendingPathComponent(".swiftpm/state.json"))
     try write("cache", to: root.appendingPathComponent("DerivedData/index.json"))
-    try write("binary", to: root.appendingPathComponent("Sources/App/logo.png"))
 
     let after = scanner.fingerprint()
 
-    #expect(before == after)
-    #expect(after.fileCount == 1)
+    #expect(withInputs == after)
   }
 
   @Test
@@ -131,14 +135,16 @@ struct SwiftWebDevSourceFingerprintTests {
   @Test
   func watchedFilePolicyMatchesWatchedSet() {
     #expect(SwiftWebDevWatchedFilePolicy.isWatchedFile(fileURL("Package.swift")))
+    #expect(SwiftWebDevWatchedFilePolicy.isWatchedFile(fileURL("Package.resolved")))
     #expect(SwiftWebDevWatchedFilePolicy.isWatchedFile(fileURL("Sources/App/A.swift")))
     #expect(SwiftWebDevWatchedFilePolicy.isWatchedFile(fileURL("Sources/App/A.css")))
     #expect(SwiftWebDevWatchedFilePolicy.isWatchedFile(fileURL("Sources/App/data.json")))
     #expect(SwiftWebDevWatchedFilePolicy.isWatchedFile(fileURL("Sources/App/page.html")))
     #expect(SwiftWebDevWatchedFilePolicy.isWatchedFile(fileURL("Sources/App/page.leaf")))
 
-    #expect(!SwiftWebDevWatchedFilePolicy.isWatchedFile(fileURL("Package.resolved")))
-    #expect(!SwiftWebDevWatchedFilePolicy.isWatchedFile(fileURL("Sources/App/logo.png")))
+    #expect(SwiftWebDevWatchedFilePolicy.isWatchedFile(fileURL("Sources/App/logo.png")))
+    #expect(SwiftWebDevWatchedFilePolicy.isWatchedFile(fileURL("Sources/CLib/include/module.modulemap")))
+    #expect(SwiftWebDevWatchedFilePolicy.isWatchedFile(fileURL("Plugins/BuildPlugin/config.bin")))
     #expect(!SwiftWebDevWatchedFilePolicy.isWatchedFile(fileURL("README.md")))
 
     #expect(SwiftWebDevWatchedFilePolicy.isExcludedDirectory(named: ".build"))

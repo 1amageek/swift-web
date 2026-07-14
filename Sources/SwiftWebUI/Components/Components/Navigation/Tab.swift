@@ -35,16 +35,16 @@ extension EnvironmentValues {
 /// `:has(.swui-tab-input:checked)`, so tab switching needs no client runtime;
 /// the enclosing `TabView` keeps the selection binding in sync through one
 /// delegated change handler.
-public struct Tab<Content: HTML>: WebUIAttributeComponent {
+public struct Tab<Content: HTML>: AttributeComponent {
     private let title: String
     private let systemImage: String?
     private let value: String
     private let attributes: [HTMLAttribute]
     private let content: Content
 
-    @Environment(\.tabSelection) private var tabSelection: String?
-    @Environment(\.tabGroupName) private var tabGroupName: String?
-    @Environment(\.isEnabled) private var isEnabled: Bool
+    @Environment({ $0.tabSelection }) private var tabSelection: String?
+    @Environment({ $0.tabGroupName }) private var tabGroupName: String?
+    @Environment({ $0.isEnabled }) private var isEnabled: Bool
 
     public init(
         _ title: String,

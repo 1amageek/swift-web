@@ -2,7 +2,7 @@ import SwiftWebUITheme
 import SwiftHTML
 import SwiftWebStyle
 
-public struct LazyHGrid<Content: HTML>: WebUIAttributeComponent {
+public struct LazyHGrid<Content: HTML>: AttributeComponent {
     private let rows: [GridItem]
     private let alignment: VerticalAlignment
     private let gap: StackGap

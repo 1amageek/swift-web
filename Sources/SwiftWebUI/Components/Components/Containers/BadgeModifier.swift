@@ -33,7 +33,7 @@ public extension HTML {
 /// style's backdrop blur, rim, and refraction. The semantic raised surface
 /// stays a per-badge difference, fed in through `.tint(...)` when present.
 struct BadgePill: Component {
-    @Environment(\.tint) private var tint: Color?
+    @Environment({ $0.tint }) private var tint: Color?
 
     private let text: String
     private let attributes: [HTMLAttribute]

@@ -125,7 +125,7 @@ let package = Package(
         .trait(name: "Actors"),
     ],
     dependencies: [
-        .package(url: "https://github.com/1amageek/swift-html.git", from: "0.9.4"),
+        .package(url: "https://github.com/1amageek/swift-html.git", from: "0.10.0"),
         .package(url: "https://github.com/1amageek/JavaScriptKit.git", from: "0.57.0"),
         .package(url: "https://github.com/1amageek/swift-actor-runtime.git", exact: "0.6.0"),
         .package(url: "https://github.com/apple/swift-http-types", from: "1.0.0"),
@@ -178,7 +178,6 @@ let package = Package(
             name: "SwiftWebHost",
             dependencies: [
                 .product(name: "HTTPTypes", package: "swift-http-types"),
-                .product(name: "Logging", package: "swift-log"),
             ],
             swiftSettings: swiftWebSwiftSettings
         ),
@@ -201,7 +200,6 @@ let package = Package(
                 "SwiftWebHost",
                 actorRuntimeDependency,
                 .product(name: "HTTPTypes", package: "swift-http-types"),
-                .product(name: "Logging", package: "swift-log"),
                 "SwiftWebActors",
                 "SwiftWebBrowserRuntime",
                 "SwiftWebStyle",

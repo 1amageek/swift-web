@@ -6,7 +6,7 @@ import SwiftHTML
 /// Lowers to a native `<input type="color">`. Selection is bound as a
 /// `#rrggbb` hex string, the value format the native color input uses; this
 /// layer has no `Color` value type, so the hex string is the honest interface.
-public struct ColorPicker<Label: HTML>: WebUIAttributeComponent {
+public struct ColorPicker<Label: HTML>: AttributeComponent {
     private let label: Label
     private let selection: Binding<String>
     /// Whether the picker should allow adjusting the selected color's opacity.
@@ -18,7 +18,7 @@ public struct ColorPicker<Label: HTML>: WebUIAttributeComponent {
     /// control.
     private let supportsOpacity: Bool
     private let attributes: [HTMLAttribute]
-    @Environment(\.isEnabled) private var isEnabled: Bool
+    @Environment({ $0.isEnabled }) private var isEnabled: Bool
 
     public init(
         selection: Binding<String>,

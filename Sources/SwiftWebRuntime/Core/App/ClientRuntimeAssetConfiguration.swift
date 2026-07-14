@@ -1,7 +1,10 @@
+#if !hasFeature(Embedded)
+// Native-host client-wasm asset plumbing; the embedded profile
+// serves client bundles as static assets outside the Swift server.
 import SwiftWebBrowserRuntime
 #if canImport(FoundationEssentials)
 import FoundationEssentials
-#else
+#elseif canImport(Foundation)
 import Foundation
 #endif
 import SwiftHTML
@@ -165,3 +168,4 @@ private struct ClientRuntimeAsset: Sendable {
     let path: String
     let fileURL: @Sendable () throws -> URL
 }
+#endif

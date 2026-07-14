@@ -2,7 +2,7 @@ import SwiftWebUITheme
 import SwiftHTML
 import SwiftWebStyle
 
-public struct HStack<Content: HTML>: WebUIAttributeComponent {
+public struct HStack<Content: HTML>: AttributeComponent {
     private let gap: StackGap
     private let alignment: VerticalAlignment
     private let attributes: [HTMLAttribute]

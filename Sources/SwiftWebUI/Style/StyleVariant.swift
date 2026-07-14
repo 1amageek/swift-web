@@ -353,8 +353,8 @@ private enum StyleArbitrarySelector {
         let hasControl = value.unicodeScalars.contains { $0.value < 0x20 }
         return !hasControl
             && !value.contains(where: { unsafe.contains($0) })
-            && !value.contains("/*")
-            && !value.contains("*/")
+            && !value.containsSubstring("/*")
+            && !value.containsSubstring("*/")
     }
 }
 

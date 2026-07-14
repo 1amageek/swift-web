@@ -104,6 +104,20 @@ struct SwiftWebDevEventLogReaderTests {
     #expect(try reader.poll().map(\.id) == [first.id])
   }
 
+  @Test
+  func malformedCompletedLineFailsResumeScan() throws {
+    let log = try makeLog()
+    defer { removeLog(log) }
+    let handle = try FileHandle(forWritingTo: log.fileURL)
+    try handle.seekToEnd()
+    try handle.write(contentsOf: Data("{malformed}\n".utf8))
+    try handle.close()
+
+    #expect(throws: DecodingError.self) {
+      _ = try SwiftWebDevEventLogReader(log: log, after: "missing")
+    }
+  }
+
   // MARK: - Helpers
 
   private final class OffsetRecorder: Sendable {

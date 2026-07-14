@@ -2,7 +2,7 @@ func resolvedCSSValue<S: ShapeStyle>(_ style: S) -> String {
     style.resolve(in: .default).cssValue
 }
 
-public struct ThemeBorder: Sendable, Equatable, Codable {
+public struct ThemeBorder: Sendable, Equatable {
     let cssValue: String
 
     init(_ cssValue: String) {
@@ -16,8 +16,8 @@ public struct ThemeBorder: Sendable, Equatable, Codable {
     }
 }
 
-public struct ThemeShadow: Sendable, Equatable, Codable {
-    public struct Layer: Sendable, Equatable, Codable {
+public struct ThemeShadow: Sendable, Equatable {
+    public struct Layer: Sendable, Equatable {
         let cssValue: String
 
         init(_ cssValue: String) {
@@ -54,7 +54,7 @@ public struct ThemeShadow: Sendable, Equatable, Codable {
     public static let none = ThemeShadow("none")
 
     public static func layers(_ layers: [Layer]) -> ThemeShadow {
-        ThemeShadow(layers.map(\.cssValue).joined(separator: ", "))
+        ThemeShadow(layers.map { $0.cssValue }.joined(separator: ", "))
     }
 
     public static func drop(
@@ -68,14 +68,14 @@ public struct ThemeShadow: Sendable, Equatable, Codable {
     }
 }
 
-public enum ThemeTextDecoration: String, Sendable, Equatable, Codable {
+public enum ThemeTextDecoration: String, Sendable, Equatable {
     case none
     case underline
 
     var cssValue: String { rawValue }
 }
 
-public struct ThemeIntrinsicSize: Sendable, Equatable, Codable {
+public struct ThemeIntrinsicSize: Sendable, Equatable {
     let cssValue: String
 
     init(_ cssValue: String) {
@@ -87,8 +87,8 @@ public struct ThemeIntrinsicSize: Sendable, Equatable, Codable {
     }
 }
 
-public struct ThemeMotionTiming: Sendable, Equatable, Codable {
-    public enum Curve: Sendable, Equatable, Codable {
+public struct ThemeMotionTiming: Sendable, Equatable {
+    public enum Curve: Sendable, Equatable {
         case ease
         case cubicBezier(Double, Double, Double, Double)
 
@@ -109,7 +109,7 @@ public struct ThemeMotionTiming: Sendable, Equatable, Codable {
     }
 }
 
-public struct ThemeRefraction: Sendable, Equatable, Codable {
+public struct ThemeRefraction: Sendable, Equatable {
     let cssValue: String
 
     init(_ cssValue: String) {
@@ -144,3 +144,36 @@ private func shadowValue<S: ShapeStyle>(
     parts.append(resolvedCSSValue(color))
     return parts.joined(separator: " ")
 }
+
+#if !hasFeature(Embedded)
+extension ThemeBorder: Codable {}
+#endif
+
+#if !hasFeature(Embedded)
+extension ThemeShadow: Codable {}
+#endif
+
+#if !hasFeature(Embedded)
+extension ThemeShadow.Layer: Codable {}
+#endif
+
+#if !hasFeature(Embedded)
+extension ThemeIntrinsicSize: Codable {}
+#endif
+
+#if !hasFeature(Embedded)
+extension ThemeMotionTiming: Codable {}
+#endif
+
+#if !hasFeature(Embedded)
+extension ThemeMotionTiming.Curve: Codable {}
+#endif
+
+#if !hasFeature(Embedded)
+extension ThemeRefraction: Codable {}
+#endif
+
+
+#if !hasFeature(Embedded)
+extension ThemeTextDecoration: Codable {}
+#endif

@@ -160,7 +160,9 @@ public struct LongPressGestureModifier: ComponentModifier {
     @HTMLBuilder
     public func body(content: ModifierContent) -> some HTML {
         let runtimeState = self.runtimeState
+        #if !hasFeature(Embedded)
         let nanoseconds = UInt64(minimumDuration * 1_000_000_000)
+        #endif
         let maximumDistance = maximumDistance.pixelValue
         let pressing = self.pressing
         let action = self.action
@@ -174,6 +176,10 @@ public struct LongPressGestureModifier: ComponentModifier {
                     let generation = runtimeState.begin(at: event)
                     pressing?(true)
 
+                    // Task.sleep is unavailable on Embedded Swift; event handlers
+                    // only execute in the hydrated client, which is built with the
+                    // full toolchain, so the timer arm compiles out server-side.
+                    #if !hasFeature(Embedded)
                     Task {
                         do {
                             try await Task.sleep(nanoseconds: nanoseconds)
@@ -184,6 +190,9 @@ public struct LongPressGestureModifier: ComponentModifier {
                             action()
                         }
                     }
+                    #else
+                    _ = generation
+                    #endif
                 },
                 .onPointerMove { event in
                     guard let maximumDistance,
@@ -212,7 +221,7 @@ public struct LongPressGestureModifier: ComponentModifier {
     }
 }
 
-public extension WebUIAttributeMutableHTML {
+public extension AttributeMutableHTML {
     func on(_ eventName: String, _ handler: @escaping @Sendable (DOMEvent) -> Void) -> Self {
         attribute(.event(eventName, handler))
     }

@@ -5,7 +5,7 @@ import SwiftHTML
 ///
 /// The stepper renders its title and the two buttons; it does not display the
 /// current value. Interpolate the value into the title to show it.
-public struct Stepper: WebUIAttributeComponent {
+public struct Stepper: AttributeComponent {
     private let title: String
     private let value: Binding<Int>?
     private let step: Int
@@ -14,9 +14,9 @@ public struct Stepper: WebUIAttributeComponent {
     private let onDecrement: (@Sendable () -> Void)?
     private let onEditingChanged: @Sendable (Bool) -> Void
     private let attributes: [HTMLAttribute]
-    @Environment(\.controlSize) private var controlSize: ControlSize
-    @Environment(\.isEnabled) private var isEnabled: Bool
-    @Environment(\.tint) private var tint: Color?
+    @Environment({ $0.controlSize }) private var controlSize: ControlSize
+    @Environment({ $0.isEnabled }) private var isEnabled: Bool
+    @Environment({ $0.tint }) private var tint: Color?
 
     public init(
         _ title: String,

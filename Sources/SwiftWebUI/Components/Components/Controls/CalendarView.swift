@@ -40,12 +40,44 @@ import SwiftHTML
 /// runtime. Weekday header labels default to English abbreviations; pass
 /// `weekdaySymbols` (indexed by weekday `1...7`) for other languages.
 public struct CalendarView<Cell: HTML>: Component {
-    private let referenceDate: Date
-    private let calendar: Calendar
+    private let year: Int
+    private let month: Int
+    private let firstWeekday: Int
+    private let today: GregorianDay?
     private let weekdaySymbols: [String]?
     private let accessibilityLabel: String?
     private let cell: @Sendable (CalendarDay) -> Cell
 
+    /// Profile-neutral month grid: pure Gregorian arithmetic, no Foundation.
+    ///
+    /// - Parameters:
+    ///   - year:  The Gregorian year to display.
+    ///   - month: The Gregorian month (1...12).
+    ///   - firstWeekday: The leading grid column, `1` (Sunday) ... `7`.
+    ///   - today: The day to stamp `data-today` on, or nil for none.
+    ///   - weekdaySymbols: Seven header labels indexed by weekday `1...7`
+    ///     (`1` = Sunday). Defaults to English abbreviations.
+    ///   - accessibilityLabel: The grid's `aria-label` (e.g. a localized month).
+    ///   - cell: Builds the content of one day cell from its ``CalendarDay``.
+    public init(
+        year: Int,
+        month: Int,
+        firstWeekday: Int = 1,
+        today: GregorianDay? = nil,
+        weekdaySymbols: [String]? = nil,
+        accessibilityLabel: String? = nil,
+        @HTMLBuilder cell: @escaping @Sendable (CalendarDay) -> Cell
+    ) {
+        self.year = year
+        self.month = month
+        self.firstWeekday = firstWeekday
+        self.today = today
+        self.weekdaySymbols = weekdaySymbols
+        self.accessibilityLabel = accessibilityLabel
+        self.cell = cell
+    }
+
+    #if !hasFeature(Embedded)
     /// - Parameters:
     ///   - month: Any date within the month to display.
     ///   - calendar: The calendar for the grid (weeks, first weekday, today).
@@ -60,17 +92,30 @@ public struct CalendarView<Cell: HTML>: Component {
         accessibilityLabel: String? = nil,
         @HTMLBuilder cell: @escaping @Sendable (CalendarDay) -> Cell
     ) {
-        self.referenceDate = month
-        self.calendar = calendar
-        self.weekdaySymbols = weekdaySymbols
-        self.accessibilityLabel = accessibilityLabel
-        self.cell = cell
+        let components = calendar.dateComponents([.year, .month], from: month)
+        let todayComponents = calendar.dateComponents([.year, .month, .day], from: Date())
+        self.init(
+            year: components.year ?? 1,
+            month: components.month ?? 1,
+            firstWeekday: calendar.firstWeekday,
+            today: GregorianDay(
+                year: todayComponents.year ?? 1,
+                month: todayComponents.month ?? 1,
+                day: todayComponents.day ?? 1
+            ),
+            weekdaySymbols: weekdaySymbols,
+            accessibilityLabel: accessibilityLabel,
+            cell: cell
+        )
     }
+    #endif
 
     public var body: some HTML {
         let model = CalendarMonthModel(
-            month: referenceDate,
-            calendar: calendar,
+            year: year,
+            month: month,
+            firstWeekday: firstWeekday,
+            today: today,
             weekdaySymbols: weekdaySymbols
         )
         let cell = self.cell
@@ -155,6 +200,29 @@ public extension CalendarView where Cell == CalendarCellContent<CalendarCellHead
     /// A month grid with the default cell content: the day number rendered
     /// through ``CalendarCellContent`` and ``CalendarCellHeader``.
     init(
+        year: Int,
+        month: Int,
+        firstWeekday: Int = 1,
+        today: GregorianDay? = nil,
+        weekdaySymbols: [String]? = nil,
+        accessibilityLabel: String? = nil
+    ) {
+        self.init(
+            year: year,
+            month: month,
+            firstWeekday: firstWeekday,
+            today: today,
+            weekdaySymbols: weekdaySymbols,
+            accessibilityLabel: accessibilityLabel
+        ) { day in
+            CalendarCellContent {
+                CalendarCellHeader(day)
+            }
+        }
+    }
+
+    #if !hasFeature(Embedded)
+    init(
         month: Date,
         calendar: Calendar = .current,
         weekdaySymbols: [String]? = nil,
@@ -171,6 +239,7 @@ public extension CalendarView where Cell == CalendarCellContent<CalendarCellHead
             }
         }
     }
+    #endif
 }
 
 /// A weekday header label in calendar order.
@@ -187,44 +256,36 @@ private struct CalendarWeek {
     var id: Int { index }
 }
 
-/// Computes the weeks and weekday headers for a month using only `Calendar`
-/// arithmetic, so it works in the WebAssembly runtime.
+/// Computes the weeks and weekday headers for a month using pure Gregorian
+/// arithmetic (see ``GregorianDay``): deterministic, Foundation-free, and
+/// identical on every profile.
 private struct CalendarMonthModel {
     let isoMonth: String
     let weekdays: [CalendarWeekday]
     let weeks: [CalendarWeek]
 
-    init(month referenceDate: Date, calendar: Calendar, weekdaySymbols: [String]?) {
-        let monthComponents = calendar.dateComponents([.year, .month], from: referenceDate)
-        let year = monthComponents.year ?? 1
-        let month = monthComponents.month ?? 1
-        let firstOfMonth = calendar.date(from: DateComponents(year: year, month: month, day: 1)) ?? referenceDate
-        let daysInMonth = calendar.range(of: .day, in: .month, for: firstOfMonth)?.count ?? 30
-        let firstWeekday = calendar.firstWeekday
-        let firstWeekdayOfMonth = calendar.component(.weekday, from: firstOfMonth)
-        let leading = (firstWeekdayOfMonth - firstWeekday + 7) % 7
-        let totalCells = Int((Double(leading + daysInMonth) / 7.0).rounded(.up)) * 7
-        let gridStart = calendar.date(byAdding: .day, value: -leading, to: firstOfMonth) ?? firstOfMonth
-        let today = calendar.dateComponents([.year, .month, .day], from: Date())
+    init(year: Int, month: Int, firstWeekday: Int, today: GregorianDay?, weekdaySymbols: [String]?) {
+        let firstOfMonth = GregorianDay(year: year, month: month, day: 1)
+        let daysInMonth = GregorianDay.daysInMonth(year: year, month: month)
+        let leading = (firstOfMonth.weekday - firstWeekday + 7) % 7
+        let totalCells = (leading + daysInMonth + 6) / 7 * 7
+        let gridStart = firstOfMonth.adding(days: -leading)
 
         var days: [CalendarDay] = []
         days.reserveCapacity(totalCells)
         for offset in 0..<totalCells {
-            let date = calendar.date(byAdding: .day, value: offset, to: gridStart) ?? gridStart
-            let c = calendar.dateComponents([.year, .month, .day, .weekday], from: date)
-            let dayYear = c.year ?? year
-            let dayMonth = c.month ?? month
-            let dayNumber = c.day ?? 1
-            let weekday = c.weekday ?? 1
-            let isOutsideMonth = !(dayMonth == month && dayYear == year)
-            let isToday = (dayYear == today.year && dayMonth == today.month && dayNumber == today.day)
+            let gridDay = gridStart.adding(days: offset)
+            let weekday = gridDay.weekday
+            let isOutsideMonth = !(gridDay.month == month && gridDay.year == year)
+            let isToday = today.map {
+                $0.year == gridDay.year && $0.month == gridDay.month && $0.day == gridDay.day
+            } ?? false
             let isWeekend = (weekday == 1 || weekday == 7)
             days.append(
                 CalendarDay(
-                    date: date,
-                    year: dayYear,
-                    month: dayMonth,
-                    day: dayNumber,
+                    year: gridDay.year,
+                    month: gridDay.month,
+                    day: gridDay.day,
                     weekday: weekday,
                     isToday: isToday,
                     isOutsideMonth: isOutsideMonth,
@@ -254,3 +315,4 @@ private struct CalendarMonthModel {
         self.isoMonth = "\(year)-\(month < 10 ? "0" : "")\(month)"
     }
 }
+

@@ -3,7 +3,7 @@ import SwiftWebHost
 
 /// Host-neutral CORS middleware with the same header semantics as Vapor's
 /// `CORSMiddleware`, driven by SwiftWeb's `OriginPolicy`.
-struct CORSMiddleware: Middleware {
+final class CORSMiddleware: Middleware {
     let originPolicy: OriginPolicy
     let forwardedHeaders: ForwardedHeadersPolicy
     let allowedMethods: String
@@ -11,6 +11,24 @@ struct CORSMiddleware: Middleware {
     let exposedHeaders: String?
     let allowsCredentials: Bool
     let cacheExpiration: Int?
+
+    init(
+        originPolicy: OriginPolicy,
+        forwardedHeaders: ForwardedHeadersPolicy,
+        allowedMethods: String,
+        allowedHeaders: String,
+        exposedHeaders: String?,
+        allowsCredentials: Bool,
+        cacheExpiration: Int?
+    ) {
+        self.originPolicy = originPolicy
+        self.forwardedHeaders = forwardedHeaders
+        self.allowedMethods = allowedMethods
+        self.allowedHeaders = allowedHeaders
+        self.exposedHeaders = exposedHeaders
+        self.allowsCredentials = allowsCredentials
+        self.cacheExpiration = cacheExpiration
+    }
 
     func respond(to request: Request, chainingTo next: any Responder) async throws -> Response {
         guard let requestOrigin = request.headers[.origin] else {

@@ -38,7 +38,7 @@ package enum SwiftWebDevHotReload {
     }
 
     let reloadRoute = routes.get("__swiftweb", "dev", "reload") { req async throws -> Response in
-      let search = try req.query.decode(SwiftWebDevReloadSearch.self)
+      let search = try URLEncodedFormDecoder().decode(SwiftWebDevReloadSearch.self, from: req.url.query ?? "")
       let currentToken = token
       var headers: HTTPFields = [
         .contentType: "text/plain; charset=utf-8",
@@ -61,7 +61,7 @@ package enum SwiftWebDevHotReload {
     }
 
     let eventsRoute = routes.get("__swiftweb", "dev", "events") { req async throws -> Response in
-      let search = try req.query.decode(SwiftWebDevEventsSearch.self)
+      let search = try URLEncodedFormDecoder().decode(SwiftWebDevEventsSearch.self, from: req.url.query ?? "")
       guard search.token == token else {
         return Response(
           status: .unauthorized,

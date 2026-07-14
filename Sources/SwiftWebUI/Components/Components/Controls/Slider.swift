@@ -31,16 +31,16 @@ private final class SliderEditingRuntimeState: Sendable {
     }
 }
 
-public struct Slider: WebUIAttributeComponent {
+public struct Slider: AttributeComponent {
     private let value: Binding<Double>
     private let bounds: ClosedRange<Double>
     private let step: Double?
     private let onEditingChanged: @Sendable (Bool) -> Void
     private let attributes: [HTMLAttribute]
     private let runtimeState = SliderEditingRuntimeState()
-    @Environment(\.controlSize) private var controlSize: ControlSize
-    @Environment(\.isEnabled) private var isEnabled: Bool
-    @Environment(\.tint) private var tint: Color?
+    @Environment({ $0.controlSize }) private var controlSize: ControlSize
+    @Environment({ $0.isEnabled }) private var isEnabled: Bool
+    @Environment({ $0.tint }) private var tint: Color?
 
     public init(
         value: Binding<Double>,

@@ -1,6 +1,6 @@
 #if canImport(FoundationEssentials)
 import FoundationEssentials
-#else
+#elseif canImport(Foundation)
 import Foundation
 #endif
 import HTTPTypes
@@ -57,20 +57,20 @@ public struct RedirectPolicy: Sendable {
         if trimmed.hasPrefix("/") && !trimmed.hasPrefix("//") {
             return trimmed
         }
-        guard let components = URLComponents(string: trimmed),
-              components.scheme != nil,
-              components.host != nil,
+        guard let reference = URLReference(parsing: trimmed),
+              reference.scheme != nil,
+              reference.host != nil,
               origin.allows(origin: trimmed, for: request, forwardedHeaders: forwardedHeaders) else {
             return nil
         }
-        var path = components.percentEncodedPath
+        var path = reference.path
         if path.isEmpty {
             path = "/"
         }
-        if let query = components.percentEncodedQuery, !query.isEmpty {
+        if let query = reference.query, !query.isEmpty {
             path += "?\(query)"
         }
-        if let fragment = components.percentEncodedFragment, !fragment.isEmpty {
+        if let fragment = reference.fragment, !fragment.isEmpty {
             path += "#\(fragment)"
         }
         return path

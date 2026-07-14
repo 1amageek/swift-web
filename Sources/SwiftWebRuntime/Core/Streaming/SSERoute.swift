@@ -1,3 +1,6 @@
+#if !hasFeature(Embedded)
+// SSE/streaming routes decode Codable search params and stream
+// over the native host; full profiles only.
 import SwiftWebBrowserRuntime
 import HTTPTypes
 
@@ -26,7 +29,7 @@ public enum SSERouteBuilder {
         path: RoutePath
     ) -> Route {
         routes.get(path.webComponents) { req async throws -> Response in
-            let searchParams = try req.query.decode(RouteType.SearchParams.self)
+            let searchParams = try URLEncodedFormDecoder().decode(RouteType.SearchParams.self, from: req.url.query ?? "")
             let requestValues = RequestValues(request: req, params: NoParams(), searchParams: searchParams)
             var configuredEnvironment = EnvironmentValues.swiftWebAmbient
             configuredEnvironment.applyRequestValues(requestValues)
@@ -63,3 +66,4 @@ public enum SSERouteBuilder {
         }
     }
 }
+#endif

@@ -1,7 +1,7 @@
 import SwiftWebUITheme
 import SwiftHTML
 
-public struct SubmitButton: WebUIAttributeComponent {
+public struct SubmitButton: AttributeComponent {
     private let text: String
     private let prominence: ButtonProminence
     private let attributes: [HTMLAttribute]

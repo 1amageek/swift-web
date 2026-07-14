@@ -20,23 +20,42 @@ package enum SwiftWebDevWatchedFilePolicy {
         "leaf",
     ]
 
+    private static let sourcePathExtensions: Set<String> = [
+        "swift",
+        "c",
+        "m",
+        "mm",
+        "cc",
+        "cpp",
+        "cxx",
+        "h",
+        "hh",
+        "hpp",
+        "modulemap",
+        "metal",
+    ]
+
+    private static let buildInputDirectoryNames: Set<String> = [
+        "Sources",
+        "Plugins",
+        "Resources",
+        "Public",
+    ]
+
     package static func isExcludedDirectory(named name: String) -> Bool {
         excludedDirectoryNames.contains(name)
     }
 
     package static func isWatchedFile(_ url: URL) -> Bool {
         let name = url.lastPathComponent
-        // Package.resolved is an output of dependency resolution, not an
-        // input: builds rewrite it, so reacting to it would make the dev
-        // server respond to its own side effects. Its "resolved" extension is
-        // outside the watched set today; the explicit check keeps that true
-        // even if the extension list grows.
-        if name == "Package.resolved" {
-            return false
-        }
-        if name == "Package.swift" || name.hasSuffix(".swift") {
+        if name == "Package.swift" || name == "Package.resolved" {
             return true
         }
-        return watchedPathExtensions.contains(url.pathExtension)
+        if url.pathComponents.contains(where: buildInputDirectoryNames.contains) {
+            return true
+        }
+        let pathExtension = url.pathExtension.lowercased()
+        return sourcePathExtensions.contains(pathExtension)
+            || watchedPathExtensions.contains(pathExtension)
     }
 }

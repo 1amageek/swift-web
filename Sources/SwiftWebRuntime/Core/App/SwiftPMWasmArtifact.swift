@@ -1,6 +1,9 @@
+#if !hasFeature(Embedded)
+// Native-host client-wasm asset plumbing; the embedded profile
+// serves client bundles as static assets outside the Swift server.
 #if canImport(FoundationEssentials)
 import FoundationEssentials
-#else
+#elseif canImport(Foundation)
 import Foundation
 #endif
 
@@ -204,3 +207,4 @@ public enum SwiftPMWasmArtifact {
     return output
   }
 }
+#endif

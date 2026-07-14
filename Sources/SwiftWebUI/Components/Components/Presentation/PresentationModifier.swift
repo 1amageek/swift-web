@@ -23,7 +23,7 @@ public struct PresentationModifier<PresentedContent: HTML>: ComponentModifier {
     private let onDismiss: (@Sendable () -> Void)?
     private let presentedContent: PresentedContent
 
-    @Environment(\.interactiveDismissDisabled) private var interactiveDismissDisabled: Bool
+    @Environment({ $0.interactiveDismissDisabled }) private var interactiveDismissDisabled: Bool
 
     init(
         kind: PresentationKind,

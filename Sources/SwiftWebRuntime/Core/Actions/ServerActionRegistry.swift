@@ -1,6 +1,9 @@
+#if !hasFeature(Embedded)
+// Server actions are a Codable JSON API boundary; the embedded SSR
+// profile does not serve them.
 #if canImport(FoundationEssentials)
 import FoundationEssentials
-#else
+#elseif canImport(Foundation)
 import Foundation
 #endif
 import Synchronization
@@ -65,7 +68,7 @@ private struct ServerActionRegistryStorageKey: StorageKey {
     typealias Value = ServerActionRegistry
 }
 
-public extension WebApplicationProtocol {
+public extension ApplicationProtocol {
     var swiftWebServerActions: ServerActionRegistry {
         if let registry = storage[ServerActionRegistryStorageKey.self] {
             return registry
@@ -75,3 +78,4 @@ public extension WebApplicationProtocol {
         return registry
     }
 }
+#endif

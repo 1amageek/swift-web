@@ -5,23 +5,23 @@ import Synchronization
 
 /// In-memory host application for core tests. No server, no Vapor: routes are
 /// collected and requests are constructed directly.
-final class TestWebApplication: WebApplicationProtocol {
+final class TestWebApplication: ApplicationProtocol {
     let logger = Logger(label: "swiftweb.tests")
-    let storage = WebApplicationStorage()
-    private let webRoutes = WebRoutes()
-    private let serverConfigurationBox = Mutex(WebServerConfiguration())
+    let storage = ApplicationStorage()
+    private let webRoutes = Routes()
+    private let serverConfigurationBox = Mutex(ServerConfiguration())
 
     init() {}
 
-    var routes: any WebRoutesBuilder {
+    var routes: any RoutesBuilder {
         webRoutes
     }
 
-    var collectedRoutes: [WebRoute] {
+    var collectedRoutes: [Route] {
         webRoutes.all
     }
 
-    var serverConfiguration: WebServerConfiguration {
+    var serverConfiguration: ServerConfiguration {
         get {
             serverConfigurationBox.withLock { $0 }
         }
@@ -39,8 +39,8 @@ enum TestRequestError: Error {
 final class TestSessionStore: Sendable {
     private let values = Mutex<[String: String]>([:])
 
-    var webSession: WebSession {
-        WebSession(
+    var webSession: RequestSession {
+        RequestSession(
             identifierReader: { "test-session" },
             valuesReader: { self.values.withLock { $0 } },
             valueReader: { key in self.values.withLock { $0[key] } },
@@ -50,10 +50,10 @@ final class TestSessionStore: Sendable {
     }
 }
 
-extension WebRequest {
+extension Request {
     /// A test request with the same defaults `Vapor.Request(application:)` had.
     convenience init(
-        application: any WebApplicationProtocol,
+        application: any ApplicationProtocol,
         method: HTTPRequest.Method = .get,
         path: String = "/",
         headers: HTTPFields = [:],
@@ -63,13 +63,14 @@ extension WebRequest {
     ) {
         self.init(
             method: method,
-            url: WebURL(string: path, path: path),
+            url: {
+                let parts = path.split(separator: "?", maxSplits: 1, omittingEmptySubsequences: false)
+                let query = parts.count > 1 ? String(parts[1]) : nil
+                return RequestURL(string: path, path: String(parts[0]), query: query)
+            }(),
             headers: headers,
             cookies: cookies,
-            query: WebQueryContainer { type in
-                try WebURLEncodedFormDecoder().decode(type, from: "")
-            },
-            content: WebContentContainer(
+            content: ContentContainer(
                 decoder: { _ in
                     throw TestRequestError.unsupported("content decoding")
                 },

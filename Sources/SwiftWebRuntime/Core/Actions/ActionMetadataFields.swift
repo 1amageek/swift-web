@@ -1,3 +1,6 @@
+#if !hasFeature(Embedded)
+// Server actions are a Codable JSON API boundary; the embedded SSR
+// profile does not serve them.
 import SwiftHTML
 
 public struct ActionMetadataFields<Input: Codable & Sendable, Output: Sendable>: Component, Sendable {
@@ -25,3 +28,4 @@ public struct ActionMetadataFields<Input: Codable & Sendable, Output: Sendable>:
         }
     }
 }
+#endif

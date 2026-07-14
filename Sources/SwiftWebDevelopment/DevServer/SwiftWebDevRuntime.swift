@@ -118,14 +118,24 @@ public struct SwiftWebDevRuntime: Sendable {
     // ---- Reconciler wiring (docs/DevServerReconcilerDesign.md §4) ----
 
     let scanner = SwiftWebDevSourceFingerprintScanner(roots: watchRoots)
-    let packageStore = SwiftWebDevGeneratedPackageStore(generatedPackage)
+    let desiredStateCoordinator = SwiftWebDevDesiredStateCoordinator(
+      currentPackage: generatedPackage,
+      preparePackage: {
+        try materializer.materialize()
+      },
+      prepareClientRuntimes: { refreshedPackage, changedPaths in
+        try prepareClientRuntimes(
+          refreshedPackage.wasmRuntimes,
+          changedPaths: changedPaths,
+          eventLog: eventLog,
+          buildProcess: buildProcess
+        )
+      }
+    )
     let builder = SwiftWebDevWorkerBuilder(
       configuration: serverConfiguration,
-      prepareInputs: {
-        // Materialization is build preparation: it runs only on the build
-        // path, never on css-only wakes (§4.6).
-        let refreshed = try materializer.materialize()
-        packageStore.update(refreshed)
+      prepareInputs: { fingerprint in
+        _ = try await desiredStateCoordinator.prepare(for: fingerprint)
       }
     )
     let launcher = SwiftWebDevWorkerLauncher(
@@ -137,13 +147,13 @@ public struct SwiftWebDevRuntime: Sendable {
       eventLog: eventLog
     )
     let appPackageDirectory = configuration.packageDirectory
-    let fastPath: @Sendable () async -> Void = {
+    let fastPath: @Sendable (SwiftWebDevSourceFingerprint) async -> Void = { fingerprint in
       await applyFastPathChanges(
+        fingerprint: fingerprint,
         watcher: watcher,
         appPackageDirectory: appPackageDirectory,
-        packageStore: packageStore,
-        eventLog: eventLog,
-        buildProcess: buildProcess
+        desiredStateCoordinator: desiredStateCoordinator,
+        eventLog: eventLog
       )
     }
     let reconciler = SwiftWebDevReconciler(
@@ -154,6 +164,7 @@ public struct SwiftWebDevRuntime: Sendable {
       fastPath: fastPath
     )
     wakeRelay.setTarget { reconciler.wake() }
+    workerRegistry.setSnapshotProvider { await reconciler.snapshot() }
     workerRegistry.markStarting(message: "SwiftWeb dev worker building")
 
     let reconcilerTask = Task {
@@ -172,6 +183,7 @@ public struct SwiftWebDevRuntime: Sendable {
     reconciler.shutdown()
     await reconcilerTask.value
     await reconciler.stopWorkerForShutdown()
+    workerRegistry.clearSnapshotProvider()
     await devHost.stop()
   }
 
@@ -238,9 +250,13 @@ public struct SwiftWebDevRuntime: Sendable {
       }
     }
 
-    observer.transitionFailed = { fingerprint, error in
+    observer.transitionFailed = { fingerprint, error, hasServingWorker in
       let summary = String(describing: error)
-      workerRegistry.markError(message: "SwiftWeb server rebuild failed", detail: summary)
+      if hasServingWorker {
+        workerRegistry.markError(message: "SwiftWeb server rebuild failed", detail: summary)
+      } else {
+        workerRegistry.markUnavailable(message: "SwiftWeb server unavailable", detail: summary)
+      }
       append(SwiftWebDevEvent(kind: .error, message: "Server rebuild failed: \(summary)"))
       logger.error(
         "SwiftWeb dev server build failed",
@@ -275,6 +291,17 @@ public struct SwiftWebDevRuntime: Sendable {
       }
     }
 
+    observer.workerUnavailableDuringTransition = { status in
+      workerRegistry.markUnavailable(
+        message: "SwiftWeb worker exited while replacement was building",
+        detail: "terminationStatus=\(status)"
+      )
+      logger.warning(
+        "SwiftWeb dev worker exited while replacement was building",
+        metadata: merged(["terminationStatus": .string(String(status))])
+      )
+    }
+
     observer.changesQueuedDuringTransition = { fingerprint in
       logger.info(
         "SwiftWeb dev changes queued during rebuild",
@@ -292,20 +319,61 @@ public struct SwiftWebDevRuntime: Sendable {
   /// the fingerprint covers the same files, so the reconciler's slow loop
   /// guarantees the served binary converges regardless.
   private func applyFastPathChanges(
+    fingerprint: SwiftWebDevSourceFingerprint,
     watcher: SwiftWebDevFileChangeWatcher,
     appPackageDirectory: URL,
-    packageStore: SwiftWebDevGeneratedPackageStore,
-    eventLog: SwiftWebDevEventLog,
-    buildProcess: SwiftWebDevBuildProcess
+    desiredStateCoordinator: SwiftWebDevDesiredStateCoordinator,
+    eventLog: SwiftWebDevEventLog
   ) async {
     let changes = watcher.changes()
+    let changedPaths = changes.map(\.path)
+    for styleFile in changes.map(\.url).filter({ $0.pathExtension == "css" }) {
+      do {
+        let css = try String(contentsOf: styleFile, encoding: .utf8)
+        try eventLog.append(
+          SwiftWebDevEvent(
+            kind: .stylePatch,
+            stylePatch: SwiftWebDevStylePatch(
+              id: "dev-style-hmr-\(abs(styleFile.path.hashValue))",
+              css: css
+            ),
+            changedPaths: changedPaths
+          ))
+        logger.info(
+          "SwiftWeb dev style HMR event emitted",
+          metadata: metadata(["styleFile": .string(styleFile.path)])
+        )
+      } catch {
+        recordFastPathError(
+          "Style HMR failed: \(String(describing: error))",
+          changedPaths: changedPaths,
+          eventLog: eventLog
+        )
+      }
+    }
+
+    let refreshedPackage: SwiftWebGeneratedPackage
+    do {
+      refreshedPackage = try await desiredStateCoordinator.prepare(
+        for: fingerprint,
+        changedPaths: changedPaths
+      )
+    } catch {
+      recordFastPathError(
+        "Desired state preparation failed: \(String(describing: error))",
+        changedPaths: changedPaths,
+        eventLog: eventLog
+      )
+      return
+    }
+
     guard !changes.isEmpty else {
       return
     }
 
     let classifier = SwiftWebDevChangeClassifier(
       appPackageDirectory: appPackageDirectory,
-      generatedPackage: packageStore.current
+      generatedPackage: refreshedPackage
     )
     let plan = classifier.classify(changes)
     logger.info(
@@ -317,47 +385,33 @@ public struct SwiftWebDevRuntime: Sendable {
         "requiresServerRestart": .string(String(plan.requiresServerRestart)),
       ])
     )
+  }
 
-    for styleFile in plan.styleFiles {
+  private func prepareClientRuntimes(
+    _ runtimes: [SwiftWebGeneratedWasmRuntime],
+    changedPaths: [String],
+    eventLog: SwiftWebDevEventLog,
+    buildProcess: SwiftWebDevBuildProcess
+  ) throws {
+    for runtime in runtimes {
+      appendDevEvent(
+        SwiftWebDevEvent(
+          kind: .clientBuildStarted,
+          message: "SwiftWeb Client WASM rebuilding",
+          changedPaths: changedPaths
+        ),
+        to: eventLog
+      )
       do {
-        let css = try String(contentsOf: styleFile, encoding: .utf8)
-        try eventLog.append(
-          SwiftWebDevEvent(
-            kind: .stylePatch,
-            stylePatch: SwiftWebDevStylePatch(
-              id: "dev-style-hmr-\(abs(styleFile.path.hashValue))",
-              css: css
-            ),
-            changedPaths: plan.changedPaths
-          ))
-        logger.info(
-          "SwiftWeb dev style HMR event emitted",
-          metadata: metadata(["styleFile": .string(styleFile.path)])
-        )
-      } catch {
-        recordFastPathError(
-          "Style HMR failed: \(String(describing: error))",
-          changedPaths: plan.changedPaths,
-          eventLog: eventLog
-        )
-      }
-    }
-
-    for runtime in plan.clientRuntimes {
-      do {
-        try eventLog.append(
-          SwiftWebDevEvent(
-            kind: .clientBuildStarted,
-            message: "SwiftWeb Client WASM rebuilding",
-            changedPaths: plan.changedPaths
-          ))
         let manifest = try buildProcess.buildWasmRuntime(runtime)
-        try eventLog.append(
+        appendDevEvent(
           SwiftWebDevEvent(
             kind: .clientComponentUpdate,
             clientComponentUpdate: manifest,
-            changedPaths: plan.changedPaths
-          ))
+            changedPaths: changedPaths
+          ),
+          to: eventLog
+        )
         logger.info(
           "SwiftWeb dev client component HMR event emitted",
           metadata: metadata([
@@ -368,10 +422,25 @@ public struct SwiftWebDevRuntime: Sendable {
       } catch {
         recordFastPathError(
           "Client WASM HMR failed for \(runtime.componentTypeName): \(String(describing: error))",
-          changedPaths: plan.changedPaths,
+          changedPaths: changedPaths,
           eventLog: eventLog
         )
+        throw error
       }
+    }
+  }
+
+  private func appendDevEvent(
+    _ event: SwiftWebDevEvent,
+    to eventLog: SwiftWebDevEventLog
+  ) {
+    do {
+      try eventLog.append(event)
+    } catch {
+      logger.error(
+        "SwiftWeb dev failed to record HMR event",
+        metadata: metadata(["error": .string(String(describing: error))])
+      )
     }
   }
 
@@ -529,24 +598,6 @@ private final class SwiftWebDevWakeRelay: Sendable {
   func invoke() {
     let handler = target.withLock { $0 }
     handler?()
-  }
-}
-
-/// Shares the freshest materialized package between the builder (which
-/// refreshes it) and the fast path (which classifies against it).
-private final class SwiftWebDevGeneratedPackageStore: Sendable {
-  private let stored: Mutex<SwiftWebGeneratedPackage>
-
-  init(_ package: SwiftWebGeneratedPackage) {
-    self.stored = Mutex(package)
-  }
-
-  var current: SwiftWebGeneratedPackage {
-    stored.withLock { $0 }
-  }
-
-  func update(_ package: SwiftWebGeneratedPackage) {
-    stored.withLock { $0 = package }
   }
 }
 

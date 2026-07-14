@@ -1,13 +1,16 @@
+#if !hasFeature(Embedded)
+// Server actions are a Codable JSON API boundary; the embedded SSR
+// profile does not serve them.
 import SwiftWebBrowserRuntime
 #if canImport(FoundationEssentials)
 import FoundationEssentials
-#else
+#elseif canImport(Foundation)
 import Foundation
 #endif
 import HTTPTypes
 import SwiftWebStyle
 
-public enum ActionResult: Sendable, Codable {
+public enum ActionResult: Sendable {
     case html(String, status: HTTPStatus = .ok)
     case text(String, status: HTTPStatus = .ok)
     case json(String, status: HTTPStatus = .ok)
@@ -26,12 +29,12 @@ public enum ActionResult: Sendable, Codable {
     }
 }
 
-public enum InvalidationScope: Sendable, Codable, Equatable {
+public enum InvalidationScope: Sendable, Equatable {
     case page
     case path(String)
 }
 
-private enum ActionResultKind: String, Codable {
+private enum ActionResultKind: String {
     case html
     case text
     case json
@@ -40,7 +43,7 @@ private enum ActionResultKind: String, Codable {
     case empty
 }
 
-private struct ActionResultPayload: Codable {
+private struct ActionResultPayload {
     let kind: ActionResultKind
     let body: String?
     let statusCode: Int
@@ -168,3 +171,20 @@ private extension InvalidationScope {
         }
     }
 }
+
+#if !hasFeature(Embedded)
+extension InvalidationScope: Codable {}
+#endif
+
+#if !hasFeature(Embedded)
+extension ActionResultPayload: Codable {}
+#endif
+#endif
+
+#if !hasFeature(Embedded)
+extension ActionResult: Codable {}
+#endif
+
+#if !hasFeature(Embedded)
+extension ActionResultKind: Codable {}
+#endif

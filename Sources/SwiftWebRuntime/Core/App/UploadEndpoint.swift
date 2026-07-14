@@ -1,3 +1,5 @@
+#if !hasFeature(Embedded)
+// Upload endpoints ride the gated server-action subsystem.
 
 public struct UploadEndpoint<Action: UploadAction>: Scene, _PrimitiveScene {
     private let path: String
@@ -16,3 +18,4 @@ public struct UploadEndpoint<Action: UploadAction>: Scene, _PrimitiveScene {
         UploadRoute.post(Action.self, on: context.routes, path: path, body: bodyStrategy)
     }
 }
+#endif

@@ -14,6 +14,28 @@ final class SwiftWebDevWorkerRegistry: Sendable {
     }
 
     private let state = Mutex(State())
+    /// Set by the runtime once the reconciler exists; lets the host report
+    /// fingerprints and staleness live instead of only at transitions
+    /// (docs/DevServerReconcilerDesign.md §6.2).
+    private let snapshotProvider = Mutex<(@Sendable () async -> SwiftWebDevReconcilerSnapshot)?>(nil)
+
+    func setSnapshotProvider(
+        _ provider: @escaping @Sendable () async -> SwiftWebDevReconcilerSnapshot
+    ) {
+        snapshotProvider.withLock { $0 = provider }
+    }
+
+    func clearSnapshotProvider() {
+        snapshotProvider.withLock { $0 = nil }
+    }
+
+    func reconcilerSnapshot() async -> SwiftWebDevReconcilerSnapshot? {
+        let provider = snapshotProvider.withLock { $0 }
+        guard let provider else {
+            return nil
+        }
+        return await provider()
+    }
 
     func activate(_ target: SwiftWebDevWorkerTarget) {
         state.withLock { state in

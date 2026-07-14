@@ -1,3 +1,5 @@
+#if !hasFeature(Embedded)
+// Rides the gated streaming subsystem; full profiles only.
 
 public struct StreamingPageEndpoint<Page: StreamingPage>: Scene, _PrimitiveScene {
     private let path: String
@@ -10,3 +12,4 @@ public struct StreamingPageEndpoint<Page: StreamingPage>: Scene, _PrimitiveScene
         StreamingPageRoute.register(Page.self, on: context.routes, path: path)
     }
 }
+#endif

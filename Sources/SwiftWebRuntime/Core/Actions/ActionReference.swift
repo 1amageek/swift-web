@@ -1,6 +1,9 @@
+#if !hasFeature(Embedded)
+// Server actions are a Codable JSON API boundary; the embedded SSR
+// profile does not serve them.
 import SwiftHTML
 
-public struct ActionReference<Input: Codable & Sendable, Output: Sendable>: Sendable, Codable, ActionRepresentable {
+public struct ActionReference<Input: Codable & Sendable, Output: Sendable>: Sendable, ActionRepresentable {
     public let path: String
     public let httpMethod: ServerActionMethod
     public let inputType: String
@@ -44,6 +47,15 @@ public struct ActionReference<Input: Codable & Sendable, Output: Sendable>: Send
     }
 }
 
-public struct NoActionInput: Codable, Sendable {
+public struct NoActionInput: Sendable {
     public init() {}
 }
+
+#if !hasFeature(Embedded)
+extension ActionReference: Codable {}
+#endif
+#endif
+
+#if !hasFeature(Embedded)
+extension NoActionInput: Codable {}
+#endif

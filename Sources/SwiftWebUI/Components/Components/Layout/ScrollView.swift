@@ -1,7 +1,7 @@
 import SwiftWebUITheme
 import SwiftHTML
 
-public struct ScrollView<Content: HTML>: WebUIAttributeComponent {
+public struct ScrollView<Content: HTML>: AttributeComponent {
     private let axes: Axis.Set
     private let showsIndicators: Bool
     private let attributes: [HTMLAttribute]

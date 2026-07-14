@@ -69,12 +69,19 @@ public enum SecurityRequestValidator {
         guard source.allowsFormField else {
             return nil
         }
+        #if hasFeature(Embedded)
+        // Form posts ride the server-action subsystem, which the embedded
+        // profile does not serve; there is no form field to read.
+        return nil
+        #else
         let payload = try await request.content.decode(CSRFTokenPayload.self)
         return payload.value(for: security.csrf.formFieldName)
+        #endif
     }
 }
 
-private struct CSRFTokenPayload: Codable {
+#if !hasFeature(Embedded)
+private struct CSRFTokenPayload {
     private let fields: [String: String]
 
     init(from decoder: any Decoder) throws {
@@ -112,3 +119,8 @@ private struct DynamicCodingKey: CodingKey {
         self.intValue = intValue
     }
 }
+#endif
+
+#if !hasFeature(Embedded)
+extension CSRFTokenPayload: Codable {}
+#endif

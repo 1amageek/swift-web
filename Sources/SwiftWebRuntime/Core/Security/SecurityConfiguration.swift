@@ -2,7 +2,7 @@ import SwiftHTML
 import SwiftWebActors
 #if canImport(FoundationEssentials)
 import FoundationEssentials
-#else
+#elseif canImport(Foundation)
 import Foundation
 #endif
 
@@ -97,7 +97,7 @@ public struct SecurityConfiguration: Sendable {
     static func randomToken(byteCount: Int) -> String {
         var generator = SystemRandomNumberGenerator()
         let bytes = (0..<byteCount).map { _ in UInt8.random(in: UInt8.min...UInt8.max, using: &generator) }
-        let token = Data(bytes).base64EncodedString()
+        let token = Base64Coding.encode(bytes)
         return token
             .replacingOccurrences(of: "+", with: "-")
             .replacingOccurrences(of: "/", with: "_")
@@ -109,7 +109,7 @@ private struct SecurityConfigurationStorageKey: StorageKey {
     typealias Value = SecurityConfiguration
 }
 
-extension WebApplicationProtocol {
+extension ApplicationProtocol {
     public var securityConfiguration: SecurityConfiguration {
         get {
             storage[SecurityConfigurationStorageKey.self] ?? .defaults

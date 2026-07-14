@@ -1,14 +1,14 @@
 import SwiftWebUITheme
 import SwiftHTML
 
-public struct TextField<Label: HTML>: WebUIAttributeComponent {
+public struct TextField<Label: HTML>: AttributeComponent {
     private let label: Label
     private let placeholder: String?
     private let type: InputType
     private let attributes: [HTMLAttribute]
-    @Environment(\.controlSize) private var controlSize: ControlSize
-    @Environment(\.isEnabled) private var isEnabled: Bool
-    @Environment(\.textFieldStyle) private var textFieldStyle: TextFieldStyleKind
+    @Environment({ $0.controlSize }) private var controlSize: ControlSize
+    @Environment({ $0.isEnabled }) private var isEnabled: Bool
+    @Environment({ $0.textFieldStyle }) private var textFieldStyle: TextFieldStyleKind
 
     public init(
         text: Binding<String>,

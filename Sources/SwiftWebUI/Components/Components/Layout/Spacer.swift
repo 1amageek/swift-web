@@ -1,7 +1,7 @@
 import SwiftWebUITheme
 import SwiftHTML
 
-public struct Spacer: WebUIAttributeComponent {
+public struct Spacer: AttributeComponent {
     private let minLength: Double?
     private let attributes: [HTMLAttribute]
 

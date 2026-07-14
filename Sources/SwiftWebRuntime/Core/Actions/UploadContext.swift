@@ -1,3 +1,6 @@
+#if !hasFeature(Embedded)
+// Server actions are a Codable JSON API boundary; the embedded SSR
+// profile does not serve them.
 
 public struct UploadContext<Params: Decodable & Sendable, Input: Decodable & Sendable>: Sendable {
     public let request: Request
@@ -14,3 +17,4 @@ public struct UploadContext<Params: Decodable & Sendable, Input: Decodable & Sen
         try await request.content.get(File.self, at: name)
     }
 }
+#endif

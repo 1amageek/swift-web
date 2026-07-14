@@ -77,8 +77,8 @@ public extension HTML {
     func overlay<S: ShapeStyle>(
         _ style: S,
         ignoresSafeAreaEdges edges: Edge.Set = .all
-    ) -> ModifiedContent<Self, WebStyleModifier<S>> {
-        modifier(WebStyleModifier(property: .overlay, style: style, ignoredSafeAreaEdges: edges))
+    ) -> ModifiedContent<Self, StyleModifier<S>> {
+        modifier(StyleModifier(property: .overlay, style: style, ignoredSafeAreaEdges: edges))
     }
 }
 

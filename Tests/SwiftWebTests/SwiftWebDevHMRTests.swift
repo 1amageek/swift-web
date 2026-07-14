@@ -776,6 +776,34 @@ struct SwiftWebDevHMRTests {
   }
 
   @Test
+  func stalenessHeadersUseTheWorkerThatProducedTheResponse() {
+    let desired = SwiftWebDevSourceFingerprint(
+      digest: String(repeating: "b", count: 64),
+      fileCount: 1
+    )
+    let snapshot = SwiftWebDevReconcilerSnapshot(
+      phase: .serving,
+      desired: desired,
+      serving: desired,
+      transitioning: nil,
+      lastErrorSummary: nil
+    )
+    var staleResponse: HTTPFields = [
+      SwiftWebDevHostHTTPHandler.buildFingerprintHeaderName: String(repeating: "a", count: 12)
+    ]
+    var currentResponse: HTTPFields = [
+      SwiftWebDevHostHTTPHandler.buildFingerprintHeaderName: desired.short
+    ]
+
+    SwiftWebDevHostHTTPHandler.addStalenessHeaders(to: &staleResponse, snapshot: snapshot)
+    SwiftWebDevHostHTTPHandler.addStalenessHeaders(to: &currentResponse, snapshot: snapshot)
+
+    #expect(staleResponse[SwiftWebDevHostHTTPHandler.sourceFingerprintHeaderName] == desired.short)
+    #expect(staleResponse[SwiftWebDevHostHTTPHandler.staleHeaderName] == "true")
+    #expect(currentResponse[SwiftWebDevHostHTTPHandler.staleHeaderName] == "false")
+  }
+
+  @Test
   func devContextCarrierRoundTripsRequestWorkerAndPhase() {
     let target = SwiftWebDevWorkerTarget(host: "127.0.0.1", port: 12345)
     let status = SwiftWebDevHostStatus(

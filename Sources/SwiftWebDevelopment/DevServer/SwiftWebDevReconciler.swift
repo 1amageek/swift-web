@@ -30,7 +30,7 @@ package actor SwiftWebDevReconciler {
     /// patches and WASM HMR (docs/DevServerReconcilerDesign.md §4.6). Best
     /// effort — the fingerprint covers the same files, so the slow loop
     /// guarantees consistency regardless of what this does.
-    private let fastPath: @Sendable () async -> Void
+    private let fastPath: @Sendable (SwiftWebDevSourceFingerprint) async -> Void
     private let timerInterval: TimeInterval
     private let maxCrashCount: Int
     private let crashWindow: TimeInterval
@@ -41,15 +41,17 @@ package actor SwiftWebDevReconciler {
     private var desired: SwiftWebDevSourceFingerprint
     private var worker: SwiftWebDevWorkerHandle?
     private var transitioning: SwiftWebDevSourceFingerprint?
+    private var transitionTask: Task<Void, Never>?
     private var lastFailure: TransitionFailure?
     private var crashHistory: [Date] = []
+    private var isShuttingDown = false
 
     package init(
         fingerprinting: any SwiftWebDevSourceFingerprinting,
         builder: any SwiftWebDevWorkerBuilding,
         launcher: any SwiftWebDevWorkerLaunching,
         observer: SwiftWebDevReconcilerObserver = SwiftWebDevReconcilerObserver(),
-        fastPath: @escaping @Sendable () async -> Void = {},
+        fastPath: @escaping @Sendable (SwiftWebDevSourceFingerprint) async -> Void = { _ in },
         timerInterval: TimeInterval = 2,
         maxCrashCount: Int = 3,
         crashWindow: TimeInterval = 60
@@ -110,9 +112,17 @@ package actor SwiftWebDevReconciler {
     /// Stops the active worker on dev-server shutdown. Call after
     /// `shutdown()` so no new transition replaces the stopped worker.
     package func stopWorkerForShutdown() async {
+        isShuttingDown = true
+        let activeTransition = transitionTask
+        activeTransition?.cancel()
+        await activeTransition?.value
+        transitionTask = nil
+        transitioning = nil
+
         let stopping = worker
         worker = nil
         await stopping?.stop()
+        builder.cleanupArtifacts()
     }
 
     package func snapshot() -> SwiftWebDevReconcilerSnapshot {
@@ -139,18 +149,23 @@ package actor SwiftWebDevReconciler {
 
     private func converge() async {
         desired = fingerprinting.fingerprint()
-        await fastPath()
-
-        // Single flight: the completing transition wakes the loop again.
-        if transitioning != nil {
-            return
-        }
+        await fastPath(desired)
 
         // Crash handling precedes the failure latch: even when the current
         // sources cannot be built, a crashed worker is still relaunched from
         // its existing executable so *something* keeps serving.
         if let worker, !worker.isRunning {
+            if transitionTask != nil {
+                self.worker = nil
+                observer.workerUnavailableDuringTransition(worker.terminationStatus ?? -1)
+                return
+            }
             handleCrash(of: worker)
+            return
+        }
+
+        // Single flight: the completing transition wakes the loop again.
+        if transitionTask != nil || isShuttingDown {
             return
         }
 
@@ -179,41 +194,65 @@ package actor SwiftWebDevReconciler {
         replacing previous: SwiftWebDevWorkerHandle?,
         reusingExecutable: URL?
     ) {
+        guard transitionTask == nil, !isShuttingDown else {
+            return
+        }
         transitioning = fingerprint
         observer.transitionStarted(fingerprint)
 
-        Task {
+        transitionTask = Task { [weak self] in
+            guard let self else {
+                return
+            }
+            await self.runTransition(
+                to: fingerprint,
+                replacing: previous,
+                reusingExecutable: reusingExecutable
+            )
+        }
+    }
+
+    private func runTransition(
+        to fingerprint: SwiftWebDevSourceFingerprint,
+        replacing previous: SwiftWebDevWorkerHandle?,
+        reusingExecutable: URL?
+    ) async {
+        do {
+            let executable: URL
+            if let reusingExecutable {
+                executable = reusingExecutable
+            } else {
+                executable = try await builder.build(for: fingerprint)
+            }
+            try Task.checkCancellation()
+
+            let handle = try await launcher.launch(
+                executable: executable,
+                fingerprint: fingerprint
+            )
             do {
-                let executable: URL
-                if let reusingExecutable {
-                    executable = reusingExecutable
-                } else {
-                    executable = try await builder.build()
-                }
-                let handle = try await launcher.launch(
-                    executable: executable,
-                    fingerprint: fingerprint
-                )
-                do {
-                    try await launcher.waitReady(handle)
-                } catch {
-                    await handle.stop()
-                    throw error
-                }
-                await completeTransition(
-                    activating: handle,
-                    replacing: previous,
-                    // A crash relaunch must not reset the crash window, or the
-                    // loop breaker could never trip: every relaunch would wipe
-                    // the evidence of the crash that caused it.
-                    resetsCrashHistory: reusingExecutable == nil
-                )
+                try await launcher.waitReady(handle)
+                try Task.checkCancellation()
             } catch {
+                await handle.stop()
+                throw error
+            }
+            await completeTransition(
+                activating: handle,
+                replacing: previous,
+                // A crash relaunch must not reset the crash window, or the
+                // loop breaker could never trip: every relaunch would wipe
+                // the evidence of the crash that caused it.
+                resetsCrashHistory: reusingExecutable == nil
+            )
+        } catch {
+            if !Task.isCancelled, !(error is CancellationError) {
                 failTransition(toward: fingerprint, error: error)
             }
-            // Sources may have moved while the transition ran; converge again.
-            wake()
         }
+        finishTransition(toward: fingerprint)
+        // Sources may have moved while the transition ran; converge again.
+        wake()
     }
 
     private func completeTransition(
@@ -221,8 +260,11 @@ package actor SwiftWebDevReconciler {
         replacing previous: SwiftWebDevWorkerHandle?,
         resetsCrashHistory: Bool
     ) async {
+        guard !isShuttingDown else {
+            await handle.stop()
+            return
+        }
         worker = handle
-        transitioning = nil
         lastFailure = nil
         if resetsCrashHistory {
             crashHistory = []
@@ -233,22 +275,29 @@ package actor SwiftWebDevReconciler {
         if desired != handle.fingerprint {
             observer.changesQueuedDuringTransition(desired)
         }
-        // State is settled before this await: convergence re-entering here
-        // sees the new worker, not a half-swapped one.
-        await previous?.stop()
+        // Publish the ready target before draining the previous worker. The
+        // public host must never route a new request to a process being stopped.
         observer.workerActivated(handle, previous)
+        await previous?.stop()
+    }
+
+    private func finishTransition(toward fingerprint: SwiftWebDevSourceFingerprint) {
+        guard transitioning == fingerprint else {
+            return
+        }
+        transitioning = nil
+        transitionTask = nil
     }
 
     private func failTransition(
         toward fingerprint: SwiftWebDevSourceFingerprint,
         error: any Error
     ) {
-        transitioning = nil
         lastFailure = TransitionFailure(
             fingerprint: fingerprint,
             summary: String(describing: error)
         )
-        observer.transitionFailed(fingerprint, error)
+        observer.transitionFailed(fingerprint, error, worker?.isRunning == true)
     }
 
     /// Relaunches a crashed worker from its existing executable — no rebuild.

@@ -1,7 +1,7 @@
 import SwiftWebUITheme
 import SwiftHTML
 
-public struct Divider: WebUIAttributeComponent {
+public struct Divider: AttributeComponent {
     private let attributes: [HTMLAttribute]
 
     public init() {

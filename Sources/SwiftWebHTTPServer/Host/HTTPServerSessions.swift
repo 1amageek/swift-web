@@ -62,8 +62,8 @@ final class HTTPServerSessionBox: Sendable {
         }
     }
 
-    var webSession: WebSession {
-        WebSession(
+    var webSession: RequestSession {
+        RequestSession(
             identifierReader: { self.state.withLock { $0.id } },
             valuesReader: { self.state.withLock { $0.values } },
             valueReader: { key in self.state.withLock { $0.values[key] } },
@@ -93,7 +93,7 @@ final class HTTPServerSessionBox: Sendable {
     }
 
     /// Persists session changes and appends the matching `Set-Cookie` header.
-    func finalize(response: inout WebResponse) {
+    func finalize(response: inout Response) {
         let action: (id: String, values: [String: String]?)? = state.withLock { state in
             if state.destroyed, let id = state.id {
                 return (id, nil)
@@ -112,7 +112,7 @@ final class HTTPServerSessionBox: Sendable {
             storage.write(action.id, values: values)
             response.setCookie(
                 Self.cookieName,
-                WebHTTPCookieValue(
+                CookieValue(
                     string: action.id,
                     maxAge: Self.cookieMaxAge,
                     path: "/",
@@ -125,7 +125,7 @@ final class HTTPServerSessionBox: Sendable {
             storage.delete(action.id)
             response.setCookie(
                 Self.cookieName,
-                WebHTTPCookieValue(
+                CookieValue(
                     string: "",
                     maxAge: 0,
                     path: "/",

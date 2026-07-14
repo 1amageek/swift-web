@@ -1,6 +1,9 @@
+#if !hasFeature(Embedded)
+// Server actions are a Codable JSON API boundary; the embedded SSR
+// profile does not serve them.
 #if canImport(FoundationEssentials)
 import FoundationEssentials
-#else
+#elseif canImport(Foundation)
 import Foundation
 #endif
 
@@ -96,3 +99,4 @@ public enum ActionGateway {
         )
     }
 }
+#endif

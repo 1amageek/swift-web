@@ -16,9 +16,9 @@ struct SwiftWebHostHTTPHandler: HTTPServerRequestHandler {
     /// Applied when a route uses `.collect(maxSize: nil)`.
     static let defaultMaxBodySize = 16 * 1024 * 1024
 
-    let application: HTTPServerWebApplication
-    let matcher: WebRouteMatcher
-    let chain: WebMiddlewares
+    let application: HTTPServerApplication
+    let matcher: RouteMatcher
+    let chain: Middlewares
     let sessionStorage: any HTTPServerSessionStorage
     let logger: Logger
 
@@ -59,10 +59,10 @@ struct SwiftWebHostHTTPHandler: HTTPServerRequestHandler {
             cookieValue: Self.sessionCookie(in: request),
             storage: sessionStorage
         )
-        let webRequest = HTTPServerWebRequestFactory.webRequest(
+        let webRequest = HTTPServerRequestFactory.webRequest(
             request: request,
             bodyBytes: bodyBytes,
-            parameters: match?.parameters ?? WebPathParameters(),
+            parameters: match?.parameters ?? PathParameters(),
             session: session,
             application: application,
             logger: logger
@@ -72,7 +72,7 @@ struct SwiftWebHostHTTPHandler: HTTPServerRequestHandler {
             next: HTTPServerRouteResponder(match: match),
             logger: logger
         )
-        var response: WebResponse
+        var response: Response
         do {
             response = try await chain.makeResponder(chainingTo: terminal).respond(to: webRequest)
         } catch let abort as Abort {
@@ -93,11 +93,11 @@ struct SwiftWebHostHTTPHandler: HTTPServerRequestHandler {
 
     private static func sessionCookie(in request: HTTPRequest) -> String? {
         let header = request.headerFields[values: .cookie].joined(separator: "; ")
-        return WebHTTPCookieParser.parse(cookieHeader: header)[HTTPServerSessionBox.cookieName]
+        return CookieParser.parse(cookieHeader: header)[HTTPServerSessionBox.cookieName]
     }
 
     private static func send(
-        _ response: WebResponse,
+        _ response: Response,
         responseSender: consuming sending NIOHTTPServer.ResponseSender
     ) async throws {
         let head = HTTPResponse(status: response.status, headerFields: response.headers)
@@ -108,7 +108,7 @@ struct SwiftWebHostHTTPHandler: HTTPServerRequestHandler {
             let (chunks, continuation) = AsyncThrowingStream<[UInt8], any Error>.makeStream()
             async let producing: Void = {
                 do {
-                    try await produce(HTTPServerWebBodyWriter(continuation: continuation))
+                    try await produce(HTTPServerBodyWriter(continuation: continuation))
                     continuation.finish()
                 } catch {
                     continuation.finish(throwing: error)
@@ -157,7 +157,7 @@ struct SwiftWebHostHTTPHandler: HTTPServerRequestHandler {
     }
 }
 
-private struct HTTPServerWebBodyWriter: WebBodyWriter {
+private struct HTTPServerBodyWriter: BodyWriter {
     let continuation: AsyncThrowingStream<[UInt8], any Error>.Continuation
 
     func write(_ bytes: [UInt8]) async throws {
@@ -166,10 +166,14 @@ private struct HTTPServerWebBodyWriter: WebBodyWriter {
 }
 
 /// The end of the middleware chain: run the matched route or 404.
-private struct HTTPServerRouteResponder: WebResponder {
-    let match: WebRouteMatch?
+private final class HTTPServerRouteResponder: Responder {
+    let match: RouteMatch?
 
-    func respond(to request: WebRequest) async throws -> WebResponse {
+    init(match: RouteMatch?) {
+        self.match = match
+    }
+
+    func respond(to request: Request) async throws -> Response {
         guard let match else {
             throw Abort(.notFound, reason: "Not Found")
         }

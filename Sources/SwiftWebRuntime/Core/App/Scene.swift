@@ -6,6 +6,9 @@ public protocol Scene {
 
     @SceneBuilder
     var body: Self.Body { get }
+
+    /// Witness-based lowering hook; see the `Scene` extension default.
+    static func _lowerScene(_ scene: Self, in context: _SceneContext) async throws
 }
 
 extension Never: Scene {
@@ -22,16 +25,28 @@ protocol _PrimitiveScene: Scene where Body == Never {
     func _makeScene(in context: _SceneContext) async throws
 }
 
+extension Scene {
+    /// Witness-based lowering (the SwiftUI `_makeView` pattern): the static
+    /// requirement dispatches on the concrete type at compile time, replacing
+    /// the existential downcast Embedded Swift cannot perform. Composite
+    /// scenes recurse into `body`.
+    public static func _lowerScene(_ scene: Self, in context: _SceneContext) async throws {
+        try await _SceneRenderer.make(scene.body, in: context)
+    }
+}
+
+extension _PrimitiveScene {
+    public static func _lowerScene(_ scene: Self, in context: _SceneContext) async throws {
+        try await scene._makeScene(in: context)
+    }
+}
+
 public enum _SceneRenderer {
     public static func make<Content: Scene>(
         _ scene: Content,
         in context: _SceneContext
     ) async throws {
-        if let primitive = scene as? any _PrimitiveScene {
-            try await primitive._makeScene(in: context)
-        } else {
-            try await make(scene.body, in: context)
-        }
+        try await Content._lowerScene(scene, in: context)
     }
 }
 

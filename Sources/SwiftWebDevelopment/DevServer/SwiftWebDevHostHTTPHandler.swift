@@ -19,6 +19,9 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
     /// Bounds proxied request bodies so a large upload cannot exhaust dev-host
     /// memory. Matches the production host's default collection limit.
     static let defaultMaxBodySize = 16 * 1024 * 1024
+    static let buildFingerprintHeaderName = HTTPField.Name("X-SwiftWeb-Dev-Build")!
+    static let sourceFingerprintHeaderName = HTTPField.Name("X-SwiftWeb-Dev-Source")!
+    static let staleHeaderName = HTTPField.Name("X-SwiftWeb-Dev-Stale")!
 
     struct BodyTooLargeError: Error {}
 
@@ -92,7 +95,11 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
     private func sendStatus(
         responseSender: consuming sending NIOHTTPServer.ResponseSender
     ) async throws {
-        let data = try JSONEncoder.swiftWebDevEvent.encode(workerRegistry.status())
+        var status = workerRegistry.status()
+        if let snapshot = await workerRegistry.reconcilerSnapshot() {
+            status = status.enriched(with: snapshot)
+        }
+        let data = try JSONEncoder.swiftWebDevEvent.encode(status)
         try await Self.sendBytes(
             status: .ok,
             headers: [
@@ -246,13 +253,21 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
         responseSender: consuming sending NIOHTTPServer.ResponseSender
     ) async throws {
         guard let workerTarget = workerRegistry.activeTarget() else {
+            // While no worker serves, the body says why: a latched build
+            // failure reads very differently from a first build in progress.
+            var unavailableBody = "SwiftWeb dev worker is starting"
+            if let snapshot = await workerRegistry.reconcilerSnapshot(),
+               snapshot.phase == .failed,
+               let summary = snapshot.lastErrorSummary {
+                unavailableBody = "SwiftWeb dev build failed:\n\(summary)"
+            }
             try await Self.sendBytes(
                 status: .serviceUnavailable,
                 headers: [
                     .contentType: "text/plain; charset=utf-8",
                     .cacheControl: "no-cache, no-transform",
                 ],
-                bytes: Array("SwiftWeb dev worker is starting".utf8),
+                bytes: Array(unavailableBody.utf8),
                 responseSender: responseSender
             )
             return
@@ -288,6 +303,12 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
             )
             var responseHeaders = Self.forwardHeaders(from: workerResponse.headers)
             responseHeaders[HTTPField.Name("Connection")!] = "close"
+            // Staleness is answerable per response: the worker already added
+            // X-SwiftWeb-Dev-Build; the host adds what the sources say now
+            // (docs/DevServerReconcilerDesign.md §6.1).
+            if let snapshot = await workerRegistry.reconcilerSnapshot() {
+                Self.addStalenessHeaders(to: &responseHeaders, snapshot: snapshot)
+            }
             var writer = try await responseSender.send(
                 HTTPResponse(
                     status: .init(code: Int(workerResponse.status.code)),
@@ -324,6 +345,15 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
             buffer: &buffer,
             trailer: nil
         )
+    }
+
+    static func addStalenessHeaders(
+        to headers: inout HTTPFields,
+        snapshot: SwiftWebDevReconcilerSnapshot
+    ) {
+        headers[sourceFingerprintHeaderName] = snapshot.desired.short
+        headers[staleHeaderName] =
+            headers[buildFingerprintHeaderName] == snapshot.desired.short ? "false" : "true"
     }
 
     private static func collectRequestBody(

@@ -7,11 +7,11 @@ import SwiftHTML
 /// closes without any client runtime. The summary is interactive glass; the
 /// floating panel composes the shared `regularMaterial` recipe, matching the
 /// other overlay chrome.
-public struct Menu<Label: HTML, Content: HTML>: WebUIAttributeComponent {
+public struct Menu<Label: HTML, Content: HTML>: AttributeComponent {
     private let attributes: [HTMLAttribute]
     private let label: Label
     private let content: Content
-    @Environment(\.menuStyle) private var menuStyle: MenuStyleKind
+    @Environment({ $0.menuStyle }) private var menuStyle: MenuStyleKind
 
     public init(
         @HTMLBuilder content: () -> Content,

@@ -72,6 +72,10 @@ struct SwiftWebDevReconcilerTests {
     // A source change clears the latch by construction.
     world.fingerprinting.set(fingerprintB)
     world.reconciler.wake()
+    try await waitUntil("desired fingerprint updates") {
+      await world.reconciler.snapshot().desired == self.fingerprintB
+    }
+    #expect(await world.reconciler.snapshot().phase == .building)
     try await waitUntil("retry build starts") { world.builder.startedCount == 2 }
     world.builder.completeNext(with: URL(fileURLWithPath: "/tmp/exe-2"))
     try await waitUntil("recovered worker serves") {
@@ -187,6 +191,20 @@ struct SwiftWebDevReconcilerTests {
     await runTask.value
   }
 
+  @Test
+  func shutdownCancelsInFlightBuildWithoutLaunchingWorker() async throws {
+    let world = World(initial: fingerprintA)
+    let runTask = Task { await world.reconciler.run() }
+
+    try await waitUntil("initial build starts") { world.builder.startedCount == 1 }
+    world.reconciler.shutdown()
+    await runTask.value
+    await world.reconciler.stopWorkerForShutdown()
+
+    #expect(world.launcher.launchCount == 0)
+    #expect(await world.reconciler.snapshot().serving == nil)
+  }
+
   // MARK: - World
 
   private struct World {
@@ -267,8 +285,14 @@ struct SwiftWebDevReconcilerTests {
   }
 
   private final class FakeBuilder: SwiftWebDevWorkerBuilding {
+    private struct PendingBuild {
+      let id: UUID
+      let continuation: CheckedContinuation<URL, any Error>
+    }
+
     private struct State {
-      var pending: [CheckedContinuation<URL, any Error>] = []
+      var pending: [PendingBuild] = []
+      var cancelled: Set<UUID> = []
       var started = 0
     }
 
@@ -278,18 +302,38 @@ struct SwiftWebDevReconcilerTests {
       state.withLock { $0.started }
     }
 
-    func build() async throws -> URL {
-      try await withCheckedThrowingContinuation { continuation in
-        state.withLock { state in
-          state.started += 1
-          state.pending.append(continuation)
+    func build(for fingerprint: SwiftWebDevSourceFingerprint) async throws -> URL {
+      let id = UUID()
+      return try await withTaskCancellationHandler {
+        try Task.checkCancellation()
+        return try await withCheckedThrowingContinuation { continuation in
+          let wasCancelled = state.withLock { state in
+            state.started += 1
+            if state.cancelled.remove(id) != nil {
+              return true
+            }
+            state.pending.append(PendingBuild(id: id, continuation: continuation))
+            return false
+          }
+          if wasCancelled {
+            continuation.resume(throwing: CancellationError())
+          }
         }
+      } onCancel: {
+        let continuation: CheckedContinuation<URL, any Error>? = self.state.withLock { state in
+          if let index = state.pending.firstIndex(where: { $0.id == id }) {
+            return state.pending.remove(at: index).continuation
+          }
+          state.cancelled.insert(id)
+          return nil
+        }
+        continuation?.resume(throwing: CancellationError())
       }
     }
 
     func completeNext(with url: URL) {
       let continuation = state.withLock { state in
-        state.pending.isEmpty ? nil : state.pending.removeFirst()
+        state.pending.isEmpty ? nil : state.pending.removeFirst().continuation
       }
       guard let continuation else {
         Issue.record("completeNext called with no pending build")
@@ -300,7 +344,7 @@ struct SwiftWebDevReconcilerTests {
 
     func failNext(with error: any Error) {
       let continuation = state.withLock { state in
-        state.pending.isEmpty ? nil : state.pending.removeFirst()
+        state.pending.isEmpty ? nil : state.pending.removeFirst().continuation
       }
       guard let continuation else {
         Issue.record("failNext called with no pending build")

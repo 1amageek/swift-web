@@ -1,18 +1,18 @@
 import SwiftWebUITheme
 import SwiftHTML
 
-public struct Button<Label: HTML>: WebUIAttributeComponent {
+public struct Button<Label: HTML>: AttributeComponent {
     private let attributes: [HTMLAttribute]
     private let action: (any ActionRepresentable)?
     private let label: Label
-    @Environment(\.theme) private var theme: Theme
-    @Environment(\.colorScheme) private var colorScheme: ColorScheme
-    @Environment(\.layoutDirection) private var layoutDirection: LayoutDirection
-    @Environment(\.controlSize) private var controlSize: ControlSize
-    @Environment(\.isEnabled) private var isEnabled: Bool
-    @Environment(\.tint) private var tint: Color?
-    @Environment(\.buttonStyle) private var buttonStyle: ButtonStyleKind
-    @Environment(\.isInsideForm) private var isInsideForm: Bool
+    @Environment({ $0.theme }) private var theme: Theme
+    @Environment({ $0.colorScheme }) private var colorScheme: ColorScheme
+    @Environment({ $0.layoutDirection }) private var layoutDirection: LayoutDirection
+    @Environment({ $0.controlSize }) private var controlSize: ControlSize
+    @Environment({ $0.isEnabled }) private var isEnabled: Bool
+    @Environment({ $0.tint }) private var tint: Color?
+    @Environment({ $0.buttonStyle }) private var buttonStyle: ButtonStyleKind
+    @Environment({ $0.isInsideForm }) private var isInsideForm: Bool
 
     public init(
         @HTMLBuilder label: () -> Label
@@ -200,7 +200,7 @@ public struct Button<Label: HTML>: WebUIAttributeComponent {
 
 private struct ButtonActionHiddenFields: ServerComponent {
     let excludedNames: [String]
-    @Environment(\.actionHiddenFields) private var actionHiddenFields: [ActionField]
+    @Environment({ $0.actionHiddenFields }) private var actionHiddenFields: [ActionField]
 
     init(excluding excludedNames: [String]) {
         self.excludedNames = excludedNames

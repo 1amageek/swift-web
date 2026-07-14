@@ -5,17 +5,22 @@ import SwiftWebHost
 /// Wraps a routes builder so every handler registered through it runs with
 /// the scene's environment established. This is how `.environment()` on a
 /// scene reaches the pages, actions, and streams declared below it.
-struct EnvironmentRoutesBuilder: WebRoutesBuilder {
-    let base: any WebRoutesBuilder
+final class EnvironmentRoutesBuilder: RoutesBuilder {
+    let base: any RoutesBuilder
     let environment: EnvironmentValues
+
+    init(base: any RoutesBuilder, environment: EnvironmentValues) {
+        self.base = base
+        self.environment = environment
+    }
 
     @discardableResult
     func on(
         _ method: HTTPRequest.Method,
-        _ path: [WebPathComponent],
-        body: WebBodyStreamStrategy,
-        use handler: @escaping @Sendable (WebRequest) async throws -> WebResponse
-    ) -> WebRoute {
+        _ path: [PathComponent],
+        body: BodyStreamStrategy,
+        use handler: @escaping @Sendable (Request) async throws -> Response
+    ) -> Route {
         let environment = self.environment
         return base.on(method, path, body: body) { request in
             try await EnvironmentValues.withValue(environment) {
@@ -26,10 +31,10 @@ struct EnvironmentRoutesBuilder: WebRoutesBuilder {
 
     @discardableResult
     func webSocket(
-        _ path: [WebPathComponent],
-        shouldUpgrade: @escaping @Sendable (WebRequest) async throws -> HTTPFields?,
-        onUpgrade: @escaping @Sendable (WebRequest, any WebSocketChannel) async -> Void
-    ) -> WebRoute {
+        _ path: [PathComponent],
+        shouldUpgrade: @escaping @Sendable (Request) async throws -> HTTPFields?,
+        onUpgrade: @escaping @Sendable (Request, any WebSocketChannel) async -> Void
+    ) -> Route {
         let environment = self.environment
         return base.webSocket(
             path,
@@ -46,7 +51,7 @@ struct EnvironmentRoutesBuilder: WebRoutesBuilder {
         )
     }
 
-    func grouped(_ path: [WebPathComponent]) -> any WebRoutesBuilder {
+    func grouped(_ path: [PathComponent]) -> any RoutesBuilder {
         EnvironmentRoutesBuilder(base: base.grouped(path), environment: environment)
     }
 }

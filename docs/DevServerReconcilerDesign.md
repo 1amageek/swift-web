@@ -1,6 +1,6 @@
 # Dev Server Reconciler Design
 
-Status: approved design, not yet implemented.
+Status: implemented through T7; T8 verification remains.
 Baseline: swift-web `8e893b7`. All `file:line` references below are against this
 commit and may drift; treat them as anchors, not exact coordinates.
 
@@ -101,15 +101,13 @@ one type per file per repo convention, so the scanner is its own file):
    (`Package.swift`, `*.swift`, `css/json/html/leaf`) — reuse or extract the
    logic currently in `SwiftWebDevFileChangeWatcher.swift:348-411` so watcher
    and fingerprint can never disagree.
-2. **Exclude `Package.resolved`** everywhere, as an explicit invariant. It is
-   an *output* of dependency resolution (rewritten by `swift build` /
-   `swift package resolve`), not a build input. Implementation note
-   (verified during T1): its `resolved` extension was never in the watched
-   set, so this exclusion is defensive — it keeps the invariant true even if
-   the watched-extension list grows. It also means `discardPendingChanges()`
-   has **no known legitimate trigger**: builds write only into excluded
-   directories (`.build`, `.swiftweb`), so the discard only ever swallows
-   real user edits.
+2. Include the app and local-package `Package.resolved` files. They determine
+   resolved dependency revisions and are therefore build inputs. Generated
+   package copies remain below `.swiftweb`, which is excluded, so SwiftWeb's
+   own materialization and build writes cannot feed back into the watcher.
+   The same policy includes arbitrary files under `Sources`, `Plugins`,
+   `Resources`, and `Public`, plus Swift/C-family sources at custom target
+   paths.
 3. Per file compute `contentHash = SHA-256(bytes)`, cached in
    `Mutex<[String: CachedFileHash]>` keyed by absolute path where
    `CachedFileHash = (mtimeNanoseconds, size, hash)`. A scan whose
@@ -262,10 +260,16 @@ These paths are **best effort**: if any of them error, log + SSE error event
 and continue. The server fingerprint still covers the same files, so the slow
 loop guarantees the served binary eventually reflects them regardless.
 
-Materialization moves out of the wake path: `materialize()` runs inside
-`builder.build()` (it is build preparation), not on every change. A css-only
-save no longer re-materializes anything. (Full discovery caching is Phase 3;
-this reordering alone removes the per-save constant cost for style edits.)
+The style patch is emitted before build preparation for immediate feedback.
+For every new source fingerprint, a desired-state coordinator then
+materializes the generated package and verifies every required Client WASM
+runtime before the server build can launch. The coordinator records a
+fingerprint as ready only after all runtime builds succeed, so missed FSEvents
+and newly added or renamed ClientComponents cannot strand stale WASM output.
+Repeated preparation for one fingerprint is a no-op. Discovery caching remains
+a Phase 3 optimization. The package produced during bootstrap starts without
+an associated fingerprint; the first reconciliation establishes that
+association so edits made during the initial WASM build cannot be mislabeled.
 
 ## 5. Worker build/launch split
 
@@ -279,7 +283,7 @@ package protocol SwiftWebDevWorkerBuilding: Sendable {
   /// Materializes the generated packages and builds the dev server product.
   /// Returns the executable URL. Throws SwiftWebDevRuntimeError on failure
   /// with the captured compiler output attached.
-  func build() async throws -> URL
+  func build(for fingerprint: SwiftWebDevSourceFingerprint) async throws -> URL
 }
 
 package protocol SwiftWebDevWorkerLaunching: Sendable {
@@ -300,6 +304,10 @@ Changes inside the builder:
   The path is configuration-derived and stable; nuking `.build` does not
   change it.
 - `launch` must pass two new environment variables (§6).
+- Copy each successful SwiftPM executable into a session-local,
+  fingerprint-specific artifact path before launch. Crash relaunches use this
+  immutable snapshot instead of the mutable SwiftPM bin path; shutdown removes
+  the session artifacts.
 - `Process.terminationHandler` wired to the reconciler's wake stream.
 
 ## 6. Observability contract
@@ -372,10 +380,9 @@ payload. No SSE protocol change.
 
 - **Delete** `discardPendingChanges()` (`SwiftWebDevFileChangeWatcher.swift:85-91`)
   and its call site (`SwiftWebDevRuntime.swift:136`). Nothing replaces it:
-  builds write only into excluded directories and `Package.resolved` is
-  outside the watched set (see §3), so there is no init-window churn to
-  swallow — the discard only ever dropped real user edits, and the
-  reconciler converges on those instead.
+  build outputs and generated package pins live under excluded directories,
+  while app-package pins remain legitimate inputs. There is no init-window
+  churn to swallow; the reconciler converges on every observed input state.
 - The FSEvents stream's callback now feeds the reconciler wake stream.
 - The snapshot/diff machinery (`SwiftWebDevFileSnapshot`) merges with the
   fingerprint scanner (§3) so there is exactly one definition of "watched
@@ -455,7 +462,7 @@ fallbacks, actors for I/O+ordering / `Mutex` for hot value state,
 
 | ID | Task | Files (new / touched) | Depends on | Acceptance criteria |
 |---|---|---|---|---|
-| T1 | `SwiftWebDevSourceFingerprint` + scanner + hash cache | new: `SwiftWebDevSourceFingerprint.swift`, `SwiftWebDevSourceFingerprintScanner.swift`; touched: extract shared walk/filter from `SwiftWebDevFileChangeWatcher.swift` | — | Unit tests: determinism; order independence; `Package.resolved`/`.build` exclusion; touch-same-content ⇒ equal; content change ⇒ different; stat-only rescan is fast path (assert no re-read via injected file-reader spy) |
+| T1 | `SwiftWebDevSourceFingerprint` + scanner + hash cache | new: `SwiftWebDevSourceFingerprint.swift`, `SwiftWebDevSourceFingerprintScanner.swift`; touched: extract shared walk/filter from `SwiftWebDevFileChangeWatcher.swift` | — | Unit tests: determinism; order independence; package pins and source resources included; generated/build directories excluded; touch-same-content ⇒ equal; content change ⇒ different; stat-only rescan is fast path |
 | T2 | Builder/launcher split + bin-path cache + build-log capture | new: `SwiftWebDevWorkerBuilder.swift`, `SwiftWebDevWorkerLauncher.swift`, `SwiftWebDevWorkerHandle.swift`; touched: `SwiftWebDevServerProcess.swift` (dismantled into the above) | — | `--show-bin-path` invoked once across N builds (spy test); launch env contains `SWIFT_WEB_DEV_BUILD_FINGERPRINT`; build failure surfaces first error line + log path in the thrown error |
 | T3 | `SwiftWebDevReconciler` actor + wake stream + crash policy | new: `SwiftWebDevReconciler.swift`, `SwiftWebDevReconcilerWake.swift` | T1, T2 (protocols only) | Unit tests with fake builder/launcher covering: edit-during-initial-build converges to latest; build failure ⇒ `.failed` state, loop alive, next edit rebuilds; same-fingerprint failure does not hot-loop; crash ⇒ relaunch without rebuild; 3 crashes/60 s ⇒ latched failure; timer-only wake (no FSEvents) converges; no build when fingerprint unchanged |
 | T4 | Runtime rewire: bootstrap → reconciler; delete discard; fast-path events move | touched: `SwiftWebDevRuntime.swift` (run loop replaced), `SwiftWebDevFileChangeWatcher.swift` (delete `discardPendingChanges`, key struct fix, wake hookup) | T3 | `sweb dev` behaves per §4.4 (config errors still exit; compile errors never exit); style/wasm fast paths still emit the same SSE kinds (existing `SwiftWebDevHMRTests` patterns extended) |

@@ -20,13 +20,15 @@ struct SwiftWebDevWorkerBuilderTests {
       commandRunner: runner
     )
 
-    let first = try await builder.build()
-    let second = try await builder.build()
-    let third = try await builder.build()
+    let fingerprint = self.fingerprint("a")
+    let first = try await builder.build(for: fingerprint)
+    let second = try await builder.build(for: fingerprint)
+    let third = try await builder.build(for: fingerprint)
 
-    #expect(first.path == binPath.appendingPathComponent("app-server-dev").path)
-    #expect(second == first)
-    #expect(third == first)
+    #expect(first.path != binPath.appendingPathComponent("app-server-dev").path)
+    #expect(second != first)
+    #expect(third != first)
+    #expect(third != second)
     #expect(runner.captureCallCount == 1)
     #expect(runner.runCallCount == 3)
   }
@@ -42,11 +44,11 @@ struct SwiftWebDevWorkerBuilderTests {
     let builder = SwiftWebDevWorkerBuilder(
       configuration: configuration(packageDirectory: root),
       commandRunner: FakeCommandRunner(binPathOutput: binPath.path),
-      prepareInputs: { prepared.increment() }
+      prepareInputs: { _ in prepared.increment() }
     )
 
-    _ = try await builder.build()
-    _ = try await builder.build()
+    _ = try await builder.build(for: fingerprint("a"))
+    _ = try await builder.build(for: fingerprint("b"))
 
     #expect(prepared.value == 2)
   }
@@ -67,7 +69,7 @@ struct SwiftWebDevWorkerBuilderTests {
     )
 
     await #expect(throws: SwiftWebDevRuntimeError.self) {
-      _ = try await builder.build()
+      _ = try await builder.build(for: fingerprint("a"))
     }
   }
 
@@ -84,8 +86,30 @@ struct SwiftWebDevWorkerBuilderTests {
     )
 
     await #expect(throws: SwiftWebDevRuntimeError.self) {
-      _ = try await builder.build()
+      _ = try await builder.build(for: fingerprint("a"))
     }
+  }
+
+  @Test
+  func buildsPreserveImmutableExecutablePerFingerprint() async throws {
+    let root = try makeTemporaryRoot()
+    defer { removeTemporaryRoot(root) }
+    let binPath = root.appendingPathComponent("bin", isDirectory: true)
+    let builtExecutable = binPath.appendingPathComponent("app-server-dev")
+    try makeExecutable(at: builtExecutable, contents: "first")
+
+    let builder = SwiftWebDevWorkerBuilder(
+      configuration: configuration(packageDirectory: root),
+      commandRunner: FakeCommandRunner(binPathOutput: binPath.path)
+    )
+
+    let first = try await builder.build(for: fingerprint("a"))
+    try makeExecutable(at: builtExecutable, contents: "second")
+    let second = try await builder.build(for: fingerprint("b"))
+
+    #expect(first != second)
+    #expect(try String(contentsOf: first, encoding: .utf8).contains("first"))
+    #expect(try String(contentsOf: second, encoding: .utf8).contains("second"))
   }
 
   @Test
@@ -188,15 +212,22 @@ struct SwiftWebDevWorkerBuilderTests {
     }
   }
 
-  private func makeExecutable(at url: URL) throws {
+  private func makeExecutable(at url: URL, contents: String = "") throws {
     try FileManager.default.createDirectory(
       at: url.deletingLastPathComponent(),
       withIntermediateDirectories: true
     )
-    try "#!/bin/sh\nexit 0\n".write(to: url, atomically: true, encoding: .utf8)
+    try "#!/bin/sh\n# \(contents)\nexit 0\n".write(to: url, atomically: true, encoding: .utf8)
     try FileManager.default.setAttributes(
       [.posixPermissions: 0o755],
       ofItemAtPath: url.path
+    )
+  }
+
+  private func fingerprint(_ character: Character) -> SwiftWebDevSourceFingerprint {
+    SwiftWebDevSourceFingerprint(
+      digest: String(repeating: String(character), count: 64),
+      fileCount: 1
     )
   }
 }

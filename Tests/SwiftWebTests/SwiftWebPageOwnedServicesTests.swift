@@ -29,15 +29,15 @@ struct SwiftWebPageOwnedServicesTests {
     @Test
     func ignoresValuesThatAreNotServices() async throws {
         try await withApplication { application in
-            try await PageOwnedServices.register("not a service", on: application)
+            try await PageOwnedServices.registerService("not a service", on: application)
         }
     }
 
     @Test
     func ignoresPageStoredValuesThatDoNotOptIntoServerActions() async throws {
         try await withApplication { application in
-            try await PageOwnedServices.register(
-                NonServerActionPageValue() as Any,
+            try await PageOwnedServices.registerService(
+                NonServerActionPageValue(),
                 on: application,
                 routes: application.routes,
                 basePath: RoutePath("/counter")
@@ -50,8 +50,8 @@ struct SwiftWebPageOwnedServicesTests {
         try await withApplication { application in
             let service = PageOwnedCounterService()
 
-            try await PageOwnedServices.register(
-                service as Any,
+            try await PageOwnedServices.registerService(
+                service,
                 on: application,
                 routes: application.routes,
                 basePath: RoutePath("/counter")
@@ -110,7 +110,7 @@ private actor PageOwnedCounterService: PageOwnedServerActions {
     }
 }
 
-private final class NonServerActionPageValue {}
+private final class NonServerActionPageValue: Sendable {}
 
 private final class DuplicateActionService: Sendable {
     @ServerAction(.post, "submit")

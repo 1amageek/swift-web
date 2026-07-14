@@ -7,7 +7,7 @@ import SwiftHTML
 /// browser (such as `.keyboard`) are intentionally not provided, so their use
 /// fails at compile time instead of silently doing nothing.
 public struct ToolbarItemPlacement: Sendable, Equatable {
-    enum Region: String, Sendable, Codable, Equatable {
+    enum Region: String, Sendable, Equatable {
         case leading
         case principal
         case trailing
@@ -29,3 +29,7 @@ public struct ToolbarItemPlacement: Sendable, Equatable {
     public static let bottomBar = ToolbarItemPlacement(region: .bottom)
     public static let status = ToolbarItemPlacement(region: .bottom)
 }
+
+#if !hasFeature(Embedded)
+extension ToolbarItemPlacement.Region: Codable {}
+#endif

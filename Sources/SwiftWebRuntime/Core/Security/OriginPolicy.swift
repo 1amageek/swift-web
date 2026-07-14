@@ -1,6 +1,6 @@
 #if canImport(FoundationEssentials)
 import FoundationEssentials
-#else
+#elseif canImport(Foundation)
 import Foundation
 #endif
 import HTTPTypes
@@ -76,22 +76,18 @@ public struct OriginPolicy: Sendable {
     }
 
     static func normalizedOrigin(_ value: String) -> String? {
-        guard var components = URLComponents(string: value.trimmedWhitespace()),
-              let scheme = components.scheme?.lowercased(),
-              let host = components.host?.lowercased(),
+        guard let reference = URLReference(parsing: value.trimmedWhitespace()),
+              let scheme = reference.scheme,
+              let host = reference.host,
               scheme == "http" || scheme == "https" else {
             return nil
         }
-        let port = components.port
-        components.scheme = scheme
-        components.host = host
-        components.path = ""
-        components.query = nil
-        components.fragment = nil
-        if (scheme == "http" && port == 80) || (scheme == "https" && port == 443) {
-            components.port = nil
+        var origin = "\(scheme)://\(host)"
+        if let port = reference.port,
+           !((scheme == "http" && port == 80) || (scheme == "https" && port == 443)) {
+            origin += ":\(port)"
         }
-        return components.string
+        return origin
     }
 
 }

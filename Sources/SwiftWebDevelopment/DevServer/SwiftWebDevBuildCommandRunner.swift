@@ -27,6 +27,13 @@ package struct SwiftWebDevSwiftCommandRunner: SwiftWebDevBuildCommandRunning {
     package func run(arguments: [String]) async throws {
         let toolchain = try SwiftWebHostSwiftToolchain.resolve(configuration: configuration)
         let log = try SwiftWebDevCapturedProcessLog.create(prefix: "swiftweb-dev-build")
+        var keepsFailureLog = false
+        defer {
+            log.close()
+            if !keepsFailureLog {
+                log.cleanup()
+            }
+        }
 
         let process = Process()
         process.executableURL = toolchain.swiftExecutableURL
@@ -37,24 +44,43 @@ package struct SwiftWebDevSwiftCommandRunner: SwiftWebDevBuildCommandRunning {
         process.standardOutput = log.handle
         process.standardError = log.handle
 
-        let status = try await Self.runToCompletion(process)
-        log.close()
+        let cancellationController = SwiftWebDevProcessCancellationController()
+        cancellationController.install(process)
+        defer {
+            cancellationController.clear()
+            process.terminationHandler = nil
+        }
+        let status = try await withTaskCancellationHandler {
+            try Task.checkCancellation()
+            let status = try await Self.runToCompletion(process)
+            try Task.checkCancellation()
+            return status
+        } onCancel: {
+            cancellationController.cancel()
+        }
         guard status == 0 else {
             // The log stays on disk so the error can point at the full
             // compiler output; only successful runs clean it up.
+            keepsFailureLog = true
             throw Self.buildFailure(
                 command: commandDescription(arguments, executableURL: toolchain.swiftExecutableURL),
                 status: status,
                 logURL: log.fileURL
             )
         }
-        log.cleanup()
     }
 
     package func capture(arguments: [String]) async throws -> String {
         let toolchain = try SwiftWebHostSwiftToolchain.resolve(configuration: configuration)
         let output = Pipe()
         let log = try SwiftWebDevCapturedProcessLog.create(prefix: "swiftweb-dev-bin-path")
+        var keepsFailureLog = false
+        defer {
+            log.close()
+            if !keepsFailureLog {
+                log.cleanup()
+            }
+        }
 
         let process = Process()
         process.executableURL = toolchain.swiftExecutableURL
@@ -65,44 +91,54 @@ package struct SwiftWebDevSwiftCommandRunner: SwiftWebDevBuildCommandRunning {
         process.standardOutput = output
         process.standardError = log.handle
 
-        // The termination handler is installed before run() so an exit can
-        // never be missed; the stream buffers the status until it is awaited.
-        let (statusStream, statusContinuation) = AsyncStream.makeStream(of: Int32.self)
-        process.terminationHandler = { process in
-            statusContinuation.yield(process.terminationStatus)
-            statusContinuation.finish()
+        let cancellationController = SwiftWebDevProcessCancellationController()
+        cancellationController.install(process)
+        defer {
+            cancellationController.clear()
+            process.terminationHandler = nil
         }
-        try process.run()
 
-        // Drain stdout before awaiting the exit status: an unread pipe can
-        // fill and block the child.
-        var data = Data()
-        do {
+        let result = try await withTaskCancellationHandler {
+            try Task.checkCancellation()
+            // The termination handler is installed before run() so an exit can
+            // never be missed; the stream buffers the status until it is awaited.
+            let (statusStream, statusContinuation) = AsyncStream.makeStream(of: Int32.self)
+            process.terminationHandler = { process in
+                statusContinuation.yield(process.terminationStatus)
+                statusContinuation.finish()
+            }
+            try process.run()
+            if Task.isCancelled {
+                cancellationController.cancel()
+            }
+
+            // Drain stdout before awaiting the exit status: an unread pipe can
+            // fill and block the child.
+            var data = Data()
             for try await byte in output.fileHandleForReading.bytes {
                 data.append(byte)
             }
-        } catch {
-            process.terminate()
-            log.close()
-            log.cleanup()
-            throw error
+
+            var status: Int32 = -1
+            for await exitStatus in statusStream {
+                status = exitStatus
+            }
+            try Task.checkCancellation()
+            return (data, status)
+        } onCancel: {
+            cancellationController.cancel()
         }
 
-        var status: Int32 = -1
-        for await exitStatus in statusStream {
-            status = exitStatus
-        }
-        log.close()
-        guard status == 0 else {
+        guard result.1 == 0 else {
+            keepsFailureLog = true
             throw Self.buildFailure(
                 command: commandDescription(arguments, executableURL: toolchain.swiftExecutableURL),
-                status: status,
+                status: result.1,
                 logURL: log.fileURL
             )
         }
-        log.cleanup()
 
-        return String(decoding: data, as: UTF8.self)
+        return String(decoding: result.0, as: UTF8.self)
     }
 
     /// Builds the typed failure from the captured log: the first line
@@ -139,6 +175,9 @@ package struct SwiftWebDevSwiftCommandRunner: SwiftWebDevBuildCommandRunning {
             }
             do {
                 try process.run()
+                if Task.isCancelled {
+                    process.terminate()
+                }
             } catch {
                 // The process never started, so the termination handler can
                 // never fire; hand the failure to the continuation instead.

@@ -24,7 +24,7 @@ struct SceneEnvironmentTests {
             return
         }
 
-        let response = try await handler(WebRequest(application: application, path: "/env"))
+        let response = try await handler(Request(application: application, path: "/env"))
         let html = try #require(response.body.string)
         #expect(html.contains("scene-injected"))
     }
@@ -47,7 +47,7 @@ struct SceneEnvironmentTests {
             return
         }
 
-        let response = try await handler(WebRequest(application: application, path: "/env"))
+        let response = try await handler(Request(application: application, path: "/env"))
         let html = try #require(response.body.string)
         #expect(html.contains("unset-greeting"))
     }

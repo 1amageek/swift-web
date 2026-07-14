@@ -25,7 +25,7 @@ public struct SceneGroup: Scene, _PrimitiveScene {
     }
 
     init(_ groups: [SceneGroup]) {
-        self.scenes = groups.flatMap(\.scenes)
+        self.scenes = groups.flatMap { $0.scenes }
     }
 
     init(_ groups: SceneGroup...) {

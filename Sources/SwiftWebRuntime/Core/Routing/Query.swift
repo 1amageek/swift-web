@@ -14,7 +14,7 @@
 /// The value is decoded once per request by the route registration the
 /// `@Page` macro generates; the wrapper reads it from `RequestContext`.
 @propertyWrapper
-public struct Query<Value>: Sendable {
+public struct Query<Value: Sendable>: Sendable {
     public init() {}
 
     public var wrappedValue: Value {

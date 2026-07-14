@@ -11,11 +11,16 @@ import SwiftWebCore
 /// Vapor's `ErrorMiddleware` wire shape (`{"error":true,"reason":...}`).
 /// Sits inside the SwiftWeb middleware chain so security/CORS headers still
 /// decorate error responses.
-struct HTTPServerErrorResponder: WebResponder {
-    let next: any WebResponder
+final class HTTPServerErrorResponder: Responder {
+    let next: any Responder
     let logger: Logger
 
-    func respond(to request: WebRequest) async throws -> WebResponse {
+    init(next: any Responder, logger: Logger) {
+        self.next = next
+        self.logger = logger
+    }
+
+    func respond(to request: Request) async throws -> Response {
         do {
             return try await next.respond(to: request)
         } catch let abort as Abort {
@@ -29,19 +34,19 @@ struct HTTPServerErrorResponder: WebResponder {
         }
     }
 
-    static func errorResponse(status: HTTPResponse.Status, reason: String) -> WebResponse {
+    static func errorResponse(status: HTTPResponse.Status, reason: String) -> Response {
         struct ErrorBody: Encodable {
             let error: Bool
             let reason: String
         }
         var headers = HTTPFields()
         headers[.contentType] = "application/json; charset=utf-8"
-        let body: WebResponse.Body
+        let body: Response.Body
         do {
             body = .init(data: try JSONEncoder().encode(ErrorBody(error: true, reason: reason)))
         } catch {
             body = .init(string: #"{"error":true,"reason":"Something went wrong"}"#)
         }
-        return WebResponse(status: status, headers: headers, body: body)
+        return Response(status: status, headers: headers, body: body)
     }
 }

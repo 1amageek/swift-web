@@ -60,6 +60,10 @@ extension HTML {
                 body: .init(string: html)
             )
         case .wasm(let wasmRuntime):
+            #if hasFeature(Embedded)
+            _ = wasmRuntime
+            throw EmbeddedProfileError.clientRuntimeInjectionUnavailable
+            #else
             let fullHydrationIndex = BrowserHydrationIndexExporter().export(artifact)
             let clientHydrationIndex = SwiftWebClientHydrationIndexPruner.prune(fullHydrationIndex)
             let manifest = SwiftWebWasmClientManifestBuilder.manifest(
@@ -90,6 +94,14 @@ extension HTML {
                 headers: developmentHooks.htmlHeaders(),
                 body: .init(string: html)
             )
+            #endif
         }
     }
+}
+
+/// Full-toolchain features a page can request that the Embedded profile
+/// cannot provide. Surfaced as an error so the failure is explicit instead
+/// of a silently degraded page.
+public enum EmbeddedProfileError: Error {
+    case clientRuntimeInjectionUnavailable
 }

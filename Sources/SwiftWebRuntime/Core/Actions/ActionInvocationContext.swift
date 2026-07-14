@@ -1,11 +1,14 @@
+#if !hasFeature(Embedded)
+// Server actions are a Codable JSON API boundary; the embedded SSR
+// profile does not serve them.
 #if canImport(FoundationEssentials)
 import FoundationEssentials
-#else
+#elseif canImport(Foundation)
 import Foundation
 #endif
 import HTTPTypes
 
-public struct ActionInvocationContext: Sendable, Codable {
+public struct ActionInvocationContext: Sendable {
     public let id: UUID
     public let requestPath: String
     public let method: String
@@ -59,7 +62,7 @@ public struct ActionInvocationContext: Sendable, Codable {
     }
 }
 
-public struct ActionRequestMetadata: Sendable, Codable {
+public struct ActionRequestMetadata: Sendable {
     public let methodOverride: String?
     public let csrfToken: String?
 
@@ -90,3 +93,12 @@ public struct ActionRequestMetadata: Sendable, Codable {
         try container.encodeIfPresent(csrfToken, forKey: .csrfToken)
     }
 }
+#endif
+
+#if !hasFeature(Embedded)
+extension ActionInvocationContext: Codable {}
+#endif
+
+#if !hasFeature(Embedded)
+extension ActionRequestMetadata: Codable {}
+#endif

@@ -19,13 +19,13 @@ public enum SwiftWebClientRuntime: Sendable, Equatable {
     }
 }
 
-public enum SwiftWebWasmMetricsMode: String, Sendable, Codable, Equatable {
+public enum SwiftWebWasmMetricsMode: String, Sendable, Equatable {
     case disabled
     case summary
     case detailed
 }
 
-public struct SwiftWebWasmClientRuntime: Sendable, Codable, Equatable {
+public struct SwiftWebWasmClientRuntime: Sendable, Equatable {
     public let runtimeBundleID: ClientBundleID
     public let manifestPath: String
     public let runtimeAssetPath: String
@@ -56,7 +56,7 @@ public struct SwiftWebWasmClientRuntime: Sendable, Codable, Equatable {
     }
 }
 
-public struct SwiftWebWasmClientBundle: Sendable, Codable, Equatable {
+public struct SwiftWebWasmClientBundle: Sendable, Equatable {
     public let id: ClientBundleID
     public let componentTypeNames: [String]
     public let assetPath: String
@@ -88,11 +88,11 @@ public struct SwiftWebWasmClientBundle: Sendable, Codable, Equatable {
     }
 }
 
-private struct SwiftWebClientRuntimeStorageKey: WebStorageKey {
+private struct SwiftWebClientRuntimeStorageKey: StorageKey {
     typealias Value = SwiftWebClientRuntime
 }
 
-public extension WebApplicationProtocol {
+public extension ApplicationProtocol {
     var swiftWebClientRuntime: SwiftWebClientRuntime {
         get {
             storage[SwiftWebClientRuntimeStorageKey.self] ?? .disabled
@@ -102,3 +102,15 @@ public extension WebApplicationProtocol {
         }
     }
 }
+
+#if !hasFeature(Embedded)
+extension SwiftWebWasmClientRuntime: Codable {}
+#endif
+
+#if !hasFeature(Embedded)
+extension SwiftWebWasmClientBundle: Codable {}
+#endif
+
+#if !hasFeature(Embedded)
+extension SwiftWebWasmMetricsMode: Codable {}
+#endif

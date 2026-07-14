@@ -19,7 +19,7 @@ public struct WebSocketContext: Sendable {
             do {
                 try await handler(text)
             } catch {
-                logger.error("WebSocket text handler failed: \(String(describing: error))")
+                logger.error("WebSocket text handler failed: \(RuntimeErrorText.of(error))")
             }
         }
     }

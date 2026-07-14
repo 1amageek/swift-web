@@ -10,6 +10,22 @@ import Testing
 @Suite
 struct SwiftWebDiagnosticsTests {
   @Test
+  func buildFingerprintMiddlewareStampsDevResponses() async throws {
+    let middleware = SwiftWebDevBuildFingerprintMiddleware(
+      environment: ["SWIFT_WEB_DEV_BUILD_FINGERPRINT": String(repeating: "a", count: 64)]
+    )
+    let request = Request(application: TestWebApplication())
+    let next = ClosureResponder { _ in Response() }
+
+    let response = try await #require(middleware).respond(to: request, chainingTo: next)
+
+    #expect(
+      response.headers[SwiftWebDevBuildFingerprintMiddleware.headerName]
+        == String(repeating: "a", count: 12)
+    )
+  }
+
+  @Test
   func formatsHydrationDiagnosticsForDeveloperOutput() {
     let diagnostic = RenderDiagnostic(
       code: .runtimeOnlyEnvironmentInClientComponent,

@@ -1,6 +1,8 @@
+#if !hasFeature(Embedded)
+// Native-host wasm artifact discovery.
 #if canImport(FoundationEssentials)
 import FoundationEssentials
-#else
+#elseif canImport(Foundation)
 import Foundation
 #endif
 
@@ -23,3 +25,4 @@ public struct SwiftPMWasmArtifactLocation: Sendable {
     )
   }
 }
+#endif

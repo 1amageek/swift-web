@@ -11,7 +11,7 @@ import SwiftWebStyle
 /// `.swui-root .swui-root` stylesheet scope), and isolated `render()` output in
 /// tests, where there is no response encoder to assemble a document.
 package struct StyleRoot<Content: HTML>: Component {
-    @Environment(\.theme) private var theme: Theme
+    @Environment({ $0.theme }) private var theme: Theme
 
     private let colorScheme: ColorScheme?
     private let content: Content
@@ -39,7 +39,7 @@ package struct StyleRoot<Content: HTML>: Component {
         if let colorScheme {
             div {
                 content
-                    .environment(\.colorScheme, colorScheme)
+                    .transformEnvironment({ $0.colorScheme = colorScheme })
             }
             .attributes(rootAttributes)
         } else {

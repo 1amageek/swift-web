@@ -4,8 +4,8 @@ import SwiftHTML
 public struct DisabledModifier: ComponentModifier {
     private let isDisabled: Bool
 
-    @Environment(\.isEnabled) private var isEnabled: Bool
-    @Environment(\.controlState) private var controlState: ControlState
+    @Environment({ $0.isEnabled }) private var isEnabled: Bool
+    @Environment({ $0.controlState }) private var controlState: ControlState
 
     init(_ isDisabled: Bool) {
         self.isDisabled = isDisabled
@@ -17,12 +17,12 @@ public struct DisabledModifier: ComponentModifier {
         // `.disabled(false)` cannot re-enable a subtree an ancestor disabled.
         let resolvedIsEnabled = isEnabled && !isDisabled
         content
-            .environment(\.isEnabled, resolvedIsEnabled)
-            .environment(\.controlState, ControlState(
+            .transformEnvironment({ $0.isEnabled = resolvedIsEnabled })
+            .transformEnvironment({ $0.controlState = ControlState(
                 isEnabled: resolvedIsEnabled,
                 isPressed: controlState.isPressed,
                 isFocused: controlState.isFocused,
                 isSelected: controlState.isSelected
-            ))
+            ) })
     }
 }

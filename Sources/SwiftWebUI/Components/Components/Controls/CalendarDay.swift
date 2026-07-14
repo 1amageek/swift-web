@@ -14,8 +14,6 @@ import Foundation
 /// it on the day-number element, so styling can react without the closure
 /// having to add classes.
 public struct CalendarDay: Sendable, Identifiable {
-    /// The day's date at the start of the day in the view's calendar.
-    public let date: Date
     public let year: Int
     public let month: Int
     public let day: Int
@@ -29,7 +27,6 @@ public struct CalendarDay: Sendable, Identifiable {
     public let isWeekend: Bool
 
     public init(
-        date: Date,
         year: Int,
         month: Int,
         day: Int,
@@ -38,7 +35,6 @@ public struct CalendarDay: Sendable, Identifiable {
         isOutsideMonth: Bool,
         isWeekend: Bool
     ) {
-        self.date = date
         self.year = year
         self.month = month
         self.day = day
@@ -64,4 +60,13 @@ public struct CalendarDay: Sendable, Identifiable {
         guard digits.count < width else { return digits }
         return String(repeating: "0", count: width - digits.count) + digits
     }
+
+    #if !hasFeature(Embedded)
+    /// The day's date at UTC midnight, derived from `year`/`month`/`day`.
+    /// (Previously this was the start of day in the view's calendar; the
+    /// pure value triple is the source of truth now.)
+    public var date: Date {
+        Date(timeIntervalSince1970: TimeInterval(GregorianDay(year: year, month: month, day: day).daysSinceEpoch) * 86_400)
+    }
+    #endif
 }

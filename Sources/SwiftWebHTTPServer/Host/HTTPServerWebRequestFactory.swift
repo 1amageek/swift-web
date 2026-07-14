@@ -9,15 +9,15 @@ import SwiftWebCore
 
 /// Builds the host-neutral request from an `HTTPAPIs` request and its
 /// collected body for the `swift-http-server` host.
-enum HTTPServerWebRequestFactory {
+enum HTTPServerRequestFactory {
     static func webRequest(
         request: HTTPRequest,
         bodyBytes: [UInt8]?,
-        parameters: WebPathParameters,
+        parameters: PathParameters,
         session: HTTPServerSessionBox,
-        application: HTTPServerWebApplication,
+        application: HTTPServerApplication,
         logger: Logger
-    ) -> WebRequest {
+    ) -> Request {
         let rawPath = request.path ?? "/"
         let parts = rawPath.split(separator: "?", maxSplits: 1, omittingEmptySubsequences: false)
         let path = parts.first.map(String.init).flatMap { $0.isEmpty ? nil : $0 } ?? "/"
@@ -26,13 +26,13 @@ enum HTTPServerWebRequestFactory {
         let host = request.headerFields[HTTPField.Name("Host")!] ?? request.authority
 
         let cookieHeader = request.headerFields[values: .cookie].joined(separator: "; ")
-        let cookies = WebHTTPCookieParser.parse(cookieHeader: cookieHeader)
+        let cookies = CookieParser.parse(cookieHeader: cookieHeader)
 
         let contentType = request.headerFields[.contentType]
 
-        return WebRequest(
+        return Request(
             method: request.method,
-            url: WebURL(
+            url: RequestURL(
                 string: rawPath,
                 scheme: scheme,
                 host: host,
@@ -41,10 +41,7 @@ enum HTTPServerWebRequestFactory {
             ),
             headers: request.headerFields,
             cookies: cookies,
-            query: WebQueryContainer { type in
-                try WebURLEncodedFormDecoder().decode(type, from: queryString ?? "")
-            },
-            content: WebContentContainer(
+            content: ContentContainer(
                 decoder: { type in
                     try Self.decodeContent(type, contentType: contentType, bodyBytes: bodyBytes)
                 },
@@ -93,7 +90,7 @@ enum HTTPServerWebRequestFactory {
         case "application/json":
             return try JSONDecoder().decode(type, from: Data(bodyBytes))
         case "application/x-www-form-urlencoded":
-            return try WebURLEncodedFormDecoder().decode(
+            return try URLEncodedFormDecoder().decode(
                 type,
                 from: String(decoding: bodyBytes, as: UTF8.self)
             )

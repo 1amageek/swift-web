@@ -1,7 +1,11 @@
 import SwiftWebHost
 
-struct SecurityMiddleware: Middleware {
+final class SecurityMiddleware: Middleware {
     let configuration: SecurityConfiguration
+
+    init(configuration: SecurityConfiguration) {
+        self.configuration = configuration
+    }
 
     func respond(to request: Request, chainingTo next: any Responder) async throws -> Response {
         let context = configuration.makeRequestContext(for: request)

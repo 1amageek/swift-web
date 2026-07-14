@@ -9,11 +9,11 @@ public struct StyleClassList: Sendable, Equatable, Hashable, ExpressibleByArrayL
     }
 
     public init(_ classes: [StyleClass?]) {
-        self.init(classes.compactMap(\.self))
+        self.init(classes.compactMap { $0.self })
     }
 
     public init(_ rawValue: String) {
-        self.init(rawValue.split(whereSeparator: \.isWhitespace).map { StyleClass(String($0)) })
+        self.init(rawValue.split(whereSeparator: { $0.isWhitespace }).map { StyleClass(String($0)) })
     }
 
     public init(arrayLiteral elements: StyleClass...) {
@@ -25,7 +25,7 @@ public struct StyleClassList: Sendable, Equatable, Hashable, ExpressibleByArrayL
     }
 
     public var rawValue: String {
-        classes.map(\.rawValue).joined(separator: " ")
+        classes.map { $0.rawValue }.joined(separator: " ")
     }
 
     public var description: String {

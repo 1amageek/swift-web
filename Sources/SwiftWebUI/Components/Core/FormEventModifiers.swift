@@ -14,7 +14,7 @@ public struct SubmitTriggers: OptionSet, Sendable, Equatable {
 }
 
 @propertyWrapper
-public struct FocusState<Value: Hashable & Codable & Sendable>: Sendable {
+public struct FocusState<Value: Hashable & CodableWhenAvailable & Sendable>: Sendable {
     private let state: State<Value>
 
     public init(wrappedValue: Value) {
@@ -64,15 +64,17 @@ public extension FocusState where Value: ExpressibleByNilLiteral {
     }
 }
 
-private enum ChangeObservationValue<Value: Codable & Sendable>: Sendable {
+private enum ChangeObservationValue<Value: CodableWhenAvailable & Sendable>: Sendable {
     case absent
     case present(Value)
 }
 
 extension ChangeObservationValue: Equatable where Value: Equatable {}
+#if !hasFeature(Embedded)
 extension ChangeObservationValue: Codable where Value: Codable {}
+#endif
 
-public struct OnChangeModifier<Value: Equatable & Codable & Sendable>: ComponentModifier {
+public struct OnChangeModifier<Value: Equatable & CodableWhenAvailable & Sendable>: ComponentModifier {
     private let value: Value
     private let initial: Bool
     private let action: @Sendable (Value, Value) -> Void
@@ -148,7 +150,7 @@ public extension HTML {
     func focused<Value>(
         _ binding: FocusState<Value?>.Binding,
         equals value: Value
-    ) -> ModifiedContent<Self, HTMLAttributeModifier> where Value: Hashable & Codable & Sendable {
+    ) -> ModifiedContent<Self, HTMLAttributeModifier> where Value: Hashable & CodableWhenAvailable & Sendable {
         modifier(HTMLAttributeModifier([
             .event("focusin") { _ in binding.wrappedValue = value },
             .event("focusout") { _ in
@@ -170,7 +172,7 @@ public extension HTML {
         of value: Value,
         initial: Bool = false,
         _ action: @escaping @Sendable (Value, Value) -> Void
-    ) -> ModifiedContent<Self, OnChangeModifier<Value>> where Value: Equatable & Codable & Sendable {
+    ) -> ModifiedContent<Self, OnChangeModifier<Value>> where Value: Equatable & CodableWhenAvailable & Sendable {
         modifier(OnChangeModifier(value: value, initial: initial, action: action))
     }
 
@@ -178,7 +180,7 @@ public extension HTML {
         of value: Value,
         initial: Bool = false,
         _ action: @escaping @Sendable () -> Void
-    ) -> ModifiedContent<Self, OnChangeModifier<Value>> where Value: Equatable & Codable & Sendable {
+    ) -> ModifiedContent<Self, OnChangeModifier<Value>> where Value: Equatable & CodableWhenAvailable & Sendable {
         onChange(of: value, initial: initial) { _, _ in
             action()
         }

@@ -105,8 +105,8 @@ public struct SearchScopesModifier<Scopes: HTML>: ComponentModifier {
                 ]
             ) {
                 scopes
-                    .environment(\.searchScopeSelection, selection.wrappedValue)
-                    .environment(\.searchScopeGroupName, groupName)
+                    .transformEnvironment({ $0.searchScopeSelection = selection.wrappedValue })
+                    .transformEnvironment({ $0.searchScopeGroupName = groupName })
             }
             content
         }
@@ -162,14 +162,14 @@ public struct SearchTokensModifier<TokenContent: HTML>: ComponentModifier {
     }
 }
 
-public struct SearchScope: WebUIAttributeComponent {
+public struct SearchScope: AttributeComponent {
     private let title: String
     private let value: String
     private let attributes: [HTMLAttribute]
 
-    @Environment(\.searchScopeSelection) private var searchScopeSelection: String?
-    @Environment(\.searchScopeGroupName) private var searchScopeGroupName: String?
-    @Environment(\.isEnabled) private var isEnabled: Bool
+    @Environment({ $0.searchScopeSelection }) private var searchScopeSelection: String?
+    @Environment({ $0.searchScopeGroupName }) private var searchScopeGroupName: String?
+    @Environment({ $0.isEnabled }) private var isEnabled: Bool
 
     public init(_ title: String, value: String, _ attributes: HTMLAttribute...) {
         self.title = title
@@ -404,7 +404,7 @@ public extension HTML {
     }
 }
 
-public extension WebUIAttributeMutableHTML {
+public extension AttributeMutableHTML {
     func searchCompletion(_ completion: String) -> Self {
         addingAttributes([
             .data("search-completion", completion),

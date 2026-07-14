@@ -9,11 +9,11 @@ import SwiftWebStyle
 /// stylesheet, so `List { Text("a"); Text("b") }` needs no row wrapper type.
 /// The data-driven initializers wrap each element in a semantic row
 /// (`role="listitem"`), giving collection lists full list semantics.
-public struct List<Content: HTML>: WebUIAttributeComponent {
+public struct List<Content: HTML>: AttributeComponent {
     private let attributes: [HTMLAttribute]
     private let content: Content
     private let isSemanticList: Bool
-    @Environment(\.listStyle) private var listStyle: ListStyleKind
+    @Environment({ $0.listStyle }) private var listStyle: ListStyleKind
 
     public init(
         _ attributes: HTMLAttribute...,

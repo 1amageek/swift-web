@@ -47,10 +47,11 @@ package final class SwiftWebDevEventLogReader: Sendable {
                 break
             }
             let line = data[lineStart..<newlineIndex]
-            if let event = try? JSONDecoder.swiftWebDevEvent.decode(
+            let event = try JSONDecoder.swiftWebDevEvent.decode(
                 SwiftWebDevEvent.self,
                 from: Data(line)
-            ), event.id == lastEventID {
+            )
+            if event.id == lastEventID {
                 resumeOffset = UInt64(newlineIndex - data.startIndex) + 1
             }
             lineStart = data.index(after: newlineIndex)

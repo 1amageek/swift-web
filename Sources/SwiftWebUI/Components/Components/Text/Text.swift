@@ -14,7 +14,7 @@ import SwiftHTML
 /// target-conditional markup can add or drop the element without rebuilding the
 /// call. A bare `Text("…")` renders as `<p>`; reach for `.as(_:)` only when a
 /// specific element is required.
-public struct Text: WebUIAttributeComponent {
+public struct Text: AttributeComponent {
     private let value: String
     private let element: TextElement
     private let attributes: [HTMLAttribute]

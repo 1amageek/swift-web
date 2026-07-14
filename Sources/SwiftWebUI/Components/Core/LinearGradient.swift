@@ -4,7 +4,7 @@ import WASILibc
 #else
 #if canImport(FoundationEssentials)
 import FoundationEssentials
-#else
+#elseif canImport(Foundation)
 import Foundation
 #endif
 // `atan2` comes from the C library; FoundationEssentials does not re-export it

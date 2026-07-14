@@ -2,7 +2,7 @@
 @preconcurrency import Distributed
 #endif
 
-public struct SwiftWebActorContractKey: Sendable, Hashable, Codable {
+public struct SwiftWebActorContractKey: Sendable, Hashable {
     public let rawValue: String
 
     public init(_ rawValue: String) {
@@ -17,7 +17,7 @@ public struct SwiftWebActorContractKey: Sendable, Hashable, Codable {
     #endif
 }
 
-public struct SwiftWebActorBindingRecord: Sendable, Codable, Equatable {
+public struct SwiftWebActorBindingRecord: Sendable, Equatable {
     public let contractKey: String
     public let actorID: WebActorSystem.ActorID
 
@@ -67,11 +67,21 @@ public struct SwiftWebActorResolver: Sendable {
     ) throws -> Service {
         let value = try resolveValue(actorID, actorSystem)
         guard let service = value as? Service else {
+            #if hasFeature(Embedded)
+            // Embedded Swift has no type reflection; the contract still
+            // identifies the failing resolution.
+            throw SwiftWebActorBindingError.typeMismatch(
+                contract: contract.rawValue,
+                expected: "service",
+                actual: "resolved value"
+            )
+            #else
             throw SwiftWebActorBindingError.typeMismatch(
                 contract: contract.rawValue,
                 expected: String(reflecting: Service.self),
                 actual: String(reflecting: Swift.type(of: value))
             )
+            #endif
         }
         return service
     }
@@ -209,6 +219,16 @@ public enum SwiftWebActorBindingContext {
         defer { current = previous }
         return try operation()
     }
+
+    public static func withValue<Result: Sendable>(
+        _ value: SwiftWebActorBindingScope,
+        operation: @Sendable () async throws -> Result
+    ) async rethrows -> Result {
+        let previous = current
+        current = value
+        defer { current = previous }
+        return try await operation()
+    }
     #else
     @TaskLocal public static var current: SwiftWebActorBindingScope?
 
@@ -239,7 +259,11 @@ public enum SwiftWebActorBinding {
         do {
             return try scope.resolve(service, contract: contract)
         } catch {
+            #if hasFeature(Embedded)
+            preconditionFailure("@Actor failed to resolve \(contract.rawValue)")
+            #else
             preconditionFailure("@Actor failed to resolve \(String(reflecting: Service.self)): \(error)")
+            #endif
         }
     }
 }
@@ -260,3 +284,11 @@ public enum SwiftWebActorBindingError: Error, Sendable, CustomStringConvertible,
         }
     }
 }
+
+#if !hasFeature(Embedded)
+extension SwiftWebActorContractKey: Codable {}
+#endif
+
+#if !hasFeature(Embedded)
+extension SwiftWebActorBindingRecord: Codable {}
+#endif

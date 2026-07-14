@@ -1,3 +1,6 @@
+#if !hasFeature(Embedded)
+// Server actions are a Codable JSON API boundary; the embedded SSR
+// profile does not serve them.
 public enum ClientActionTrigger: String, Sendable {
     case click
     case input
@@ -28,3 +31,4 @@ public extension ElementRepresentable {
         return element
     }
 }
+#endif

@@ -25,15 +25,15 @@ extension EnvironmentValues {
     }
 }
 
-public struct PickerOption: WebUIAttributeComponent {
+public struct PickerOption: AttributeComponent {
     private let value: String
     private let label: String
     private let attributes: [HTMLAttribute]
 
-    @Environment(\.pickerSelection) private var pickerSelection: String?
-    @Environment(\.pickerStyle) private var pickerStyle: PickerStyleKind
-    @Environment(\.pickerGroupName) private var pickerGroupName: String?
-    @Environment(\.isEnabled) private var isEnabled: Bool
+    @Environment({ $0.pickerSelection }) private var pickerSelection: String?
+    @Environment({ $0.pickerStyle }) private var pickerStyle: PickerStyleKind
+    @Environment({ $0.pickerGroupName }) private var pickerGroupName: String?
+    @Environment({ $0.isEnabled }) private var isEnabled: Bool
 
     public init(_ label: String, value: String, _ attributes: HTMLAttribute...) {
         self.label = label

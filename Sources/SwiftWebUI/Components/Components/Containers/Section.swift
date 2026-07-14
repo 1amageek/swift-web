@@ -1,7 +1,7 @@
 import SwiftWebUITheme
 import SwiftHTML
 
-public struct Section<Parent: HTML, Content: HTML, Footer: HTML>: WebUIAttributeComponent {
+public struct Section<Parent: HTML, Content: HTML, Footer: HTML>: AttributeComponent {
     private let header: Parent
     private let footer: Footer
     private let showsHeader: Bool

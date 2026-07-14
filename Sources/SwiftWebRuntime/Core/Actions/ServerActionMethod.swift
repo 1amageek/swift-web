@@ -1,7 +1,10 @@
+#if !hasFeature(Embedded)
+// Server actions are a Codable JSON API boundary; the embedded SSR
+// profile does not serve them.
 import HTTPTypes
 import SwiftHTML
 
-public enum ServerActionMethod: String, Sendable, Codable, CaseIterable {
+public enum ServerActionMethod: String, Sendable, CaseIterable {
     case get = "GET"
     case post = "POST"
     case put = "PUT"
@@ -38,3 +41,8 @@ public enum ServerActionMethod: String, Sendable, Codable, CaseIterable {
         }
     }
 }
+#endif
+
+#if !hasFeature(Embedded)
+extension ServerActionMethod: Codable {}
+#endif

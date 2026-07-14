@@ -1,3 +1,6 @@
+#if !hasFeature(Embedded)
+// SSE/streaming routes decode Codable search params and stream
+// over the native host; full profiles only.
 import SwiftWebBrowserRuntime
 import SwiftWebHost
 import SwiftWebStyle
@@ -64,3 +67,4 @@ actor StreamBuffer {
         storage
     }
 }
+#endif

@@ -37,11 +37,9 @@ public final class StyleRegistry: Sendable {
     /// channel. A nil binding is only for low-level isolated SwiftHTML rendering.
     @discardableResult
     public static func withCurrent<R>(_ registry: StyleRegistry?, _ body: () throws -> R) rethrows -> R {
-        let transformer: (any HTMLAttributeTransformer)? = registry.map {
-            AtomicStyleAttributeTransformer(registry: $0)
-        }
+        let transform = Self.atomicTransform(for: registry)
         return try EnlargedStackContext.withValue(StyleRegistryContext(registry: registry)) {
-            try HTMLAttributeTransformContext.withValue(transformer) {
+            try HTMLAttributeTransformContext.withTransform(transform) {
                 try $current.withValue(registry, operation: body)
             }
         }
@@ -120,8 +118,8 @@ public final class StyleRegistry: Sendable {
         let hasControl = value.unicodeScalars.contains { $0.value < 0x20 }
         let valueOK = !value.contains(where: { unsafe.contains($0) })
             && !hasControl
-            && !value.contains("/*")
-            && !value.contains("*/")
+            && !value.containsSubstring("/*")
+            && !value.containsSubstring("*/")
         return propertyOK && valueOK
     }
 
@@ -209,14 +207,24 @@ public func atom(_ style: Style) -> HTMLAttribute {
     return .style(style)
 }
 
+extension StyleRegistry {
+    static func atomicTransform(for registry: StyleRegistry?) -> HTMLAttributeTransformContext.Transform? {
+        guard let registry else {
+            return nil
+        }
+        let transformer = AtomicStyleAttributeTransformer(registry: registry)
+        return { attributes in
+            transformer.transform(attributes)
+        }
+    }
+}
+
 private struct StyleRegistryContext: EnlargedStackContextPropagator {
     let registry: StyleRegistry?
 
     func apply<Result>(_ operation: () throws -> Result) rethrows -> Result {
-        let transformer: (any HTMLAttributeTransformer)? = registry.map {
-            AtomicStyleAttributeTransformer(registry: $0)
-        }
-        return try HTMLAttributeTransformContext.withValue(transformer) {
+        let transform = StyleRegistry.atomicTransform(for: registry)
+        return try HTMLAttributeTransformContext.withTransform(transform) {
             try StyleRegistry.$current.withValue(registry, operation: operation)
         }
     }

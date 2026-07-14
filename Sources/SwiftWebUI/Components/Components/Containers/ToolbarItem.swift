@@ -18,7 +18,7 @@ extension EnvironmentValues {
 /// each item emits only in the region its placement selects, so declaration
 /// order inside the builder does not constrain the visual layout.
 public struct ToolbarItem<Content: HTML>: Component {
-    @Environment(\.toolbarRegion) private var region: ToolbarItemPlacement.Region?
+    @Environment({ $0.toolbarRegion }) private var region: ToolbarItemPlacement.Region?
 
     private let placement: ToolbarItemPlacement
     private let content: Content
@@ -47,7 +47,7 @@ public struct ToolbarItem<Content: HTML>: Component {
 /// A group of toolbar content sharing one placement, mirroring SwiftUI's
 /// `ToolbarItemGroup`.
 public struct ToolbarItemGroup<Content: HTML>: Component {
-    @Environment(\.toolbarRegion) private var region: ToolbarItemPlacement.Region?
+    @Environment({ $0.toolbarRegion }) private var region: ToolbarItemPlacement.Region?
 
     private let placement: ToolbarItemPlacement
     private let content: Content

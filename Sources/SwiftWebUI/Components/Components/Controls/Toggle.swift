@@ -1,14 +1,14 @@
 import SwiftWebUITheme
 import SwiftHTML
 
-public struct Toggle<Label: HTML>: WebUIAttributeComponent {
+public struct Toggle<Label: HTML>: AttributeComponent {
     private let label: Label
     private let isOn: Binding<Bool>?
     private let initialValue: Bool
     private let attributes: [HTMLAttribute]
-    @Environment(\.controlSize) private var controlSize: ControlSize
-    @Environment(\.isEnabled) private var isEnabled: Bool
-    @Environment(\.toggleStyle) private var toggleStyle: ToggleStyleKind
+    @Environment({ $0.controlSize }) private var controlSize: ControlSize
+    @Environment({ $0.isEnabled }) private var isEnabled: Bool
+    @Environment({ $0.toggleStyle }) private var toggleStyle: ToggleStyleKind
 
     public init(
         isOn: Binding<Bool>,

@@ -7,7 +7,7 @@ import SwiftHTML
 /// Lowers to a native `<details>`/`<summary>` pair, so expansion works without
 /// any client runtime. The surface composes the shared `regularMaterial`
 /// recipe.
-public struct DisclosureGroup<Label: HTML, Content: HTML>: WebUIAttributeComponent {
+public struct DisclosureGroup<Label: HTML, Content: HTML>: AttributeComponent {
     private let label: Label
     private let isExpanded: Binding<Bool>?
     private let attributes: [HTMLAttribute]

@@ -1,6 +1,8 @@
+#if !hasFeature(Embedded)
+// Codable adapter for generic action routes; full profiles only.
 #if canImport(FoundationEssentials)
 import FoundationEssentials
-#else
+#elseif canImport(Foundation)
 import Foundation
 #endif
 
@@ -296,3 +298,4 @@ private struct _RouteParameterSingleValueDecoder: Decoder, SingleValueDecodingCo
         return decoded
     }
 }
+#endif

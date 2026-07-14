@@ -12,7 +12,7 @@ extension EnvironmentValues {
     }
 }
 
-public struct NavigationStack<Content: HTML>: WebUIAttributeComponent {
+public struct NavigationStack<Content: HTML>: AttributeComponent {
     private let path: Binding<NavigationPath>?
     private let content: Content
     private let attributes: [HTMLAttribute]
@@ -37,7 +37,7 @@ public struct NavigationStack<Content: HTML>: WebUIAttributeComponent {
             )
         ) {
             content
-                .environment(\.navigationPathSegments, path?.wrappedValue.components)
+                .transformEnvironment({ $0.navigationPathSegments = path?.wrappedValue.components })
         }
     }
 

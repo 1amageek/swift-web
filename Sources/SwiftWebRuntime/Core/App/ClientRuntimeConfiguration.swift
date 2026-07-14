@@ -1,7 +1,8 @@
+#if !hasFeature(Embedded)
 import SwiftWebBrowserRuntime
 #if canImport(FoundationEssentials)
 import FoundationEssentials
-#else
+#elseif canImport(Foundation)
 import Foundation
 #endif
 
@@ -54,3 +55,10 @@ public enum ClientRuntimeConfiguration {
         }
     }
 }
+#else
+/// Embedded profile: the client runtime is always disabled (client bundles
+/// are served as static assets and built with the full toolchain).
+public enum ClientRuntimeConfiguration {
+    case disabled
+}
+#endif

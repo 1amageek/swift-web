@@ -20,15 +20,15 @@ enum SwiftWebHeadAssets {
             registry.registerScript(id: script.id, body: script.body)
         }
 
-        guard let bodyStart = html.firstRange(of: "<body"),
-            let tagEnd = html[bodyStart.upperBound...].firstRange(of: ">")
+        guard let bodyStart = html.firstRangeOfSubstring("<body"),
+            let tagEnd = html[bodyStart.upperBound...].firstRangeOfSubstring(">")
         else {
             return html
         }
 
         var openTag = String(html[bodyStart.lowerBound..<tagEnd.lowerBound])
         let rootClass = escapedAttribute(provider.rootClass)
-        if let classRange = openTag.firstRange(of: " class=\"") {
+        if let classRange = openTag.firstRangeOfSubstring(" class=\"") {
             openTag.replaceSubrange(classRange, with: " class=\"\(rootClass) ")
         } else {
             openTag += " class=\"\(rootClass)\""

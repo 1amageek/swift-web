@@ -5,7 +5,7 @@ import SwiftWebCore
 /// Runs a SwiftWeb `App` on `swift-http-server` (`NIOHTTPServer`) — the
 /// lightweight host from `docs/LightweightHTTPServerDecision.md`. Same app
 /// model as the Vapor adapter, no framework: routes are matched with
-/// `WebRouteMatcher`, sessions are cookie-backed, and the SwiftWeb middleware
+/// `RouteMatcher`, sessions are cookie-backed, and the SwiftWeb middleware
 /// chain (CORS, security, development hooks) runs around every response.
 public struct HTTPServerAppRunner<Definition: App> {
     private let definition: Definition
@@ -53,11 +53,11 @@ public struct HTTPServerAppRunner<Definition: App> {
         let devParentMonitor = developmentHooks.startParentMonitor(logger)
 
         do {
-            let application = HTTPServerWebApplication(hostname: hostname, port: port, logger: logger)
+            let application = HTTPServerApplication(hostname: hostname, port: port, logger: logger)
             let security = developmentHooks.configureSecurity(definition.security)
             application.securityConfiguration = security
 
-            var chain = WebMiddlewares()
+            var chain = Middlewares()
             security.installMiddleware(on: &chain)
             developmentHooks.installMiddlewares(&chain)
 
@@ -75,7 +75,7 @@ public struct HTTPServerAppRunner<Definition: App> {
 
             let handler = SwiftWebHostHTTPHandler(
                 application: application,
-                matcher: WebRouteMatcher(routes: application.collectedRoutes),
+                matcher: RouteMatcher(routes: application.collectedRoutes),
                 chain: chain,
                 sessionStorage: sessionStorage,
                 logger: logger

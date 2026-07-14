@@ -6,7 +6,7 @@ import SwiftWebUITheme
 /// Appending a segment navigates deeper; removing segments navigates back.
 /// The runtime lowers path writes into same-origin document transitions — see
 /// `docs/ClientNavigationDesign.md` ("URL-Backed NavigationStack").
-public struct NavigationPath: Codable, Sendable, Equatable, ExpressibleByArrayLiteral {
+public struct NavigationPath: Sendable, Equatable, ExpressibleByArrayLiteral {
     public private(set) var components: [String]
 
     public init(_ components: [String] = []) {
@@ -51,3 +51,7 @@ public struct NavigationPath: Codable, Sendable, Equatable, ExpressibleByArrayLi
         )
     }
 }
+
+#if !hasFeature(Embedded)
+extension NavigationPath: Codable {}
+#endif

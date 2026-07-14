@@ -14,10 +14,15 @@ public extension PageRoute {
     }
 }
 
-public struct NoParams: Codable, Sendable {
+public struct NoParams: Sendable {
     public init() {}
 }
 
-public struct NoSearchParams: Codable, Sendable {
+public struct NoSearchParams: Sendable {
     public init() {}
 }
+
+#if !hasFeature(Embedded)
+extension NoParams: Codable {}
+extension NoSearchParams: Codable {}
+#endif

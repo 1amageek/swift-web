@@ -12,7 +12,12 @@ public protocol Page {
 public extension Page {
     var title: String {
         get async throws {
+            #if hasFeature(Embedded)
+            // No type reflection on Embedded; pages provide their own title.
+            ""
+            #else
             String(describing: Self.self)
+            #endif
         }
     }
 

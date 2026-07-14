@@ -19,7 +19,7 @@ public extension HTML {
 }
 
 struct NavigationDestinationSwitch<Content: HTML, V: LosslessStringConvertible & Sendable, D: HTML>: Component {
-    @Environment(\.navigationPathSegments) private var segments: [String]?
+    @Environment({ $0.navigationPathSegments }) private var segments: [String]?
 
     private let content: Content
     private let destination: @Sendable (V) -> D

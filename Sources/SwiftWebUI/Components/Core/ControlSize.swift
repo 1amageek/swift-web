@@ -1,5 +1,5 @@
 import SwiftWebUITheme
-public enum ControlSize: String, Sendable, Codable, Equatable {
+public enum ControlSize: String, Sendable, Equatable {
     case mini
     case small
     case regular
@@ -10,3 +10,7 @@ public enum ControlSize: String, Sendable, Codable, Equatable {
         "swui-control-\(rawValue)"
     }
 }
+
+#if !hasFeature(Embedded)
+extension ControlSize: Codable {}
+#endif

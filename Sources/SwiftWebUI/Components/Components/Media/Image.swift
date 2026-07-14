@@ -1,12 +1,12 @@
 #if canImport(FoundationEssentials)
 import FoundationEssentials
-#else
+#elseif canImport(Foundation)
 import Foundation
 #endif
 import SwiftWebUITheme
 import SwiftHTML
 
-public struct Image: WebUIAttributeComponent {
+public struct Image: AttributeComponent {
     private let source: ImageSource
     private let attributes: [HTMLAttribute]
 

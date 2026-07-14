@@ -1,3 +1,6 @@
+#if !hasFeature(Embedded)
+// Server actions are a Codable JSON API boundary; the embedded SSR
+// profile does not serve them.
 
 public protocol UploadAction: SendableMetatype {
     associatedtype Params: Decodable & Sendable = NoParams
@@ -46,3 +49,4 @@ public enum UploadRoute {
         }
     }
 }
+#endif

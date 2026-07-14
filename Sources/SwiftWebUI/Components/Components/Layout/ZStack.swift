@@ -1,7 +1,7 @@
 import SwiftWebUITheme
 import SwiftHTML
 
-public struct ZStack<Content: HTML>: WebUIAttributeComponent {
+public struct ZStack<Content: HTML>: AttributeComponent {
     private let alignment: Alignment
     private let attributes: [HTMLAttribute]
     private let content: Content

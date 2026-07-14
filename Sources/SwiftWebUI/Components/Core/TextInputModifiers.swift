@@ -5,7 +5,7 @@ import SwiftHTML
 /// attributes. They attach to the receiver's element, so on `TextField`,
 /// `SecureField`, `TextEditor`, and `DatePicker` they land on the underlying
 /// `<input>`/`<textarea>`.
-public extension WebUIAttributeMutableHTML {
+public extension AttributeMutableHTML {
     /// Sets the on-screen keyboard layout, mirroring SwiftUI `keyboardType(_:)`.
     /// Lowers to HTML `inputmode`; a type without a web equivalent emits nothing.
     func keyboardType(_ type: KeyboardType) -> Self {

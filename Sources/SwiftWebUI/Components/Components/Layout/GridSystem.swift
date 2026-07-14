@@ -1,7 +1,7 @@
 import SwiftWebUITheme
 import SwiftHTML
 
-public struct GridSystem<Content: HTML>: WebUIAttributeComponent {
+public struct GridSystem<Content: HTML>: AttributeComponent {
     private let columns: Int
     private let gutter: Space
     private let verticalPadding: Space

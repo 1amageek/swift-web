@@ -1,3 +1,7 @@
+#if !hasFeature(Embedded)
+// Date/Calendar-driven controls need Foundation's calendar machinery,
+// which Embedded Swift does not provide; the embedded SSR profile
+// excludes them.
 import SwiftWebUITheme
 #if canImport(FoundationEssentials)
 import FoundationEssentials
@@ -16,13 +20,13 @@ import SwiftHTML
 /// use `Calendar.current` (the runtime's calendar and time zone). This is an
 /// explicit, documented choice — the same one SwiftUI makes through its
 /// environment calendar — not a silent default.
-public struct DatePicker<Label: HTML>: WebUIAttributeComponent {
+public struct DatePicker<Label: HTML>: AttributeComponent {
     private let label: Label
     private let selection: Binding<Date>
     private let displayedComponents: DatePickerComponents
     private let attributes: [HTMLAttribute]
-    @Environment(\.controlSize) private var controlSize: ControlSize
-    @Environment(\.isEnabled) private var isEnabled: Bool
+    @Environment({ $0.controlSize }) private var controlSize: ControlSize
+    @Environment({ $0.isEnabled }) private var isEnabled: Bool
 
     public init(
         selection: Binding<Date>,
@@ -181,3 +185,4 @@ public extension DatePicker where Label == text {
         )
     }
 }
+#endif

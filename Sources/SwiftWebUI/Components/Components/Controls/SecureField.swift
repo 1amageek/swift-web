@@ -1,7 +1,7 @@
 import SwiftWebUITheme
 import SwiftHTML
 
-public struct SecureField<Label: HTML>: WebUIAttributeComponent {
+public struct SecureField<Label: HTML>: AttributeComponent {
     private let field: TextField<Label>
 
     public init(

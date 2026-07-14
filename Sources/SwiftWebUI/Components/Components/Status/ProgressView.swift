@@ -8,15 +8,15 @@ import SwiftHTML
 /// element; an indeterminate progress (no `value`) lowers to a circular spinner
 /// driven by a CSS animation. The bar track composes the shared ultra-thin
 /// material so its fill tracks the active design style.
-public struct ProgressView<Label: HTML>: WebUIAttributeComponent {
+public struct ProgressView<Label: HTML>: AttributeComponent {
     private let label: Label
     private let showsLabel: Bool
     private let accessibilityLabel: String?
     private let value: Double?
     private let total: Double
     private let attributes: [HTMLAttribute]
-    @Environment(\.progressViewStyle) private var progressViewStyle: ProgressViewStyleKind
-    @Environment(\.tint) private var tint: Color?
+    @Environment({ $0.progressViewStyle }) private var progressViewStyle: ProgressViewStyleKind
+    @Environment({ $0.tint }) private var tint: Color?
 
     public init(
         value: Double?,

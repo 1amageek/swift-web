@@ -51,11 +51,11 @@ public enum WebSocketRouteBuilder {
                         try await RouteType().connect(WebSocketContext(request: req, channel: channel))
                     }
                 } catch {
-                    req.logger.error("WebSocket route failed: \(String(describing: error))")
+                    req.logger.error("WebSocket route failed: \(RuntimeErrorText.of(error))")
                     do {
                         try await channel.close()
                     } catch {
-                        req.logger.error("WebSocket close failed: \(String(describing: error))")
+                        req.logger.error("WebSocket close failed: \(RuntimeErrorText.of(error))")
                     }
                 }
             }

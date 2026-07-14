@@ -6,11 +6,11 @@ import SwiftHTML
 /// Lowers to a native `<textarea>`. The field composes the shared thin material
 /// so its fill and backdrop blur track the active design style, matching
 /// `TextField`.
-public struct TextEditor: WebUIAttributeComponent {
+public struct TextEditor: AttributeComponent {
     private let text: Binding<String>
     private let attributes: [HTMLAttribute]
-    @Environment(\.isEnabled) private var isEnabled: Bool
-    @Environment(\.textFieldStyle) private var textFieldStyle: TextFieldStyleKind
+    @Environment({ $0.isEnabled }) private var isEnabled: Bool
+    @Environment({ $0.textFieldStyle }) private var textFieldStyle: TextFieldStyleKind
 
     public init(text: Binding<String>, _ attributes: HTMLAttribute...) {
         self.text = text

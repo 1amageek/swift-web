@@ -19,7 +19,7 @@ public extension HTML {
     func preferredColorScheme(_ colorScheme: ColorScheme?) -> some HTML {
         let _ = DocumentStyle.current?.recordPreferredColorScheme(colorScheme?.rawValue)
         if let colorScheme {
-            environment(\.colorScheme, colorScheme)
+            transformEnvironment({ $0.colorScheme = colorScheme })
         } else {
             self
         }

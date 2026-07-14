@@ -1,7 +1,7 @@
 import SwiftHTML
 import SwiftWebActors
 
-public struct SwiftWebClientRuntimeDescriptor: Sendable, Codable, Equatable {
+public struct SwiftWebClientRuntimeDescriptor: Sendable, Equatable {
     public let mode: SwiftWebClientRuntimeDescriptorMode
     public let hydrationIndex: BrowserHydrationIndex
     public let documentNodeIDUpperBound: Int?
@@ -29,6 +29,11 @@ public struct SwiftWebClientRuntimeDescriptor: Sendable, Codable, Equatable {
     }
 }
 
-public enum SwiftWebClientRuntimeDescriptorMode: String, Sendable, Codable, Equatable {
+public enum SwiftWebClientRuntimeDescriptorMode: String, Sendable, Equatable {
     case wasm
 }
+
+#if !hasFeature(Embedded)
+extension SwiftWebClientRuntimeDescriptor: Codable {}
+extension SwiftWebClientRuntimeDescriptorMode: Codable {}
+#endif

@@ -1,6 +1,9 @@
+#if !hasFeature(Embedded)
+// Server actions are a Codable JSON API boundary; the embedded SSR
+// profile does not serve them.
 #if canImport(FoundationEssentials)
 import FoundationEssentials
-#else
+#elseif canImport(Foundation)
 import Foundation
 #endif
 
@@ -28,7 +31,7 @@ public struct ServerActionDescriptor: Sendable {
         self.encodeInputData = { request in
             let input: Input
             if method == .get {
-                input = try request.query.decode(Input.self)
+                input = try URLEncodedFormDecoder().decode(Input.self, from: request.url.query ?? "")
             } else {
                 input = try await request.content.decode(Input.self)
             }
@@ -69,3 +72,4 @@ public struct ServerActionDescriptor: Sendable {
         try await encodeResponse(data, request)
     }
 }
+#endif

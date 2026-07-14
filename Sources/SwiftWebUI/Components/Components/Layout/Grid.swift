@@ -1,7 +1,7 @@
 import SwiftWebUITheme
 import SwiftHTML
 
-public struct Grid<Content: HTML>: WebUIAttributeComponent {
+public struct Grid<Content: HTML>: AttributeComponent {
     private let alignment: Alignment
     private let horizontalSpacing: Double?
     private let verticalSpacing: Double?
@@ -65,7 +65,7 @@ public struct Grid<Content: HTML>: WebUIAttributeComponent {
     }
 }
 
-public struct GridRow<Content: HTML>: WebUIAttributeComponent {
+public struct GridRow<Content: HTML>: AttributeComponent {
     private let alignment: VerticalAlignment?
     private let attributes: [HTMLAttribute]
     private let content: Content

@@ -1,15 +1,15 @@
 import SwiftWebUITheme
 import SwiftHTML
 
-public struct Picker<Label: HTML, Content: HTML>: WebUIAttributeComponent {
+public struct Picker<Label: HTML, Content: HTML>: AttributeComponent {
     private let label: Label
     private let labelText: String?
     private let selection: Binding<String>
     private let attributes: [HTMLAttribute]
     private let content: Content
-    @Environment(\.controlSize) private var controlSize: ControlSize
-    @Environment(\.isEnabled) private var isEnabled: Bool
-    @Environment(\.pickerStyle) private var pickerStyle: PickerStyleKind
+    @Environment({ $0.controlSize }) private var controlSize: ControlSize
+    @Environment({ $0.isEnabled }) private var isEnabled: Bool
+    @Environment({ $0.pickerStyle }) private var pickerStyle: PickerStyleKind
 
     public init(
         selection: Binding<String>,
@@ -51,7 +51,7 @@ public struct Picker<Label: HTML, Content: HTML>: WebUIAttributeComponent {
                     extra: selectAttributes
                 )
             ) {
-                content.environment(\.pickerSelection, selection.wrappedValue)
+                content.transformEnvironment({ $0.pickerSelection = selection.wrappedValue })
             }
         }
     }
@@ -77,8 +77,8 @@ public struct Picker<Label: HTML, Content: HTML>: WebUIAttributeComponent {
                 )
             ) {
                 content
-                    .environment(\.pickerSelection, selection.wrappedValue)
-                    .environment(\.pickerGroupName, groupName)
+                    .transformEnvironment({ $0.pickerSelection = selection.wrappedValue })
+                    .transformEnvironment({ $0.pickerGroupName = groupName })
             }
         }
     }

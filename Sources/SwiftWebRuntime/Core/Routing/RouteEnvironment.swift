@@ -4,8 +4,8 @@ public struct RouteEnvironment: Sendable {
     public let url: String
     public let path: String
 
-    private let paramsValue: any Sendable
-    private let searchParamsValue: any Sendable
+    private let paramsBox: any AnyRuntimeBox
+    private let searchParamsBox: any AnyRuntimeBox
 
     public init<Params: Sendable, SearchParams: Sendable>(
         method: String,
@@ -17,20 +17,34 @@ public struct RouteEnvironment: Sendable {
         self.method = method
         self.url = url
         self.path = path
-        self.paramsValue = params
-        self.searchParamsValue = searchParams
+        self.paramsBox = RuntimeBox(params)
+        self.searchParamsBox = RuntimeBox(searchParams)
     }
 
-    public func params<Params>(as type: Params.Type = Params.self) -> Params {
-        guard let params = paramsValue as? Params else {
-            preconditionFailure("Route environment does not contain params of type \(Params.self)")
+    package init(
+        method: String,
+        url: String,
+        path: String,
+        paramsBox: any AnyRuntimeBox,
+        searchParamsBox: any AnyRuntimeBox
+    ) {
+        self.method = method
+        self.url = url
+        self.path = path
+        self.paramsBox = paramsBox
+        self.searchParamsBox = searchParamsBox
+    }
+
+    public func params<Params: Sendable>(as type: Params.Type = Params.self) -> Params {
+        guard let params = unboxRuntimeValue(paramsBox, as: Params.self) else {
+            preconditionFailure("Route environment does not contain params of type \(RuntimeTypeLabel.of(Params.self))")
         }
         return params
     }
 
-    public func searchParams<SearchParams>(as type: SearchParams.Type = SearchParams.self) -> SearchParams {
-        guard let searchParams = searchParamsValue as? SearchParams else {
-            preconditionFailure("Route environment does not contain search params of type \(SearchParams.self)")
+    public func searchParams<SearchParams: Sendable>(as type: SearchParams.Type = SearchParams.self) -> SearchParams {
+        guard let searchParams = unboxRuntimeValue(searchParamsBox, as: SearchParams.self) else {
+            preconditionFailure("Route environment does not contain search params of type \(RuntimeTypeLabel.of(SearchParams.self))")
         }
         return searchParams
     }

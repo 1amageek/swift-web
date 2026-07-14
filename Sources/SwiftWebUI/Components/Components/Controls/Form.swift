@@ -13,12 +13,12 @@ import SwiftHTML
 ///
 /// With `action`, the container lowers to a real `<form>` that submits the
 /// contained named controls to the given path.
-public struct Form<Content: HTML>: WebUIAttributeComponent {
+public struct Form<Content: HTML>: AttributeComponent {
     private let action: String?
     private let method: FormMethod
     private let attributes: [HTMLAttribute]
     private let content: Content
-    @Environment(\.formStyle) private var formStyle: FormStyleKind
+    @Environment({ $0.formStyle }) private var formStyle: FormStyleKind
 
     public init(
         _ attributes: HTMLAttribute...,
@@ -52,7 +52,7 @@ public struct Form<Content: HTML>: WebUIAttributeComponent {
                     extra: [.action(action), .method(method)] + attributes
                 )
             ) {
-                content.environment(\.isInsideForm, true)
+                content.transformEnvironment({ $0.isInsideForm = true })
             }
         } else {
             // `isInsideForm` stays false here so a server-action Button takes

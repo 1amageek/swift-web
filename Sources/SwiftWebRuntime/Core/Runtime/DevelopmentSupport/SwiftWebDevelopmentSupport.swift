@@ -1,5 +1,7 @@
 import HTTPTypes
+#if canImport(Logging)
 import Logging
+#endif
 import SwiftHTML
 
 public struct SwiftWebDevelopmentHooks: Sendable {

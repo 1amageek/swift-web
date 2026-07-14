@@ -16,17 +16,41 @@ struct SwiftWebDevCapturedProcessLog {
   }
 
   func close() {
-    try? handle.close()
+    do {
+      try handle.close()
+    } catch {
+      report("Failed to close captured process log", error: error)
+    }
   }
 
   func writeToStandardError() {
-    guard let data = try? Data(contentsOf: fileURL), !data.isEmpty else {
+    let data: Data
+    do {
+      data = try Data(contentsOf: fileURL)
+    } catch {
+      report("Failed to read captured process log", error: error)
+      return
+    }
+    guard !data.isEmpty else {
       return
     }
     FileHandle.standardError.write(data)
   }
 
   func cleanup() {
-    try? FileManager.default.removeItem(at: fileURL)
+    guard FileManager.default.fileExists(atPath: fileURL.path) else {
+      return
+    }
+    do {
+      try FileManager.default.removeItem(at: fileURL)
+    } catch {
+      report("Failed to remove captured process log", error: error)
+    }
+  }
+
+  private func report(_ message: String, error: any Error) {
+    FileHandle.standardError.write(
+      Data("\(message) at \(fileURL.path): \(String(describing: error))\n".utf8)
+    )
   }
 }
