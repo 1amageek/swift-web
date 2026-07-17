@@ -438,6 +438,21 @@ let package = Package(
             exclude: ["README.md"],
             swiftSettings: swiftWebSwiftSettings
         ),
+        // Layout conformance harness: measures the same fixture tree in
+        // SwiftUI (NSHostingView) and in SwiftWebUI's rendered CSS (WKWebView)
+        // and diffs the resulting geometry. macOS-only developer tooling; not
+        // a declared product.
+        .executableTarget(
+            name: "LayoutConformance",
+            dependencies: [
+                swiftHTMLDependency,
+                "SwiftWebUI",
+                "SwiftWebUITheme",
+                "SwiftWebStyle",
+            ],
+            path: "Tools/LayoutConformance",
+            swiftSettings: swiftWebSwiftSettings
+        ),
         .testTarget(
             name: "SwiftWebUITests",
             dependencies: [

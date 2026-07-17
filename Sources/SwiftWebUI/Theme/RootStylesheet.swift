@@ -510,6 +510,11 @@ package enum RootStylesheet {
         cls("swui-root").child(cls("swui-fill-h"))
       )) {
         .alignSelf("stretch")
+          // Bounded fill centers via cross-axis auto margins, and auto
+          // margins disable align-self: stretch (CSS Flexbox §8.1). The
+          // explicit width keeps the fill at the proposed size so max-width
+          // can clamp it and the auto margins center the clamped box.
+          .width("100%")
       }
       // Horizontal fill under a row parent -> grow along the main axis.
       rule(list(
@@ -606,6 +611,33 @@ package enum RootStylesheet {
         cls("swui-frame").compound(cls("swui-fill-v")).child(cls("swui-scroll-view")),
         cls("swui-frame").compound(cls("swui-fill-v")).child(cls("swui-grid-system")),
         cls("swui-frame").compound(cls("swui-fill-v")).child(cls("swui-frame"))
+      )) {
+        .alignSelf("stretch")
+          .minHeight("0")
+      }
+      // A fixed-size frame proposes its explicit axis to a GREEDY container
+      // child, the SwiftUI way: .frame(width:) offers the size, and a stack
+      // consumes it only when spacers or fills inside have use for the extra
+      // space. A non-greedy stack keeps hugging its content and the frame's
+      // alignment positions it (see nested-overflow: SwiftUI centers an
+      // overflowing hug). Found by the layout conformance harness
+      // (Tools/LayoutConformance).
+      rule(list(
+        cls("swui-frame").compound(cls("swui-hug-h")).child(StyleSelector.universal.has(cls("swui-fill-h"))),
+        cls("swui-frame").compound(cls("swui-hug-h")).child(cls("swui-hstack").hasChild(cls("swui-spacer"))),
+        cls("swui-frame").compound(cls("swui-hug-h")).child(cls("swui-lazy-hstack").hasChild(cls("swui-spacer"))),
+        cls("swui-frame").compound(cls("swui-hug-h")).child(cls("swui-toolbar").hasChild(cls("swui-spacer"))),
+        cls("swui-frame").compound(cls("swui-hug-h")).child(cls("swui-vstack").has(cls("swui-hstack").child(cls("swui-spacer")))),
+        cls("swui-frame").compound(cls("swui-hug-h")).child(cls("swui-vstack").has(cls("swui-toolbar").child(cls("swui-spacer"))))
+      )) {
+        .flex("1 1 0%")
+          .minWidth("0")
+      }
+      rule(list(
+        cls("swui-frame").compound(cls("swui-hug-v")).child(StyleSelector.universal.has(cls("swui-fill-v"))),
+        cls("swui-frame").compound(cls("swui-hug-v")).child(cls("swui-vstack").hasChild(cls("swui-spacer"))),
+        cls("swui-frame").compound(cls("swui-hug-v")).child(cls("swui-lazy-vstack").hasChild(cls("swui-spacer"))),
+        cls("swui-frame").compound(cls("swui-hug-v")).child(cls("swui-hstack").has(cls("swui-vstack").child(cls("swui-spacer"))))
       )) {
         .alignSelf("stretch")
           .minHeight("0")
