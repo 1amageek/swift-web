@@ -12,6 +12,7 @@ let results: [ReportHTML.FixtureResult] = MainActor.assumeIsolated {
     var all: [ReportHTML.FixtureResult] = []
     for fixture in FixtureID.allCases {
         let oracle = OracleMeasurement.measure(fixture)
+        let oracleImage = OracleMeasurement.snapshotPNGBase64(fixture)
         let document = WebFixtures.document(for: fixture)
         do {
             let web = try webKit.measure(document: document)
@@ -19,7 +20,8 @@ let results: [ReportHTML.FixtureResult] = MainActor.assumeIsolated {
                 ReportHTML.FixtureResult(
                     fixture: fixture,
                     document: document,
-                    comparisons: ConformanceReport.compare(fixture: fixture, oracle: oracle, web: web)
+                    comparisons: ConformanceReport.compare(fixture: fixture, oracle: oracle, web: web),
+                    oracleImage: oracleImage
                 )
             )
         } catch {
@@ -28,7 +30,8 @@ let results: [ReportHTML.FixtureResult] = MainActor.assumeIsolated {
                 ReportHTML.FixtureResult(
                     fixture: fixture,
                     document: document,
-                    comparisons: ConformanceReport.compare(fixture: fixture, oracle: oracle, web: [:])
+                    comparisons: ConformanceReport.compare(fixture: fixture, oracle: oracle, web: [:]),
+                    oracleImage: oracleImage
                 )
             )
         }

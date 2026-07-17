@@ -10,6 +10,7 @@ enum ReportHTML {
         let fixture: FixtureID
         let document: String
         let comparisons: [ProbeComparison]
+        let oracleImage: String?
     }
 
     static func render(_ results: [FixtureResult]) -> String {
@@ -28,7 +29,8 @@ enum ReportHTML {
         .summary { font-size: 16px; margin-bottom: 24px; }
         .fixture { background: #fff; border-radius: 10px; padding: 16px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
         .fixture h2 { font-size: 15px; margin: 0 0 10px; font-family: ui-monospace, monospace; }
-        .stage { position: relative; width: \(Int(Harness.rootWidth))px; height: \(Int(Harness.rootHeight))px; border: 1px solid #d2d2d7; }
+        .stagelabel { font-size: 12px; color: #6e6e73; margin: 0 0 4px; }
+        .stage { background: #fff; position: relative; width: \(Int(Harness.rootWidth))px; height: \(Int(Harness.rootHeight))px; border: 1px solid #d2d2d7; }
         .stage iframe { width: 100%; height: 100%; border: 0; display: block; }
         .stage svg { position: absolute; inset: 0; pointer-events: none; }
         table { border-collapse: collapse; margin-top: 10px; font-family: ui-monospace, monospace; font-size: 12px; }
@@ -82,9 +84,14 @@ enum ReportHTML {
         return """
         <div class="fixture">
         <h2>\(result.fixture.rawValue) — \(matched)/\(result.comparisons.count)</h2>
+        <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+        <div><div class="stagelabel">SwiftUI (ImageRenderer)</div>
+        <div class="stage">\(oracleImageTag(result))</div></div>
+        <div><div class="stagelabel">SwiftWebUI (live) + oracle overlay</div>
         <div class="stage">
         <iframe srcdoc="\(escapeAttribute(result.document))"></iframe>
         <svg width="\(Int(Harness.rootWidth))" height="\(Int(Harness.rootHeight))">\(overlays)</svg>
+        </div></div>
         </div>
         <table>
         <tr><th>probe</th><th>SwiftUI (x, y, w, h)</th><th>web (x, y, w, h)</th><th>Δmax</th><th>verdict</th></tr>
@@ -92,6 +99,13 @@ enum ReportHTML {
         </table>
         </div>
         """
+    }
+
+    private static func oracleImageTag(_ result: FixtureResult) -> String {
+        guard let image = result.oracleImage else {
+            return "<span>rendering unavailable</span>"
+        }
+        return "<img src=\"data:image/png;base64,\(image)\" style=\"width: 100%; height: 100%; display: block;\">"
     }
 
     private static func format(_ rect: ProbeRect?) -> String {

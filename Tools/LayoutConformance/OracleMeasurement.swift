@@ -32,5 +32,25 @@ enum OracleMeasurement {
 
         return ProbeStore.shared.snapshot()
     }
+
+    /// Renders the fixture with SwiftUI's own ImageRenderer so the report
+    /// can show the oracle as an actual rendering, not just outlines.
+    static func snapshotPNGBase64(_ id: FixtureID) -> String? {
+        let renderer = ImageRenderer(content: SwiftUIFixtures.rootView(for: id))
+        renderer.proposedSize = ProposedViewSize(
+            width: Harness.rootWidth,
+            height: Harness.rootHeight
+        )
+        renderer.scale = 2
+        guard
+            let nsImage = renderer.nsImage,
+            let tiff = nsImage.tiffRepresentation,
+            let bitmap = NSBitmapImageRep(data: tiff),
+            let png = bitmap.representation(using: .png, properties: [:])
+        else {
+            return nil
+        }
+        return png.base64EncodedString()
+    }
 }
 #endif

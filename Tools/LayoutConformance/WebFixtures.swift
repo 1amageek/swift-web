@@ -230,7 +230,7 @@ enum WebFixtures {
     /// default sizing instead of block-level stretch; this is the harness's
     /// root normalization, applied identically to every fixture.
     static func document(for id: FixtureID) -> String {
-        let rendered = StyleRoot {
+        let rendered = StyleRoot(colorScheme: .light) {
             div(
                 .id("cr"),
                 .style(
