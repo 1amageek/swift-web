@@ -224,6 +224,35 @@ enum SwiftUIFixtures {
                 Spacer()
             }
             .frame(width: 400)
+
+        case .gridRows:
+            Grid(horizontalSpacing: 0, verticalSpacing: 0) {
+                GridRow {
+                    box("a", width: 60, height: 30)
+                    box("b", width: 120, height: 30)
+                }
+                GridRow {
+                    box("c", width: 100, height: 30)
+                    box("d", width: 40, height: 30)
+                }
+            }
+
+        case .lazyVGridFixed:
+            LazyVGrid(columns: [GridItem(.fixed(100), spacing: 0), GridItem(.fixed(100), spacing: 0)], spacing: 0) {
+                box("a", width: 80, height: 30)
+                box("b", width: 80, height: 30)
+                box("c", width: 80, height: 30)
+            }
+
+        case .scrollViewClip:
+            ScrollView {
+                VStack(spacing: 0) {
+                    box("a", width: 80, height: 120)
+                    box("b", width: 80, height: 120)
+                    box("c", width: 80, height: 120)
+                }
+            }
+            .frame(height: 200)
         }
     }
 

@@ -201,6 +201,13 @@ package enum RootStylesheet {
         .display("grid")
           .boxSizing("border-box")
       }
+      // SwiftUI's LazyVGrid consumes the full width proposal and centers its
+      // track block inside it (default alignment). Found by the layout
+      // conformance harness.
+      rule(cls("swui-lazy-vgrid")) {
+        .width("100%")
+          .justifyContent("center")
+      }
       rule(list(
         cls("swui-lazy-vgrid").child(.universal),
         cls("swui-lazy-hgrid").child(.universal)

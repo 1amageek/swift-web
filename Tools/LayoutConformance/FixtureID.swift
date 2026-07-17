@@ -29,6 +29,9 @@ enum FixtureID: String, CaseIterable {
     case minWidthFrame = "min-width-frame"
     case spacersCenterV = "spacers-center-v"
     case spacersCenterH = "spacers-center-h"
+    case gridRows = "grid-rows"
+    case lazyVGridFixed = "lazy-vgrid-fixed"
+    case scrollViewClip = "scroll-view-clip"
 }
 
 /// Shared harness geometry.
