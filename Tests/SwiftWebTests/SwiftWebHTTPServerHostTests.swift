@@ -54,6 +54,36 @@ struct SwiftWebHTTPServerHostTests {
     }
 
     @Test
+    func pageInheritsGroupCachePolicy() async throws {
+        try await withHost(HostFixtureApp()) { client, base in
+            let (_, response) = try await client.data(from: URL(string: "\(base)/cached-group/inherit")!)
+            let http = try #require(response as? HTTPURLResponse)
+            #expect(http.statusCode == 200)
+            #expect(http.value(forHTTPHeaderField: "Cache-Control") == "public, max-age=120")
+        }
+    }
+
+    @Test
+    func pageOverridesGroupCachePolicy() async throws {
+        try await withHost(HostFixtureApp()) { client, base in
+            let (_, response) = try await client.data(from: URL(string: "\(base)/cached-group/override")!)
+            let http = try #require(response as? HTTPURLResponse)
+            #expect(http.statusCode == 200)
+            #expect(http.value(forHTTPHeaderField: "Cache-Control") == "no-store")
+        }
+    }
+
+    @Test
+    func pageOutsideCachedGroupOmitsCacheControl() async throws {
+        try await withHost(HostFixtureApp()) { client, base in
+            let (_, response) = try await client.data(from: URL(string: "\(base)/")!)
+            let http = try #require(response as? HTTPURLResponse)
+            #expect(http.statusCode == 200)
+            #expect(http.value(forHTTPHeaderField: "Cache-Control") == nil)
+        }
+    }
+
+    @Test
     func servesPageWithSecurityHeadersAndCSRFCookie() async throws {
         try await withHost(HostFixtureApp()) { client, base in
             let (data, response) = try await client.data(from: URL(string: "\(base)/")!)
@@ -281,6 +311,35 @@ private struct HostFixtureApp: App {
         }
         Endpoint("/missing-resource") { _ in
             Response(status: .notFound, headers: HTTPFields(), body: .init(string: "missing"))
+        }
+        PageGroup("/cached-group") {
+            HostGroupInheritCachePage()
+            HostGroupOverrideCachePage()
+        }
+        .cache(.publicCache(seconds: 120))
+    }
+}
+
+@Page("/inherit")
+private struct HostGroupInheritCachePage {
+    func body() -> some HTML {
+        main {
+            p { "inherit" }
+        }
+    }
+}
+
+@Page("/override")
+private struct HostGroupOverrideCachePage {
+    var cache: CachePolicy {
+        get async throws {
+            .noStore
+        }
+    }
+
+    func body() -> some HTML {
+        main {
+            p { "override" }
         }
     }
 }

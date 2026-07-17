@@ -1,3 +1,5 @@
+import SwiftHTML
+
 public protocol Page {
     var title: String { get async throws }
     var description: String? { get async throws }
@@ -35,7 +37,9 @@ public extension Page {
 
     var cache: CachePolicy {
         get async throws {
-            .none
+            // Unspecified: inherit the enclosing scene's `.cache(_:)` value
+            // (itself `.none` when no scene declares one).
+            EnvironmentValues.current.pageCachePolicy
         }
     }
 
