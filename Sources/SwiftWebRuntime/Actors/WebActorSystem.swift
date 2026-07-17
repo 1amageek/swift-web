@@ -24,6 +24,7 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
     private let scopeAuthorizations = Mutex<[String: WebActorAuthorization]>([:])
     private let passivationPolicies = Mutex<[String: ActorPassivationPolicy]>([:])
     private let reminderStoreBox = Mutex<(any WebActorReminderStore)?>(nil)
+    private let statePublisherBox = Mutex<(any WebActorStatePublisher)?>(nil)
     private let activationRecords = Mutex<[ActorID: WebActorActivationRecord]>([:])
     private let activationLock = Mutex<Void>(())
     private let persistentStoreBox: Mutex<(any WebActorPersistentStore)?>
@@ -376,9 +377,12 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
             var evictions = purgeExpiredVirtualActors(now: now, policy: activationPolicy)
             evictions.append(contentsOf: evictLeastRecentlyUsedVirtualActorsIfNeeded(policy: activationPolicy))
             let storageCollector = ActorStorageActivationContext.Collector()
+            let remoteStateCollector = RemoteStateActivationContext.Collector()
             WebActorActivationContext.withValue(WebActorPendingID(id)) {
                 ActorStorageActivationContext.withValue(storageCollector) {
-                    activator.activate()
+                    RemoteStateActivationContext.withValue(remoteStateCollector) {
+                        activator.activate()
+                    }
                 }
             }
             guard let activated = registry.find(id: id) else {
@@ -388,6 +392,11 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
                 )
             }
             persistentState.bind(id: id, boxes: storageCollector.collected())
+            if let statePublisher = statePublisherBox.withLock({ $0 }) {
+                for box in remoteStateCollector.collected() {
+                    box.bind(actorID: id, publisher: statePublisher)
+                }
+            }
             recordVirtualActor(id: id, contract: contract, at: now)
             return WebActorActivationResult(actor: activated, wasActivated: true, evictions: evictions)
         }
@@ -507,6 +516,13 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
         await lifecycle.whenLocal { isolated in
             await isolated.passivating()
         }
+    }
+
+    /// Installs the publisher that fans `@RemoteState` changes out to
+    /// observing clients. The WebSocket host routes changes to observer
+    /// peers; without a publisher, `@RemoteState` values stay local.
+    public func setStatePublisher(_ publisher: any WebActorStatePublisher) {
+        statePublisherBox.withLock { $0 = publisher }
     }
 
     /// Installs the durable reminder backend. The Cloudflare host lowers
