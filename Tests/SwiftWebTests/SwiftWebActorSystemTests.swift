@@ -95,7 +95,7 @@ private distributed actor TestCounterService: TestCounterServiceProtocol {
 }
 
 private struct TestCounterComponent: Sendable {
-    @Actor private var counter: any TestCounterServiceProtocol
+    @RemoteActor private var counter: any TestCounterServiceProtocol
 
     func increment(by amount: Int) async throws -> Int {
         try await counter.increment(by: amount)

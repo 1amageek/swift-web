@@ -226,7 +226,7 @@ struct SwiftWebClientComponentDiscovery {
             else {
                 return
             }
-            if canonicalAttributeName(attribute.attributeName.trimmedDescription) == "Actor" {
+            if canonicalAttributeName(attribute.attributeName.trimmedDescription) == "RemoteActor" {
                 found = true
             }
         }

@@ -1,10 +1,10 @@
 # Actor Injection Design
 
-Status: implemented contract for the `@Actor` client component API.
+Status: implemented contract for the `@RemoteActor` client component API.
 
 SwiftWeb actor injection is a convenience layer over Apple's `@Resolvable`
 distributed actor protocol model. It must not introduce a second RPC system.
-The public goal is that a client component reads an `@Actor` property as the
+The public goal is that a client component reads an `@RemoteActor` property as the
 resolved service object and calls distributed methods directly.
 
 ```mermaid
@@ -12,7 +12,7 @@ flowchart TD
   A["Scene / PageGroup .actor(counter)"] --> B["scope stores actor id by contract"]
   B --> C["client bootstrap actor bindings"]
   C --> D["SwiftWebActorResolverRegistry"]
-  D --> E["@Actor accessor macro"]
+  D --> E["@RemoteActor accessor macro"]
   E --> F["$CounterServiceProtocol.resolve(id:using:)"]
   F --> G["counter: any CounterServiceProtocol"]
   G --> H["try await counter.increment()"]
@@ -69,7 +69,7 @@ The client component consumes the resolved actor object.
 
 ```swift
 public struct CounterClient: ClientComponent {
-    @Actor
+    @RemoteActor
     private var counter: any CounterServiceProtocol
 
     public func increment() async throws -> Int {
@@ -82,7 +82,7 @@ public struct CounterClient: ClientComponent {
 
 | Area | Required behavior |
 |---|---|
-| Property value | `@Actor` exposes the resolved `@Resolvable` protocol object, not an actor id, resolver, or transport handle. |
+| Property value | `@RemoteActor` exposes the resolved `@Resolvable` protocol object, not an actor id, resolver, or transport handle. |
 | Resolver | Resolution uses Apple's generated `$Protocol.resolve(id:using:)` entrypoint. |
 | Contract key | Actor bindings are keyed by the `@Resolvable` contract generated for the declared property type. String keys are not part of the standard API. |
 | Scene export | `.actor(actor)` exports a server-side distributed actor id into the current scene scope. |
@@ -95,7 +95,7 @@ public struct CounterClient: ClientComponent {
 
 `.actor(actor)` is type-based, not string-based. The implementation must attach
 compile-time export metadata to actor implementations so SwiftWeb can map the
-server actor instance to the `@Resolvable` contract used by `@Actor`.
+server actor instance to the `@Resolvable` contract used by `@RemoteActor`.
 
 | Actor implementation shape | `.actor(actor)` behavior |
 |---|---|
@@ -115,7 +115,7 @@ CounterPage()
 The component-facing API remains:
 
 ```swift
-@Actor
+@RemoteActor
 private var counter: any CounterServiceProtocol
 ```
 
@@ -125,23 +125,23 @@ private var counter: any CounterServiceProtocol
 |---|---|
 | `@Resolvable` | Generates the concrete `$Protocol` distributed actor stub and typed `resolve(id:using:)` entrypoint. |
 | `SwiftWebMacros.@ResolvableActor` | Adds `SwiftWebActorExporting` conformance to a server actor implementation and records the exported `@Resolvable` contract. |
-| `SwiftWebMacros.ActorMacro` | Expands an `@Actor` property into an accessor that resolves the service through `SwiftWebActorBinding.resolve`. |
-| `SwiftWebPackageGeneration` | Reads `@Actor` property declarations in client component source, emits a WASM resolver registry using the generated `$Protocol` stub type, and pre-expands `@Actor` in copied client sources so generated WASM packages compile without SwiftWebMacros. |
+| `SwiftWebMacros.RemoteActorMacro` | Expands an `@RemoteActor` property into an accessor that resolves the service through `SwiftWebActorBinding.resolve`. |
+| `SwiftWebPackageGeneration` | Reads `@RemoteActor` property declarations in client component source, emits a WASM resolver registry using the generated `$Protocol` stub type, and pre-expands `@RemoteActor` in copied client sources so generated WASM packages compile without SwiftWebMacros. |
 | `SwiftWeb` scene model | Records `.actor(actor)` exports as scene metadata and includes matching actor ids in client bootstrap data. |
-| `SwiftWebActors` | Provides `WebActorSystem`, invocation envelope encoding/decoding, local actor registry, `WebActorTransport`, the gated `@Actor` macro declaration, and actor binding resolution. |
+| `SwiftWebActors` | Provides `WebActorSystem`, invocation envelope encoding/decoding, local actor registry, `WebActorTransport`, the gated `@RemoteActor` macro declaration, and actor binding resolution. |
 | `SwiftWebUIRuntime` | Provides the browser-side `WebActorTransport` and installs bootstrap actor bindings around client render and event dispatch. |
 | Host adapter | Mounts the actor gateway, validates requests, and dispatches envelopes into `WebActorSystem.shared`. |
 
 ## Expansion Model
 
-`@Actor` is an attached accessor macro, not a property wrapper type. Because a
+`@RemoteActor` is an attached accessor macro, not a property wrapper type. Because a
 macro never enters the type namespace, the name `Actor` cannot shadow the
 standard library `Swift.Actor` protocol in importing code. The macro derives
 its binding key from the declared property type and expands into a resolve
 accessor:
 
 ```swift
-@Actor
+@RemoteActor
 private var counter: any CounterServiceProtocol
 ```
 
@@ -158,7 +158,7 @@ private var counter: any CounterServiceProtocol {
 
 Generated browser WASM packages compile without the SwiftWebMacros plugin or
 swift-syntax: `SwiftWebPackageGeneration` performs the same expansion while
-copying client component sources, and the `@Actor` declaration in
+copying client component sources, and the `@RemoteActor` declaration in
 `SwiftWebActors` is compiled out because generated manifests do not define
 `SWIFTWEB_MACROS`.
 
@@ -192,12 +192,12 @@ The standard component API is higher level:
 |---|---|
 | `WebActorSystem` | Hidden from ordinary components. |
 | `ActorID` | Derived from scene actor bindings. |
-| `$Protocol.resolve(id:using:)` | Generated behind `@Actor`. |
-| Manual actor stub storage | `@Actor var service: any ServiceProtocol`. |
+| `$Protocol.resolve(id:using:)` | Generated behind `@RemoteActor`. |
+| Manual actor stub storage | `@RemoteActor var service: any ServiceProtocol`. |
 
 ## Server Actions Remain Separate
 
-`@Actor` is not a server action shortcut. Server Actions are page-local HTTP
+`@RemoteActor` is not a server action shortcut. Server Actions are page-local HTTP
 commands that return `ActionResult` or typed codable responses. Actor injection
 is for direct, typed calls from a client component to a long-lived or
 session-scoped distributed actor service.
@@ -208,7 +208,7 @@ flowchart LR
   B --> C["ActionReference"]
   C --> D["ActionResult"]
 
-  E["Client WASM service call"] --> F["@Actor property"]
+  E["Client WASM service call"] --> F["@RemoteActor property"]
   F --> G["@Resolvable $Protocol stub"]
   G --> H["distributed func result"]
 ```
@@ -220,5 +220,5 @@ flowchart LR
 | `@ActorSystem` as the standard component API | It exposes transport and runtime plumbing instead of the service object the component needs. |
 | `@ActorID` as the standard component API | It forces component code to resolve manually and duplicates bootstrap logic. |
 | SwiftWeb-owned RPC proxy | It competes with Apple's `@Resolvable` model and creates two RPC systems. |
-| `@Actor("name")` | String keys weaken type safety and make actor bindings harder to refactor. |
+| `@RemoteActor("name")` | String keys weaken type safety and make actor bindings harder to refactor. |
 | `.actor(actor, as: Protocol.self)` as the primary API | Protocol metatypes are useful as erased keys, but they do not satisfy `DistributedActor` generic constraints and can imply more type safety than Swift can prove. |

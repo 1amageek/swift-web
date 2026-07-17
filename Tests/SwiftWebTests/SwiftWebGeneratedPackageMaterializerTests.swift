@@ -113,7 +113,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     try write(
       """
       public struct ClientSample: ClientComponent {
-          @Actor private var service: any SampleServiceProtocol
+          @RemoteActor private var service: any SampleServiceProtocol
 
           public init() {}
       }
@@ -418,7 +418,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       contentsOf: wasmSources.appendingPathComponent("SampleApp/ClientSample.swift"),
       encoding: .utf8
     )
-    #expect(!copiedClientSample.contains("@Actor"))
+    #expect(!copiedClientSample.contains("@RemoteActor"))
     #expect(copiedClientSample.contains("private var service: any SampleServiceProtocol {"))
     #expect(copiedClientSample.contains("SwiftWebActorBinding.resolve("))
     #expect(

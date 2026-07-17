@@ -3,16 +3,16 @@ import SwiftSyntaxMacrosTestSupport
 import SwiftWebMacros
 import XCTest
 
-final class ActorMacroTests: XCTestCase {
+final class RemoteActorMacroTests: XCTestCase {
     private let macros: [String: any Macro.Type] = [
-        "Actor": ActorMacro.self,
+        "RemoteActor": RemoteActorMacro.self,
     ]
 
     func testActorExpandsResolvedAccessor() {
         assertMacroExpansion(
             """
             struct CounterClient {
-                @Actor private var counter: any CounterServiceProtocol
+                @RemoteActor private var counter: any CounterServiceProtocol
             }
             """,
             expandedSource: """
@@ -35,7 +35,7 @@ final class ActorMacroTests: XCTestCase {
         assertMacroExpansion(
             """
             struct CounterClient {
-                @Actor var counter: any Services.CounterServiceProtocol
+                @RemoteActor var counter: any Services.CounterServiceProtocol
             }
             """,
             expandedSource: """
@@ -58,7 +58,7 @@ final class ActorMacroTests: XCTestCase {
         assertMacroExpansion(
             """
             struct CounterClient {
-                @Actor let counter: any CounterServiceProtocol
+                @RemoteActor let counter: any CounterServiceProtocol
             }
             """,
             expandedSource: """
@@ -67,7 +67,7 @@ final class ActorMacroTests: XCTestCase {
             }
             """,
             diagnostics: [
-                DiagnosticSpec(message: "@Actor requires a 'var' property", line: 2, column: 12)
+                DiagnosticSpec(message: "@RemoteActor requires a 'var' property", line: 2, column: 18)
             ],
             macros: macros
         )
@@ -77,7 +77,7 @@ final class ActorMacroTests: XCTestCase {
         assertMacroExpansion(
             """
             struct CounterClient {
-                @Actor var counter
+                @RemoteActor var counter
             }
             """,
             expandedSource: """
@@ -86,7 +86,7 @@ final class ActorMacroTests: XCTestCase {
             }
             """,
             diagnostics: [
-                DiagnosticSpec(message: "@Actor requires an explicit type annotation", line: 2, column: 16)
+                DiagnosticSpec(message: "@RemoteActor requires an explicit type annotation", line: 2, column: 22)
             ],
             macros: macros
         )
@@ -96,7 +96,7 @@ final class ActorMacroTests: XCTestCase {
         assertMacroExpansion(
             """
             struct CounterClient {
-                @Actor var counter: any CounterServiceProtocol = fallbackCounter
+                @RemoteActor var counter: any CounterServiceProtocol = fallbackCounter
             }
             """,
             expandedSource: """
@@ -105,7 +105,7 @@ final class ActorMacroTests: XCTestCase {
             }
             """,
             diagnostics: [
-                DiagnosticSpec(message: "@Actor property cannot have an initial value", line: 2, column: 16)
+                DiagnosticSpec(message: "@RemoteActor property cannot have an initial value", line: 2, column: 22)
             ],
             macros: macros
         )
@@ -115,7 +115,7 @@ final class ActorMacroTests: XCTestCase {
         assertMacroExpansion(
             """
             struct CounterClient {
-                @Actor static var counter: any CounterServiceProtocol
+                @RemoteActor static var counter: any CounterServiceProtocol
             }
             """,
             expandedSource: """
@@ -124,7 +124,7 @@ final class ActorMacroTests: XCTestCase {
             }
             """,
             diagnostics: [
-                DiagnosticSpec(message: "@Actor cannot be applied to a static property", line: 2, column: 5)
+                DiagnosticSpec(message: "@RemoteActor cannot be applied to a static property", line: 2, column: 5)
             ],
             macros: macros
         )

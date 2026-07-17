@@ -1,18 +1,18 @@
 import SwiftParser
 import SwiftSyntax
 
-/// Expands `@Actor` properties in copied client component sources into their
+/// Expands `@RemoteActor` properties in copied client component sources into their
 /// resolved accessor form so generated browser WASM packages compile without
 /// the SwiftWebMacros plugin or swift-syntax.
 ///
-/// The expansion mirrors `SwiftWebMacros.ActorMacro`: the property becomes a
+/// The expansion mirrors `SwiftWebMacros.RemoteActorMacro`: the property becomes a
 /// computed property whose getter resolves the service from the active
 /// `SwiftWebActorBindingContext` scope.
 enum SwiftWebClientActorPropertyExpander {
     static func expandActorProperties(inSource source: String, filePath: String) throws -> String {
-        // Fast path: the attribute may be spelled `@Actor` or module-qualified
+        // Fast path: the attribute may be spelled `@RemoteActor` or module-qualified
         // (`@SwiftWebActors.Actor`), so gate parsing on the bare name.
-        guard source.contains("Actor") else {
+        guard source.contains("RemoteActor") else {
             return source
         }
         let file = Parser.parse(source: source)
@@ -34,7 +34,7 @@ enum SwiftWebClientActorPropertyExpansionError: Error, CustomStringConvertible, 
     var description: String {
         switch self {
         case .unsupportedActorProperty(let filePath, let reason):
-            "Cannot expand @Actor property in \(filePath): \(reason)"
+            "Cannot expand @RemoteActor property in \(filePath): \(reason)"
         }
     }
 }
@@ -57,28 +57,28 @@ private final class ActorPropertyRewriter: SyntaxRewriter {
             return super.visit(node)
         }
         guard node.bindingSpecifier.tokenKind == .keyword(.var) else {
-            return fail(node, reason: "@Actor requires a 'var' property")
+            return fail(node, reason: "@RemoteActor requires a 'var' property")
         }
         guard !node.modifiers.contains(where: Self.isTypeScopedModifier) else {
-            return fail(node, reason: "@Actor cannot be applied to a static property")
+            return fail(node, reason: "@RemoteActor cannot be applied to a static property")
         }
         guard node.bindings.count == 1, let binding = node.bindings.first else {
-            return fail(node, reason: "@Actor requires a single property binding")
+            return fail(node, reason: "@RemoteActor requires a single property binding")
         }
         guard binding.initializer == nil else {
-            return fail(node, reason: "@Actor property cannot have an initial value")
+            return fail(node, reason: "@RemoteActor property cannot have an initial value")
         }
         guard binding.accessorBlock == nil else {
-            return fail(node, reason: "@Actor property cannot declare accessors")
+            return fail(node, reason: "@RemoteActor property cannot declare accessors")
         }
         guard let identifier = binding.pattern.as(IdentifierPatternSyntax.self)?.identifier.text else {
-            return fail(node, reason: "@Actor requires an identifier property name")
+            return fail(node, reason: "@RemoteActor requires an identifier property name")
         }
         guard let type = binding.typeAnnotation?.type.trimmed else {
-            return fail(node, reason: "@Actor requires an explicit type annotation")
+            return fail(node, reason: "@RemoteActor requires an explicit type annotation")
         }
         guard actorAttribute.arguments == nil else {
-            return fail(node, reason: "@Actor does not take arguments")
+            return fail(node, reason: "@RemoteActor does not take arguments")
         }
 
         let serviceType = type.description
@@ -137,7 +137,7 @@ private final class ActorPropertyRewriter: SyntaxRewriter {
             }
             let name = attribute.attributeName.trimmedDescription
             let canonicalName = name.split(separator: ".").last.map(String.init) ?? name
-            if canonicalName == "Actor" {
+            if canonicalName == "RemoteActor" {
                 return attribute
             }
         }

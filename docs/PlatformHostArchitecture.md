@@ -162,10 +162,10 @@ public struct MyApp: App {
 | `PageGroup` | Route grouping and policy scope. | Vapor route group. | Generated router prefix and policy group. |
 | `Worker` | Background, event, or stateful runtime unit. | ActorRuntime, queue driver, or scheduler adapter. | Durable Object, queue handler, scheduled handler, or stateless event worker. |
 | `@Session` | Request-scoped client session access. | Cookie/session middleware-backed context. | Cookie/session binding plus Worker/Durable Object-backed context. |
-| `@Actor` | Client component access to a scoped distributed service object. | ActorRuntime gateway plus `WebActorSystem` transport. | Worker/Durable Object gateway plus the same `@Resolvable` contract. |
+| `@RemoteActor` | Client component access to a scoped distributed service object. | ActorRuntime gateway plus `WebActorSystem` transport. | Worker/Durable Object gateway plus the same `@Resolvable` contract. |
 
 Client component actor injection is specified in
-[`ActorInjectionDesign.md`](ActorInjectionDesign.md). `@Actor` is a component
+[`ActorInjectionDesign.md`](ActorInjectionDesign.md). `@RemoteActor` is a component
 surface over Apple's `@Resolvable` generated stub; the host adapter decides how
 the invocation envelope reaches the server-side actor.
 

@@ -293,7 +293,7 @@ struct SupportApp: App {
   excluding the page-serving slice from the DO build if still needed.
 - **Open item for the DO package format**: the app's own sources use `@Page` /
   `@ServerAction` macros, which core-only excludes. Either pre-expand `@Page` at
-  generation time (the `@Actor` pre-expansion machinery is the precedent) or project
+  generation time (the `@RemoteActor` pre-expansion machinery is the precedent) or project
   an app slice that avoids page macros. Decide when building
   `CloudflarePackageFormat`.
 

@@ -254,15 +254,15 @@ public enum SwiftWebActorBinding {
         contract: SwiftWebActorContractKey
     ) -> Service {
         guard let scope = SwiftWebActorBindingContext.current else {
-            preconditionFailure("@Actor was accessed outside a SwiftWeb actor binding context")
+            preconditionFailure("@RemoteActor was accessed outside a SwiftWeb actor binding context")
         }
         do {
             return try scope.resolve(service, contract: contract)
         } catch {
             #if hasFeature(Embedded)
-            preconditionFailure("@Actor failed to resolve \(contract.rawValue)")
+            preconditionFailure("@RemoteActor failed to resolve \(contract.rawValue)")
             #else
-            preconditionFailure("@Actor failed to resolve \(String(reflecting: Service.self)): \(error)")
+            preconditionFailure("@RemoteActor failed to resolve \(String(reflecting: Service.self)): \(error)")
             #endif
         }
     }

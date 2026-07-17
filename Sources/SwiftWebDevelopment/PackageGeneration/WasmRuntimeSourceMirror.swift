@@ -85,7 +85,7 @@ struct WasmRuntimeSourceMirror: Sendable {
   }
 
   // Generated WASM packages compile without the SwiftWebMacros plugin, so the
-  // @Actor accessor macro must be expanded while client sources are copied.
+  // @RemoteActor accessor macro must be expanded while client sources are copied.
   private func expandClientSource(relativePath: String, data: Data) throws -> Data {
     guard relativePath.hasSuffix(".swift"),
       let source = String(data: data, encoding: .utf8)

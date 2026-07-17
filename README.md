@@ -16,7 +16,7 @@ flowchart LR
   E --> F["HTML response"]
   E --> G["Client WASM island"]
   G --> H["SwiftWebUIRuntime"]
-  G --> L["@Actor resolved services"]
+  G --> L["@RemoteActor resolved services"]
   L --> M["@Resolvable distributed actor"]
   I["Server actions"] --> J["request context"]
   J --> K["@Session"]
@@ -88,7 +88,7 @@ responsibility split and [Cloudflare Actor Roadmap](docs/CloudflareActorRoadmap.
 for the distributed-actor program.
 See [Directory And File Structure Design](docs/DirectoryFileStructureDesign.md)
 for the source layout and file placement rules. See [Actor Injection Design](docs/ActorInjectionDesign.md)
-for the `@Actor` client component API over Apple's `@Resolvable` distributed
+for the `@RemoteActor` client component API over Apple's `@Resolvable` distributed
 actor model.
 
 ## Requirements

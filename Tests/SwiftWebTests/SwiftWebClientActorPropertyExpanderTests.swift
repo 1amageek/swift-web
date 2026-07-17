@@ -8,7 +8,7 @@ struct SwiftWebClientActorPropertyExpanderTests {
   func expandsActorPropertyIntoResolvedAccessor() throws {
     let source = """
       public struct ClientSample: ClientComponent {
-          @Actor private var service: any SampleServiceProtocol
+          @RemoteActor private var service: any SampleServiceProtocol
 
           public init() {}
       }
@@ -38,14 +38,14 @@ struct SwiftWebClientActorPropertyExpanderTests {
   func expandsQualifiedActorAttributeAndType() throws {
     let source = """
       struct Client {
-          @SwiftWebActors.Actor var service: any Services.SampleServiceProtocol
+          @SwiftWebActors.RemoteActor var service: any Services.SampleServiceProtocol
       }
       """
     let expanded = try SwiftWebClientActorPropertyExpander.expandActorProperties(
       inSource: source,
       filePath: "Client.swift"
     )
-    #expect(!expanded.contains("@SwiftWebActors.Actor"))
+    #expect(!expanded.contains("@SwiftWebActors.RemoteActor"))
     #expect(expanded.contains("var service: any Services.SampleServiceProtocol {"))
     #expect(
       expanded.contains(
@@ -73,13 +73,13 @@ struct SwiftWebClientActorPropertyExpanderTests {
   func rejectsActorPropertyWithoutTypeAnnotation() {
     let source = """
       struct Client {
-          @Actor var service = SampleService()
+          @RemoteActor var service = SampleService()
       }
       """
     #expect(
       throws: SwiftWebClientActorPropertyExpansionError.unsupportedActorProperty(
         filePath: "Client.swift",
-        reason: "@Actor property cannot have an initial value"
+        reason: "@RemoteActor property cannot have an initial value"
       )
     ) {
       try SwiftWebClientActorPropertyExpander.expandActorProperties(
@@ -93,13 +93,13 @@ struct SwiftWebClientActorPropertyExpanderTests {
   func rejectsActorLetProperty() {
     let source = """
       struct Client {
-          @Actor let service: any SampleServiceProtocol
+          @RemoteActor let service: any SampleServiceProtocol
       }
       """
     #expect(
       throws: SwiftWebClientActorPropertyExpansionError.unsupportedActorProperty(
         filePath: "Client.swift",
-        reason: "@Actor requires a 'var' property"
+        reason: "@RemoteActor requires a 'var' property"
       )
     ) {
       try SwiftWebClientActorPropertyExpander.expandActorProperties(
@@ -113,13 +113,13 @@ struct SwiftWebClientActorPropertyExpanderTests {
   func rejectsStaticActorProperty() {
     let source = """
       struct Client {
-          @Actor static var service: any SampleServiceProtocol
+          @RemoteActor static var service: any SampleServiceProtocol
       }
       """
     #expect(
       throws: SwiftWebClientActorPropertyExpansionError.unsupportedActorProperty(
         filePath: "Client.swift",
-        reason: "@Actor cannot be applied to a static property"
+        reason: "@RemoteActor cannot be applied to a static property"
       )
     ) {
       try SwiftWebClientActorPropertyExpander.expandActorProperties(

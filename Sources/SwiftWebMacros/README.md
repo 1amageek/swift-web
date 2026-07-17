@@ -34,9 +34,9 @@ SwiftWeb has two server interaction methods, and only one of them is owned by Sw
 | Method | Macro owner | Purpose |
 |---|---|---|
 | Server Action | `SwiftWebMacros.@ServerAction` | Generate a typed HTTP endpoint descriptor and an `ActionReference` for page-local HTTP work. |
-| Resolvable RPC | Apple `@Resolvable`, SwiftWeb `@ResolvableActor`, and runtime `@Actor` | Apple generates the `$Protocol.resolve(id:using:)` entrypoint; SwiftWeb records the scene binding and generated WASM resolver registry. |
+| Resolvable RPC | Apple `@Resolvable`, SwiftWeb `@ResolvableActor`, and runtime `@RemoteActor` | Apple generates the `$Protocol.resolve(id:using:)` entrypoint; SwiftWeb records the scene binding and generated WASM resolver registry. |
 
-`@ServerAction` does not generate `$Protocol` resolvers. Apple's `@Resolvable` does not generate SwiftWeb action references. SwiftWeb `@Actor` must not create another resolver model; it should only make the resolved `@Resolvable` protocol object available as the property wrapped value.
+`@ServerAction` does not generate `$Protocol` resolvers. Apple's `@Resolvable` does not generate SwiftWeb action references. SwiftWeb `@RemoteActor` must not create another resolver model; it should only make the resolved `@Resolvable` protocol object available as the property wrapped value.
 
 The target actor injection contract is documented in
 [`../../docs/ActorInjectionDesign.md`](../../docs/ActorInjectionDesign.md).
@@ -80,7 +80,7 @@ The macro should reject unsupported signatures instead of letting invalid action
 | HTML rendering | `SwiftHTML` |
 | UI components | `SwiftWebUI` |
 | Runtime actor id lookup and `WebActorSystem` transport setup | `SwiftWeb` / `SwiftWebUIRuntime` / `SwiftWebActors` |
-| Client `@Actor` resolver registry generation | `SwiftWebPackageGeneration` |
+| Client `@RemoteActor` resolver registry generation | `SwiftWebPackageGeneration` |
 | CLI templates and dev server | `SwiftWebCLI` |
 | Runtime validation that requires a live request | `SwiftWeb` |
 | Handler registration and typed invocation | `SwiftWeb` |
@@ -96,5 +96,5 @@ The macro should reject unsupported signatures instead of letting invalid action
 - Generated descriptors should carry a typed invoker instead of requiring SwiftWeb to synthesize compiler-internal distributed target names.
 - Generated action references should describe HTTP method and path. They should not expose handler names, action names, target identifiers, actor IDs, or RPC metadata.
 - Apple's `@Resolvable` belongs on client-visible distributed actor protocols, not on SwiftWeb `ActionReference`.
-- `@Actor` should expose the resolved service object to component code. It should not expose `WebActorSystem`, actor ids, or `$Protocol.resolve(id:using:)` in the standard component surface.
+- `@RemoteActor` should expose the resolved service object to component code. It should not expose `WebActorSystem`, actor ids, or `$Protocol.resolve(id:using:)` in the standard component surface.
 - `@ResolvableActor` belongs on server actor implementations that are exported through `.actor(...)`.
