@@ -140,6 +140,90 @@ enum SwiftUIFixtures {
                 }
             }
             .frame(width: 400, height: 300)
+
+        case .vstackAlignLeading:
+            VStack(alignment: .leading, spacing: 0) {
+                box("a", width: 60, height: 30)
+                box("b", width: 120, height: 30)
+            }
+
+        case .vstackAlignTrailing:
+            VStack(alignment: .trailing, spacing: 0) {
+                box("a", width: 60, height: 30)
+                box("b", width: 120, height: 30)
+            }
+
+        case .hstackAlignTop:
+            HStack(alignment: .top, spacing: 0) {
+                box("a", width: 60, height: 80)
+                box("b", width: 60, height: 30)
+            }
+
+        case .hstackAlignBottom:
+            HStack(alignment: .bottom, spacing: 0) {
+                box("a", width: 60, height: 80)
+                box("b", width: 60, height: 30)
+            }
+
+        case .frameAlignTopLeading:
+            box("a", width: 80, height: 40)
+                .frame(width: 400, height: 100, alignment: .topLeading)
+
+        case .frameAlignBottomTrailing:
+            box("a", width: 80, height: 40)
+                .frame(width: 400, height: 100, alignment: .bottomTrailing)
+
+        case .vstackSpacing:
+            VStack(spacing: 24) {
+                box("a", width: 80, height: 40)
+                box("b", width: 80, height: 40)
+            }
+
+        case .hstackSpacing:
+            HStack(spacing: 16) {
+                box("a", width: 60, height: 40)
+                box("b", width: 60, height: 40)
+                box("c", width: 60, height: 40)
+            }
+
+        case .paddingUniform:
+            VStack(spacing: 0) {
+                box("a", width: 80, height: 40)
+                    .padding(20)
+            }
+
+        case .zstackCenter:
+            ZStack {
+                box("a", width: 200, height: 100)
+                box("b", width: 60, height: 30)
+            }
+
+        case .zstackBottomTrailing:
+            ZStack(alignment: .bottomTrailing) {
+                box("a", width: 200, height: 100)
+                box("b", width: 60, height: 30)
+            }
+
+        case .minWidthFrame:
+            box("a", width: 80, height: 40)
+                .frame(minWidth: 150)
+                .probe("f")
+
+        case .spacersCenterV:
+            VStack(spacing: 0) {
+                Spacer()
+                box("a", width: 80, height: 40)
+                Spacer()
+            }
+            .frame(height: 300)
+
+        case .spacersCenterH:
+            HStack(spacing: 0) {
+                Spacer()
+                box("a", width: 80, height: 40)
+                Spacer()
+            }
+            .frame(width: 400)
         }
     }
 

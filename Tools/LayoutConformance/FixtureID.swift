@@ -15,6 +15,20 @@ enum FixtureID: String, CaseIterable {
     case fixedFrame = "fixed-frame"
     case nestedOverflow = "nested-overflow"
     case nestedStacksSpacers = "nested-stacks-spacers"
+    case vstackAlignLeading = "vstack-align-leading"
+    case vstackAlignTrailing = "vstack-align-trailing"
+    case hstackAlignTop = "hstack-align-top"
+    case hstackAlignBottom = "hstack-align-bottom"
+    case frameAlignTopLeading = "frame-align-top-leading"
+    case frameAlignBottomTrailing = "frame-align-bottom-trailing"
+    case vstackSpacing = "vstack-spacing"
+    case hstackSpacing = "hstack-spacing"
+    case paddingUniform = "padding-uniform"
+    case zstackCenter = "zstack-center"
+    case zstackBottomTrailing = "zstack-bottom-trailing"
+    case minWidthFrame = "min-width-frame"
+    case spacersCenterV = "spacers-center-v"
+    case spacersCenterH = "spacers-center-h"
 }
 
 /// Shared harness geometry.

@@ -645,7 +645,11 @@ package enum RootStylesheet {
       // Explicit hug blocks fill and propagation. Declared after the
       // fill/:has rules so equal-specificity selectors win by source order.
       rule(cls("swui-hug-h")) {
-        .alignSelf("flex-start")
+        // auto, not flex-start: a hug element has an explicit size on its
+        // axis, so it never stretches — but it must still follow the
+        // parent's alignment (trailing/bottom/center). Found by the layout
+        // conformance harness.
+        .alignSelf("auto")
       }
       rule(list(
         cls("swui-vstack").compound(cls("swui-hug-h")),
@@ -655,7 +659,7 @@ package enum RootStylesheet {
         cls("swui-group-box").compound(cls("swui-hug-h")),
         cls("swui-toolbar").compound(cls("swui-hug-h"))
       )) {
-        .alignSelf("flex-start")
+        .alignSelf("auto")
       }
       rule(list(
         cls("swui-hstack").child(cls("swui-hug-h")),
@@ -691,7 +695,7 @@ package enum RootStylesheet {
         cls("swui-lazy-hstack").child(cls("swui-hug-v")),
         cls("swui-toolbar").child(cls("swui-hug-v"))
       )) {
-        .alignSelf("flex-start")
+        .alignSelf("auto")
       }
       // `Text` renders one of several HTML elements (`as` picks the tag), but its
       // appearance must not depend on the tag: `swui-text` normalizes every
