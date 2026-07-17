@@ -253,6 +253,77 @@ enum SwiftUIFixtures {
                 }
             }
             .frame(height: 200)
+
+        case .nestedFillChain:
+            HStack(spacing: 0) {
+                VStack(spacing: 0) {
+                    Color(red: 0.2, green: 0.6, blue: 0.86)
+                        .frame(height: 40)
+                        .frame(maxWidth: .infinity)
+                        .probe("a")
+                }
+                box("b", width: 60, height: 40)
+            }
+            .frame(width: 400)
+
+        case .nestedSpacerDepth:
+            VStack(spacing: 0) {
+                HStack(spacing: 0) {
+                    box("a", width: 60, height: 40)
+                    Spacer()
+                    VStack(spacing: 0) {
+                        box("b", width: 40, height: 20)
+                        Spacer()
+                        box("c", width: 40, height: 20)
+                    }
+                    .frame(height: 120)
+                }
+                Spacer()
+                box("d", width: 80, height: 40)
+            }
+            .frame(width: 400, height: 300)
+
+        case .zstackNestedStack:
+            ZStack {
+                box("a", width: 200, height: 120)
+                VStack(spacing: 0) {
+                    box("b", width: 40, height: 20)
+                    Spacer()
+                    box("c", width: 40, height: 20)
+                }
+                .frame(height: 80)
+            }
+
+        case .scrollInVStack:
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(spacing: 0) {
+                        box("a", width: 80, height: 120)
+                        box("b", width: 80, height: 120)
+                    }
+                }
+                .frame(height: 150)
+                Spacer()
+                box("c", width: 60, height: 40)
+            }
+            .frame(height: 300)
+
+        case .gridInHStack:
+            HStack(spacing: 0) {
+                Grid(horizontalSpacing: 0, verticalSpacing: 0) {
+                    GridRow {
+                        box("a", width: 60, height: 30)
+                        box("b", width: 90, height: 30)
+                    }
+                    GridRow {
+                        box("c", width: 80, height: 30)
+                        box("d", width: 40, height: 30)
+                    }
+                }
+                Spacer()
+                box("e", width: 60, height: 40)
+            }
+            .frame(width: 400)
         }
     }
 

@@ -85,7 +85,7 @@ enum ReportHTML {
         <div class="fixture">
         <h2>\(result.fixture.rawValue) — \(matched)/\(result.comparisons.count)</h2>
         <div style="display: flex; gap: 16px; flex-wrap: wrap;">
-        <div><div class="stagelabel">SwiftUI (ImageRenderer)</div>
+        <div><div class="stagelabel">SwiftUI (NSHostingView)</div>
         <div class="stage">\(oracleImageTag(result))</div></div>
         <div><div class="stagelabel">SwiftWebUI (live) + oracle overlay</div>
         <div class="stage">

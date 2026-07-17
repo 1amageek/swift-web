@@ -32,6 +32,11 @@ enum FixtureID: String, CaseIterable {
     case gridRows = "grid-rows"
     case lazyVGridFixed = "lazy-vgrid-fixed"
     case scrollViewClip = "scroll-view-clip"
+    case nestedFillChain = "nested-fill-chain"
+    case nestedSpacerDepth = "nested-spacer-depth"
+    case zstackNestedStack = "zstack-nested-stack"
+    case scrollInVStack = "scroll-in-vstack"
+    case gridInHStack = "grid-in-hstack"
 }
 
 /// Shared harness geometry.
