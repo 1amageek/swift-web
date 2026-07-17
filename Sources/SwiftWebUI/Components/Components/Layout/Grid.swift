@@ -32,6 +32,7 @@ public struct Grid<Content: HTML>: AttributeComponent {
                     .custom("--swui-grid-vertical-spacing", gridSpacingValue(verticalSpacing))
                     .custom("--swui-grid-cell-horizontal-alignment", alignment.horizontal.textAlign)
                     .custom("--swui-grid-cell-vertical-alignment", alignment.vertical.gridAlignItems)
+                    .custom("--swui-grid-columns", "\(columnCount)")
                 },
                 extra: attributes
             )
@@ -62,6 +63,45 @@ public struct Grid<Content: HTML>: AttributeComponent {
         self.verticalSpacing = verticalSpacing
         self.attributes = attributes
         self.content = content
+    }
+}
+
+extension Grid {
+    /// The shared column count: the widest row's cell count. SwiftUI sizes
+    /// column i by the widest cell i across ALL rows; the stylesheet needs
+    /// the track count to own those shared columns, so it is counted here
+    /// at render time from the statically built row tuples. Dynamic rows
+    /// (ForEach) cannot be counted this way and contribute nothing; a grid
+    /// made only of dynamic rows falls back to one column.
+    private var columnCount: Int {
+        func widestRow(in value: Any) -> Int {
+            if let row = value as? any GridRowCellCounting {
+                return row.cellCount
+            }
+            let typeName = String(describing: type(of: value))
+            guard typeName.hasPrefix("TupleComponent") else {
+                return 0
+            }
+            return Mirror(reflecting: value).children
+                .map { widestRow(in: $0.value) }
+                .max() ?? 0
+        }
+        return Swift.max(1, widestRow(in: content))
+    }
+}
+
+/// The cell-counting surface `Grid` uses to size its shared column tracks.
+protocol GridRowCellCounting {
+    var cellCount: Int { get }
+}
+
+extension GridRow: GridRowCellCounting {
+    var cellCount: Int {
+        let typeName = String(describing: type(of: content))
+        guard typeName.hasPrefix("TupleComponent") else {
+            return 1
+        }
+        return Mirror(reflecting: content).children.count
     }
 }
 

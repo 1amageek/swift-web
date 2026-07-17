@@ -291,21 +291,28 @@ package enum RootStylesheet {
       )) {
         .minWidth("var(--swui-spacer-min-length, 0px)")
       }
+      // SwiftUI's Grid negotiates column widths ACROSS rows: column i is
+      // sized by the widest cell i of any row. The outer grid owns the
+      // implicit tracks (no column count needed): rows are display:contents
+      // so every cell participates in the same grid, and forcing each row's
+      // first cell to column 1 starts a new implicit row. Redesigned from
+      // per-row grids, which sized tracks independently (found by the
+      // layout conformance harness).
       rule(cls("swui-grid")) {
         .display("grid")
           .width("fit-content")
+          .gridTemplateColumns("repeat(var(--swui-grid-columns, 1), minmax(0, max-content))")
           .rowGap("var(--swui-grid-vertical-spacing)")
-          .boxSizing("border-box")
-      }
-      // SwiftUI Grid lays each GridRow's cells into auto-sized columns; mirror
-      // that with a per-row column grid (a real `display: grid`, not a table).
-      // Equal-width cells line up across rows.
-      rule(cls("swui-grid-row")) {
-        .display("grid")
-          .custom("grid-auto-flow", "column")
-          .custom("grid-auto-columns", "minmax(0, max-content)")
           .custom("column-gap", "var(--swui-grid-horizontal-spacing)")
           .alignItems("var(--swui-grid-cell-vertical-alignment)")
+          .custom("justify-items", "var(--swui-grid-cell-horizontal-alignment)")
+          .boxSizing("border-box")
+      }
+      rule(cls("swui-grid-row")) {
+        .display("contents")
+      }
+      rule(cls("swui-grid-row").child(StyleSelector.universal.pseudo(.firstChild))) {
+        .custom("grid-column-start", "1")
       }
       rule(cls("swui-grid-system")) {
         .display("grid")

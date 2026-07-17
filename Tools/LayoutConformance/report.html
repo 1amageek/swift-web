@@ -22,7 +22,7 @@ th, td { padding: 3px 10px; border-bottom: 1px solid #e5e5ea; text-align: left; 
 </head>
 <body>
 <h1>SwiftWebUI Layout Conformance</h1>
-<p class="summary">probes: 54 · <span class="ok">match: 51</span> · <span class="bad">mismatch: 3</span> · tolerance: 1.5px</p>
+<p class="summary">probes: 54 · <span class="ok">match: 54</span> · <span class="bad">mismatch: 0</span> · tolerance: 1.5px</p>
 <p class="legend">Painted boxes: SwiftWebUI rendering (WKWebView). Dashed blue outline: SwiftUI oracle geometry. Red fill flags a mismatched probe.</p>
 <div class="fixture">
 <h2>hstack-spacer — 2/2</h2>
@@ -267,15 +267,18 @@ body.swui-viewport &gt; .swui-root {
 .swui-grid {
   display: grid;
   width: fit-content;
+  grid-template-columns: repeat(var(--swui-grid-columns, 1), minmax(0, max-content));
   row-gap: var(--swui-grid-vertical-spacing);
+  column-gap: var(--swui-grid-horizontal-spacing);
+  align-items: var(--swui-grid-cell-vertical-alignment);
+  justify-items: var(--swui-grid-cell-horizontal-alignment);
   box-sizing: border-box;
 }
 .swui-grid-row {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, max-content);
-  column-gap: var(--swui-grid-horizontal-spacing);
-  align-items: var(--swui-grid-cell-vertical-alignment);
+  display: contents;
+}
+.swui-grid-row &gt; *:first-child {
+  grid-column-start: 1;
 }
 .swui-grid-system {
   display: grid;
@@ -2350,15 +2353,18 @@ body.swui-viewport &gt; .swui-root {
 .swui-grid {
   display: grid;
   width: fit-content;
+  grid-template-columns: repeat(var(--swui-grid-columns, 1), minmax(0, max-content));
   row-gap: var(--swui-grid-vertical-spacing);
+  column-gap: var(--swui-grid-horizontal-spacing);
+  align-items: var(--swui-grid-cell-vertical-alignment);
+  justify-items: var(--swui-grid-cell-horizontal-alignment);
   box-sizing: border-box;
 }
 .swui-grid-row {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, max-content);
-  column-gap: var(--swui-grid-horizontal-spacing);
-  align-items: var(--swui-grid-cell-vertical-alignment);
+  display: contents;
+}
+.swui-grid-row &gt; *:first-child {
+  grid-column-start: 1;
 }
 .swui-grid-system {
   display: grid;
@@ -4433,15 +4439,18 @@ body.swui-viewport &gt; .swui-root {
 .swui-grid {
   display: grid;
   width: fit-content;
+  grid-template-columns: repeat(var(--swui-grid-columns, 1), minmax(0, max-content));
   row-gap: var(--swui-grid-vertical-spacing);
+  column-gap: var(--swui-grid-horizontal-spacing);
+  align-items: var(--swui-grid-cell-vertical-alignment);
+  justify-items: var(--swui-grid-cell-horizontal-alignment);
   box-sizing: border-box;
 }
 .swui-grid-row {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, max-content);
-  column-gap: var(--swui-grid-horizontal-spacing);
-  align-items: var(--swui-grid-cell-vertical-alignment);
+  display: contents;
+}
+.swui-grid-row &gt; *:first-child {
+  grid-column-start: 1;
 }
 .swui-grid-system {
   display: grid;
@@ -6516,15 +6525,18 @@ body.swui-viewport &gt; .swui-root {
 .swui-grid {
   display: grid;
   width: fit-content;
+  grid-template-columns: repeat(var(--swui-grid-columns, 1), minmax(0, max-content));
   row-gap: var(--swui-grid-vertical-spacing);
+  column-gap: var(--swui-grid-horizontal-spacing);
+  align-items: var(--swui-grid-cell-vertical-alignment);
+  justify-items: var(--swui-grid-cell-horizontal-alignment);
   box-sizing: border-box;
 }
 .swui-grid-row {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, max-content);
-  column-gap: var(--swui-grid-horizontal-spacing);
-  align-items: var(--swui-grid-cell-vertical-alignment);
+  display: contents;
+}
+.swui-grid-row &gt; *:first-child {
+  grid-column-start: 1;
 }
 .swui-grid-system {
   display: grid;
@@ -8599,15 +8611,18 @@ body.swui-viewport &gt; .swui-root {
 .swui-grid {
   display: grid;
   width: fit-content;
+  grid-template-columns: repeat(var(--swui-grid-columns, 1), minmax(0, max-content));
   row-gap: var(--swui-grid-vertical-spacing);
+  column-gap: var(--swui-grid-horizontal-spacing);
+  align-items: var(--swui-grid-cell-vertical-alignment);
+  justify-items: var(--swui-grid-cell-horizontal-alignment);
   box-sizing: border-box;
 }
 .swui-grid-row {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, max-content);
-  column-gap: var(--swui-grid-horizontal-spacing);
-  align-items: var(--swui-grid-cell-vertical-alignment);
+  display: contents;
+}
+.swui-grid-row &gt; *:first-child {
+  grid-column-start: 1;
 }
 .swui-grid-system {
   display: grid;
@@ -10682,15 +10697,18 @@ body.swui-viewport &gt; .swui-root {
 .swui-grid {
   display: grid;
   width: fit-content;
+  grid-template-columns: repeat(var(--swui-grid-columns, 1), minmax(0, max-content));
   row-gap: var(--swui-grid-vertical-spacing);
+  column-gap: var(--swui-grid-horizontal-spacing);
+  align-items: var(--swui-grid-cell-vertical-alignment);
+  justify-items: var(--swui-grid-cell-horizontal-alignment);
   box-sizing: border-box;
 }
 .swui-grid-row {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, max-content);
-  column-gap: var(--swui-grid-horizontal-spacing);
-  align-items: var(--swui-grid-cell-vertical-alignment);
+  display: contents;
+}
+.swui-grid-row &gt; *:first-child {
+  grid-column-start: 1;
 }
 .swui-grid-system {
   display: grid;
@@ -12765,15 +12783,18 @@ body.swui-viewport &gt; .swui-root {
 .swui-grid {
   display: grid;
   width: fit-content;
+  grid-template-columns: repeat(var(--swui-grid-columns, 1), minmax(0, max-content));
   row-gap: var(--swui-grid-vertical-spacing);
+  column-gap: var(--swui-grid-horizontal-spacing);
+  align-items: var(--swui-grid-cell-vertical-alignment);
+  justify-items: var(--swui-grid-cell-horizontal-alignment);
   box-sizing: border-box;
 }
 .swui-grid-row {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, max-content);
-  column-gap: var(--swui-grid-horizontal-spacing);
-  align-items: var(--swui-grid-cell-vertical-alignment);
+  display: contents;
+}
+.swui-grid-row &gt; *:first-child {
+  grid-column-start: 1;
 }
 .swui-grid-system {
   display: grid;
@@ -14848,15 +14869,18 @@ body.swui-viewport &gt; .swui-root {
 .swui-grid {
   display: grid;
   width: fit-content;
+  grid-template-columns: repeat(var(--swui-grid-columns, 1), minmax(0, max-content));
   row-gap: var(--swui-grid-vertical-spacing);
+  column-gap: var(--swui-grid-horizontal-spacing);
+  align-items: var(--swui-grid-cell-vertical-alignment);
+  justify-items: var(--swui-grid-cell-horizontal-alignment);
   box-sizing: border-box;
 }
 .swui-grid-row {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, max-content);
-  column-gap: var(--swui-grid-horizontal-spacing);
-  align-items: var(--swui-grid-cell-vertical-alignment);
+  display: contents;
+}
+.swui-grid-row &gt; *:first-child {
+  grid-column-start: 1;
 }
 .swui-grid-system {
   display: grid;
@@ -16931,15 +16955,18 @@ body.swui-viewport &gt; .swui-root {
 .swui-grid {
   display: grid;
   width: fit-content;
+  grid-template-columns: repeat(var(--swui-grid-columns, 1), minmax(0, max-content));
   row-gap: var(--swui-grid-vertical-spacing);
+  column-gap: var(--swui-grid-horizontal-spacing);
+  align-items: var(--swui-grid-cell-vertical-alignment);
+  justify-items: var(--swui-grid-cell-horizontal-alignment);
   box-sizing: border-box;
 }
 .swui-grid-row {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, max-content);
-  column-gap: var(--swui-grid-horizontal-spacing);
-  align-items: var(--swui-grid-cell-vertical-alignment);
+  display: contents;
+}
+.swui-grid-row &gt; *:first-child {
+  grid-column-start: 1;
 }
 .swui-grid-system {
   display: grid;
@@ -19014,15 +19041,18 @@ body.swui-viewport &gt; .swui-root {
 .swui-grid {
   display: grid;
   width: fit-content;
+  grid-template-columns: repeat(var(--swui-grid-columns, 1), minmax(0, max-content));
   row-gap: var(--swui-grid-vertical-spacing);
+  column-gap: var(--swui-grid-horizontal-spacing);
+  align-items: var(--swui-grid-cell-vertical-alignment);
+  justify-items: var(--swui-grid-cell-horizontal-alignment);
   box-sizing: border-box;
 }
 .swui-grid-row {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, max-content);
-  column-gap: var(--swui-grid-horizontal-spacing);
-  align-items: var(--swui-grid-cell-vertical-alignment);
+  display: contents;
+}
+.swui-grid-row &gt; *:first-child {
+  grid-column-start: 1;
 }
 .swui-grid-system {
   display: grid;
@@ -21097,15 +21127,18 @@ body.swui-viewport &gt; .swui-root {
 .swui-grid {
   display: grid;
   width: fit-content;
+  grid-template-columns: repeat(var(--swui-grid-columns, 1), minmax(0, max-content));
   row-gap: var(--swui-grid-vertical-spacing);
+  column-gap: var(--swui-grid-horizontal-spacing);
+  align-items: var(--swui-grid-cell-vertical-alignment);
+  justify-items: var(--swui-grid-cell-horizontal-alignment);
   box-sizing: border-box;
 }
 .swui-grid-row {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, max-content);
-  column-gap: var(--swui-grid-horizontal-spacing);
-  align-items: var(--swui-grid-cell-vertical-alignment);
+  display: contents;
+}
+.swui-grid-row &gt; *:first-child {
+  grid-column-start: 1;
 }
 .swui-grid-system {
   display: grid;
@@ -23180,15 +23213,18 @@ body.swui-viewport &gt; .swui-root {
 .swui-grid {
   display: grid;
   width: fit-content;
+  grid-template-columns: repeat(var(--swui-grid-columns, 1), minmax(0, max-content));
   row-gap: var(--swui-grid-vertical-spacing);
+  column-gap: var(--swui-grid-horizontal-spacing);
+  align-items: var(--swui-grid-cell-vertical-alignment);
+  justify-items: var(--swui-grid-cell-horizontal-alignment);
   box-sizing: border-box;
 }
 .swui-grid-row {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, max-content);
-  column-gap: var(--swui-grid-horizontal-spacing);
-  align-items: var(--swui-grid-cell-vertical-alignment);
+  display: contents;
+}
+.swui-grid-row &gt; *:first-child {
+  grid-column-start: 1;
 }
 .swui-grid-system {
   display: grid;
@@ -25263,15 +25299,18 @@ body.swui-viewport &gt; .swui-root {
 .swui-grid {
   display: grid;
   width: fit-content;
+  grid-template-columns: repeat(var(--swui-grid-columns, 1), minmax(0, max-content));
   row-gap: var(--swui-grid-vertical-spacing);
+  column-gap: var(--swui-grid-horizontal-spacing);
+  align-items: var(--swui-grid-cell-vertical-alignment);
+  justify-items: var(--swui-grid-cell-horizontal-alignment);
   box-sizing: border-box;
 }
 .swui-grid-row {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, max-content);
-  column-gap: var(--swui-grid-horizontal-spacing);
-  align-items: var(--swui-grid-cell-vertical-alignment);
+  display: contents;
+}
+.swui-grid-row &gt; *:first-child {
+  grid-column-start: 1;
 }
 .swui-grid-system {
   display: grid;
@@ -27346,15 +27385,18 @@ body.swui-viewport &gt; .swui-root {
 .swui-grid {
   display: grid;
   width: fit-content;
+  grid-template-columns: repeat(var(--swui-grid-columns, 1), minmax(0, max-content));
   row-gap: var(--swui-grid-vertical-spacing);
+  column-gap: var(--swui-grid-horizontal-spacing);
+  align-items: var(--swui-grid-cell-vertical-alignment);
+  justify-items: var(--swui-grid-cell-horizontal-alignment);
   box-sizing: border-box;
 }
 .swui-grid-row {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, max-content);
-  column-gap: var(--swui-grid-horizontal-spacing);
-  align-items: var(--swui-grid-cell-vertical-alignment);
+  display: contents;
+}
+.swui-grid-row &gt; *:first-child {
+  grid-column-start: 1;
 }
 .swui-grid-system {
   display: grid;
@@ -29429,15 +29471,18 @@ body.swui-viewport &gt; .swui-root {
 .swui-grid {
   display: grid;
   width: fit-content;
+  grid-template-columns: repeat(var(--swui-grid-columns, 1), minmax(0, max-content));
   row-gap: var(--swui-grid-vertical-spacing);
+  column-gap: var(--swui-grid-horizontal-spacing);
+  align-items: var(--swui-grid-cell-vertical-alignment);
+  justify-items: var(--swui-grid-cell-horizontal-alignment);
   box-sizing: border-box;
 }
 .swui-grid-row {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, max-content);
-  column-gap: var(--swui-grid-horizontal-spacing);
-  align-items: var(--swui-grid-cell-vertical-alignment);
+  display: contents;
+}
+.swui-grid-row &gt; *:first-child {
+  grid-column-start: 1;
 }
 .swui-grid-system {
   display: grid;
@@ -31512,15 +31557,18 @@ body.swui-viewport &gt; .swui-root {
 .swui-grid {
   display: grid;
   width: fit-content;
+  grid-template-columns: repeat(var(--swui-grid-columns, 1), minmax(0, max-content));
   row-gap: var(--swui-grid-vertical-spacing);
+  column-gap: var(--swui-grid-horizontal-spacing);
+  align-items: var(--swui-grid-cell-vertical-alignment);
+  justify-items: var(--swui-grid-cell-horizontal-alignment);
   box-sizing: border-box;
 }
 .swui-grid-row {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, max-content);
-  column-gap: var(--swui-grid-horizontal-spacing);
-  align-items: var(--swui-grid-cell-vertical-alignment);
+  display: contents;
+}
+.swui-grid-row &gt; *:first-child {
+  grid-column-start: 1;
 }
 .swui-grid-system {
   display: grid;
@@ -33595,15 +33643,18 @@ body.swui-viewport &gt; .swui-root {
 .swui-grid {
   display: grid;
   width: fit-content;
+  grid-template-columns: repeat(var(--swui-grid-columns, 1), minmax(0, max-content));
   row-gap: var(--swui-grid-vertical-spacing);
+  column-gap: var(--swui-grid-horizontal-spacing);
+  align-items: var(--swui-grid-cell-vertical-alignment);
+  justify-items: var(--swui-grid-cell-horizontal-alignment);
   box-sizing: border-box;
 }
 .swui-grid-row {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, max-content);
-  column-gap: var(--swui-grid-horizontal-spacing);
-  align-items: var(--swui-grid-cell-vertical-alignment);
+  display: contents;
+}
+.swui-grid-row &gt; *:first-child {
+  grid-column-start: 1;
 }
 .swui-grid-system {
   display: grid;
@@ -35678,15 +35729,18 @@ body.swui-viewport &gt; .swui-root {
 .swui-grid {
   display: grid;
   width: fit-content;
+  grid-template-columns: repeat(var(--swui-grid-columns, 1), minmax(0, max-content));
   row-gap: var(--swui-grid-vertical-spacing);
+  column-gap: var(--swui-grid-horizontal-spacing);
+  align-items: var(--swui-grid-cell-vertical-alignment);
+  justify-items: var(--swui-grid-cell-horizontal-alignment);
   box-sizing: border-box;
 }
 .swui-grid-row {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, max-content);
-  column-gap: var(--swui-grid-horizontal-spacing);
-  align-items: var(--swui-grid-cell-vertical-alignment);
+  display: contents;
+}
+.swui-grid-row &gt; *:first-child {
+  grid-column-start: 1;
 }
 .swui-grid-system {
   display: grid;
@@ -37761,15 +37815,18 @@ body.swui-viewport &gt; .swui-root {
 .swui-grid {
   display: grid;
   width: fit-content;
+  grid-template-columns: repeat(var(--swui-grid-columns, 1), minmax(0, max-content));
   row-gap: var(--swui-grid-vertical-spacing);
+  column-gap: var(--swui-grid-horizontal-spacing);
+  align-items: var(--swui-grid-cell-vertical-alignment);
+  justify-items: var(--swui-grid-cell-horizontal-alignment);
   box-sizing: border-box;
 }
 .swui-grid-row {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, max-content);
-  column-gap: var(--swui-grid-horizontal-spacing);
-  align-items: var(--swui-grid-cell-vertical-alignment);
+  display: contents;
+}
+.swui-grid-row &gt; *:first-child {
+  grid-column-start: 1;
 }
 .swui-grid-system {
   display: grid;
@@ -39844,15 +39901,18 @@ body.swui-viewport &gt; .swui-root {
 .swui-grid {
   display: grid;
   width: fit-content;
+  grid-template-columns: repeat(var(--swui-grid-columns, 1), minmax(0, max-content));
   row-gap: var(--swui-grid-vertical-spacing);
+  column-gap: var(--swui-grid-horizontal-spacing);
+  align-items: var(--swui-grid-cell-vertical-alignment);
+  justify-items: var(--swui-grid-cell-horizontal-alignment);
   box-sizing: border-box;
 }
 .swui-grid-row {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, max-content);
-  column-gap: var(--swui-grid-horizontal-spacing);
-  align-items: var(--swui-grid-cell-vertical-alignment);
+  display: contents;
+}
+.swui-grid-row &gt; *:first-child {
+  grid-column-start: 1;
 }
 .swui-grid-system {
   display: grid;
@@ -41927,15 +41987,18 @@ body.swui-viewport &gt; .swui-root {
 .swui-grid {
   display: grid;
   width: fit-content;
+  grid-template-columns: repeat(var(--swui-grid-columns, 1), minmax(0, max-content));
   row-gap: var(--swui-grid-vertical-spacing);
+  column-gap: var(--swui-grid-horizontal-spacing);
+  align-items: var(--swui-grid-cell-vertical-alignment);
+  justify-items: var(--swui-grid-cell-horizontal-alignment);
   box-sizing: border-box;
 }
 .swui-grid-row {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, max-content);
-  column-gap: var(--swui-grid-horizontal-spacing);
-  align-items: var(--swui-grid-cell-vertical-alignment);
+  display: contents;
+}
+.swui-grid-row &gt; *:first-child {
+  grid-column-start: 1;
 }
 .swui-grid-system {
   display: grid;
@@ -44010,15 +44073,18 @@ body.swui-viewport &gt; .swui-root {
 .swui-grid {
   display: grid;
   width: fit-content;
+  grid-template-columns: repeat(var(--swui-grid-columns, 1), minmax(0, max-content));
   row-gap: var(--swui-grid-vertical-spacing);
+  column-gap: var(--swui-grid-horizontal-spacing);
+  align-items: var(--swui-grid-cell-vertical-alignment);
+  justify-items: var(--swui-grid-cell-horizontal-alignment);
   box-sizing: border-box;
 }
 .swui-grid-row {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, max-content);
-  column-gap: var(--swui-grid-horizontal-spacing);
-  align-items: var(--swui-grid-cell-vertical-alignment);
+  display: contents;
+}
+.swui-grid-row &gt; *:first-child {
+  grid-column-start: 1;
 }
 .swui-grid-system {
   display: grid;
@@ -46093,15 +46159,18 @@ body.swui-viewport &gt; .swui-root {
 .swui-grid {
   display: grid;
   width: fit-content;
+  grid-template-columns: repeat(var(--swui-grid-columns, 1), minmax(0, max-content));
   row-gap: var(--swui-grid-vertical-spacing);
+  column-gap: var(--swui-grid-horizontal-spacing);
+  align-items: var(--swui-grid-cell-vertical-alignment);
+  justify-items: var(--swui-grid-cell-horizontal-alignment);
   box-sizing: border-box;
 }
 .swui-grid-row {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, max-content);
-  column-gap: var(--swui-grid-horizontal-spacing);
-  align-items: var(--swui-grid-cell-vertical-alignment);
+  display: contents;
+}
+.swui-grid-row &gt; *:first-child {
+  grid-column-start: 1;
 }
 .swui-grid-system {
   display: grid;
@@ -48176,15 +48245,18 @@ body.swui-viewport &gt; .swui-root {
 .swui-grid {
   display: grid;
   width: fit-content;
+  grid-template-columns: repeat(var(--swui-grid-columns, 1), minmax(0, max-content));
   row-gap: var(--swui-grid-vertical-spacing);
+  column-gap: var(--swui-grid-horizontal-spacing);
+  align-items: var(--swui-grid-cell-vertical-alignment);
+  justify-items: var(--swui-grid-cell-horizontal-alignment);
   box-sizing: border-box;
 }
 .swui-grid-row {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, max-content);
-  column-gap: var(--swui-grid-horizontal-spacing);
-  align-items: var(--swui-grid-cell-vertical-alignment);
+  display: contents;
+}
+.swui-grid-row &gt; *:first-child {
+  grid-column-start: 1;
 }
 .swui-grid-system {
   display: grid;
@@ -50017,7 +50089,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 </table>
 </div>
 <div class="fixture">
-<h2>grid-rows — 1/4</h2>
+<h2>grid-rows — 4/4</h2>
 <div class="stage">
 <iframe srcdoc="&lt;!doctype html&gt;
 &lt;html&gt;
@@ -50259,15 +50331,18 @@ body.swui-viewport &gt; .swui-root {
 .swui-grid {
   display: grid;
   width: fit-content;
+  grid-template-columns: repeat(var(--swui-grid-columns, 1), minmax(0, max-content));
   row-gap: var(--swui-grid-vertical-spacing);
+  column-gap: var(--swui-grid-horizontal-spacing);
+  align-items: var(--swui-grid-cell-vertical-alignment);
+  justify-items: var(--swui-grid-cell-horizontal-alignment);
   box-sizing: border-box;
 }
 .swui-grid-row {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, max-content);
-  column-gap: var(--swui-grid-horizontal-spacing);
-  align-items: var(--swui-grid-cell-vertical-alignment);
+  display: contents;
+}
+.swui-grid-row &gt; *:first-child {
+  grid-column-start: 1;
 }
 .swui-grid-system {
   display: grid;
@@ -52090,13 +52165,13 @@ sync(inp);}
 function scan(){document.querySelectorAll('.swui-slider-input').forEach(bind);}
 function boot(){scan();if(window.MutationObserver){new MutationObserver(scan).observe(document.documentElement,{childList:true,subtree:true});}}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
-})();&lt;/script&gt;&lt;div data-theme=&quot;liquid-glass&quot; class=&quot;swui-root&quot;&gt;&lt;div id=&quot;cr&quot; style=&quot;width: 400px; height: 300px; display: flex; flex-direction: column; align-items: flex-start; position: relative; overflow: visible;&quot;&gt;&lt;div class=&quot;swui-grid&quot; style=&quot;--swui-grid-horizontal-spacing: 0px; --swui-grid-vertical-spacing: 0px; --swui-grid-cell-horizontal-alignment: center; --swui-grid-cell-vertical-alignment: center&quot;&gt;&lt;div class=&quot;swui-grid-row&quot;&gt;&lt;div class=&quot;swui-frame swui-hug-h swui-hug-v&quot; style=&quot;box-sizing: border-box; width: 60px; height: 30px; justify-content: center; align-items: center; text-align: center&quot; data-probe=&quot;a&quot;&gt;&lt;div style=&quot;background: #e74c3c; width: 100%; height: 100%;&quot;&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;swui-frame swui-hug-h swui-hug-v&quot; style=&quot;box-sizing: border-box; width: 120px; height: 30px; justify-content: center; align-items: center; text-align: center&quot; data-probe=&quot;b&quot;&gt;&lt;div style=&quot;background: #e74c3c; width: 100%; height: 100%;&quot;&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;swui-grid-row&quot;&gt;&lt;div class=&quot;swui-frame swui-hug-h swui-hug-v&quot; style=&quot;box-sizing: border-box; width: 100px; height: 30px; justify-content: center; align-items: center; text-align: center&quot; data-probe=&quot;c&quot;&gt;&lt;div style=&quot;background: #e74c3c; width: 100%; height: 100%;&quot;&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;swui-frame swui-hug-h swui-hug-v&quot; style=&quot;box-sizing: border-box; width: 40px; height: 30px; justify-content: center; align-items: center; text-align: center&quot; data-probe=&quot;d&quot;&gt;&lt;div style=&quot;background: #e74c3c; width: 100%; height: 100%;&quot;&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/body&gt;
+})();&lt;/script&gt;&lt;div data-theme=&quot;liquid-glass&quot; class=&quot;swui-root&quot;&gt;&lt;div id=&quot;cr&quot; style=&quot;width: 400px; height: 300px; display: flex; flex-direction: column; align-items: flex-start; position: relative; overflow: visible;&quot;&gt;&lt;div class=&quot;swui-grid&quot; style=&quot;--swui-grid-horizontal-spacing: 0px; --swui-grid-vertical-spacing: 0px; --swui-grid-cell-horizontal-alignment: center; --swui-grid-cell-vertical-alignment: center; --swui-grid-columns: 2&quot;&gt;&lt;div class=&quot;swui-grid-row&quot;&gt;&lt;div class=&quot;swui-frame swui-hug-h swui-hug-v&quot; style=&quot;box-sizing: border-box; width: 60px; height: 30px; justify-content: center; align-items: center; text-align: center&quot; data-probe=&quot;a&quot;&gt;&lt;div style=&quot;background: #e74c3c; width: 100%; height: 100%;&quot;&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;swui-frame swui-hug-h swui-hug-v&quot; style=&quot;box-sizing: border-box; width: 120px; height: 30px; justify-content: center; align-items: center; text-align: center&quot; data-probe=&quot;b&quot;&gt;&lt;div style=&quot;background: #e74c3c; width: 100%; height: 100%;&quot;&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;swui-grid-row&quot;&gt;&lt;div class=&quot;swui-frame swui-hug-h swui-hug-v&quot; style=&quot;box-sizing: border-box; width: 100px; height: 30px; justify-content: center; align-items: center; text-align: center&quot; data-probe=&quot;c&quot;&gt;&lt;div style=&quot;background: #e74c3c; width: 100%; height: 100%;&quot;&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;swui-frame swui-hug-h swui-hug-v&quot; style=&quot;box-sizing: border-box; width: 40px; height: 30px; justify-content: center; align-items: center; text-align: center&quot; data-probe=&quot;d&quot;&gt;&lt;div style=&quot;background: #e74c3c; width: 100%; height: 100%;&quot;&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/body&gt;
 &lt;/html&gt;"></iframe>
-<svg width="400" height="300"><rect x="20.0" y="0.0" width="60.0" height="30.0" fill="rgba(215,0,21,0.18)" stroke="#0a84ff" stroke-dasharray="5 3" stroke-width="1.5"/><rect x="0.0" y="0.0" width="60.0" height="30.0" fill="none" stroke="#d70015" stroke-width="1.5"/><rect x="100.0" y="0.0" width="120.0" height="30.0" fill="rgba(215,0,21,0.18)" stroke="#0a84ff" stroke-dasharray="5 3" stroke-width="1.5"/><rect x="60.0" y="0.0" width="120.0" height="30.0" fill="none" stroke="#d70015" stroke-width="1.5"/><rect x="0.0" y="30.0" width="100.0" height="30.0" fill="none" stroke="#0a84ff" stroke-dasharray="5 3" stroke-width="1.5"/><rect x="140.0" y="30.0" width="40.0" height="30.0" fill="rgba(215,0,21,0.18)" stroke="#0a84ff" stroke-dasharray="5 3" stroke-width="1.5"/><rect x="100.0" y="30.0" width="40.0" height="30.0" fill="none" stroke="#d70015" stroke-width="1.5"/></svg>
+<svg width="400" height="300"><rect x="20.0" y="0.0" width="60.0" height="30.0" fill="none" stroke="#0a84ff" stroke-dasharray="5 3" stroke-width="1.5"/><rect x="100.0" y="0.0" width="120.0" height="30.0" fill="none" stroke="#0a84ff" stroke-dasharray="5 3" stroke-width="1.5"/><rect x="0.0" y="30.0" width="100.0" height="30.0" fill="none" stroke="#0a84ff" stroke-dasharray="5 3" stroke-width="1.5"/><rect x="140.0" y="30.0" width="40.0" height="30.0" fill="none" stroke="#0a84ff" stroke-dasharray="5 3" stroke-width="1.5"/></svg>
 </div>
 <table>
 <tr><th>probe</th><th>SwiftUI (x, y, w, h)</th><th>web (x, y, w, h)</th><th>Δmax</th><th>verdict</th></tr>
-<tr><td>a</td><td>(20.0, 0.0, 60.0, 30.0)</td><td>(0.0, 0.0, 60.0, 30.0)</td><td>20.0</td><td class="mismatch">MISMATCH</td></tr><tr><td>b</td><td>(100.0, 0.0, 120.0, 30.0)</td><td>(60.0, 0.0, 120.0, 30.0)</td><td>40.0</td><td class="mismatch">MISMATCH</td></tr><tr><td>c</td><td>(0.0, 30.0, 100.0, 30.0)</td><td>(0.0, 30.0, 100.0, 30.0)</td><td>0.0</td><td class="match">match</td></tr><tr><td>d</td><td>(140.0, 30.0, 40.0, 30.0)</td><td>(100.0, 30.0, 40.0, 30.0)</td><td>40.0</td><td class="mismatch">MISMATCH</td></tr>
+<tr><td>a</td><td>(20.0, 0.0, 60.0, 30.0)</td><td>(20.0, 0.0, 60.0, 30.0)</td><td>0.0</td><td class="match">match</td></tr><tr><td>b</td><td>(100.0, 0.0, 120.0, 30.0)</td><td>(100.0, 0.0, 120.0, 30.0)</td><td>0.0</td><td class="match">match</td></tr><tr><td>c</td><td>(0.0, 30.0, 100.0, 30.0)</td><td>(0.0, 30.0, 100.0, 30.0)</td><td>0.0</td><td class="match">match</td></tr><tr><td>d</td><td>(140.0, 30.0, 40.0, 30.0)</td><td>(140.0, 30.0, 40.0, 30.0)</td><td>0.0</td><td class="match">match</td></tr>
 </table>
 </div>
 <div class="fixture">
@@ -52342,15 +52417,18 @@ body.swui-viewport &gt; .swui-root {
 .swui-grid {
   display: grid;
   width: fit-content;
+  grid-template-columns: repeat(var(--swui-grid-columns, 1), minmax(0, max-content));
   row-gap: var(--swui-grid-vertical-spacing);
+  column-gap: var(--swui-grid-horizontal-spacing);
+  align-items: var(--swui-grid-cell-vertical-alignment);
+  justify-items: var(--swui-grid-cell-horizontal-alignment);
   box-sizing: border-box;
 }
 .swui-grid-row {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, max-content);
-  column-gap: var(--swui-grid-horizontal-spacing);
-  align-items: var(--swui-grid-cell-vertical-alignment);
+  display: contents;
+}
+.swui-grid-row &gt; *:first-child {
+  grid-column-start: 1;
 }
 .swui-grid-system {
   display: grid;
@@ -54425,15 +54503,18 @@ body.swui-viewport &gt; .swui-root {
 .swui-grid {
   display: grid;
   width: fit-content;
+  grid-template-columns: repeat(var(--swui-grid-columns, 1), minmax(0, max-content));
   row-gap: var(--swui-grid-vertical-spacing);
+  column-gap: var(--swui-grid-horizontal-spacing);
+  align-items: var(--swui-grid-cell-vertical-alignment);
+  justify-items: var(--swui-grid-cell-horizontal-alignment);
   box-sizing: border-box;
 }
 .swui-grid-row {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, max-content);
-  column-gap: var(--swui-grid-horizontal-spacing);
-  align-items: var(--swui-grid-cell-vertical-alignment);
+  display: contents;
+}
+.swui-grid-row &gt; *:first-child {
+  grid-column-start: 1;
 }
 .swui-grid-system {
   display: grid;
