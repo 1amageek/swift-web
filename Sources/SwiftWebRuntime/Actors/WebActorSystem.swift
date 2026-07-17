@@ -23,6 +23,7 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
     private let activators = Mutex<[String: WebActorActivator]>([:])
     private let scopeAuthorizations = Mutex<[String: WebActorAuthorization]>([:])
     private let passivationPolicies = Mutex<[String: ActorPassivationPolicy]>([:])
+    private let reminderStoreBox = Mutex<(any WebActorReminderStore)?>(nil)
     private let activationRecords = Mutex<[ActorID: WebActorActivationRecord]>([:])
     private let activationLock = Mutex<Void>(())
     private let persistentStoreBox: Mutex<(any WebActorPersistentStore)?>
@@ -505,6 +506,68 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
     private static func runPassivatingHook(on lifecycle: some WebActorLifecycle) async {
         await lifecycle.whenLocal { isolated in
             await isolated.passivating()
+        }
+    }
+
+    /// Installs the durable reminder backend. The Cloudflare host lowers
+    /// reminders onto Durable Object Alarms; native hosts can install
+    /// `InProcessActorReminderStore` for process-lifetime scheduling.
+    public func setReminderStore(_ store: any WebActorReminderStore) {
+        reminderStoreBox.withLock { $0 = store }
+    }
+
+    /// The reminder handle for an actor identity.
+    public func reminders(for id: ActorID) -> WebActorReminders {
+        WebActorReminders(actorID: id, store: reminderStoreBox.withLock { $0 })
+    }
+
+    /// Delivers a fired reminder: re-activates the actor when passivated
+    /// (restoring grain state and running `activated()`), invokes
+    /// `WebActorRemindable.reminder(_:)`, and persists state the handler
+    /// mutated. Delivery to a non-remindable actor throws.
+    public func deliverReminder(_ reminder: WebActorReminder) async throws {
+        #if !hasFeature(Embedded)
+        if let environment = registeredEnvironment(for: reminder.actorID) {
+            return try await EnvironmentValues.withValue(environment) {
+                try await self.deliverResolvedReminder(reminder)
+            }
+        }
+        #endif
+        try await deliverResolvedReminder(reminder)
+    }
+
+    private func deliverResolvedReminder(_ reminder: WebActorReminder) async throws {
+        let now = Date()
+        var wasActivated = false
+        var evictions: [WebActorEviction] = []
+        let resolvedActor: (any DistributedActor)?
+        if let registered = registry.find(id: reminder.actorID) {
+            markVirtualActorAccess(id: reminder.actorID, at: now)
+            resolvedActor = registered
+        } else {
+            let activation = try activatedActor(id: reminder.actorID, activationPolicy: .defaults, now: now)
+            resolvedActor = activation.actor
+            wasActivated = activation.wasActivated
+            evictions = activation.evictions
+        }
+        guard let actor = resolvedActor else {
+            throw RuntimeError.actorNotFound(reminder.actorID)
+        }
+        try await runPassivation(for: evictions)
+        try await persistentState.loadIfNeeded(id: reminder.actorID, store: persistentStore)
+        if wasActivated, let lifecycle = actor as? any WebActorLifecycle {
+            await Self.runActivatedHook(on: lifecycle)
+        }
+        guard let remindable = actor as? any WebActorRemindable else {
+            throw WebActorReminderError.actorNotRemindable(actorID: reminder.actorID, name: reminder.name)
+        }
+        try await Self.runReminderHook(on: remindable, name: reminder.name)
+        try await persistentState.save(id: reminder.actorID, store: persistentStore)
+    }
+
+    private static func runReminderHook(on remindable: some WebActorRemindable, name: String) async throws {
+        try await remindable.whenLocal { isolated in
+            try await isolated.reminder(name)
         }
     }
 }
