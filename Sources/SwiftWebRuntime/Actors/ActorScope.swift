@@ -31,7 +31,7 @@ public struct ActorScope: Sendable {
     }
 
     let segments: [Segment]
-    let isTransient: Bool
+    public let isTransient: Bool
 
     private init(segments: [Segment], isTransient: Bool) {
         self.segments = segments

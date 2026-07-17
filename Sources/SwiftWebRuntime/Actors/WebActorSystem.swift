@@ -22,6 +22,7 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
     private let transportBox: Mutex<(any WebActorTransport)?>
     private let activators = Mutex<[String: WebActorActivator]>([:])
     private let scopeAuthorizations = Mutex<[String: WebActorAuthorization]>([:])
+    private let passivationPolicies = Mutex<[String: ActorPassivationPolicy]>([:])
     private let activationRecords = Mutex<[ActorID: WebActorActivationRecord]>([:])
     private let activationLock = Mutex<Void>(())
     private let persistentStoreBox: Mutex<(any WebActorPersistentStore)?>
@@ -87,6 +88,13 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
     /// app-level authorizer allows the request.
     public func registerScopeAuthorization(_ authorization: WebActorAuthorization, forContract contract: String) {
         scopeAuthorizations.withLock { $0[contract] = authorization }
+    }
+
+    /// Registers a per-contract passivation policy. Registered by
+    /// `ActorGroup` when the group declares one; overrides the host-level
+    /// `WebActorActivationPolicy.idleTimeout` for that contract.
+    public func registerPassivationPolicy(_ policy: ActorPassivationPolicy, forContract contract: String) {
+        passivationPolicies.withLock { $0[contract] = policy }
     }
 
     private func scopeAuthorization(for recipient: WebActorRecipient) -> WebActorAuthorization? {
@@ -286,16 +294,37 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
         if registeredActor != nil {
             markVirtualActorAccess(id: envelope.recipientID, at: now)
         }
-        guard let actor = try registeredActor ?? activatedActor(
-            id: envelope.recipientID,
-            activationPolicy: activationPolicy,
-            now: now
-        ) else {
+        var wasActivated = false
+        var evictions: [WebActorEviction] = []
+        let resolvedActor: (any DistributedActor)?
+        if let registeredActor {
+            resolvedActor = registeredActor
+        } else {
+            let activation = try activatedActor(
+                id: envelope.recipientID,
+                activationPolicy: activationPolicy,
+                now: now
+            )
+            resolvedActor = activation.actor
+            wasActivated = activation.wasActivated
+            evictions = activation.evictions
+        }
+        guard let actor = resolvedActor else {
             throw RuntimeError.actorNotFound(envelope.recipientID)
         }
 
+        // Passivate evicted instances outside the activation lock: run their
+        // hooks and persist any grain state the hooks mutated.
+        try await runPassivation(for: evictions)
+
         // Restore grain state before the first dispatch sees the actor.
         try await persistentState.loadIfNeeded(id: envelope.recipientID, store: persistentStore)
+
+        // The activation hook runs after grain state is restored, so cold
+        // start and resume observe the same, fully rehydrated actor.
+        if wasActivated, let lifecycle = actor as? any WebActorLifecycle {
+            await Self.runActivatedHook(on: lifecycle)
+        }
 
         var decoder = try WebActorInvocationDecoder(envelope: envelope)
         let resultStore = WebActorInvocationResultStore()
@@ -327,24 +356,24 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
         id: ActorID,
         activationPolicy: WebActorActivationPolicy,
         now: Date
-    ) throws -> (any DistributedActor)? {
+    ) throws -> WebActorActivationResult {
         guard let separator = id.firstIndex(of: ":") else {
-            return nil
+            return WebActorActivationResult(actor: nil, wasActivated: false, evictions: [])
         }
         let contract = String(id[..<separator])
         guard let activator = activators.withLock({ $0[contract] }) else {
-            return nil
+            return WebActorActivationResult(actor: nil, wasActivated: false, evictions: [])
         }
         return try activationLock.withLock { _ in
             if let existing = registry.find(id: id) {
                 markVirtualActorAccess(id: id, at: now)
-                return existing
+                return WebActorActivationResult(actor: existing, wasActivated: false, evictions: [])
             }
             guard activationPolicy.maximumVirtualActorCount > 0 else {
                 throw RuntimeError.transportFailed("Virtual actor activation is disabled")
             }
-            purgeExpiredVirtualActors(now: now, policy: activationPolicy)
-            evictLeastRecentlyUsedVirtualActorsIfNeeded(policy: activationPolicy)
+            var evictions = purgeExpiredVirtualActors(now: now, policy: activationPolicy)
+            evictions.append(contentsOf: evictLeastRecentlyUsedVirtualActorsIfNeeded(policy: activationPolicy))
             let storageCollector = ActorStorageActivationContext.Collector()
             WebActorActivationContext.withValue(WebActorPendingID(id)) {
                 ActorStorageActivationContext.withValue(storageCollector) {
@@ -359,7 +388,7 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
             }
             persistentState.bind(id: id, boxes: storageCollector.collected())
             recordVirtualActor(id: id, contract: contract, at: now)
-            return activated
+            return WebActorActivationResult(actor: activated, wasActivated: true, evictions: evictions)
         }
     }
 
@@ -393,29 +422,34 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
         }
     }
 
-    private func purgeExpiredVirtualActors(now: Date, policy: WebActorActivationPolicy) {
-        guard let idleTimeout = policy.idleTimeout else {
-            return
+    private func purgeExpiredVirtualActors(now: Date, policy: WebActorActivationPolicy) -> [WebActorEviction] {
+        let contractPolicies = passivationPolicies.withLock { $0 }
+        guard policy.idleTimeout != nil || !contractPolicies.isEmpty else {
+            return []
         }
         let expiredIDs = activationRecords.withLock { records in
             let expiredIDs = records.values
-                .filter { now.timeIntervalSince($0.lastAccess) >= idleTimeout }
+                .filter { record in
+                    let timeout = contractPolicies[record.contract]?.idleTimeout ?? policy.idleTimeout
+                    guard let timeout else {
+                        return false
+                    }
+                    return now.timeIntervalSince(record.lastAccess) >= timeout
+                }
                 .map(\.id)
             for id in expiredIDs {
                 records[id] = nil
             }
             return expiredIDs
         }
-        for id in expiredIDs {
-            registry.unregister(id: id)
-        }
+        return unregisterCapturingInstances(ids: expiredIDs)
     }
 
     private func evictLeastRecentlyUsedVirtualActorsIfNeeded(
         policy: WebActorActivationPolicy
-    ) {
+    ) -> [WebActorEviction] {
         guard policy.maximumVirtualActorCount < Int.max else {
-            return
+            return []
         }
         let evictedIDs = activationRecords.withLock { records in
             guard records.count >= policy.maximumVirtualActorCount else {
@@ -431,10 +465,64 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
             }
             return evictedIDs
         }
-        for id in evictedIDs {
+        return unregisterCapturingInstances(ids: evictedIDs)
+    }
+
+    /// Unregisters the given IDs, capturing each live instance so the caller
+    /// can run its `passivating()` hook outside the activation lock. The
+    /// durable grain state is intentionally left in place: passivation
+    /// evicts the instance, not the identity.
+    private func unregisterCapturingInstances(ids: [ActorID]) -> [WebActorEviction] {
+        ids.map { id in
+            let instance = registry.find(id: id)
             registry.unregister(id: id)
+            return WebActorEviction(id: id, instance: instance)
         }
     }
+
+    /// Runs `passivating()` hooks for evicted instances and persists any
+    /// grain state the hook mutated. A save failure propagates: dropping a
+    /// mutation silently is worse than failing the triggering call.
+    private func runPassivation(for evictions: [WebActorEviction]) async throws {
+        for eviction in evictions {
+            guard let lifecycle = eviction.instance as? any WebActorLifecycle else {
+                continue
+            }
+            await Self.runPassivatingHook(on: lifecycle)
+            try await persistentState.save(id: eviction.id, store: persistentStore)
+        }
+    }
+
+    /// Lifecycle hooks are ordinary (non-distributed) actor methods, so they
+    /// can only be invoked through `whenLocal`. Instances reached here are
+    /// always local: they were activated or registered on this system.
+    private static func runActivatedHook(on lifecycle: some WebActorLifecycle) async {
+        await lifecycle.whenLocal { isolated in
+            await isolated.activated()
+        }
+    }
+
+    private static func runPassivatingHook(on lifecycle: some WebActorLifecycle) async {
+        await lifecycle.whenLocal { isolated in
+            await isolated.passivating()
+        }
+    }
+}
+
+/// An evicted virtual actor: its ID and, when it was still registered, the
+/// live instance whose `passivating()` hook should run.
+private struct WebActorEviction: Sendable {
+    let id: WebActorSystem.ActorID
+    let instance: (any DistributedActor)?
+}
+
+/// The outcome of resolving a virtual actor for an invocation: the resolved
+/// instance, whether this call activated it, and instances evicted to make
+/// room, whose passivation hooks run outside the activation lock.
+private struct WebActorActivationResult: Sendable {
+    let actor: (any DistributedActor)?
+    let wasActivated: Bool
+    let evictions: [WebActorEviction]
 }
 
 private struct WebActorActivator: Sendable {
