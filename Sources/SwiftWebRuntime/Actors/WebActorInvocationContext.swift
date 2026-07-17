@@ -9,6 +9,7 @@ public struct WebActorInvocationContext: Sendable, Equatable {
     public let transport: Transport
     public let principalID: String?
     public let sessionID: String?
+    public let tenantID: String?
     public let remoteAddress: String?
     public let peerID: String?
 
@@ -16,12 +17,14 @@ public struct WebActorInvocationContext: Sendable, Equatable {
         transport: Transport,
         principalID: String? = nil,
         sessionID: String? = nil,
+        tenantID: String? = nil,
         remoteAddress: String? = nil,
         peerID: String? = nil
     ) {
         self.transport = transport
         self.principalID = principalID
         self.sessionID = sessionID
+        self.tenantID = tenantID
         self.remoteAddress = remoteAddress
         self.peerID = peerID
     }

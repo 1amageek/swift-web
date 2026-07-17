@@ -22,16 +22,19 @@ import SwiftWebActors
 public struct ActorGroup<ActorType: DistributedActor>: Scene, Sendable, _PrimitiveScene
 where ActorType.ActorSystem == WebActorSystem {
     private let factory: @Sendable (WebActorSystem) -> ActorType
+    private let scope: ActorScope?
 
     /// The factory receives the app's actor system, so it captures no app
     /// state: `ActorGroup { SupportAgent(actorSystem: $0) }`.
-    public init(_ factory: @escaping @Sendable (WebActorSystem) -> ActorType) {
+    public init(scope: ActorScope? = nil, _ factory: @escaping @Sendable (WebActorSystem) -> ActorType) {
         self.factory = factory
+        self.scope = scope
     }
 
     /// For factories that capture a `Sendable` actor system themselves.
-    public init(_ factory: @escaping @Sendable () -> ActorType) {
+    public init(scope: ActorScope? = nil, _ factory: @escaping @Sendable () -> ActorType) {
         self.factory = { _ in factory() }
+        self.scope = scope
     }
 
     func _makeScene(in context: _SceneContext) async throws {
@@ -47,6 +50,12 @@ where ActorType.ActorSystem == WebActorSystem {
             on: context.application,
             actorSystem: context.actorSystem
         )
+        if let scope {
+            context.actorSystem.registerScopeAuthorization(
+                scope.authorization(),
+                forContract: WebActorSystem.contract(for: ActorType.self)
+            )
+        }
     }
 }
 #endif

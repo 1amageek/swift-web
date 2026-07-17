@@ -21,6 +21,7 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
     private let registry = ActorRegistry()
     private let transportBox: Mutex<(any WebActorTransport)?>
     private let activators = Mutex<[String: WebActorActivator]>([:])
+    private let scopeAuthorizations = Mutex<[String: WebActorAuthorization]>([:])
     private let activationRecords = Mutex<[ActorID: WebActorActivationRecord]>([:])
     private let activationLock = Mutex<Void>(())
     private let persistentStoreBox: Mutex<(any WebActorPersistentStore)?>
@@ -78,6 +79,21 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
     ) where Act.ActorSystem == WebActorSystem {
         let activator = WebActorActivator(environment: environment, activate: activate)
         activators.withLock { $0[Self.contract(for: actorType)] = activator }
+    }
+
+    /// Registers the scope-implied authorization for a contract. Registered
+    /// by `ActorGroup` when the group declares an `ActorScope`; applied to
+    /// every external invocation addressed to the contract, after the
+    /// app-level authorizer allows the request.
+    public func registerScopeAuthorization(_ authorization: WebActorAuthorization, forContract contract: String) {
+        scopeAuthorizations.withLock { $0[contract] = authorization }
+    }
+
+    private func scopeAuthorization(for recipient: WebActorRecipient) -> WebActorAuthorization? {
+        guard let contract = recipient.contract else {
+            return nil
+        }
+        return scopeAuthorizations.withLock { $0[contract] }
     }
 
     public func assignID<Act>(_ actorType: Act.Type) -> ActorID where Act: DistributedActor {
@@ -195,6 +211,14 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
             break
         case .deny(let reason):
             throw WebActorAuthorizationError(reason)
+        }
+        if let scoped = scopeAuthorization(for: recipient) {
+            switch await scoped.authorize(request) {
+            case .allow:
+                break
+            case .deny(let reason):
+                throw WebActorAuthorizationError(reason)
+            }
         }
         return try await execute(
             envelope: envelope,
