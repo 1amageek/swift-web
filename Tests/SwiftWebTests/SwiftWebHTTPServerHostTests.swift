@@ -9,6 +9,51 @@ import Testing
 @Suite
 struct SwiftWebHTTPServerHostTests {
     @Test
+    func endpointStringFormDeclaresCachePolicy() async throws {
+        try await withHost(HostFixtureApp()) { client, base in
+            let (data, response) = try await client.data(from: URL(string: "\(base)/cached.txt")!)
+            let http = try #require(response as? HTTPURLResponse)
+            #expect(http.statusCode == 200)
+            #expect(http.value(forHTTPHeaderField: "Content-Type") == "text/plain; charset=utf-8")
+            #expect(http.value(forHTTPHeaderField: "Cache-Control") == "public, max-age=600, s-maxage=3600")
+            #expect(String(decoding: data, as: UTF8.self) == "cached fixture")
+        }
+    }
+
+    @Test
+    func endpointStringFormOmitsCacheControlByDefault() async throws {
+        try await withHost(HostFixtureApp()) { client, base in
+            let (data, response) = try await client.data(from: URL(string: "\(base)/plain.txt")!)
+            let http = try #require(response as? HTTPURLResponse)
+            #expect(http.statusCode == 200)
+            #expect(http.value(forHTTPHeaderField: "Cache-Control") == nil)
+            #expect(String(decoding: data, as: UTF8.self) == "plain fixture")
+        }
+    }
+
+    @Test
+    func endpointResponseFormServesBinaryWithCustomHeaders() async throws {
+        try await withHost(HostFixtureApp()) { client, base in
+            let (data, response) = try await client.data(from: URL(string: "\(base)/binary")!)
+            let http = try #require(response as? HTTPURLResponse)
+            #expect(http.statusCode == 200)
+            #expect(http.value(forHTTPHeaderField: "Content-Type") == "application/octet-stream")
+            #expect(http.value(forHTTPHeaderField: "ETag") == "\"fixture-v1\"")
+            #expect(data == Data([0x01, 0x02, 0xFF]))
+        }
+    }
+
+    @Test
+    func endpointResponseFormServesNonOKStatus() async throws {
+        try await withHost(HostFixtureApp()) { client, base in
+            let (data, response) = try await client.data(from: URL(string: "\(base)/missing-resource")!)
+            let http = try #require(response as? HTTPURLResponse)
+            #expect(http.statusCode == 404)
+            #expect(String(decoding: data, as: UTF8.self) == "missing")
+        }
+    }
+
+    @Test
     func servesPageWithSecurityHeadersAndCSRFCookie() async throws {
         try await withHost(HostFixtureApp()) { client, base in
             let (data, response) = try await client.data(from: URL(string: "\(base)/")!)
@@ -218,6 +263,25 @@ private struct HostFixtureApp: App {
         HostSessionReadPage()
         HostSessionLoginPage()
         SSEEndpoint(HostTickerRoute.self, path: "/events")
+        Endpoint("/plain.txt", contentType: "text/plain; charset=utf-8") { _ in
+            "plain fixture"
+        }
+        Endpoint(
+            "/cached.txt",
+            contentType: "text/plain; charset=utf-8",
+            cache: .publicCache(browserSeconds: 600, sharedSeconds: 3600)
+        ) { _ in
+            "cached fixture"
+        }
+        Endpoint("/binary") { _ in
+            var headers = HTTPFields()
+            headers[.contentType] = "application/octet-stream"
+            headers[.eTag] = "\"fixture-v1\""
+            return Response(status: .ok, headers: headers, body: .init(bytes: [0x01, 0x02, 0xFF]))
+        }
+        Endpoint("/missing-resource") { _ in
+            Response(status: .notFound, headers: HTTPFields(), body: .init(string: "missing"))
+        }
     }
 }
 
