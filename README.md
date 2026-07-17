@@ -138,7 +138,7 @@ this on its own and the `DEVELOPER_DIR` override below is no longer needed.
 
 ## Installation
 
-The current developer-preview release is `0.2.1`. Depend on it by version:
+The current developer-preview release is `0.6.0`. Depend on it by version:
 
 ```swift
 // swift-tools-version: 6.3
@@ -153,7 +153,7 @@ let package = Package(
         .library(name: "MyApp", targets: ["MyApp"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/1amageek/swift-web.git", from: "0.2.1"),
+        .package(url: "https://github.com/1amageek/swift-web.git", from: "0.6.0"),
         .package(url: "https://github.com/1amageek/swift-html.git", from: "0.9.2"),
     ],
     targets: [
@@ -187,7 +187,7 @@ let package = Package(
 ### Install The CLI With Mint
 
 Mint can install the `sweb` executable product directly from the repository. Pin
-`@0.2.1` for a reproducible install; `@main` tracks the latest development.
+`@0.6.0` for a reproducible install; `@main` tracks the latest development.
 
 Mint invokes `swift` from `PATH`, so it must find the **6.4** toolchain (the
 default 6.3.1 fails to resolve the host HTTP stack). Put the 6.4 toolchain first:
@@ -195,17 +195,17 @@ default 6.3.1 fails to resolve the host HTTP stack). Put the 6.4 toolchain first
 ```bash
 XBIN=/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin
 env DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer PATH="$XBIN:$PATH" \
-  mint install 1amageek/swift-web@0.2.1 sweb
+  mint install 1amageek/swift-web@0.6.0 sweb
 ```
 
 | Need | Command |
 |---|---|
-| Install and link `sweb` globally | `mint install 1amageek/swift-web@0.2.1 sweb` |
-| Run without linking | `mint run 1amageek/swift-web@0.2.1 sweb <command>` |
-| Print the installed executable path | `mint which 1amageek/swift-web@0.2.1 sweb` |
+| Install and link `sweb` globally | `mint install 1amageek/swift-web@0.6.0 sweb` |
+| Run without linking | `mint run 1amageek/swift-web@0.6.0 sweb <command>` |
+| Print the installed executable path | `mint which 1amageek/swift-web@0.6.0 sweb` |
 
 ```bash
-mint install 1amageek/swift-web@0.2.1 sweb
+mint install 1amageek/swift-web@0.6.0 sweb
 sweb --help
 sweb new MyApp --output ../MyApp
 ```
@@ -763,7 +763,7 @@ WASM content hash so unchanged artifacts are not recompressed.
 | `swift-html` | Released dependency: `0.9.2`. Storyboard development can still use a local sibling checkout when present. |
 | Host compatibility | The `swift-http-server` host stack requires a Swift 6.4 toolchain for host/dev builds (see Why Swift 6.4). |
 | WASM compatibility | Browser runtime remains pinned to Swift 6.3.1 and the matching WASM SDK. |
-| Versioned SwiftPM release | Released: every dependency resolves behind a version requirement as of `0.2.1`. |
+| Versioned SwiftPM release | Released: every dependency resolves behind a version requirement as of `0.6.0`. |
 
 ## License
 
