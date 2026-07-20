@@ -37,6 +37,18 @@ enum FixtureID: String, CaseIterable {
     case zstackNestedStack = "zstack-nested-stack"
     case scrollInVStack = "scroll-in-vstack"
     case gridInHStack = "grid-in-hstack"
+    case siblingSpacerRows = "sibling-spacer-rows"
+    case siblingSpacerColumns = "sibling-spacer-columns"
+    case paddedFillInHStack = "padded-fill-in-hstack"
+    case paddedFillInVStack = "padded-fill-in-vstack"
+    case siblingFillRows = "sibling-fill-rows"
+    case spacerColumnInHStack = "spacer-column-in-hstack"
+    case paddedSpacerRowInVStack = "padded-spacer-row-in-vstack"
+    case paddedFillVInVStack = "padded-fill-v-in-vstack"
+    case doublePaddedFillInHStack = "double-padded-fill-in-hstack"
+    case deepFillChain = "deep-fill-chain-3"
+    case deepSpacerRows = "deep-spacer-rows-3"
+    case fillInFixedFrame = "fill-in-fixed-frame"
 }
 
 /// Shared harness geometry.

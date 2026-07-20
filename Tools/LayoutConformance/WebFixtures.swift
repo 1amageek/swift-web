@@ -289,6 +289,131 @@ enum WebFixtures {
                 box("e", width: 60, height: 40)
             }
             .frame(width: 400)
+
+        case .siblingSpacerRows:
+            HStack(spacing: 0) {
+                HStack(spacing: 0) {
+                    box("a", width: 60, height: 40)
+                    Spacer()
+                }
+                HStack(spacing: 0) {
+                    Spacer()
+                    box("b", width: 60, height: 40)
+                }
+            }
+            .frame(width: 400)
+
+        case .siblingSpacerColumns:
+            VStack(spacing: 0) {
+                VStack(spacing: 0) {
+                    box("a", width: 80, height: 30)
+                    Spacer()
+                }
+                VStack(spacing: 0) {
+                    Spacer()
+                    box("b", width: 80, height: 30)
+                }
+            }
+            .frame(height: 300)
+
+        case .paddedFillInHStack:
+            HStack(spacing: 0) {
+                framedBox("a", maxWidth: .infinity, height: 40)
+                    .padding(20)
+                box("b", width: 60, height: 40)
+            }
+            .frame(width: 400)
+
+        case .paddedFillInVStack:
+            VStack(spacing: 0) {
+                framedBox("a", maxWidth: .infinity, height: 40)
+                    .padding(20)
+            }
+            .frame(width: 400)
+
+        case .siblingFillRows:
+            HStack(spacing: 0) {
+                HStack(spacing: 0) {
+                    framedBox("a", maxWidth: .infinity, height: 40)
+                }
+                box("b", width: 60, height: 40)
+            }
+            .frame(width: 400)
+
+        case .spacerColumnInHStack:
+            HStack(spacing: 0) {
+                VStack(spacing: 0) {
+                    box("a", width: 60, height: 30)
+                    Spacer()
+                }
+                box("b", width: 60, height: 40)
+            }
+            .frame(height: 200)
+
+        case .paddedSpacerRowInVStack:
+            VStack(spacing: 0) {
+                HStack(spacing: 0) {
+                    box("a", width: 60, height: 40)
+                    Spacer()
+                    box("b", width: 60, height: 40)
+                }
+                .padding(10)
+                box("c", width: 80, height: 40)
+            }
+            .frame(width: 400)
+
+        case .paddedFillVInVStack:
+            VStack(spacing: 0) {
+                div(.style("background: #3498db; width: 100%; height: 100%;"))
+                    .frame(width: 80, maxHeight: .infinity)
+                    .addingAttributes([.data("probe", "a")])
+                    .padding(20)
+                box("b", width: 60, height: 40)
+            }
+            .frame(height: 300)
+
+        case .doublePaddedFillInHStack:
+            HStack(spacing: 0) {
+                framedBox("a", maxWidth: .infinity, height: 40)
+                    .padding(20)
+                    .padding(20)
+                box("b", width: 60, height: 40)
+            }
+            .frame(width: 400)
+
+        case .deepFillChain:
+            HStack(spacing: 0) {
+                VStack(spacing: 0) {
+                    VStack(spacing: 0) {
+                        framedBox("a", maxWidth: .infinity, height: 40)
+                    }
+                }
+                box("b", width: 60, height: 40)
+            }
+            .frame(width: 400)
+
+        case .deepSpacerRows:
+            HStack(spacing: 0) {
+                HStack(spacing: 0) {
+                    HStack(spacing: 0) {
+                        box("a", width: 60, height: 40)
+                        Spacer()
+                    }
+                }
+                box("b", width: 60, height: 40)
+            }
+            .frame(width: 400)
+
+        case .fillInFixedFrame:
+            VStack(spacing: 0) {
+                VStack(spacing: 0) {
+                    framedBox("a", maxWidth: .infinity, height: 30)
+                }
+                .frame(width: 100)
+                .addingAttributes([.data("probe", "f")])
+                box("b", width: 200, height: 40)
+            }
+            .frame(width: 400)
         }
     }
 
