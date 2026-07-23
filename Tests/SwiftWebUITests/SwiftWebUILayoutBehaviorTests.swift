@@ -7,6 +7,75 @@ import Testing
 @Suite
 struct SwiftWebUILayoutBehaviorTests {
   @Test
+  func gridUsesTheWidestRowForSharedColumnTracks() {
+    let rendered = Grid {
+      GridRow {
+        Text("One")
+      }
+      GridRow {
+        Text("One")
+        Text("Two")
+        Text("Three")
+      }
+      GridRow {
+        Text("One")
+        Text("Two")
+      }
+    }
+    .render()
+
+    #expect(rendered.contains("--swui-grid-columns: 3"))
+  }
+
+  @Test(arguments: [true, false])
+  func gridCountsTheSelectedConditionalContent(_ usesWideRow: Bool) {
+    let rendered = Grid {
+      if usesWideRow {
+        GridRow {
+          Text("One")
+          Text("Two")
+          Text("Three")
+        }
+      } else {
+        GridRow {
+          Text("One")
+          Text("Two")
+        }
+      }
+    }
+    .render()
+
+    let expectedColumnCount = usesWideRow ? 3 : 2
+    #expect(rendered.contains("--swui-grid-columns: \(expectedColumnCount)"))
+  }
+
+  @Test
+  func gridCountsRowsAndCellsProducedByBuilderLoops() {
+    let widths = [1, 3, 2]
+    let rendered = Grid {
+      for width in widths {
+        GridRow {
+          for column in 0..<width {
+            Text("Column \(column)")
+          }
+        }
+      }
+    }
+    .render()
+
+    #expect(rendered.contains("--swui-grid-columns: 3"))
+  }
+
+  @Test
+  func emptyGridRetainsOneColumn() {
+    let rendered = Grid {
+    }
+    .render()
+
+    #expect(rendered.contains("--swui-grid-columns: 1"))
+  }
+
+  @Test
   func spacerPublishesMinLengthAsAxisNeutralCustomProperty() {
     let rendered = VStack {
       Spacer(minLength: 24)
