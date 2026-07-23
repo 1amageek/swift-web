@@ -36,17 +36,10 @@ public struct HStack<Content: HTML>: AttributeComponent {
 
     @HTMLBuilder
     public var body: some HTML {
-        let greed = stackAxisGreed(content, isHorizontal: true)
         Element(
             "div",
             attributes: mergedAttributes(
-                class: styleClasses(
-                    .swuiHStack,
-                    gap.className,
-                    alignment.alignItemsClassName,
-                    greed.horizontal ? .swuiGreedyHorizontal : nil,
-                    greed.vertical ? .swuiGreedyVertical : nil
-                ).rawValue,
+                class: styleClasses(.swuiHStack, gap.className, alignment.alignItemsClassName).rawValue,
                 styles: Style {
                     if let value = gap.cssValue {
                         .gap(value)

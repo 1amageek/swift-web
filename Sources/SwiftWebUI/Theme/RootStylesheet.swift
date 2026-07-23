@@ -558,133 +558,39 @@ package enum RootStylesheet {
         .flex("1 1 0%")
           .minHeight("0")
       }
-      // MARK: Spacer greed (resolved at render time)
-      // A stack holding a `Spacer` is marked `swui-greedy-h/-v` on its own axis
-      // by StackSpacerDetection, and the mark is re-derived on every enclosing
-      // stack up to the first bounding `.frame(...)`. Because greed is fully
-      // resolved before it reaches CSS, these direct `parent > child` rules
-      // consume it at any nesting depth without a `:has()` that could pierce a
-      // bounding frame. The declarations mirror the fill markers exactly — greed
-      // and fill negotiate size identically, they differ only in propagation.
-      // (`.swui-frame` is intentionally absent: a frame proposes size to a
-      // greedy child through the hug-/fill-frame blocks below, not here.)
-      rule(list(
-        cls("swui-vstack").child(cls("swui-greedy-h")),
-        cls("swui-lazy-vstack").child(cls("swui-greedy-h")),
-        cls("swui-group-box").child(cls("swui-greedy-h")),
-        cls("swui-zstack").child(cls("swui-greedy-h")),
-        cls("swui-scroll-view").child(cls("swui-greedy-h")),
-        cls("swui-root").child(cls("swui-greedy-h"))
-      )) {
-        .alignSelf("stretch")
-          .width("100%")
-      }
-      rule(list(
-        cls("swui-hstack").child(cls("swui-greedy-h")),
-        cls("swui-lazy-hstack").child(cls("swui-greedy-h")),
-        cls("swui-toolbar").child(cls("swui-greedy-h"))
-      )) {
-        .flex("1 1 0%")
-          .minWidth("0")
-      }
-      rule(list(
-        cls("swui-hstack").child(cls("swui-greedy-v")),
-        cls("swui-lazy-hstack").child(cls("swui-greedy-v")),
-        cls("swui-toolbar").child(cls("swui-greedy-v"))
-      )) {
-        .alignSelf("stretch")
-      }
-      rule(list(
-        cls("swui-vstack").child(cls("swui-greedy-v")),
-        cls("swui-lazy-vstack").child(cls("swui-greedy-v")),
-        cls("swui-group-box").child(cls("swui-greedy-v")),
-        cls("swui-root").child(cls("swui-greedy-v"))
-      )) {
-        .flex("1 1 0%")
-          .minHeight("0")
-      }
-      // Modifier wrappers (padding/background/...) sit between a stack and its
-      // greedy content. A wrapper does not bound size, so a `:has()` reaching
-      // through any depth of wrappers is safe (unlike through a frame), and it
-      // makes a greedy element propagate through `.padding().background()` and
-      // nested chains. Matched on `swui-greedy-*` and `swui-fill-*` alike so a
-      // wrapped `Spacer`-stack and a wrapped `.frame(.infinity)` both carry up.
-      rule(list(
-        cls("swui-vstack").child(cls("swui-box-modifier").has(cls("swui-greedy-h"))),
-        cls("swui-lazy-vstack").child(cls("swui-box-modifier").has(cls("swui-greedy-h"))),
-        cls("swui-group-box").child(cls("swui-box-modifier").has(cls("swui-greedy-h"))),
-        cls("swui-frame").child(cls("swui-box-modifier").has(cls("swui-greedy-h"))),
-        cls("swui-root").child(cls("swui-box-modifier").has(cls("swui-greedy-h"))),
-        cls("swui-vstack").child(cls("swui-box-modifier").has(cls("swui-fill-h"))),
-        cls("swui-lazy-vstack").child(cls("swui-box-modifier").has(cls("swui-fill-h"))),
-        cls("swui-group-box").child(cls("swui-box-modifier").has(cls("swui-fill-h"))),
-        cls("swui-frame").child(cls("swui-box-modifier").has(cls("swui-fill-h"))),
-        cls("swui-root").child(cls("swui-box-modifier").has(cls("swui-fill-h")))
-      )) {
-        .alignSelf("stretch")
-          .width("100%")
-      }
-      rule(list(
-        cls("swui-hstack").child(cls("swui-box-modifier").has(cls("swui-greedy-h"))),
-        cls("swui-lazy-hstack").child(cls("swui-box-modifier").has(cls("swui-greedy-h"))),
-        cls("swui-toolbar").child(cls("swui-box-modifier").has(cls("swui-greedy-h"))),
-        cls("swui-hstack").child(cls("swui-box-modifier").has(cls("swui-fill-h"))),
-        cls("swui-lazy-hstack").child(cls("swui-box-modifier").has(cls("swui-fill-h"))),
-        cls("swui-toolbar").child(cls("swui-box-modifier").has(cls("swui-fill-h")))
-      )) {
-        .flex("1 1 0%")
-          .minWidth("0")
-      }
-      rule(list(
-        cls("swui-hstack").child(cls("swui-box-modifier").has(cls("swui-greedy-v"))),
-        cls("swui-lazy-hstack").child(cls("swui-box-modifier").has(cls("swui-greedy-v"))),
-        cls("swui-toolbar").child(cls("swui-box-modifier").has(cls("swui-greedy-v"))),
-        cls("swui-hstack").child(cls("swui-box-modifier").has(cls("swui-fill-v"))),
-        cls("swui-lazy-hstack").child(cls("swui-box-modifier").has(cls("swui-fill-v"))),
-        cls("swui-toolbar").child(cls("swui-box-modifier").has(cls("swui-fill-v")))
-      )) {
-        .alignSelf("stretch")
-      }
-      rule(list(
-        cls("swui-vstack").child(cls("swui-box-modifier").has(cls("swui-greedy-v"))),
-        cls("swui-lazy-vstack").child(cls("swui-box-modifier").has(cls("swui-greedy-v"))),
-        cls("swui-group-box").child(cls("swui-box-modifier").has(cls("swui-greedy-v"))),
-        cls("swui-frame").child(cls("swui-box-modifier").has(cls("swui-greedy-v"))),
-        cls("swui-root").child(cls("swui-box-modifier").has(cls("swui-greedy-v"))),
-        cls("swui-vstack").child(cls("swui-box-modifier").has(cls("swui-fill-v"))),
-        cls("swui-lazy-vstack").child(cls("swui-box-modifier").has(cls("swui-fill-v"))),
-        cls("swui-group-box").child(cls("swui-box-modifier").has(cls("swui-fill-v"))),
-        cls("swui-frame").child(cls("swui-box-modifier").has(cls("swui-fill-v"))),
-        cls("swui-root").child(cls("swui-box-modifier").has(cls("swui-fill-v")))
-      )) {
-        .flex("1 1 0%")
-          .minHeight("0")
-      }
-      // Block flow hugs height, so every wrapper in a vertical-greed chain, and
-      // the greedy element at its end, must be given full height explicitly.
-      rule(list(
-        cls("swui-box-modifier").has(cls("swui-greedy-v")),
-        cls("swui-box-modifier").has(cls("swui-fill-v")),
-        cls("swui-box-modifier").child(cls("swui-greedy-v")),
-        cls("swui-box-modifier").child(cls("swui-fill-v"))
-      )) {
-        .height("100%")
-      }
-      // Upward propagation: a container holding a horizontal-fill
-      // descendant is itself horizontally greedy in its column parent.
+      // MARK: Greed propagation (recursive, no subtree walk)
+      // A container is "greedy" on an axis when it transitively holds greed for
+      // that axis, reached through stacks and layout-neutral wrappers. Greed has
+      // two sources, both propagated with a recursive descendant `:has()` so ANY
+      // depth is one rule — no per-depth enumeration and no Swift tree walk:
+      //   • a `.frame(.infinity)` fill marker — its axis is on the marker
+      //     (`swui-fill-h` / `swui-fill-v`), so `:has(.swui-fill-h)` matches at
+      //     any depth through any container;
+      //   • a `Spacer` — its axis is its stack (`.swui-hstack > .swui-spacer` is
+      //     horizontal), so the `:has()` is scoped to a same-axis stack. That
+      //     scoping also keeps a perpendicular spacer (e.g. a vertical one bounded
+      //     by `.frame(height:)`) from making an enclosing row horizontally
+      //     greedy. Self (`> .swui-spacer`) and descendant forms are both listed.
+      //
+      // A greedy container grows the MAIN axis under a same-axis parent (so
+      // sibling greedy stacks split the space) and STRETCHES the CROSS axis
+      // under a perpendicular parent. A fixed frame proposes its size to a
+      // recursively-greedy child so the whole chain fills.
+      //
+      // Residual gap, shared by both sources and declined by design: greed
+      // sealed inside a same-axis FIXED frame still propagates (a descendant
+      // `:has()` sees through the frame). Stopping there needs a global solve,
+      // which CSS flexbox does not do locally and SwiftWeb does not emulate.
+
+      // Horizontally greedy container → stretch the cross axis (fills the width
+      // a column parent offers).
       rule(list(
         cls("swui-vstack").has(cls("swui-fill-h")),
         cls("swui-lazy-vstack").has(cls("swui-fill-h")),
         cls("swui-hstack").has(cls("swui-fill-h")),
         cls("swui-lazy-hstack").has(cls("swui-fill-h")),
         cls("swui-group-box").has(cls("swui-fill-h")),
-        cls("swui-toolbar").has(cls("swui-fill-h"))
-      )) {
-        .alignSelf("stretch")
-      }
-      // A row that contains a Spacer is horizontally greedy; carry that
-      // intent up to one enclosing column level.
-      rule(list(
+        cls("swui-toolbar").has(cls("swui-fill-h")),
         cls("swui-hstack").hasChild(cls("swui-spacer")),
         cls("swui-toolbar").hasChild(cls("swui-spacer")),
         cls("swui-group-box").has(cls("swui-hstack").child(cls("swui-spacer"))),
@@ -694,23 +600,84 @@ package enum RootStylesheet {
       )) {
         .alignSelf("stretch")
       }
-      // Row-parent override: a greedy column/container that is itself a row
-      // item grows on the main axis instead of stretching the cross axis. The
-      // `.swui-fill-*` cases here are frame-fill propagation (a `.frame(.infinity)`
-      // deep inside); spacer greed no longer travels on `.swui-fill-*`, so this
-      // `:has()` can no longer pierce a bounding frame for a spacer.
+      // Horizontally greedy container → grow the main axis under a row parent or
+      // a fixed frame (both lay children out as a flex row).
       rule(list(
         cls("swui-hstack").child(cls("swui-vstack").has(cls("swui-fill-h"))),
         cls("swui-hstack").child(cls("swui-lazy-vstack").has(cls("swui-fill-h"))),
         cls("swui-hstack").child(cls("swui-group-box").has(cls("swui-fill-h"))),
-        cls("swui-hstack").child(cls("swui-hstack").has(cls("swui-fill-h"))),
-        cls("swui-hstack").child(cls("swui-lazy-hstack").has(cls("swui-fill-h"))),
+        cls("swui-hstack").child(cls("swui-hstack").hasChild(cls("swui-fill-h"))),
+        cls("swui-hstack").child(cls("swui-hstack").has(cls("swui-hstack").child(cls("swui-fill-h")))),
+        cls("swui-hstack").child(cls("swui-box-modifier").hasChild(cls("swui-fill-h"))),
+        cls("swui-hstack").child(cls("swui-hstack").hasChild(cls("swui-spacer"))),
+        cls("swui-hstack").child(cls("swui-lazy-hstack").hasChild(cls("swui-spacer"))),
+        cls("swui-hstack").child(cls("swui-hstack").has(cls("swui-hstack").child(cls("swui-spacer")))),
         cls("swui-toolbar").child(cls("swui-vstack").has(cls("swui-fill-h"))),
-        cls("swui-toolbar").child(cls("swui-group-box").has(cls("swui-fill-h")))
+        cls("swui-toolbar").child(cls("swui-group-box").has(cls("swui-fill-h"))),
+        cls("swui-toolbar").child(cls("swui-hstack").hasChild(cls("swui-spacer"))),
+        cls("swui-frame").compound(cls("swui-hug-h")).child(cls("swui-hstack").has(cls("swui-hstack").child(cls("swui-fill-h")))),
+        cls("swui-frame").compound(cls("swui-hug-h")).child(cls("swui-hstack").has(cls("swui-hstack").child(cls("swui-spacer"))))
       )) {
         .flex("1 1 0%")
           .minWidth("0")
           .alignSelf("auto")
+      }
+      // Vertically greedy container → grow the main axis under a column parent.
+      rule(list(
+        cls("swui-vstack").child(cls("swui-vstack").hasChild(cls("swui-fill-v"))),
+        cls("swui-vstack").child(cls("swui-vstack").has(cls("swui-vstack").child(cls("swui-fill-v")))),
+        cls("swui-vstack").child(cls("swui-box-modifier").hasChild(cls("swui-fill-v"))),
+        cls("swui-vstack").child(cls("swui-vstack").hasChild(cls("swui-spacer"))),
+        cls("swui-vstack").child(cls("swui-lazy-vstack").hasChild(cls("swui-spacer"))),
+        cls("swui-vstack").child(cls("swui-vstack").has(cls("swui-vstack").child(cls("swui-spacer"))))
+      )) {
+        .flex("1 1 0%")
+          .minHeight("0")
+      }
+      // Vertically greedy container → stretch the cross axis under a row parent
+      // or a fixed frame (both lay children out as a flex row, so a vertically
+      // greedy child fills the height by stretching, not by main-axis grow).
+      rule(list(
+        cls("swui-hstack").child(cls("swui-vstack").hasChild(cls("swui-spacer"))),
+        cls("swui-hstack").child(cls("swui-lazy-vstack").hasChild(cls("swui-spacer"))),
+        cls("swui-hstack").child(cls("swui-vstack").has(cls("swui-vstack").child(cls("swui-spacer")))),
+        cls("swui-toolbar").child(cls("swui-vstack").hasChild(cls("swui-spacer"))),
+        cls("swui-frame").compound(cls("swui-hug-v")).child(cls("swui-vstack").has(cls("swui-vstack").child(cls("swui-fill-v")))),
+        cls("swui-frame").compound(cls("swui-hug-v")).child(cls("swui-vstack").has(cls("swui-vstack").child(cls("swui-spacer"))))
+      )) {
+        .alignSelf("stretch")
+          .minHeight("0")
+      }
+      // A box wrapper (padding/background) relays a fill or a same-axis Spacer
+      // to its stack parent — wrappers do not bound size, so a descendant
+      // `:has()` through them is safe (recursive across chained modifiers).
+      // Horizontal uses the block's auto width; vertical needs the explicit
+      // height because block flow hugs.
+      rule(list(
+        cls("swui-vstack").child(cls("swui-box-modifier").has(cls("swui-fill-h"))),
+        cls("swui-lazy-vstack").child(cls("swui-box-modifier").has(cls("swui-fill-h"))),
+        cls("swui-group-box").child(cls("swui-box-modifier").has(cls("swui-fill-h"))),
+        cls("swui-root").child(cls("swui-box-modifier").has(cls("swui-fill-h"))),
+        cls("swui-vstack").child(cls("swui-box-modifier").has(cls("swui-hstack").child(cls("swui-spacer")))),
+        cls("swui-lazy-vstack").child(cls("swui-box-modifier").has(cls("swui-hstack").child(cls("swui-spacer")))),
+        cls("swui-group-box").child(cls("swui-box-modifier").has(cls("swui-hstack").child(cls("swui-spacer")))),
+        cls("swui-root").child(cls("swui-box-modifier").has(cls("swui-hstack").child(cls("swui-spacer"))))
+      )) {
+        .alignSelf("stretch")
+          .width("100%")
+      }
+      rule(list(
+        cls("swui-hstack").child(cls("swui-box-modifier").has(cls("swui-fill-h"))),
+        cls("swui-toolbar").child(cls("swui-box-modifier").has(cls("swui-fill-h")))
+      )) {
+        .flex("1 1 0%")
+          .minWidth("0")
+      }
+      rule(list(
+        cls("swui-box-modifier").has(cls("swui-fill-v")),
+        cls("swui-box-modifier").child(cls("swui-fill-v"))
+      )) {
+        .height("100%")
       }
       // A frame that fills an axis must let a CONTAINER child accept that
       // proposed size and fill too (SwiftUI merges the frame with the view, so a
@@ -754,17 +721,21 @@ package enum RootStylesheet {
       // overflowing hug). Found by the layout conformance harness
       // (Tools/LayoutConformance).
       rule(list(
-        cls("swui-frame").compound(cls("swui-hug-h")).child(cls("swui-greedy-h")),
         cls("swui-frame").compound(cls("swui-hug-h")).child(StyleSelector.universal.has(cls("swui-fill-h"))),
-        cls("swui-frame").compound(cls("swui-hug-h")).child(cls("swui-box-modifier").has(cls("swui-greedy-h")))
+        cls("swui-frame").compound(cls("swui-hug-h")).child(cls("swui-hstack").hasChild(cls("swui-spacer"))),
+        cls("swui-frame").compound(cls("swui-hug-h")).child(cls("swui-lazy-hstack").hasChild(cls("swui-spacer"))),
+        cls("swui-frame").compound(cls("swui-hug-h")).child(cls("swui-toolbar").hasChild(cls("swui-spacer"))),
+        cls("swui-frame").compound(cls("swui-hug-h")).child(cls("swui-vstack").has(cls("swui-hstack").child(cls("swui-spacer")))),
+        cls("swui-frame").compound(cls("swui-hug-h")).child(cls("swui-vstack").has(cls("swui-toolbar").child(cls("swui-spacer"))))
       )) {
         .flex("1 1 0%")
           .minWidth("0")
       }
       rule(list(
-        cls("swui-frame").compound(cls("swui-hug-v")).child(cls("swui-greedy-v")),
         cls("swui-frame").compound(cls("swui-hug-v")).child(StyleSelector.universal.has(cls("swui-fill-v"))),
-        cls("swui-frame").compound(cls("swui-hug-v")).child(cls("swui-box-modifier").has(cls("swui-greedy-v")))
+        cls("swui-frame").compound(cls("swui-hug-v")).child(cls("swui-vstack").hasChild(cls("swui-spacer"))),
+        cls("swui-frame").compound(cls("swui-hug-v")).child(cls("swui-lazy-vstack").hasChild(cls("swui-spacer"))),
+        cls("swui-frame").compound(cls("swui-hug-v")).child(cls("swui-hstack").has(cls("swui-vstack").child(cls("swui-spacer"))))
       )) {
         .alignSelf("stretch")
           .minHeight("0")

@@ -8,15 +8,6 @@ package extension StyleClass {
     static let swuiLazyVGrid: StyleClass = "swui-lazy-vgrid"
     static let swuiLazyHGrid: StyleClass = "swui-lazy-hgrid"
 
-    /// Axis greed markers for spacer-derived greed, resolved at render time by
-    /// StackSpacerDetection and emitted on every stack a `Spacer` reaches
-    /// (frame-terminated). Kept distinct from the `.frame` fill markers
-    /// (`swui-fill-*`) so the stylesheet consumes them with direct
-    /// `parent > child` rules only — never a `:has()` that could pierce a
-    /// bounding frame.
-    static let swuiGreedyHorizontal: StyleClass = "swui-greedy-h"
-    static let swuiGreedyVertical: StyleClass = "swui-greedy-v"
-
     static let swuiGapStack: StyleClass = "swui-gap-stack"
     static let swuiGapNone: StyleClass = "swui-gap-none"
     static let swuiGapExtraSmall: StyleClass = "swui-gap-xs"

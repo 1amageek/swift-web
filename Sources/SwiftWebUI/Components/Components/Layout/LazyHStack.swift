@@ -41,17 +41,10 @@ public struct LazyHStack<Content: HTML>: AttributeComponent {
 
     @HTMLBuilder
     public var body: some HTML {
-        let greed = stackAxisGreed(content, isHorizontal: true)
         Element(
             "div",
             attributes: mergedAttributes(
-                class: styleClasses(
-                    .swuiLazyHStack,
-                    gap.className,
-                    alignment.alignItemsClassName,
-                    greed.horizontal ? .swuiGreedyHorizontal : nil,
-                    greed.vertical ? .swuiGreedyVertical : nil
-                ).rawValue,
+                class: styleClasses(.swuiLazyHStack, gap.className, alignment.alignItemsClassName).rawValue,
                 styles: Style {
                     if let value = gap.cssValue {
                         .gap(value)
