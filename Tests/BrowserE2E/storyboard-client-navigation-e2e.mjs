@@ -86,7 +86,7 @@ async function waitForHTTP(url, deadline) {
 
 async function launchStoryboardServer(port) {
   const swiftWebExecutable = await resolveSwiftWebExecutable();
-  const wasmSwiftSDK = process.env.SWIFT_WEB_WASM_SDK || "swift-6.3.1-RELEASE_wasm";
+  const wasmSwiftSDK = process.env.SWIFT_WEB_WASM_SDK || "swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm";
   report.swiftWebExecutable = swiftWebExecutable;
   report.wasmSwiftSDK = wasmSwiftSDK;
   if (process.env.SWIFT_WEB_WASM_SWIFT) {

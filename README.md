@@ -4,8 +4,8 @@ SwiftWeb is a Swift server and browser runtime for building HTML-first web apps 
 typed routing, server actions, SwiftWebUI components, and WebAssembly-powered client
 islands.
 
-> Status: developer preview. The browser/WASM path targets Swift 6.3.1 and the
-> current host development server uses a toolchain split documented below.
+> Status: developer preview. Host, browser/WASM, and Embedded WASM development
+> use the pinned Swift 6.4 development snapshot documented below.
 
 ```mermaid
 flowchart LR
@@ -95,28 +95,45 @@ actor model.
 
 | Area | Requirement |
 |---|---|
-| Swift tools version | `6.3` |
-| Browser WASM toolchain | Swift `6.3.1` release toolchain |
-| Browser WASM SDK | `swift-6.3.1-RELEASE_wasm` |
-| Host toolchain (resolve + build) | **Swift 6.4** toolchain, e.g. Xcode-beta (see "Why Swift 6.4" below) |
+| Swift tools version | `6.4` |
+| Swiftly selector | `6.4-snapshot-2026-07-17` |
+| Swift toolchain | `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a` |
+| Browser WASM SDK | `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm` |
+| Embedded WASM SDK | `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm-embedded` |
 | Platforms | macOS package development; browser runtime via WASM |
 
-SwiftWeb keeps the host toolchain and browser WASM toolchain separate:
+SwiftWeb pins the host compiler and both WASM SDK profiles to one snapshot:
 
 ```mermaid
 flowchart LR
-  A["Host/dev server graph"] --> B["Xcode Swift toolchain"]
-  C["Browser WASM graph"] --> D["Swift 6.3.1 WASM SDK"]
-  E["Generated packages"] --> A
+  A["Swift 6.4 snapshot"] --> B["Host/dev server graph"]
+  A --> C["Browser WASM SDK"]
+  A --> D["Embedded WASM SDK"]
+  E["Generated packages"] --> B
   E --> C
 ```
 
-Use the real Swift 6.3.1 toolchain executable for WASM builds, not a `swiftly` shim:
+Use the real snapshot toolchain executable for WASM builds, not a `swiftly` shim:
 
 ```bash
-export SWIFT_WEB_WASM_SWIFT="$(swiftly run +6.3.1 which swift)"
-export SWIFT_WEB_WASM_TOOLCHAIN_BIN="$(dirname "$SWIFT_WEB_WASM_SWIFT")"
+export SWIFT_WEB_TOOLCHAIN_BIN="$HOME/Library/Developer/Toolchains/swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a.xctoolchain/usr/bin"
+export SWIFT_WEB_HOST_SWIFT="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
+export SWIFT_WEB_WASM_SWIFT="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
+export SWIFT_WEB_WASM_TOOLCHAIN_BIN="$SWIFT_WEB_TOOLCHAIN_BIN"
 ```
+
+Verify the complete toolchain contract before the first build:
+
+```bash
+"$SWIFT_WEB_HOST_SWIFT" --version
+test -x "$SWIFT_WEB_WASM_TOOLCHAIN_BIN/wasm-ld"
+"$SWIFT_WEB_WASM_SWIFT" sdk list | \
+  rg 'swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm(-embedded)?'
+```
+
+The exact snapshot, both SDK identifiers, update checklist, and SwiftPM 6.4
+artifact layout are recorded in
+[Swift 6.4 Toolchain Migration](docs/Swift64ToolchainMigration.md).
 
 ### Why Swift 6.4
 
@@ -127,21 +144,21 @@ SwiftWeb's host HTTP stack builds on the next-generation server packages
 (`HTTPAPIs`). Both declare `// swift-tools-version:6.4` and enable the
 `LifetimeDependence` upcoming feature (the `Span` / lifetime-dependency model
 used for zero-copy HTTP I/O), so they can only be resolved and built with a
-Swift 6.4 toolchain. SwiftPM refuses to even resolve a graph whose dependency
-manifest declares a newer tools version than the installed toolchain, which is
-why the 6.3.1 toolchain fails at `swift package resolve`.
+Swift 6.4 toolchain. SwiftPM refuses to resolve a graph whose dependency
+manifest declares a newer tools version than the selected toolchain. The
+previous Swift 6.3.1 baseline therefore cannot resolve the current host graph.
 
-This is also why SwiftWeb ships as a developer preview: the host stack rides
-Apple's still-evolving 6.4-era server APIs (`swift-http-server` 0.x). Once
-Swift 6.4 reaches general availability, the release Xcode toolchain satisfies
-this on its own and the `DEVELOPER_DIR` override below is no longer needed.
+SwiftWeb ships as a developer preview because the host stack rides Apple's
+still-evolving 6.4-era server APIs (`swift-http-server` 0.x). The repository
+therefore pins the exact toolchain and matching WASM SDK snapshot instead of
+silently selecting another 6.4 build.
 
 ## Installation
 
 The current developer-preview release is `0.6.4`. Depend on it by version:
 
 ```swift
-// swift-tools-version: 6.3
+// swift-tools-version: 6.4
 import PackageDescription
 
 let package = Package(
@@ -173,29 +190,27 @@ let package = Package(
 )
 ```
 
-> **Toolchain:** resolving and building SwiftWeb requires a **Swift 6.4**
-> toolchain (see [Why Swift 6.4](#why-swift-64)); the default 6.3.1 fails at
-> `swift package resolve`. Point SwiftPM at 6.4 — e.g. Xcode-beta:
+> **Toolchain:** resolving and building SwiftWeb requires the pinned **Swift
+> 6.4** snapshot (see [Why Swift 6.4](#why-swift-64)). Point SwiftPM at its
+> real executable:
 >
 > ```bash
-> export DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer
-> xcrun swift build        # resolves against 6.4
+> SWIFT_BIN="$HOME/Library/Developer/Toolchains/swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a.xctoolchain/usr/bin/swift"
+> "$SWIFT_BIN" build
 > ```
->
-> The browser/WASM build stays on the separate 6.3.1 WASM SDK (see Requirements).
 
 ### Install The CLI With Mint
 
 Mint can install the `sweb` executable product directly from the repository. Pin
 `@0.6.4` for a reproducible install; `@main` tracks the latest development.
 
-Mint invokes `swift` from `PATH`, so it must find the **6.4** toolchain (the
-default 6.3.1 fails to resolve the host HTTP stack). Put the 6.4 toolchain first:
+Mint invokes `swift` from `PATH`, so put the pinned Swift 6.4 snapshot first for
+the current shell:
 
 ```bash
-XBIN=/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin
-env DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer PATH="$XBIN:$PATH" \
-  mint install 1amageek/swift-web@0.6.4 sweb
+export SWIFT_WEB_TOOLCHAIN_BIN="$HOME/Library/Developer/Toolchains/swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a.xctoolchain/usr/bin"
+export PATH="$SWIFT_WEB_TOOLCHAIN_BIN:$PATH"
+mint install 1amageek/swift-web@0.6.4 sweb
 ```
 
 | Need | Command |
@@ -220,7 +235,7 @@ checkout:
 ```bash
 git clone https://github.com/1amageek/swift-web.git
 cd swift-web
-xcrun swift run sweb --help
+"$SWIFT_WEB_HOST_SWIFT" run sweb --help
 ```
 
 ### 2. Create An App
@@ -228,7 +243,7 @@ xcrun swift run sweb --help
 Generate a new app package next to the SwiftWeb checkout:
 
 ```bash
-xcrun swift run sweb new MyApp --output ../MyApp
+"$SWIFT_WEB_HOST_SWIFT" run sweb new MyApp --output ../MyApp
 ```
 
 The default app has this shape:
@@ -247,7 +262,7 @@ MyApp
 Generate a chat-first app shell for AI work:
 
 ```bash
-xcrun swift run sweb new Chat --ai --output ../Chat
+"$SWIFT_WEB_HOST_SWIFT" run sweb new Chat --ai --output ../Chat
 ```
 
 The AI template adds a SwiftWebUI chat surface:
@@ -273,9 +288,9 @@ running it:
 Apply a deployment platform adapter by preset or GitHub repository slug:
 
 ```bash
-xcrun swift run sweb new Chat --ai --platform cloudflare --output ../Chat
-xcrun swift run sweb new Chat --ai --platform 1amageek/swift-web-cloudflare --output ../Chat
-xcrun swift run sweb new Chat --ai --platform 1amageek/swift-web-cloudflare/chat --output ../Chat
+"$SWIFT_WEB_HOST_SWIFT" run sweb new Chat --ai --platform cloudflare --output ../Chat
+"$SWIFT_WEB_HOST_SWIFT" run sweb new Chat --ai --platform 1amageek/swift-web-cloudflare --output ../Chat
+"$SWIFT_WEB_HOST_SWIFT" run sweb new Chat --ai --platform 1amageek/swift-web-cloudflare/chat --output ../Chat
 ```
 
 `cloudflare` resolves to `1amageek/swift-web-cloudflare`. `sweb new` clones the
@@ -482,7 +497,7 @@ elements remain available when you need exact HTML control.
 Run the SwiftWebUI component Storyboard from the SwiftWeb checkout:
 
 ```bash
-xcrun swift run sweb storyboard
+"$SWIFT_WEB_HOST_SWIFT" run sweb storyboard
 ```
 
 Open:
@@ -497,7 +512,7 @@ your app package.
 Run Storyboard with production WASM artifacts and compression sidecars:
 
 ```bash
-xcrun swift run sweb storyboard \
+"$SWIFT_WEB_HOST_SWIFT" run sweb storyboard \
   --production \
   --runtime standard \
   -c release
@@ -518,12 +533,14 @@ sweb build
 Build browser WASM artifacts:
 
 ```bash
-export SWIFT_WEB_WASM_SWIFT="$(swiftly run +6.3.1 which swift)"
-export SWIFT_WEB_WASM_TOOLCHAIN_BIN="$(dirname "$SWIFT_WEB_WASM_SWIFT")"
+export SWIFT_WEB_TOOLCHAIN_BIN="$HOME/Library/Developer/Toolchains/swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a.xctoolchain/usr/bin"
+export SWIFT_WEB_HOST_SWIFT="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
+export SWIFT_WEB_WASM_SWIFT="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
+export SWIFT_WEB_WASM_TOOLCHAIN_BIN="$SWIFT_WEB_TOOLCHAIN_BIN"
 
 sweb build \
   --wasm \
-  --swift-sdk swift-6.3.1-RELEASE_wasm \
+  --swift-sdk swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm \
   -c release
 ```
 
@@ -536,6 +553,16 @@ SwiftWeb's browser support boundary is the standard Swift WASM SDK:
 
 Production WASM builds strip debug/producers sections, optionally run `wasm-opt -Oz`,
 write `<artifact>.wasm.size.json`, and create cached `.gz` / `.br` sidecars.
+SwiftPM 6.4 places the release artifacts under:
+
+```text
+.swiftweb/generated/.build/wasm/out/Products/Release-webassembly-wasm32/
+  <product>.wasm
+  <product>.wasm.size.json
+  <product>.wasm.compression.json
+  <product>.wasm.gz
+  <product>.wasm.br
+```
 
 ### 10. Try The Examples
 
@@ -619,7 +646,7 @@ flowchart LR
 | Open the generated dev package | `sweb xcode` | Inspect or debug the generated development package in Xcode. |
 | Run the dev loop | `sweb dev` | Start the server, watcher, rebuild loop, and browser updates. |
 | Build the server package | `sweb build` | Validate the generated production server package. |
-| Build browser WASM | `sweb build --wasm --swift-sdk swift-6.3.1-RELEASE_wasm -c release` | Produce optimized browser runtime artifacts and compression sidecars. |
+| Build browser WASM | `sweb build --wasm --swift-sdk swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm -c release` | Produce optimized browser runtime artifacts and compression sidecars. |
 
 The normal loop is:
 
@@ -647,9 +674,11 @@ Before release-oriented checks, run:
 ```bash
 cd MyApp
 sweb build
-export SWIFT_WEB_WASM_SWIFT="$(swiftly run +6.3.1 which swift)"
-export SWIFT_WEB_WASM_TOOLCHAIN_BIN="$(dirname "$SWIFT_WEB_WASM_SWIFT")"
-sweb build --wasm --swift-sdk swift-6.3.1-RELEASE_wasm -c release
+export SWIFT_WEB_TOOLCHAIN_BIN="$HOME/Library/Developer/Toolchains/swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a.xctoolchain/usr/bin"
+export SWIFT_WEB_HOST_SWIFT="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
+export SWIFT_WEB_WASM_SWIFT="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
+export SWIFT_WEB_WASM_TOOLCHAIN_BIN="$SWIFT_WEB_TOOLCHAIN_BIN"
+sweb build --wasm --swift-sdk swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm -c release
 ```
 
 ## Browser Runtime
@@ -759,10 +788,10 @@ WASM content hash so unchanged artifacts are not recompressed.
 
 | Topic | Current contract |
 |---|---|
-| Swift version | Keep `Package.swift` at `// swift-tools-version: 6.3`. |
+| Swift version | Keep `Package.swift` at `// swift-tools-version: 6.4`. |
 | `swift-html` | Released dependency: `0.11.1`. Storyboard development can still use a local sibling checkout when present. |
-| Host compatibility | The `swift-http-server` host stack requires a Swift 6.4 toolchain for host/dev builds (see Why Swift 6.4). |
-| WASM compatibility | Browser runtime remains pinned to Swift 6.3.1 and the matching WASM SDK. |
+| Host compatibility | The `swift-http-server` host stack uses the pinned Swift 6.4 snapshot (see Why Swift 6.4). |
+| WASM compatibility | Browser builds use the matching standard SDK. The matching Embedded SDK is pinned for capability validation but is not a public SwiftWeb browser profile. |
 | Versioned SwiftPM release | Released: every dependency resolves behind a version requirement as of `0.6.0`. |
 
 ## License

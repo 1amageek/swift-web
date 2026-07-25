@@ -14,6 +14,11 @@ must be built, the phasing, the risks, and links to the detailed design docs.
 | First goal | Reach the architecture in the diagram below: a client talks to an `Agent` in a Durable Object over WebSocket, type-safe. |
 | Deferred | The FirebaseAPI (gRPC) data path — moves to a container / a REST edge client, later. |
 
+> Toolchain note: dated progress entries retain the Swift 6.3.1 commands and
+> constraints that applied when they were recorded. Current development uses
+> the pinned Swift 6.4 snapshot contract in
+> [Swift 6.4 Toolchain Migration](Swift64ToolchainMigration.md).
+
 ## 1. Vision & north star
 
 Build agents as **Swift distributed actors** that live in **Cloudflare Durable Objects**:

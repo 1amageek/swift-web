@@ -106,6 +106,13 @@ public enum SwiftPMWasmArtifact {
 
     if let scratchDirectory {
       append(
+        swift64OutputDirectory(
+          scratchRoot: scratchDirectory,
+          triple: triple,
+          configuration: configuration
+        )
+      )
+      append(
         scratchDirectory
           .appendingPathComponent(triple)
           .appendingPathComponent(configuration)
@@ -113,6 +120,13 @@ public enum SwiftPMWasmArtifact {
     }
 
     for scratchRoot in conventionalScratchRoots(for: packageRoot) {
+      append(
+        swift64OutputDirectory(
+          scratchRoot: scratchRoot,
+          triple: triple,
+          configuration: configuration
+        )
+      )
       append(
         scratchRoot
           .appendingPathComponent(triple)
@@ -129,6 +143,25 @@ public enum SwiftPMWasmArtifact {
     }
 
     return directories
+  }
+
+  private static func swift64OutputDirectory(
+    scratchRoot: URL,
+    triple: String,
+    configuration: String
+  ) -> URL {
+    let configurationName =
+      configuration.prefix(1).uppercased()
+      + configuration.dropFirst()
+    let architecture = triple.split(separator: "-", maxSplits: 1).first.map(String.init) ?? triple
+
+    return scratchRoot
+      .appendingPathComponent("out", isDirectory: true)
+      .appendingPathComponent("Products", isDirectory: true)
+      .appendingPathComponent(
+        "\(configurationName)-webassembly-\(architecture)",
+        isDirectory: true
+      )
   }
 
   private static func conventionalScratchRoots(for packageRoot: URL) -> [URL] {

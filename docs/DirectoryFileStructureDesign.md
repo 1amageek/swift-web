@@ -300,7 +300,7 @@ may change without changing source module ownership.
 Run these checks when moving files or adding a module:
 
 ```bash
-xcrun swift build
+"$SWIFT_WEB_HOST_SWIFT" build
 xcodebuild -scheme swift-web-Package -destination 'platform=macOS' -test-timeouts-enabled YES -default-test-execution-time-allowance 60 -maximum-test-execution-time-allowance 180 test -quiet
 rg -n "Sources/SwiftWebDevelopment/Runtime|Runtime/Development|SwiftWebUI/Styling|Runtime/Client|Runtime/Wasm" README.md docs Sources Tests -g '*.md' -g '*.swift' -g '!docs/DirectoryFileStructureDesign.md'
 rg -n "^import SwiftWeb(Development|DevServer|PackageGeneration|WasmBuild|StoryboardTooling)" Sources/SwiftWeb Sources/SwiftWebRuntime Sources/SwiftWebUI Sources/SwiftWebBrowser Sources/SwiftWebHTTPServer -g '*.swift'

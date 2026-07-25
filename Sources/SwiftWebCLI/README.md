@@ -153,7 +153,13 @@ flowchart LR
 
 `SwiftWebDevRuntime` checks the configured host and port before starting the child server. If the port is already occupied, the CLI exits with a clear error before Vapor can fail during bind.
 
-The generated host worker build and the Client WASM build use separate Swift toolchain contracts. Host worker builds use `SwiftWebHostSwiftToolchain` from `SwiftWebPackageGeneration`; override it with `SWIFT_WEB_HOST_SWIFT` or `SWIFT_WEB_HOST_TOOLCHAIN_BIN` when a host-only dependency requires a specific Xcode toolchain. Client WASM builds continue to use the Swift 6.3 WASM toolchain through `SwiftWebWasmBuild` and `SWIFT_WEB_WASM_SWIFT`, `SWIFT_WEB_WASM_TOOLCHAIN_BIN`, and `SWIFT_WEB_WASM_SDK`.
+The generated host worker and Client WASM builds use separate process
+resolvers, but both follow the pinned Swift 6.4 snapshot contract. Host worker
+builds use `SwiftWebHostSwiftToolchain` from `SwiftWebPackageGeneration`;
+override it with `SWIFT_WEB_HOST_SWIFT` or `SWIFT_WEB_HOST_TOOLCHAIN_BIN`.
+Client WASM builds use the matching SDK through `SwiftWebWasmBuild` and
+`SWIFT_WEB_WASM_SWIFT`, `SWIFT_WEB_WASM_TOOLCHAIN_BIN`, and
+`SWIFT_WEB_WASM_SDK`.
 
 The runtime watches the app package plus local `.package(path:)` dependencies so edits in a checked-out SwiftWeb framework also trigger rebuilds. The dev child server receives `SWIFT_WEB_DEV_PARENT_PID`, imports `SwiftWebDevelopmentHooks`, and installs development hooks before `App.run()`.
 
@@ -226,10 +232,18 @@ flowchart LR
 | Embedded Swift WASM | Not supported | SwiftWeb's public browser boundary is the standard WASM profile. Embedded Swift can be revisited only after the browser runtime can be expressed without `Distributed`, `Codable`, Foundation, or profile-specific source families. |
 
 Host/server builds launch through `SWIFT_WEB_HOST_SWIFT` when that environment
-variable points at a Swift executable. On macOS they otherwise use `xcrun swift`
-so host dependencies that require the Xcode Swift toolchain do not force the
-project's pinned WASM Swift 6.3 toolchain to change. Browser WASM builds remain
-separate and use the resolved `SwiftWebWasmToolchain`.
+variable points at the pinned Swift executable. Browser WASM builds remain a
+separate process and use `SwiftWebWasmToolchain` with the matching Swift 6.4
+WASM SDK.
+
+```mermaid
+flowchart LR
+  A["Pinned Swift 6.4 snapshot"] --> B["host/server process"]
+  A --> C["standard WASM SDK process"]
+  C --> D["SwiftPM compile/link"]
+  D --> E["SwiftPM 6.4 output directory"]
+  E --> F["strip + size report + gzip + Brotli"]
+```
 
 The standard compiler profile is the supported browser runtime contract because
 it preserves full `ClientComponent` hydration semantics today. Embedded Swift is
@@ -249,6 +263,17 @@ flowchart LR
 ```
 
 `SWIFTWEB_WASM_OPTIMIZE=0` skips `wasm-opt`. `SWIFTWEB_WASM_BROTLI_QUALITY` can lower Brotli quality when release build time matters more than maximum transfer compression. Existing gzip/Brotli sidecars are reused when `.wasm.compression.json` proves that the post-processed WASM content hash and compression signature are unchanged.
+
+With the default generated scratch directory, SwiftPM 6.4 release artifacts are
+resolved from:
+
+```text
+.swiftweb/generated/.build/wasm/out/Products/Release-webassembly-wasm32/
+```
+
+The resolver retains the earlier
+`<scratch>/wasm32-unknown-wasip1/<configuration>` layout for existing build
+directories.
 
 ## Generated Files
 

@@ -18,6 +18,11 @@ Current local evidence:
 
 ## 2026-06-19 CounterApp Browser WASM Measurement
 
+This section is a historical Swift 6.3.1 measurement. The current build
+contract is the pinned Swift 6.4 snapshot recorded in
+[`Swift64ToolchainMigration.md`](Swift64ToolchainMigration.md); do not reuse the
+old toolchain values below for current commands.
+
 This pass measured a fresh copy of `Examples/CounterApp` under
 `/private/tmp/swift-web-measure.JCQZtW/CounterApp`. The app package was rewritten only in
 that temporary copy to point at the local `swift-web` and `swift-html` checkouts.

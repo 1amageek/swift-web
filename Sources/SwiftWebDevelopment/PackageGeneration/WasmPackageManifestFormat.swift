@@ -58,7 +58,7 @@ struct WasmPackageManifestFormat {
                 "SwiftHTML",
             ],
             path: "Sources/SwiftWebActors",
-            swiftSettings: swiftSettings
+            swiftSettings: actorSwiftSettings
         )
         """,
         """
@@ -176,12 +176,15 @@ struct WasmPackageManifestFormat {
       : "\n          \(dependencies.joined(separator: ",\n          ")),\n      "
     let supportDeclarations = supportTargetDeclarations.joined(separator: "\n\n")
     return """
-      // swift-tools-version: 6.3
+      // swift-tools-version: 6.4
 
       import PackageDescription
 
       let swiftSettings: [SwiftSetting] = [
           .enableUpcomingFeature("ApproachableConcurrency"),
+      ]
+      let actorSwiftSettings: [SwiftSetting] = swiftSettings + [
+          .define("SWIFTWEB_ACTORS"),
       ]
       let wasmSwiftSettings: [SwiftSetting] = swiftSettings + [
           .enableExperimentalFeature("Extern"),

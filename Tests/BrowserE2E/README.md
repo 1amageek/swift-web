@@ -46,25 +46,35 @@ The test copies `Examples/CounterApp` into a temporary directory, rewrites its d
 - dev process shutdown cleanup
 - optional WebKit smoke when Playwright WebKit is installed, or required with `counter-wasm:webkit`
 
-The E2E uses a split toolchain policy:
+The E2E uses separate host and WASM processes under one Swift 6.4 snapshot
+contract:
 
 | Toolchain | Purpose |
 |---|---|
-| Host Swift | Builds the `sweb` CLI and runs the Vapor-backed dev host. It currently needs a Swift 6.4-capable toolchain because Vapor 5 alpha depends on the current Apple HTTP server stack. |
-| WASM Swift SDK | Builds client runtime bundles and remains pinned to `swift-6.3.1-RELEASE_wasm` by default. |
+| Host Swift | Builds the `sweb` CLI and runs the development host with the pinned `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a` toolchain. |
+| WASM Swift SDK | Builds client runtime bundles with the matching `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm` SDK. |
+
+Configure the exact toolchain before running an E2E command:
+
+```bash
+export SWIFT_WEB_TOOLCHAIN_BIN="$HOME/Library/Developer/Toolchains/swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a.xctoolchain/usr/bin"
+export SWIFTWEB_E2E_HOST_SWIFT_EXECUTABLE="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
+export SWIFT_WEB_WASM_SWIFT="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
+export SWIFT_WEB_WASM_TOOLCHAIN_BIN="$SWIFT_WEB_TOOLCHAIN_BIN"
+```
 
 Environment variables:
 
 | Name | Purpose |
 |---|---|
 | `SWIFTWEB_BROWSER_E2E` | Must be `1` to run. Otherwise the script exits successfully without work. |
-| `SWIFTWEB_E2E_HOST_SWIFT_EXECUTABLE` | Swift executable used to build the host `sweb` CLI. Defaults to `xcrun swift`. |
+| `SWIFTWEB_E2E_HOST_SWIFT_EXECUTABLE` | Swift executable used to build the host `sweb` CLI. Set this to the real pinned snapshot executable. |
 | `SWIFTWEB_E2E_HEADFUL` | Set to `1` to show the browser. |
 | `SWIFTWEB_E2E_PORT` | Fixed port. If omitted, an available port is selected. |
 | `SWIFTWEB_E2E_TIMEOUT_MS` | Overall wait timeout for server, runtime, and HMR phases. |
 | `SWIFTWEB_E2E_HMR_TIMEOUT_MS` | Timeout for individual HMR phases. Increase this when local SwiftPM server rebuilds are slow. |
 | `SWIFTWEB_E2E_SWIFT_HTML_ROOT` | Override the local `swift-html` path. Defaults to `../swift-html` next to the repo. |
-| `SWIFT_WEB_WASM_SDK` | Swift SDK used for WASM client runtime builds. Defaults to `swift-6.3.1-RELEASE_wasm`. |
+| `SWIFT_WEB_WASM_SDK` | Swift SDK used for WASM client runtime builds. Defaults to `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm`. |
 | `SWIFT_WEB_WASM_SWIFT` | Optional Swift executable override for WASM builds. |
 | `SWIFT_WEB_WASM_TOOLCHAIN_BIN` | Optional WASM toolchain bin directory override. |
 | `SWIFTWEB_E2E_BROWSER_EXECUTABLE_PATH` | Use a specific Chromium-compatible browser executable. |

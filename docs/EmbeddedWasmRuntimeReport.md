@@ -49,6 +49,12 @@ flowchart LR
 
 ## Commands
 
+> Archived evidence: the commands below intentionally retain the Swift 6.3.1
+> toolchain used for this measurement. Do not copy them into a current build.
+
+Current builds use the pinned Swift 6.4 toolchain and SDK pair from
+[`Swift64ToolchainMigration.md`](Swift64ToolchainMigration.md).
+
 Host/server build:
 
 ```bash

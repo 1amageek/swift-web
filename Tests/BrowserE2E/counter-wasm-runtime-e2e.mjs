@@ -423,7 +423,7 @@ public struct ClientEnvironmentBadge: ClientComponent, Sendable {
 
 async function launchDevServer(appRoot, scratchRoot, port) {
   const swiftWebExecutable = await resolveSwiftWebExecutable();
-  const wasmSwiftSDK = process.env.SWIFT_WEB_WASM_SDK || "swift-6.3.1-RELEASE_wasm";
+  const wasmSwiftSDK = process.env.SWIFT_WEB_WASM_SDK || "swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm";
   report.wasmSwiftSDK = wasmSwiftSDK;
   if (process.env.SWIFT_WEB_WASM_SWIFT) {
     report.wasmSwiftExecutable = process.env.SWIFT_WEB_WASM_SWIFT;

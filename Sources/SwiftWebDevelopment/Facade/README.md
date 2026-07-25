@@ -18,10 +18,10 @@ materializer, dev browser overlay, or dev child-process supervisor.
 | `SwiftWebWasmBuild` | Resolves the Swift WASM SDK, processes artifacts, writes size reports, and creates compressed sidecars for production builds. |
 | `SwiftWebStoryboardTooling` | Generates the managed Storyboard package and launches it through the dev runtime. |
 
-Swift 6.3 host compatibility is tracked in
-[`docs/Swift63HostCompatibilityTODO.md`](../../../docs/Swift63HostCompatibilityTODO.md). Do not
-treat a host build with a Swift 6.4-capable Xcode toolchain as proof that the true Swift 6.3
-host compiler can build the current Vapor 5 HTTP stack.
+The unified Swift 6.4 toolchain contract is recorded in
+[`docs/Swift64ToolchainMigration.md`](../../../docs/Swift64ToolchainMigration.md).
+Host, standard WASM, and Embedded WASM artifacts must use the same pinned
+snapshot tag.
 
 Build-time performance is tracked separately in
 [`docs/BuildTimePerformanceTODO.md`](../../../docs/BuildTimePerformanceTODO.md). Do not treat a
@@ -33,11 +33,12 @@ Generated browser WASM packages use a runtime-only JavaScriptKit source copy by 
 
 The dev runtime also keeps a bounded content-addressed WASM artifact cache. This is development-only and exists to avoid rebuilding the same generated client runtime after `.swiftweb` or temporary E2E directories are recreated.
 
-Host worker builds are separate from Client WASM builds. `SwiftWebDevServerProcess`
-never assumes that `swift` on `PATH` is the correct host compiler. It resolves a
-host Swift executable through `SwiftWebHostSwiftToolchain` in
-`SwiftWebPackageGeneration`, while `SwiftWebDevBuildProcess` resolves the Swift 6.3
-WASM toolchain through `SwiftWebWasmToolchain` in `SwiftWebWasmBuild`.
+Host worker builds are separate processes from Client WASM builds, but both use
+the pinned Swift 6.4 snapshot contract. `SwiftWebDevServerProcess` resolves the
+host executable through `SwiftWebHostSwiftToolchain` in
+`SwiftWebPackageGeneration`, while `SwiftWebDevBuildProcess` resolves the
+matching WASM toolchain and SDK through `SwiftWebWasmToolchain` in
+`SwiftWebWasmBuild`.
 
 | Variable | Behavior |
 |---|---|
@@ -49,6 +50,7 @@ WASM toolchain through `SwiftWebWasmToolchain` in `SwiftWebWasmBuild`.
 | `SWIFTWEB_WASM_ARTIFACT_CACHE_MAX_BYTES` | Maximum cache size in bytes. Defaults to `536870912`; least-recently-used entries are removed after new stores. |
 | `SWIFT_WEB_WASM_SWIFT` | Overrides the Swift executable used only for WASM builds. |
 | `SWIFT_WEB_WASM_TOOLCHAIN_BIN` | Overrides the WASM toolchain `usr/bin` directory. |
+| `SWIFT_WEB_WASM_SDK` | Selects the matching standard WASM SDK. Defaults to the pinned Swift 6.4 snapshot SDK. |
 
 ```mermaid
 flowchart LR
@@ -62,6 +64,11 @@ flowchart LR
 ```
 
 Dev artifact processing strips debug/producers custom sections and writes `<artifact>.wasm.size.json` so size attribution is available during framework work. It does not write gzip or Brotli sidecars by default, because local HMR should not spend seconds recompressing every standalone Swift/WASM product. Production `sweb build --wasm` owns precompressed sidecars and reuses them through `<artifact>.wasm.compression.json` when the post-processed WASM content hash and compression signature are unchanged.
+
+SwiftPM 6.4 SDK builds place products under
+`<scratch>/out/Products/<Configuration>-webassembly-<architecture>`. The
+artifact resolver checks this location before the legacy
+`<scratch>/<triple>/<configuration>` location.
 
 File changes are coalesced before classification. A burst of save events is treated as one change set so style patches, client WASM rebuilds, and worker rebuilds are planned together rather than racing through separate rebuild cycles.
 

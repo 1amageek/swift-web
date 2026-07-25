@@ -10,6 +10,21 @@ CounterApp is the primary SwiftWeb sample for validating the intended applicatio
 - `CounterService` implements that contract and exposes page invalidation actions through function-level `@ServerAction`.
 - `.swiftweb/generated` owns launchers, server executable packaging, distributed actor runtime copies, client-runtime source copies, and WASM runtime packaging.
 
+## Toolchain
+
+CounterApp uses the repository's pinned Swift 6.4 snapshot and matching standard
+WASM SDK:
+
+```bash
+export SWIFT_WEB_TOOLCHAIN_BIN="$HOME/Library/Developer/Toolchains/swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a.xctoolchain/usr/bin"
+export SWIFT_WEB_HOST_SWIFT="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
+export SWIFT_WEB_WASM_SWIFT="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
+export SWIFT_WEB_WASM_TOOLCHAIN_BIN="$SWIFT_WEB_TOOLCHAIN_BIN"
+```
+
+See [Swift 6.4 Toolchain Migration](../../docs/Swift64ToolchainMigration.md)
+for the version contract and verification commands.
+
 ## Structure
 
 ```mermaid
@@ -163,15 +178,20 @@ environment.
 Build the user app library only:
 
 ```bash
-swift build
+"$SWIFT_WEB_HOST_SWIFT" build
 ```
 
 ## Build WASM Runtime
 
 ```bash
+export SWIFT_WEB_TOOLCHAIN_BIN="$HOME/Library/Developer/Toolchains/swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a.xctoolchain/usr/bin"
+export SWIFT_WEB_HOST_SWIFT="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
+export SWIFT_WEB_WASM_SWIFT="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
+export SWIFT_WEB_WASM_TOOLCHAIN_BIN="$SWIFT_WEB_TOOLCHAIN_BIN"
+
 sweb build \
   --wasm \
-  --swift-sdk swift-6.3.1-RELEASE_wasm \
+  --swift-sdk swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm \
   -c release
 ```
 
@@ -179,8 +199,13 @@ The generated WASM branch compiles a generated client-only `CounterApp` target f
 
 The WASM runtime is required for the client counter's `@State`, client-side event dispatch, action posting, and state-preserving invalidation behavior. Without the WASM asset, server rendering still produces HTML, but client-owned state and component event handling are not available.
 
-The output is written to the shared SwiftPM scratch path:
+SwiftPM 6.4 writes the processed artifact and its production sidecars to:
 
 ```text
-.build/wasm32-unknown-wasip1/release/counter-wasm-runtime.wasm
+.swiftweb/generated/.build/wasm/out/Products/Release-webassembly-wasm32/
+├─ counter-app-wasm-runtime.wasm
+├─ counter-app-wasm-runtime.wasm.size.json
+├─ counter-app-wasm-runtime.wasm.compression.json
+├─ counter-app-wasm-runtime.wasm.gz
+└─ counter-app-wasm-runtime.wasm.br
 ```

@@ -1,4 +1,4 @@
-// swift-tools-version: 6.3
+// swift-tools-version: 6.4
 
 import CompilerPluginSupport
 import PackageDescription
@@ -8,26 +8,12 @@ let swiftWebSwiftSettings: [SwiftSetting] = [
     .define("SWIFTWEB_ACTORS", .when(traits: ["Actors"])),
 ]
 
-// Why this manifest branches on environment variables:
-//
-// One source tree must RESOLVE under two mutually incompatible toolchains.
-// Host builds need Swift 6.4 because swift-http-server and
-// swift-http-api-proposal declare tools-version 6.4 manifests, while wasm
-// builds are stuck on Swift 6.3.1 (the newest toolchain with a matching wasm
-// SDK). SwiftPM parses every dependency's manifest during resolution, so a
-// 6.3.1 resolve dies on the 6.4 manifests even for targets that are never
-// built — platform conditions (`.when(platforms:)`) only affect the build,
-// never the resolved graph. The only lever that changes the graph itself is
-// manifest-evaluation-time branching, hence `Context.environment`.
-//
-// The env variables are set by sweb's package generation for generated wasm
-// packages; ordinary consumers always evaluate the full manifest.
-//
-// TODO: Collapse these modes once a Swift 6.4+ wasm SDK ships and the host
-// and wasm toolchains unify. The resolution barrier disappears then, and the
-// remaining concern — keeping server-side dependencies out of wasm binaries —
-// can be expressed with package traits (SE-0450) or platform conditions,
-// letting the duplicated product/target lists fold back into one.
+// Host and WASM builds use the same pinned Swift 6.4 development snapshot.
+// This manifest still branches at evaluation time to keep host-only HTTP
+// dependencies and macro tooling out of generated browser WASM graphs.
+// Platform conditions only affect builds after dependency resolution, so they
+// cannot provide the same graph isolation. Package generation sets these
+// environment variables; ordinary consumers evaluate the full manifest.
 
 // SWIFTWEB_DO resolves the core chain PLUS the macro toolchain and the
 // SwiftWeb umbrella, for Durable Object wasm packages whose app sources use

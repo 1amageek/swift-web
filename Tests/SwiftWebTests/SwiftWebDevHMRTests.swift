@@ -378,18 +378,18 @@ struct SwiftWebDevHMRTests {
 
     let firstHash = try SwiftWebWasmBuildInputHasher.hash(
       runtime: runtime,
-      sdkName: "swift-6.3.1-RELEASE_wasm",
+      sdkName: "swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm",
       swiftExecutablePath: "/usr/bin/swift"
     )
     let secondHash = try SwiftWebWasmBuildInputHasher.hash(
       runtime: runtime,
-      sdkName: "swift-6.3.1-RELEASE_wasm",
+      sdkName: "swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm",
       swiftExecutablePath: "/usr/bin/swift"
     )
     try write("changed but ignored", to: root.appendingPathComponent("README.md"))
     let afterIgnoredFileHash = try SwiftWebWasmBuildInputHasher.hash(
       runtime: runtime,
-      sdkName: "swift-6.3.1-RELEASE_wasm",
+      sdkName: "swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm",
       swiftExecutablePath: "/usr/bin/swift"
     )
     try write(
@@ -398,7 +398,7 @@ struct SwiftWebDevHMRTests {
     )
     let afterSourceChangeHash = try SwiftWebWasmBuildInputHasher.hash(
       runtime: runtime,
-      sdkName: "swift-6.3.1-RELEASE_wasm",
+      sdkName: "swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm",
       swiftExecutablePath: "/usr/bin/swift"
     )
 

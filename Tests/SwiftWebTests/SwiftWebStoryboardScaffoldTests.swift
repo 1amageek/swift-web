@@ -19,7 +19,7 @@ struct SwiftWebStoryboardScaffoldTests {
         let storyboardPackage = root.appendingPathComponent(".swiftweb/storyboard", isDirectory: true)
         try write(
             """
-            // swift-tools-version: 6.3
+            // swift-tools-version: 6.4
             import PackageDescription
 
             let package = Package(
@@ -36,7 +36,7 @@ struct SwiftWebStoryboardScaffoldTests {
         )
         try write(
             """
-            // swift-tools-version: 6.3
+            // swift-tools-version: 6.4
             import PackageDescription
 
             let package = Package(
@@ -110,7 +110,7 @@ struct SwiftWebStoryboardScaffoldTests {
         let storyboardPackage = root.appendingPathComponent(".swiftweb/storyboard", isDirectory: true)
         try write(
             """
-            // swift-tools-version: 6.3
+            // swift-tools-version: 6.4
             import PackageDescription
 
             let package = Package(

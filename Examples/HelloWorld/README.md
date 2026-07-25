@@ -14,6 +14,15 @@ HelloWorld
 
 ## Run
 
+Use the pinned Swift 6.4 snapshot from the repository contract:
+
+```bash
+export SWIFT_WEB_TOOLCHAIN_BIN="$HOME/Library/Developer/Toolchains/swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a.xctoolchain/usr/bin"
+export SWIFT_WEB_HOST_SWIFT="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
+```
+
+When `sweb` is installed:
+
 ```bash
 sweb dev
 ```
@@ -27,5 +36,8 @@ http://127.0.0.1:3000/
 ## Build
 
 ```bash
-xcrun swift build
+"$SWIFT_WEB_HOST_SWIFT" build
 ```
+
+HelloWorld has no client island, so `sweb build --wasm` correctly reports that
+no generated WASM runtime product exists.
