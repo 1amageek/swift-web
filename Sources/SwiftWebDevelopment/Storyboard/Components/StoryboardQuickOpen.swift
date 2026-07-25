@@ -13,7 +13,7 @@ private typealias CharacterSet = Foundation.CharacterSet
 /// rides the same enhanced same-origin navigation as every other catalog link.
 /// The chrome script forwards ⌘K / Ctrl+K to the trigger and Escape to the
 /// close control.
-public struct StoryboardQuickOpen: ClientComponent, Sendable {
+public struct StoryboardQuickOpen: ClientComponent {
     @State private var isOpen = false
     @State private var query = ""
 

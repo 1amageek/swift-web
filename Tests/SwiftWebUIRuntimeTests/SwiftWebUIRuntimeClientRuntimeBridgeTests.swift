@@ -6,7 +6,7 @@ import Synchronization
 import Testing
 import SwiftWebUI
 
-private struct WasmBridgeCounter: ClientComponent, Sendable {
+private struct WasmBridgeCounter: ClientComponent {
     @State private var value = 0
 
     var body: some HTML {
@@ -18,7 +18,7 @@ private struct WasmBridgeCounter: ClientComponent, Sendable {
     }
 }
 
-private struct WasmBridgeAnimatedCounter: ClientComponent, Sendable {
+private struct WasmBridgeAnimatedCounter: ClientComponent {
     @State private var value = 0
 
     var body: some HTML {
@@ -62,7 +62,7 @@ private final class AnimationRecordingHost: BrowserDOMHost {
     }
 }
 
-private struct WasmBridgeAppendList: ClientComponent, Sendable {
+private struct WasmBridgeAppendList: ClientComponent {
     @State private var values = [1, 2]
 
     var body: some HTML {
@@ -81,7 +81,7 @@ private struct WasmBridgeAppendList: ClientComponent, Sendable {
     }
 }
 
-private struct WasmBridgeAppendPairList: ClientComponent, Sendable {
+private struct WasmBridgeAppendPairList: ClientComponent {
     @State private var entries = ["a0", "u1", "a2"]
 
     var body: some HTML {
@@ -115,7 +115,7 @@ private struct WasmBridgeProperty: Identifiable, Sendable {
     let values: String
 }
 
-private struct WasmBridgePropertyRow: Component, Sendable {
+private struct WasmBridgePropertyRow: Component {
     let property: WasmBridgeProperty
 
     var body: some HTML {
@@ -130,7 +130,7 @@ private struct WasmBridgePropertyRow: Component, Sendable {
     }
 }
 
-private struct WasmBridgePropertySelectionOwner: ClientComponent, Sendable {
+private struct WasmBridgePropertySelectionOwner: ClientComponent {
     @State private var selection = "typography"
 
     private var properties: [WasmBridgeProperty] {
@@ -183,7 +183,7 @@ private struct WasmBridgeEnvironmentReader: ClientComponent {
     }
 }
 
-private struct WasmBridgeScopedEnvironmentRoot: Component, Sendable {
+private struct WasmBridgeScopedEnvironmentRoot: Component {
     let left: String
     let right: String
 
@@ -197,7 +197,7 @@ private struct WasmBridgeScopedEnvironmentRoot: Component, Sendable {
     }
 }
 
-private struct WasmBridgeRevealingBadge: ClientComponent, Sendable {
+private struct WasmBridgeRevealingBadge: ClientComponent {
     @Environment(\.wasmBridgeValue) private var value: String
     @State private var revealed = false
 
@@ -217,7 +217,7 @@ private struct WasmBridgeRevealingBadge: ClientComponent, Sendable {
     }
 }
 
-private struct WasmBridgeEnvironmentPage: Component, Sendable {
+private struct WasmBridgeEnvironmentPage: Component {
     var body: some HTML {
         div {
             span {
@@ -232,7 +232,7 @@ private enum WasmBridgeHotReloadFixture {
     nonisolated(unsafe) static var text = "Before"
 }
 
-private struct WasmBridgeHotReloadComponent: ClientComponent, Sendable {
+private struct WasmBridgeHotReloadComponent: ClientComponent {
     var body: some HTML {
         span {
             WasmBridgeHotReloadFixture.text
@@ -244,7 +244,7 @@ private enum WasmBridgeHotReloadStateFixture {
     nonisolated(unsafe) static var text = "Before"
 }
 
-private struct WasmBridgeHotReloadStatefulComponent: ClientComponent, Sendable {
+private struct WasmBridgeHotReloadStatefulComponent: ClientComponent {
     @State private var value = 0
 
     var body: some HTML {
@@ -260,7 +260,7 @@ private enum WasmBridgeHotReloadStructureFixture {
     nonisolated(unsafe) static var showsDetail = false
 }
 
-private struct WasmBridgeHotReloadStructuralComponent: ClientComponent, Sendable {
+private struct WasmBridgeHotReloadStructuralComponent: ClientComponent {
     var body: some HTML {
         div {
             span {
@@ -275,7 +275,7 @@ private struct WasmBridgeHotReloadStructuralComponent: ClientComponent, Sendable
     }
 }
 
-private struct WasmBridgeReplacementBefore: Component, Sendable {
+private struct WasmBridgeReplacementBefore: Component {
     var body: some HTML {
         section {
             p {
@@ -285,7 +285,7 @@ private struct WasmBridgeReplacementBefore: Component, Sendable {
     }
 }
 
-private struct WasmBridgeReplacementAfter: Component, Sendable {
+private struct WasmBridgeReplacementAfter: Component {
     var body: some HTML {
         section {
             p {
@@ -295,7 +295,7 @@ private struct WasmBridgeReplacementAfter: Component, Sendable {
     }
 }
 
-private struct WasmBridgeComponentReplacement: ClientComponent, Sendable {
+private struct WasmBridgeComponentReplacement: ClientComponent {
     @State private var showsAfter = false
 
     var body: some HTML {
@@ -312,7 +312,7 @@ private struct WasmBridgeComponentReplacement: ClientComponent, Sendable {
     }
 }
 
-private struct WasmBridgeSelectionOwner: ClientComponent, Sendable {
+private struct WasmBridgeSelectionOwner: ClientComponent {
     @State private var selection = "typography"
 
     @HTMLBuilder
@@ -329,7 +329,7 @@ private struct WasmBridgeSelectionOwner: ClientComponent, Sendable {
     }
 }
 
-private struct WasmBridgeTextareaComposer: ClientComponent, Sendable {
+private struct WasmBridgeTextareaComposer: ClientComponent {
     @State private var draft = ""
     @State private var submitted = ""
 
@@ -350,7 +350,7 @@ private struct WasmBridgeTextareaComposer: ClientComponent, Sendable {
     }
 }
 
-private struct WasmBridgeSelectionChild: Component, Sendable {
+private struct WasmBridgeSelectionChild: Component {
     let selection: String
 
     @HTMLBuilder
@@ -378,7 +378,7 @@ private struct WasmBridgeSelectionChild: Component, Sendable {
     }
 }
 
-private struct WasmBridgeMountedRoot: Component, Sendable {
+private struct WasmBridgeMountedRoot: Component {
     var body: some HTML {
         div {
             span {
@@ -389,7 +389,7 @@ private struct WasmBridgeMountedRoot: Component, Sendable {
     }
 }
 
-private struct WasmBridgeMountedReplacementRoot: Component, Sendable {
+private struct WasmBridgeMountedReplacementRoot: Component {
     var body: some HTML {
         div {
             span {
@@ -400,7 +400,7 @@ private struct WasmBridgeMountedReplacementRoot: Component, Sendable {
     }
 }
 
-private struct WasmBridgeMountedSelectionRoot: Component, Sendable {
+private struct WasmBridgeMountedSelectionRoot: Component {
     var body: some HTML {
         div {
             span {
@@ -411,7 +411,7 @@ private struct WasmBridgeMountedSelectionRoot: Component, Sendable {
     }
 }
 
-private struct WasmBridgeMountedTextareaRoot: Component, Sendable {
+private struct WasmBridgeMountedTextareaRoot: Component {
     var body: some HTML {
         div {
             span {
@@ -422,7 +422,7 @@ private struct WasmBridgeMountedTextareaRoot: Component, Sendable {
     }
 }
 
-private struct WasmBridgeMountedTextareaRootWithTrailingDocumentNodes: Component, Sendable {
+private struct WasmBridgeMountedTextareaRootWithTrailingDocumentNodes: Component {
     var body: some HTML {
         div {
             WasmBridgeTextareaComposer()
@@ -437,7 +437,7 @@ private struct WasmBridgeMountedTextareaRootWithTrailingDocumentNodes: Component
     }
 }
 
-private struct WasmBridgeMountedRootWithEarlierHandler: Component, Sendable {
+private struct WasmBridgeMountedRootWithEarlierHandler: Component {
     var body: some HTML {
         div {
             button(.type(ButtonType.button), .onClick {}) {
@@ -448,7 +448,7 @@ private struct WasmBridgeMountedRootWithEarlierHandler: Component, Sendable {
     }
 }
 
-private struct WasmBridgeMountedListRoot: Component, Sendable {
+private struct WasmBridgeMountedListRoot: Component {
     var body: some HTML {
         div {
             span {
@@ -459,7 +459,7 @@ private struct WasmBridgeMountedListRoot: Component, Sendable {
     }
 }
 
-private struct WasmBridgeMountedAppendPairListRoot: Component, Sendable {
+private struct WasmBridgeMountedAppendPairListRoot: Component {
     var body: some HTML {
         div {
             span {
@@ -470,7 +470,7 @@ private struct WasmBridgeMountedAppendPairListRoot: Component, Sendable {
     }
 }
 
-private struct WasmBridgeMountedPropertySelectionRoot: Component, Sendable {
+private struct WasmBridgeMountedPropertySelectionRoot: Component {
     var body: some HTML {
         div {
             span {

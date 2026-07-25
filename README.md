@@ -718,7 +718,7 @@ the public support contract.
 contract joins the eager main bundle:
 
 ```swift
-public struct ClientSummary: ClientComponent, Sendable {
+public struct ClientSummary: ClientComponent {
     @State private var count = 0
 
     public init() {}
@@ -735,7 +735,7 @@ Use `loadPolicy` to decide when the browser loads a client island, and `bundle`
 to decide which logical bundle groups related islands:
 
 ```swift
-public struct ClientChart: ClientComponent, Sendable {
+public struct ClientChart: ClientComponent {
     public static let loadPolicy: LoadPolicy = .visible
     public static let bundle: BundlePolicy = .named("analytics")
 

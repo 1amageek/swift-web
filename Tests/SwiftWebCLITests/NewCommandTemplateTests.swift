@@ -64,7 +64,7 @@ struct NewCommandTemplateTests {
         #expect(files["Package.swift"]?.contains(".product(name: \"SwiftWebStyle\", package: \"swift-web\")") == true)
         #expect(files["Package.swift"]?.contains(".product(name: \"SwiftWebUI\", package: \"swift-web\")") == true)
         #expect(files["Sources/Chat/App.swift"]?.contains("ChatPage()") == true)
-        #expect(files["Sources/Chat/Components/ChatPanel.swift"]?.contains("public struct ChatPanel: ClientComponent") == true)
+        #expect(files["Sources/Chat/Components/ChatPanel.swift"]?.contains("public struct ChatPanel: ClientComponent {") == true)
         #expect(files["Sources/Chat/Components/ChatPanel.swift"]?.contains("sw-chat-composer") == true)
         #expect(files["Sources/Chat/Components/ChatPanel.swift"]?.contains("@State private var turns: [String]") == true)
         #expect(files["Sources/Chat/Components/ChatPanel.swift"]?.contains("ForEach(turns, id: { turn in turn })") == true)

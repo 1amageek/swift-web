@@ -3,7 +3,7 @@
 // profile does not serve them.
 import SwiftHTML
 
-public struct ActionMetadataFields<Input: Codable & Sendable, Output: Sendable>: Component, Sendable {
+public struct ActionMetadataFields<Input: Codable & Sendable, Output: Sendable>: Component {
     private let reference: ActionReference<Input, Output>
 
     public init(_ reference: ActionReference<Input, Output>) {

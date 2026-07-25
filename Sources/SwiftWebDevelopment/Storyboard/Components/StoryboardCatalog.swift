@@ -6,7 +6,7 @@ import SwiftWebUI
 
 /// The fixed Storyboard shell. Route selection is server-owned; only the live
 /// detail demo is hydrated as a client island.
-public struct StoryboardCatalog: Component, Sendable {
+public struct StoryboardCatalog: Component {
     private let selection: String
     private let scheme: StoryboardSchemePreference
 

@@ -581,7 +581,7 @@ struct TemplateProject {
         import SwiftHTML
         import SwiftWebUI
 
-        public struct ChatPanel: ClientComponent, Sendable {
+        public struct ChatPanel: ClientComponent {
             @State private var draft = ""
             @State private var turns: [String] = [
                 "1:チャットの UI を作りたい。",

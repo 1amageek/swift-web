@@ -48,7 +48,7 @@ extension EnvironmentValues {
     }
 }
 
-public struct ClientEnvironmentBadge: ClientComponent, Sendable {
+public struct ClientEnvironmentBadge: ClientComponent {
     @Environment(\.sceneGreeting) private var greeting
     @State private var revealed = false
 

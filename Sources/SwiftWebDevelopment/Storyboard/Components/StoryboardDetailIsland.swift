@@ -11,7 +11,7 @@ import SwiftWebUIRuntime
 /// The catalog chrome, documentation metadata, and related links stay
 /// server-rendered. This keeps the client hydration surface proportional to the
 /// interactive example instead of the whole Storyboard shell.
-public struct StoryboardDetailIsland: ClientComponent, Sendable {
+public struct StoryboardDetailIsland: ClientComponent {
     private let selection: String
     @State private var name = "Ada Lovelace"
     @State private var email = "ada@example.com"
