@@ -2,7 +2,7 @@
 
 SwiftWebUI is the SwiftUI-inspired component layer built on top of SwiftHTML.
 
-It owns reusable visual components, layout primitives, color scheme propagation, and developer-friendly modifiers. It does not own the HTML graph, page metadata, route registration, Vapor request handling, macros, or the CLI.
+It owns reusable visual components, layout primitives, color scheme propagation, and developer-friendly modifiers. It does not own the HTML graph, page metadata, route registration, host request handling, macros, or the CLI.
 
 The core architecture is documented in [`docs/SwiftWebUICoreDesign.md`](../../../docs/SwiftWebUICoreDesign.md). That document defines the component graph, dynamic property lifecycle, modifier graph, and style abstraction boundaries.
 
@@ -138,7 +138,7 @@ flowchart LR
   C --> E["HTTP method + path"]
 ```
 
-This keeps visual components independent from Vapor and Distributed Actor runtime details.
+This keeps visual components independent from HTTP host and Distributed Actor runtime details.
 
 ## Button Action Semantics
 

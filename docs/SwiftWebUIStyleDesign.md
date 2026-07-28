@@ -125,8 +125,8 @@ leaf components.
 
 Direct CSS is not a SwiftWebUI styling path. Low-level SwiftHTML typed style
 payloads exist so SwiftWeb can atomize declarations during render, not so
-components can bypass `SwiftWebStyle`. The direct-CSS ban and goal state are
-defined in [`UtilityStylingGoalState.md`](UtilityStylingGoalState.md).
+components can bypass `SwiftWebStyle`. The direct-CSS ban and emission
+contract are defined in [`AtomicStyling.md`](AtomicStyling.md).
 
 ## Modifier Responsibility Map
 

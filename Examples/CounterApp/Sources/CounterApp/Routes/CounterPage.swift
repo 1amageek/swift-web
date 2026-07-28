@@ -38,7 +38,7 @@ struct CounterPage {
                                     VStack(spacing: .large) {
                                         Text("Server Counter").as(.h2)
                                         Text(
-                                            "Each button posts a delta to Vapor. The value is read from server state on the next render."
+                                            "Each button posts a delta to the SwiftWeb host. The value is read from server state on the next render."
                                         )
                                         .foregroundStyle(.secondary)
                                         VStack(spacing: .xsmall) {

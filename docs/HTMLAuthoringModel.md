@@ -49,7 +49,7 @@ flowchart LR
 Generic constraints, result-builder signatures, modifiers, and documentation
 examples use `Component` consistently.
 
-## Target SwiftHTML Interface
+## SwiftHTML Interface
 
 The public shape is:
 

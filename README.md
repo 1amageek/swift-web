@@ -1,203 +1,93 @@
 # SwiftWeb
 
-SwiftWeb is a Swift server and browser runtime for building HTML-first web apps with
-typed routing, server actions, SwiftWebUI components, and WebAssembly-powered client
-islands.
+SwiftWeb is a Swift framework for server-rendered web applications with an
+optional Swift WASM browser runtime. Applications describe routes and complete
+HTML documents in Swift, use SwiftWebUI for higher-level components, and opt
+individual client components into hydration, local state, and browser events.
 
-> Status: developer preview. Host, browser/WASM, and Embedded WASM development
-> use the pinned Swift 6.4 development snapshot documented below.
+> SwiftWeb 0.7 is a developer preview. It requires the pinned Swift 6.4
+> development snapshot because its HTTP host uses the current lifetime-aware
+> Swift server APIs.
+
+## What You Build
 
 ```mermaid
 flowchart LR
-  A["SwiftWeb.App"] --> B["Scene graph"]
-  B --> C["Page / PageGroup"]
-  B --> D["Route policies"]
-  C --> E["SwiftHTML render graph"]
-  E --> F["HTML response"]
-  E --> G["Client WASM island"]
-  G --> H["SwiftWebUIRuntime"]
-  G --> L["@RemoteActor resolved services"]
-  L --> M["@Resolvable distributed actor"]
-  I["Server actions"] --> J["request context"]
-  J --> K["@Session"]
+  App["SwiftWeb.App"] --> Scene["Scene and routes"]
+  Scene --> Page["@Page"]
+  Page --> Document["HTMLDocument"]
+  Document --> HTML["server-rendered HTML"]
+  Document --> Island["ClientComponent"]
+  Island --> WASM["Swift WASM runtime"]
+  WASM --> Browser["hydration, state, and events"]
 ```
 
-## Packages
-
-SwiftWeb keeps product names stable while grouping source directories by
-responsibility. `Sources/` direct children are ownership boundaries; nested
-directories describe the responsibility implemented by each SwiftPM target.
-
-```text
-Sources/
-  SwiftWeb/
-  SwiftWebRuntime/{Core,Actors}/
-  SwiftWebBrowser/{Runtime,ClientRuntime}/
-  SwiftWebHost/
-  SwiftWebHTTPServer/Host/
-  SwiftWebUI/{Components,Style,Theme}/
-  SwiftWebDevelopment/{Facade,Hooks,DevServer,PackageGeneration,WasmBuild,StoryboardTooling,Storyboard}/
-  SwiftWebCLI/
-  SwiftWebMacros/
-```
-
-| Product | Source directory | Responsibility |
-|---|---|---|
-| `SwiftWeb` | `Sources/SwiftWeb/` | Public app facade and source macro entrypoints. |
-| `SwiftWebCore` | `Sources/SwiftWebRuntime/Core/` | Route, action, page, session, security, streaming, and server-rendering contracts used by host adapters. |
-| `SwiftWebActors` | `Sources/SwiftWebRuntime/Actors/` | Transport-neutral distributed actor invocation support. |
-| `SwiftWebBrowserRuntime` | `Sources/SwiftWebBrowser/Runtime/` | Browser runtime descriptors, WASM asset routes, host scripts, and HTML runtime injection. |
-| `SwiftWebUIRuntime` | `Sources/SwiftWebBrowser/ClientRuntime/` | Browser-side WASM bridge and JavaScriptKit runtime adapter for client components. |
-| `SwiftWebHost` | `Sources/SwiftWebHost/` | Host-neutral lowering contracts (route tables, request/response bridging) that platform adapters implement. |
-| `SwiftWebHTTPServerHost` | `Sources/SwiftWebHTTPServer/Host/` | Default HTTP server host on `swift-http-server` for local development workers, Cloud Run, and native/container server builds. |
-| `SwiftWebUI` | `Sources/SwiftWebUI/Components/` | SwiftUI-inspired component layer built on top of SwiftHTML. |
-| `SwiftWebStyle` | `Sources/SwiftWebUI/Style/` | Atomic style classes, typed selectors, and CSS-safe declaration registration. |
-| `SwiftWebUITheme` | `Sources/SwiftWebUI/Theme/` | Host-neutral theme tokens, the `Theme` model, root stylesheet, colors, materials, and spacing values. |
-| `SwiftWebDevelopmentHooks` | `Sources/SwiftWebDevelopment/Hooks/` | Worker-side development hooks and typed HMR contracts. |
-| `SwiftWebWasmBuild` | `Sources/SwiftWebDevelopment/WasmBuild/` | Toolchain resolution, WASM artifact processing, compression, and build profiles. |
-| `SwiftWebPackageGeneration` | `Sources/SwiftWebDevelopment/PackageGeneration/` | Generated server/dev/WASM package materialization and manifest inspection. |
-| `SwiftWebDevServer` | `Sources/SwiftWebDevelopment/DevServer/` | Persistent dev host, watcher, HMR event stream, worker supervision, and rebuild orchestration. |
-| `SwiftWebStoryboardTooling` | `Sources/SwiftWebDevelopment/StoryboardTooling/` | Managed Storyboard package scaffold/materialization and dev runtime launch. |
-| `SwiftWebStoryboard` | `Sources/SwiftWebDevelopment/Storyboard/` | Storyboard catalog components and routes. |
-| `SwiftWebDevelopment` | `Sources/SwiftWebDevelopment/Facade/` | Convenience facade that re-exports development modules. |
-| `sweb` | `Sources/SwiftWebCLI/` | CLI for new projects, dev server, Storyboard, and production builds. |
-
-## Architecture
-
-The runtime core is host-neutral: `SwiftWebHost` defines the lowering
-contracts, and platform adapters serve the same `App`/`Scene`/`Page` model on
-different hosts. The built-in default host is `SwiftWebHTTPServerHost` on
-[`swift-http-server`](https://github.com/swift-server/swift-http-server).
-Platform-specific adapters live in sibling packages:
-
-- [`swift-web-cloudflare`](https://github.com/1amageek/swift-web-cloudflare) —
-  Cloudflare Workers + per-identity Durable Object actor hosting (WebSocket
-  actor transport included), with a `swiftweb-cloudflare` installer CLI for the
-  deploy layout.
-- [`swift-web-vapor`](https://github.com/1amageek/swift-web-vapor) — Vapor
-  host adapter. Consumable via `branch:`/`revision:` only until Vapor 5 ships a
-  release with stable dependencies.
-
-Distributed actors are declared per identity with the `ActorGroup` scene, are
-reachable over HTTP (`/_swiftweb/actors/invoke`) and WebSocket
-(`/_swiftweb/actors/ws`), and scene-level `.environment()` values flow to
-pages, actions, streams, actors, and client-visible keys into WASM hydration.
-
-See [Platform Host Architecture](docs/PlatformHostArchitecture.md) for the
-responsibility split and [Cloudflare Actor Roadmap](docs/CloudflareActorRoadmap.md)
-for the distributed-actor program.
-See [Directory And File Structure Design](docs/DirectoryFileStructureDesign.md)
-for the source layout and file placement rules. See [Actor Injection Design](docs/ActorInjectionDesign.md)
-for the `@RemoteActor` client component API over Apple's `@Resolvable` distributed
-actor model.
+| Layer | Responsibility |
+|---|---|
+| `SwiftHTML` | HTML elements, reusable `Component` values, documents, and rendering |
+| `SwiftWeb` | Application scenes, pages, routing, request context, actions, and actors |
+| `SwiftWebUI` | Layout, controls, themes, modifiers, and client components |
+| `sweb` | Project generation, generated packages, development server, Storyboard, and production builds |
 
 ## Requirements
 
-| Area | Requirement |
+SwiftWeb pins the host toolchain and WASM SDK to the same snapshot.
+
+| Item | Required value |
 |---|---|
 | Swift tools version | `6.4` |
 | Swiftly selector | `6.4-snapshot-2026-07-17` |
 | Swift toolchain | `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a` |
-| Browser WASM SDK | `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm` |
-| Embedded WASM SDK | `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm-embedded` |
-| Platforms | macOS package development; browser runtime via WASM |
+| Browser SDK | `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm` |
+| Package platform | macOS 26.2 or newer |
 
-SwiftWeb pins the host compiler and both WASM SDK profiles to one snapshot:
-
-```mermaid
-flowchart LR
-  A["Swift 6.4 snapshot"] --> B["Host/dev server graph"]
-  A --> C["Browser WASM SDK"]
-  A --> D["Embedded WASM SDK"]
-  E["Generated packages"] --> B
-  E --> C
-```
-
-Use the real snapshot toolchain executable for WASM builds, not a `swiftly` shim:
+For WASM commands, point SwiftWeb at the real toolchain directory. A `swiftly`
+shim does not contain the matching `wasm-ld` executable.
 
 ```bash
 export SWIFT_WEB_TOOLCHAIN_BIN="$HOME/Library/Developer/Toolchains/swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a.xctoolchain/usr/bin"
 export SWIFT_WEB_HOST_SWIFT="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
 export SWIFT_WEB_WASM_SWIFT="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
 export SWIFT_WEB_WASM_TOOLCHAIN_BIN="$SWIFT_WEB_TOOLCHAIN_BIN"
-```
 
-Verify the complete toolchain contract before the first build:
-
-```bash
 "$SWIFT_WEB_HOST_SWIFT" --version
 test -x "$SWIFT_WEB_WASM_TOOLCHAIN_BIN/wasm-ld"
-"$SWIFT_WEB_WASM_SWIFT" sdk list | \
-  rg 'swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm(-embedded)?'
 ```
 
-The exact snapshot, both SDK identifiers, update checklist, and SwiftPM 6.4
-artifact layout are recorded in
-[Swift 6.4 Toolchain Migration](docs/Swift64ToolchainMigration.md).
+See [Toolchain](docs/Toolchain.md) for the complete host and WASM setup.
 
-### Why Swift 6.4
+## Quick Start
 
-SwiftWeb's host HTTP stack builds on the next-generation server packages
-[`swift-http-server`](https://github.com/swift-server/swift-http-server)
-(`NIOHTTPServer`) and
-[`swift-http-api-proposal`](https://github.com/apple/swift-http-api-proposal)
-(`HTTPAPIs`). Both declare `// swift-tools-version:6.4` and enable the
-`LifetimeDependence` upcoming feature (the `Span` / lifetime-dependency model
-used for zero-copy HTTP I/O), so they can only be resolved and built with a
-Swift 6.4 toolchain. SwiftPM refuses to resolve a graph whose dependency
-manifest declares a newer tools version than the selected toolchain. The
-previous Swift 6.3.1 baseline therefore cannot resolve the current host graph.
+Install the `sweb` executable from the 0.7.0 release with
+[Mint](https://github.com/yonaskolb/Mint):
 
-SwiftWeb ships as a developer preview because the host stack rides Apple's
-still-evolving 6.4-era server APIs (`swift-http-server` 0.x). The repository
-therefore pins the exact toolchain and matching WASM SDK snapshot instead of
-silently selecting another 6.4 build.
-
-## SwiftHTML Authoring Model
-
-SwiftWeb uses SwiftHTML's explicit document/component boundary. A complete
-page document and nestable component content are different types:
-
-```mermaid
-flowchart TD
-  HTML["HTML: renderable and Sendable"] --> Document["HTMLDocument"]
-  HTML --> Component["Component"]
-  Document --> Shell["Complete doctype + html + head + body"]
-  Component --> Nested["Nestable tags, text, and custom components"]
-  Page["SwiftWeb Page"] --> Document
-  Document -.-> Guard["Not accepted by component builders"]
+```bash
+export PATH="$SWIFT_WEB_TOOLCHAIN_BIN:$PATH"
+mint install 1amageek/swift-web@0.7.0 sweb
+sweb --help
 ```
 
-| Boundary | Required API | Responsibility |
-|---|---|---|
-| Custom component | `var content: some Component` | Produce reusable, nestable content. |
-| Static page | `var document: some HTMLDocument` | Produce one complete page document. |
-| Loaded page | `load()` + `document(_:)` | Load a `Sendable` model, then produce the document. |
-| Component helper | Return `some Component` | Produce content accepted by component builders. |
-| Complete document | `HTMLDocument` with `head` and `body` | Own the document shell and remain outside component builders. |
+Create and run an application:
 
-SwiftHTML's builder lowers authored component trees to stable
-`ComponentContent` storage. Application code should continue to expose
-`some Component`; it should not name or store `ComponentContent` directly.
-The separation prevents a complete document from being accidentally nested in
-an element and gives SwiftWeb pages one explicit document-producing contract.
+```bash
+sweb new MyApp --output .
+cd MyApp
+sweb dev
+```
 
-The repository and examples use the released SwiftHTML `0.13.0` authoring
-model.
+Open [http://127.0.0.1:3000](http://127.0.0.1:3000). If port 3000 is
+occupied, `sweb dev` selects the next available port and prints it.
 
-## Installation
-
-Depend on SwiftWeb `0.7.0` and SwiftHTML `0.13.0`:
+The generated package depends on released versions of SwiftWeb and SwiftHTML:
 
 ```swift
 // swift-tools-version: 6.4
+
 import PackageDescription
 
 let package = Package(
     name: "MyApp",
-    platforms: [
-        .macOS("26.2"),
-    ],
+    platforms: [.macOS("26.2")],
     products: [
         .library(name: "MyApp", targets: ["MyApp"]),
     ],
@@ -211,7 +101,6 @@ let package = Package(
             dependencies: [
                 .product(name: "SwiftHTML", package: "swift-html"),
                 .product(name: "SwiftWeb", package: "swift-web"),
-                .product(name: "SwiftWebUI", package: "swift-web"),
             ],
             swiftSettings: [
                 .enableUpcomingFeature("ApproachableConcurrency"),
@@ -222,179 +111,26 @@ let package = Package(
 )
 ```
 
-> **Toolchain:** resolving and building SwiftWeb requires the pinned **Swift
-> 6.4** snapshot (see [Why Swift 6.4](#why-swift-64)). Point SwiftPM at its
-> real executable:
->
-> ```bash
-> SWIFT_BIN="$HOME/Library/Developer/Toolchains/swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a.xctoolchain/usr/bin/swift"
-> "$SWIFT_BIN" build
-> ```
+## Authoring Model
 
-### Install The CLI With Mint
+### Application and routes
 
-Mint can install the `sweb` executable product from the `0.7.0` release.
-
-Mint invokes `swift` from `PATH`, so put the pinned Swift 6.4 snapshot first for
-the current shell:
-
-```bash
-export SWIFT_WEB_TOOLCHAIN_BIN="$HOME/Library/Developer/Toolchains/swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a.xctoolchain/usr/bin"
-export PATH="$SWIFT_WEB_TOOLCHAIN_BIN:$PATH"
-mint install 1amageek/swift-web@0.7.0 sweb
-```
-
-| Need | Command |
-|---|---|
-| Install and link `sweb` globally | `mint install 1amageek/swift-web@0.7.0 sweb` |
-| Run without linking | `mint run 1amageek/swift-web@0.7.0 sweb <command>` |
-| Print the installed executable path | `mint which 1amageek/swift-web@0.7.0 sweb` |
-
-```bash
-mint install 1amageek/swift-web@0.7.0 sweb
-sweb --help
-sweb new MyApp --output ../MyApp
-```
-
-## Usage
-
-### 1. Run The CLI From This Repository
-
-When developing SwiftWeb itself, clone the repository and run the CLI from the
-checkout:
-
-```bash
-git clone https://github.com/1amageek/swift-web.git
-cd swift-web
-"$SWIFT_WEB_HOST_SWIFT" run sweb --help
-```
-
-### 2. Create An App
-
-Generate a new app package next to the SwiftWeb checkout:
-
-```bash
-"$SWIFT_WEB_HOST_SWIFT" run sweb new MyApp --output ../MyApp
-```
-
-The default app has this shape:
-
-```text
-MyApp
-├─ Package.swift
-├─ Sources/MyApp/App.swift
-├─ Sources/MyApp/Routes/HomePage.swift
-└─ .swiftweb/generated
-   ├─ server
-   ├─ dev
-   └─ wasm
-```
-
-Generate a chat-first app shell for AI work:
-
-```bash
-"$SWIFT_WEB_HOST_SWIFT" run sweb new Chat --ai --output ../Chat
-```
-
-The AI template adds a SwiftWebUI chat surface:
-
-```text
-Chat
-├─ Package.swift
-├─ Sources/Chat/App.swift
-├─ Sources/Chat/Routes/ChatPage.swift
-├─ Sources/Chat/Components/ChatPanel.swift
-└─ .swiftweb/generated
-   ├─ server
-   ├─ dev
-   └─ wasm
-```
-
-`sweb new` also materializes the generated launchers, dev packages, server packages,
-and WASM packages under `.swiftweb/generated`. Use `sweb prepare` only when you want
-to refresh generated packages for an existing SwiftWeb app without building or
-running it:
-
-Apply a deployment platform adapter by preset or GitHub repository slug:
-
-```bash
-"$SWIFT_WEB_HOST_SWIFT" run sweb new Chat --ai --platform cloudflare --output ../Chat
-"$SWIFT_WEB_HOST_SWIFT" run sweb new Chat --ai --platform 1amageek/swift-web-cloudflare --output ../Chat
-"$SWIFT_WEB_HOST_SWIFT" run sweb new Chat --ai --platform 1amageek/swift-web-cloudflare/chat --output ../Chat
-```
-
-`cloudflare` resolves to `1amageek/swift-web-cloudflare`. `sweb new` clones the
-adapter repository, validates `sweb.json`, copies the selected template
-files into the app package, renders `{{app.*}}` placeholders, and records the source
-in `.swiftweb/platform.json`. Custom platform template repositories can be referenced
-as `owner/repo` when they implement the platform adapter template contract. Add a
-path after the repository, such as `owner/repo/chat`, to select a named template
-inside that adapter repository.
-The contract is documented in
-[`docs/PlatformAdapterTemplateContract.md`](docs/PlatformAdapterTemplateContract.md).
-
-```bash
-cd ../MyApp
-sweb prepare
-```
-
-### 3. Open The Xcode Package
-
-From the app package directory:
-
-```bash
-sweb xcode
-```
-
-`sweb xcode` runs the same materialization step as `sweb prepare`, then opens
-`.swiftweb/generated/dev` in Xcode.
-
-The generated Xcode package includes a `<AppName>-dev` scheme that starts the same
-development runtime used by `sweb dev`.
-
-### 4. Run The Development Server
-
-From the app package directory:
-
-```bash
-sweb dev
-```
-
-Open:
-
-```text
-http://127.0.0.1:3000/
-```
-
-The dev command materializes `.swiftweb/generated`, builds the app server, starts the
-worker process, watches source changes, and sends browser update events.
-
-```mermaid
-flowchart LR
-  A["sweb dev"] --> B["materialize generated package"]
-  B --> C["build app server"]
-  C --> D["run worker"]
-  D --> E["watch files"]
-  E --> F["browser update"]
-```
-
-### 5. Add Routes
-
-`Sources/MyApp/App.swift` mounts pages:
+An application declares its route topology through `App.body`:
 
 ```swift
 import SwiftWeb
 
-public struct MyApp: App {
+public struct MyApp: SwiftWeb.App {
     public init() {}
 
     public var body: some Scene {
         HomePage()
+        AboutPage()
     }
 }
 ```
 
-`Sources/MyApp/Routes/HomePage.swift` defines the route:
+A static page returns a complete `HTMLDocument`:
 
 ```swift
 import SwiftHTML
@@ -403,125 +139,59 @@ import SwiftWeb
 @Page("/")
 struct HomePage {
     var document: some HTMLDocument {
-        PageDocument(title: "Home") {
-            div {
-                h1 { "Hello SwiftWeb" }
-                p { "Rendered by SwiftHTML and served through SwiftWeb." }
-            }
-        }
-    }
-}
-```
-
-The page boundary owns document production, while SwiftHTML owns document
-structure and rendering:
-
-```mermaid
-flowchart LR
-  Static["StaticPage"] --> StaticDocument["document"]
-  Loaded["LoadedPage"] --> Load["load()"]
-  Load --> LoadedDocument["document(model)"]
-  StaticDocument --> HTMLDocument["HTMLDocument"]
-  LoadedDocument --> HTMLDocument
-  HTMLDocument --> Response["HTTP response"]
-```
-
-| Page shape | Required API | Use |
-|---|---|---|
-| Static | `var document: some HTMLDocument` | Render directly from request context and stored values. |
-| Loaded | `load()` + `document(_:)` | Load a `Sendable` model, then build the document. |
-
-`@Page` synthesizes the `Page` resolver from that shape. `StaticPage` and
-`LoadedPage` expose the same contracts for types that adopt the protocols
-without the route macro. The accepted authoring boundary—`Component` for
-nestable content, `HTMLDocument` for complete documents, and `Page` for
-document production—is recorded in
-[`docs/HTMLAuthoringModel.md`](docs/HTMLAuthoringModel.md).
-
-Add another route by creating another `@Page` type and mounting it from `App.body`:
-
-```swift
-@Page("/about")
-struct AboutPage {
-    var document: some HTMLDocument {
-        PageDocument(title: "About") {
+        PageDocument(
+            title: "Home",
+            description: "A SwiftWeb application."
+        ) {
             main {
-                h1 { "About" }
-                p { "This page is rendered on the server." }
+                h1 { "Hello SwiftWeb" }
+                p { "Rendered on the server with SwiftHTML." }
             }
         }
     }
 }
 ```
 
-```swift
-public var body: some Scene {
-    HomePage()
-    AboutPage()
-}
-```
-
-Use `PageGroup` when a set of pages shares a path prefix:
+Use `load()` and `document(_:)` when rendering needs asynchronous data:
 
 ```swift
-public var body: some Scene {
-    HomePage()
+import SwiftHTML
+import SwiftWeb
 
-    PageGroup("admin") {
-        AdminDashboardPage()
-        AdminUsersPage()
+@Page("/profile")
+struct ProfilePage {
+    struct Model: Sendable {
+        let displayName: String
     }
-}
-```
 
-### 6. Read The Request Session
+    func load() async throws -> Model {
+        Model(displayName: "Taylor")
+    }
 
-Use `@Session` inside request-time surfaces such as page documents and server actions.
-The wrapped value is `WebSession`, not a raw host request object.
-
-```swift
-@Page("/account")
-struct AccountPage {
-    @Session var session
-
-    var document: some HTMLDocument {
-        PageDocument(title: "Account") {
-            if session.isAuthenticated {
-                AccountView()
-            } else {
-                LoginView()
+    func document(_ model: Model) -> some HTMLDocument {
+        PageDocument(title: model.displayName) {
+            main {
+                h1 { model.displayName }
             }
         }
     }
 }
 ```
 
-| Session API | Meaning |
-|---|---|
-| `session.isAuthenticated` | Reads SwiftWeb's authentication marker or stored `userID`. |
-| `session.userID` | Reads the stored user identifier. |
-| `session["key"]` | Reads or writes string session state. |
-| `session.authenticate(userID:)` | Stores the user identifier and marks the session authenticated. |
-| `session.clearAuthentication()` | Removes SwiftWeb authentication keys. |
-| `session.destroy()` | Invalidates the current persisted session. |
+`Component` is the reusable, nestable authoring unit. `HTMLDocument` owns a
+complete page and cannot be nested inside a component. The full contract is in
+[HTML Authoring Model](docs/HTMLAuthoringModel.md).
 
-`@Session` is request-scoped. Do not read it from `App.body` or `Scene.body`, because
-those build app topology without an active request. Scene-level access control belongs
-to route policy descriptors such as the planned `.restrict(...)` modifier.
+### SwiftWebUI
+
+Add the `SwiftWebUI` product when you want higher-level layout and controls:
 
 ```swift
-public var body: some Scene {
-    PageGroup("admin") {
-        AdminDashboardPage()
-    }
-    // Target route-policy shape; this is a request-time descriptor.
-    // .restrict(.authenticated, redirectTo: "/login")
-}
+.product(name: "SwiftWebUI", package: "swift-web")
 ```
 
-### 7. Use SwiftWebUI Components
-
-Import `SwiftWebUI` when you want the higher-level component layer:
+SwiftWebUI components lower into the same SwiftHTML graph, so raw HTML elements
+and SwiftWebUI values can be composed at one page boundary.
 
 ```swift
 import Foundation
@@ -534,16 +204,9 @@ struct HomePage {
     var document: some HTMLDocument {
         PageDocument(title: "Home") {
             main {
-                GridSystem {
-                    Pane(span: 12) {
-                        VStack(spacing: .medium) {
-                            Text("Hello SwiftWeb")
-                                .font(.title)
-
-                            Link("Continue", destination: URL(string: "/about")!)
-                                .buttonStyle(.borderedProminent)
-                        }
-                    }
+                VStack(spacing: .large) {
+                    Text("Hello SwiftWeb").as(.h1)
+                    Link("About", destination: URL(string: "/about")!)
                 }
                 .frame(maxWidth: 720)
             }
@@ -552,71 +215,108 @@ struct HomePage {
 }
 ```
 
-SwiftWebUI lowers into the SwiftHTML graph. It does not replace SwiftHTML; raw SwiftHTML
-elements remain available when you need exact HTML control.
+### Browser components
 
-### 8. Inspect Components With Storyboard
+`ClientComponent` runs in the generated standard Swift WASM runtime. Its
+`@State` values and event handlers remain in the browser:
 
-Run the SwiftWebUI component Storyboard from the SwiftWeb checkout:
+```swift
+import SwiftHTML
+import SwiftWebUI
+
+public struct Counter: ClientComponent {
+    @State private var count = 0
+
+    public init() {}
+
+    public var content: some Component {
+        VStack(spacing: .small) {
+            Text("Count: \(count)")
+            Button("Increment") {
+                count += 1
+            }
+        }
+    }
+}
+```
+
+The default contract places small client components in the eager main bundle.
+Large or deferred islands can declare a loading and bundle policy:
+
+```swift
+public static let loadPolicy: LoadPolicy = .visible
+public static let bundle: BundlePolicy = .named("analytics")
+```
+
+Available load policies are `.eager`, `.visible`, `.interaction`, `.idle`, and
+`.manual`. See [Client Bundle Loading](docs/ClientBundleLoadingDesign.md) for
+bundle resolution, ownership, and production behavior.
+
+## Development Workflow
+
+`sweb dev` maintains desired source state and the currently serving worker. It
+materializes generated packages, rebuilds changed browser/server paths, swaps a
+ready worker, and recovers from build failures without discarding the last good
+application.
+
+```mermaid
+flowchart LR
+  Edit["edit Sources"] --> Dev["sweb dev"]
+  Dev --> Prepare["materialize .swiftweb/generated"]
+  Prepare --> Build["build WASM and server worker"]
+  Build --> Serve["serve latest successful generation"]
+  Serve --> HMR["browser HMR or page patch"]
+  HMR --> Edit
+```
+
+Generated content is build output. Keep application changes in `Package.swift`
+and `Sources`; do not edit `.swiftweb/generated` directly.
+
+| Command | Purpose |
+|---|---|
+| `sweb new <Name> [--output <directory>]` | Create a minimal application |
+| `sweb new <Name> --ai` | Create a chat-oriented SwiftWebUI application |
+| `sweb new <Name> --platform <preset-or-owner/repo>` | Apply a deployment adapter template |
+| `sweb prepare` | Refresh generated dev, server, and WASM packages |
+| `sweb xcode` | Refresh and open `.swiftweb/generated/dev` |
+| `sweb dev [--host <host>] [--port <port>]` | Run the development reconciler and HMR server |
+| `sweb storyboard` | Generate and run the SwiftWebUI component Storyboard |
+| `sweb build` | Build the generated production server |
+| `sweb build --wasm` | Build and process browser WASM artifacts |
+| `sweb clean [--storyboard] [--swiftpm] [--all]` | Remove selected generated output |
+
+All package commands accept `--package-path <directory>`. Build, dev, and
+Storyboard commands also accept `--scratch-path <directory>`.
+
+Run `sweb xcode` to use the generated `<AppName>-dev` scheme in Xcode:
 
 ```bash
-"$SWIFT_WEB_HOST_SWIFT" run sweb storyboard
+cd MyApp
+sweb xcode
 ```
 
-Open:
-
-```text
-http://127.0.0.1:3001/storyboard
-```
-
-Storyboard generates an isolated package under `.swiftweb/storyboard`; it does not edit
-your app package.
-
-Run Storyboard with production WASM artifacts and compression sidecars:
-
-```bash
-"$SWIFT_WEB_HOST_SWIFT" run sweb storyboard \
-  --production \
-  --runtime standard \
-  -c release
-```
-
-This path builds the generated Storyboard WASM runtime through the production artifact
-processor, writes `.wasm.gz` and `.wasm.br`, then starts the production `app-server`.
-SwiftWeb supports the standard WASM profile for Storyboard production validation.
-
-### 9. Build For Production
+## Production Builds
 
 Build the generated server package:
 
 ```bash
+cd MyApp
 sweb build
 ```
 
-Build browser WASM artifacts:
+Build the standard browser WASM runtime with the matching SDK:
 
 ```bash
-export SWIFT_WEB_TOOLCHAIN_BIN="$HOME/Library/Developer/Toolchains/swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a.xctoolchain/usr/bin"
-export SWIFT_WEB_HOST_SWIFT="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
-export SWIFT_WEB_WASM_SWIFT="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
-export SWIFT_WEB_WASM_TOOLCHAIN_BIN="$SWIFT_WEB_TOOLCHAIN_BIN"
-
 sweb build \
   --wasm \
+  --runtime standard \
   --swift-sdk swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm \
   -c release
 ```
 
-SwiftWeb's browser support boundary is the standard Swift WASM SDK:
-
-| Runtime profile | Support | Browser artifact shape |
-|---|---|---|
-| `standard` | Supported. Full `ClientComponent` hydration, client state, browser events, and SwiftWebUI runtime behavior. | App client source, `SwiftHTML`, `SwiftWebUI`, `SwiftWebUIRuntime`, `SwiftWebActors`, JavaScriptKit. |
-| Embedded Swift WASM | Not supported. Current Swift SDK and runtime dependencies do not provide the required `Distributed`, `Codable`, and Foundation capabilities for SwiftWeb's browser graph. | No public artifact contract. |
-
-Production WASM builds strip debug/producers sections, optionally run `wasm-opt -Oz`,
-write `<artifact>.wasm.size.json`, and create cached `.gz` / `.br` sidecars.
-SwiftPM 6.4 places the release artifacts under:
+The production artifact processor strips non-runtime sections, runs
+`wasm-opt -Oz` when available, records a size report, and writes cached gzip
+and Brotli sidecars:
 
 ```text
 .swiftweb/generated/.build/wasm/out/Products/Release-webassembly-wasm32/
@@ -627,235 +327,87 @@ SwiftPM 6.4 places the release artifacts under:
   <product>.wasm.br
 ```
 
-### 10. Try The Examples
+The public browser profile is standard Swift WASM. Embedded Swift WASM is not
+a supported SwiftWeb browser runtime.
 
-The repository includes a minimal hello world app and a counter app with server
-actions, page invalidation, and a client-side counter component.
+## Project Layout
 
-Run the minimal app:
+```text
+MyApp/
+├─ Package.swift
+├─ Sources/MyApp/
+│  ├─ App.swift
+│  ├─ Routes/
+│  └─ Components/
+└─ .swiftweb/                 generated; do not edit
+   ├─ generated/dev/
+   ├─ generated/server/
+   └─ generated/wasm/
+```
+
+SwiftWeb itself is split into runtime, browser, UI, development, and host
+targets. The [documentation index](docs/README.md) maps each current contract
+to its owning area.
+
+## Platform Adapters
+
+Deployment integrations live outside the core package. `sweb new` can apply a
+preset or GitHub-backed adapter template and records its source in
+`.swiftweb/platform.json`:
+
+```bash
+sweb new Chat --ai --platform cloudflare --output .
+sweb new App --platform owner/repository --output .
+sweb new App --platform owner/repository/template --output .
+```
+
+The adapter repository contract is documented in
+[Platform Adapter Template Contract](docs/PlatformAdapterTemplateContract.md).
+
+## Examples
+
+| Example | Demonstrates |
+|---|---|
+| [HelloWorld](Examples/HelloWorld) | Minimal app, static `@Page`, SwiftHTML, and SwiftWebUI rendering |
+| [CounterApp](Examples/CounterApp) | Loaded pages, client state, hydration, server actions, and distributed actor RPC |
 
 ```bash
 cd Examples/HelloWorld
 sweb dev
 ```
 
-Open:
+## Documentation
 
-```text
-http://127.0.0.1:3000/
-```
+Start with the [documentation index](docs/README.md). It separates current
+public contracts, architecture decisions, and verification runbooks.
 
-Run the counter app:
+## Contributing
 
-```bash
-cd Examples/CounterApp
-sweb dev
-```
-
-Open:
-
-```text
-http://127.0.0.1:3000/counter
-```
-
-## CLI
-
-| Command | Purpose |
-|---|---|
-| `sweb new <AppName>` | Generate a minimal SwiftWeb app package. |
-| `sweb new <AppName> --ai` | Generate a chat-first SwiftWebUI app shell for AI interfaces. |
-| `sweb new <AppName> --platform cloudflare` | Apply a preset deployment adapter template. |
-| `sweb new <AppName> --platform owner/repo` | Apply a GitHub-backed custom platform adapter template. |
-| `sweb new <AppName> --platform owner/repo/template` | Apply a custom platform adapter and named template path. |
-| `sweb prepare` | Materialize generated server, dev, and WASM packages for an existing app. |
-| `sweb xcode` | Materialize generated packages and open the dev package in Xcode. |
-| `sweb dev` | Run the development server with generated packages and HMR. |
-| `sweb storyboard` | Run the SwiftWebUI component Storyboard. |
-| `sweb build` | Build the generated production server package. |
-| `sweb build --wasm` | Build browser WASM runtime artifacts and production sidecars. |
-
-Package commands default to the current directory. Run them from the directory that
-contains `Package.swift`, or pass `--package-path` when targeting a package from
-another directory.
-
-`sweb dev` uses a compact color console for dev status, rebuilds, HMR, and common
-errors. It honors `NO_COLOR`; set `SWIFT_WEB_LOG_STYLE=plain` to keep the underlying
-swift-log output.
-
-## Development Workflow With sweb
-
-Use `sweb` from inside the application package. The CLI treats the directory that
-contains `Package.swift` as the app root, materializes generated packages under
-`.swiftweb/generated`, and keeps your editable source under `Sources/<AppName>`.
-
-```mermaid
-flowchart LR
-  A["edit app sources"] --> B["sweb dev"]
-  B --> C["materialize .swiftweb/generated"]
-  C --> D["build server package"]
-  D --> E["run worker"]
-  E --> F["browser reload/HMR"]
-  F --> A
-```
-
-| Step | Command | When to use it |
-|---|---|---|
-| Create an app | `sweb new MyApp --output ../MyApp` | Start a new SwiftWeb package and materialize `.swiftweb/generated`. |
-| Create an AI chat app | `sweb new Chat --ai --output ../Chat` | Start with a SwiftWebUI chat page and client-side composer. |
-| Apply a Cloudflare adapter | `sweb new Chat --ai --platform cloudflare --output ../Chat` | Copy the selected template and record `1amageek/swift-web-cloudflare` in `.swiftweb/platform.json`. |
-| Apply a custom adapter | `sweb new App --platform owner/repo --output ../App` | Use any GitHub repository that implements the platform adapter template contract. |
-| Apply an adapter template | `sweb new Chat --platform 1amageek/swift-web-cloudflare/chat --output ../Chat` | Use the `chat` template from that platform adapter repository. |
-| Refresh generated packages | `sweb prepare` | Refresh `.swiftweb/generated` for an existing app without starting the server. |
-| Open the generated dev package | `sweb xcode` | Inspect or debug the generated development package in Xcode. |
-| Run the dev loop | `sweb dev` | Start the server, watcher, rebuild loop, and browser updates. |
-| Build the server package | `sweb build` | Validate the generated production server package. |
-| Build browser WASM | `sweb build --wasm --swift-sdk swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm -c release` | Produce optimized browser runtime artifacts and compression sidecars. |
-
-The normal loop is:
+Use the pinned toolchain for every validation command. Native tests run through
+Xcode with a timeout guard:
 
 ```bash
-cd MyApp
-sweb dev
+TOOLCHAINS=org.swift.64202607171a \
+scripts/swift-test-hang-guard.sh \
+  --repeats 1 \
+  --timeout 1200 \
+  --build-timeout 1200 \
+  -- xcodebuild test \
+    -scheme swift-web-Package \
+    -destination platform=macOS \
+    -parallel-testing-enabled NO
 ```
 
-Then edit route, component, and client island source files in `Sources/MyApp`.
-Generated packages are implementation output; inspect them when debugging, but keep
-source changes in the app package or in SwiftWeb itself.
-
-For Xcode-based debugging, run:
+The complete browser-visible development path is verified separately:
 
 ```bash
-cd MyApp
-sweb xcode
+cd Tests/BrowserE2E
+npm run counter-wasm
 ```
 
-This opens `.swiftweb/generated/dev`, whose `<AppName>-dev` scheme runs the same
-development runtime as `sweb dev`.
-
-Before release-oriented checks, run:
-
-```bash
-cd MyApp
-sweb build
-export SWIFT_WEB_TOOLCHAIN_BIN="$HOME/Library/Developer/Toolchains/swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a.xctoolchain/usr/bin"
-export SWIFT_WEB_HOST_SWIFT="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
-export SWIFT_WEB_WASM_SWIFT="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
-export SWIFT_WEB_WASM_TOOLCHAIN_BIN="$SWIFT_WEB_TOOLCHAIN_BIN"
-sweb build --wasm --swift-sdk swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm -c release
-```
-
-## Browser Runtime
-
-SwiftWeb browser runtime packages copy runtime-only sources into generated WASM packages:
-
-| Runtime source | Browser WASM behavior |
-|---|---|
-| SwiftHTML | Runtime source copy; preview/doc sources are excluded. |
-| SwiftWebUI | Runtime source copy for client components. |
-| SwiftWebUIRuntime | JavaScriptKit-backed browser adapter. |
-| JavaScriptKit | Runtime-only copy; BridgeJS macros are not included by default. |
-| SwiftSyntax | Not included in generated browser runtime packages. |
-
-`sweb build --wasm` uses the standard Swift WASM compiler profile. SwiftWeb does
-not expose Embedded Swift WASM as a supported runtime profile. Embedded Swift can
-be revisited only if the browser runtime can be expressed without `Distributed`,
-`Codable`, Foundation, or profile-specific source families.
-
-The intended production split is:
-
-```mermaid
-flowchart LR
-  A["Production page"] --> B{"Browser behavior"}
-  B -->|"client state / client events"| C["standard WASM runtime"]
-  B -->|"server-rendered / server actions"| D["HTML + HTTP actions"]
-  C --> E[".wasm + .gz + .br sidecars"]
-  D --> F["no separate Embedded Swift profile"]
-```
-
-Historical Embedded Swift measurements are research notes only and are not part of
-the public support contract.
-
-### Client Bundles
-
-`ClientComponent` values are lowered into WASM bundles by contract. The default
-contract joins the eager main bundle:
-
-```swift
-public struct ClientSummary: ClientComponent {
-    @State private var count = 0
-
-    public init() {}
-
-    public var content: some Component {
-        Button("Count \(count)") {
-            count += 1
-        }
-    }
-}
-```
-
-Use `loadPolicy` to decide when the browser loads a client island, and `bundle`
-to decide which logical bundle groups related islands:
-
-```swift
-public struct ClientChart: ClientComponent {
-    public static let loadPolicy: LoadPolicy = .visible
-    public static let bundle: BundlePolicy = .named("analytics")
-
-    public init() {}
-
-    public var content: some Component {
-        GroupBox {
-            Text("Chart").as(.h2)
-            Text("Loaded when the chart approaches the viewport.").foregroundStyle(.secondary)
-        }
-    }
-}
-```
-
-Page-local overrides can be written where the client island is used:
-
-```swift
-ClientInspector()
-    .loadPolicy(.manual)
-    .bundle(.shared("tools"))
-```
-
-| Policy | Purpose |
-|---|---|
-| `.main` | Keep small or common eager components in the initial runtime. |
-| `.component` | Split one large isolated client island. |
-| `.named("analytics")` | Group page or app features under a readable bundle name. |
-| `.shared("workspace")` | Group reusable client components that should share one bundle. |
-
-| Load policy | Browser behavior |
-|---|---|
-| `.eager` | Load and instantiate during initial runtime startup. |
-| `.visible` | Load when the island approaches the viewport. |
-| `.interaction` | Load on hover, focus, touch, press, or click intent. |
-| `.idle` | Load during a browser idle window. |
-| `.manual` | Wait for an explicit runtime request. |
-
-Modifiers must be attached to the outermost `ClientComponent` island. Nested
-client components share the outer island's bundle contract. The default WASM
-split strategy coalesces non-eager bundles by load policy, while
-`SWIFTWEB_WASM_SPLIT_BUILD_STRATEGY=resolved` builds one artifact per resolved
-logical bundle. See [ClientBundleLoadingDesign](docs/ClientBundleLoadingDesign.md)
-for the full design.
-
-Production WASM builds generate `.wasm.gz` and `.wasm.br` sidecars. Brotli defaults to
-quality 11 for production transfer size, and sidecars are cached by the post-processed
-WASM content hash so unchanged artifacts are not recompressed.
-
-## Development Notes
-
-| Topic | Current contract |
-|---|---|
-| Swift version | Keep `Package.swift` at `// swift-tools-version: 6.4`. |
-| `swift-html` | Uses released version `0.13.0` with the `Component.content` / `HTMLDocument` authoring model. |
-| Host compatibility | The `swift-http-server` host stack uses the pinned Swift 6.4 snapshot (see Why Swift 6.4). |
-| WASM compatibility | Browser builds use the matching standard SDK. The matching Embedded SDK is pinned for capability validation but is not a public SwiftWeb browser profile. |
+See [Development Reconciler Verification](docs/DevServerReconcilerVerification.md)
+for the required environment and acceptance conditions.
 
 ## License
 
-SwiftWeb is released under the MIT License. See [LICENSE](LICENSE).
+SwiftWeb is available under the [MIT License](LICENSE).

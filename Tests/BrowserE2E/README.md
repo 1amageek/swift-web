@@ -44,6 +44,7 @@ The test copies `Examples/CounterApp` into a temporary directory, rewrites only 
 - Storyboard browser history and native hash/external-link fallbacks
 - ClientComponent HMR patching while preserving state
 - ClientComponent HMR build failure rollback without replacing the old UI
+- expired-generation `410 Gone` followed by an explicit reload onto the latest runtime
 - Server worker restart HMR followed by page patch without losing compatible client state
 - repeated page access liveness under direct HTTP and browser reload pressure
 - dev process shutdown cleanup
@@ -134,8 +135,8 @@ flowchart LR
   I --> J["shutdown cleanup"]
 ```
 
-Cold start time remains a separate performance signal tracked in
-[`docs/BuildTimePerformanceTODO.md`](../../docs/BuildTimePerformanceTODO.md). A passing E2E
-means the HMR loop behaved correctly and cleaned up after itself; it does not mean the first
-`app-server-dev` build is fast enough. Record the first `Build complete!` line from the log
-when evaluating developer experience regressions.
+A passing E2E means the HMR loop behaved correctly and cleaned up after itself;
+it does not establish a cold-start performance budget. Record build-phase timing
+from the JSON report when evaluating developer experience regressions. The full
+release acceptance contract is in
+[`docs/DevServerReconcilerVerification.md`](../../docs/DevServerReconcilerVerification.md).

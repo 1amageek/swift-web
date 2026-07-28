@@ -73,7 +73,7 @@ sequenceDiagram
     G->>R: exit component context
 ```
 
-### Proposed protocol
+### Current protocol
 
 ```swift
 public protocol DynamicProperty {
@@ -123,7 +123,7 @@ Text("Title")
     .padding()
 ```
 
-### Proposed types
+### Current types
 
 ```swift
 public protocol ComponentModifier: Sendable {
@@ -182,7 +182,7 @@ flowchart LR
     G --> H["CSS declarations / classes"]
 ```
 
-### Proposed protocols
+### Current protocols
 
 ```swift
 public protocol WebShapeStyle: Sendable {
@@ -215,13 +215,13 @@ public struct ResolvedStyle: Sendable, Equatable {
 | `.font(_:)` | Typography abstraction, not raw CSS string |
 | `.controlSize(_:)` | Environment-backed control sizing |
 | `.buttonStyle(_:)` | Semantic button treatment selection resolved by the active stylesheet |
-| `.textFieldStyle(_:)` | Future semantic field treatment selection resolved by the active stylesheet |
+| `.textFieldStyle(_:)` | Semantic field treatment selection resolved by the active stylesheet |
 
 Direct CSS is not a SwiftWebUI API. When SwiftWebUI needs concrete visual
-output, it must use semantic classes, typed utilities, or typed `Style`
+output, it uses semantic classes, typed utilities, or typed `Style`
 declarations that SwiftWebStyle validates and atomizes during render. The
-styling goal state and raw-CSS ban are defined in
-[`UtilityStylingGoalState.md`](UtilityStylingGoalState.md).
+raw-CSS ban and emission contract are defined in
+[`AtomicStyling.md`](AtomicStyling.md).
 
 ## Environment, ColorScheme, And Theme
 

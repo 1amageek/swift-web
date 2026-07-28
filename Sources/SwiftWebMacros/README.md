@@ -10,7 +10,7 @@ It owns syntax analysis and generated Swift declarations for page types, action 
 |---|---|
 | Macro implementation | Implements the `@Page` macro using SwiftSyntax. |
 | Page conformance | Generates `PageRoute` and `Page` conformance for annotated page types. |
-| Route registration | Generates calls that lower page paths to Vapor route registration. |
+| Route registration | Generates calls that lower page paths through host-neutral route registration. |
 | Parameter checks | Cross-checks path parameters with `Params` declarations where possible. |
 | Metadata lowering | Generates calls to async page metadata before response encoding. |
 | Server action references | Validates `@ServerAction` HTTP handler methods and generates typed action references, runtime descriptors, and internal invocation bridges. |
@@ -24,7 +24,7 @@ flowchart LR
   A["source: @Page"] --> B["SwiftWebMacros"]
   B --> C["generated extension"]
   C --> D["SwiftWeb.PageRoute + Page"]
-  D --> E["Vapor route at runtime"]
+  D --> E["host route at runtime"]
 ```
 
 ## Server Interaction Macro Boundaries
@@ -53,7 +53,7 @@ flowchart LR
   B --> I["generated action bridge"]
   C --> E["@Page route registration"]
   D --> F["SwiftWebUI Button/Form"]
-  E --> G["Vapor HTTP route"]
+  E --> G["HTTP route"]
   G --> I
   I --> H["handler method"]
 ```
@@ -69,13 +69,13 @@ The macro should reject unsupported signatures instead of letting invalid action
 | Attribute declares `ServerActionMethod` and path | The public contract is HTTP method + path. |
 | Input is `Codable & Sendable` | Client and gateway need a stable HTTP transport contract. |
 | Output is `Codable & Sendable` or `ActionResult` | Runtime needs typed result encoding. |
-| Context is `ActionInvocationContext` | Action methods receive normalized request context, not raw Vapor request state. |
+| Context is `ActionInvocationContext` | Action methods receive normalized request context, not concrete host request state. |
 
 ## Not Responsible For
 
 | Not owned by SwiftWebMacros | Owner |
 |---|---|
-| Runtime route matching | Vapor / `SwiftWeb` |
+| Runtime route matching | `SwiftWebCore` and the selected host |
 | Request context storage | `SwiftWeb` |
 | HTML rendering | `SwiftHTML` |
 | UI components | `SwiftWebUI` |
@@ -92,7 +92,7 @@ The macro should reject unsupported signatures instead of letting invalid action
 - Compile-time diagnostics should catch path/parameter mismatches early.
 - The macro must not maintain route manifests, route trees, or matching state.
 - `@ServerAction` marks the exported HTTP handler method explicitly; no actor-level grouping macro is required.
-- Page-owned handlers are registered as Vapor routes through generated `@Page` instance registration.
+- Page-owned handlers are registered as host-neutral routes through generated `@Page` instance registration.
 - Generated descriptors should carry a typed invoker instead of requiring SwiftWeb to synthesize compiler-internal distributed target names.
 - Generated action references should describe HTTP method and path. They should not expose handler names, action names, target identifiers, actor IDs, or RPC metadata.
 - Apple's `@Resolvable` belongs on client-visible distributed actor protocols, not on SwiftWeb `ActionReference`.

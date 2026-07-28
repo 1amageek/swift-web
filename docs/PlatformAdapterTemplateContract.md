@@ -143,4 +143,4 @@ these values when it materializes an adapter template.
 |---|---|
 | Add adapter repositories to app `Package.swift`. | Deployment tooling should not pollute the app compile graph. |
 | Put Cloudflare or Cloud Run templates inside `NewCommand.swift`. | That would make the CLI own platform implementation details. |
-| Run Vapor inside Cloudflare Workers. | Cloudflare uses event handlers, not a port-listening server process. |
+| Run a port-listening server inside Cloudflare Workers. | Cloudflare uses event handlers rather than a listening server process. |

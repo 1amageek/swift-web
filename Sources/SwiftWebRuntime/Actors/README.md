@@ -2,7 +2,7 @@
 
 SwiftWebActors is the shared Distributed Actor runtime boundary for SwiftWeb server and client builds.
 
-It owns the `WebActorSystem` adapter, invocation envelope encoding/decoding, result handling, and the transport protocol used to move ActorRuntime envelopes across process or network boundaries. It does not own Vapor route registration, page rendering, UI components, or browser DOM updates.
+It owns the `WebActorSystem` adapter, invocation envelope encoding/decoding, result handling, and the transport protocol used to move ActorRuntime envelopes across process or network boundaries. It does not own HTTP route registration, page rendering, UI components, or browser DOM updates.
 
 ## Responsibility
 

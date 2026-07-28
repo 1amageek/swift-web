@@ -8,7 +8,7 @@ The default is intentionally conservative: all client components join one eager 
 
 | Field | Value |
 |---|---|
-| Status | Accepted design direction |
+| Status | Implemented in SwiftWeb 0.7.0 |
 | Decision date | 2026-06-17 |
 | Primary goal | Optimize first browser load while keeping the default app model simple. |
 | Secondary goal | Preserve fast incremental builds by generating only the bundle products required by explicit contracts. |
@@ -17,7 +17,7 @@ The default is intentionally conservative: all client components join one eager 
 
 ## Size Optimization Direction
 
-The split-loading contract optimizes the first interactive surface by delaying selected client islands. The current Swift/WASI toolchain still links each executable WASM product as a standalone artifact, so a naive one-product-per-split implementation duplicates the Swift runtime, SwiftHTML, SwiftWebUIRuntime, and JavaScriptKit-facing runtime glue in every split bundle. The JavaScriptKit boundary is defined in [`BrowserRuntimeJavaScriptKitDecision.md`](BrowserRuntimeJavaScriptKitDecision.md): generated browser WASM packages use a runtime-only JavaScriptKit source copy by default, not BridgeJS. After removing macro-only dependencies and stripping debug/producers custom sections, the browser E2E run on 2026-06-17 loaded an eager main bundle of about 56.5 MB uncompressed.
+The split-loading contract optimizes the first interactive surface by delaying selected client islands. The current Swift/WASI toolchain still links each executable WASM product as a standalone artifact, so a naive one-product-per-split implementation duplicates the Swift runtime, SwiftHTML, SwiftWebUIRuntime, and JavaScriptKit-facing runtime glue in every split bundle. The JavaScriptKit boundary is defined in [`BrowserRuntimeJavaScriptKitDecision.md`](BrowserRuntimeJavaScriptKitDecision.md): generated browser WASM packages use a runtime-only JavaScriptKit source copy by default, not BridgeJS. The SwiftWeb 0.7.0 release gate measured the CounterApp production runtime at 75,368,489 bytes raw, 48,591,209 bytes after optimization, 19,050,545 bytes with gzip, and 12,647,753 bytes with Brotli.
 
 SwiftWeb therefore separates the developer contract from the physical build strategy:
 
@@ -70,7 +70,7 @@ The release-quality requirement is therefore: split loading must remain determin
 
 This document defines the loading contract for browser-executed `ClientComponent` islands. It covers the public API, bundle ownership, nested component behavior, generated WASM product shape, runtime loading, build caching, diagnostics, and development/production boundaries.
 
-It does not define the SwiftHTML graph model, the SwiftWebUI visual component catalog, Vapor route lowering, or the distributed actor gateway. Those systems consume or provide metadata for this contract, but they do not decide bundle boundaries.
+It does not define the SwiftHTML graph model, the SwiftWebUI visual component catalog, HTTP route lowering, or the distributed actor gateway. Those systems consume or provide metadata for this contract, but they do not decide bundle boundaries.
 
 ## Resolved Direction
 
@@ -210,7 +210,7 @@ The resolver is intentionally smaller than a planner. It walks the rendered comp
 | Layer | Responsibility | Not responsible for |
 |---|---|---|
 | `SwiftHTML` | Component graph, island metadata, state/environment schema hashes, diff and hydration primitives. | Deciding app-level WASM product layout. |
-| `SwiftWebUI` | SwiftUI-like `ClientComponent` authoring API, loading modifiers, and style/color-scheme environment values. | Serving assets or registering Vapor routes. |
+| `SwiftWebUI` | SwiftUI-like `ClientComponent` authoring API, loading modifiers, and style/color-scheme environment values. | Serving assets or registering HTTP routes. |
 | `SwiftWeb` | Build a client manifest from rendered islands, host content-hashed WASM assets, and inject the browser loader. | Inferring arbitrary split points from usage frequency or bundle size. |
 | `SwiftWebPackageGeneration` | Materialize generated server/dev/WASM packages and inspect manifests. | Owning the public component API or serving browser assets. |
 | `SwiftWebWasmBuild` | Resolve WASM toolchains, process artifacts, cache compression metadata, and emit size reports. | Watching files or supervising dev workers. |

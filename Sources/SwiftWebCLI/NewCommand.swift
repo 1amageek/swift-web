@@ -511,7 +511,7 @@ struct TemplateProject {
             var document: some HTMLDocument {
                 PageDocument(
                     title: "Hello World",
-                    description: "A SwiftWeb page rendered by Vapor and SwiftHTML."
+                    description: "A SwiftWeb page rendered with SwiftHTML."
                 ) {
                     main {
                         h1 { "Hello World" }

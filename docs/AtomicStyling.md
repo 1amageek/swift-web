@@ -11,9 +11,8 @@ small, reusable class. It is **self-contained** — a SwiftWebUI app needs no Ta
 toolchain, CDN, or build step — and it integrates with the existing `--swui-*` design
 tokens and the semantic classes already in `RootStylesheet`.
 
-The implementation goal state and remaining utility/variant work are tracked in
-[`UtilityStylingGoalState.md`](UtilityStylingGoalState.md). That document is the
-source of truth for the direct-CSS ban and Tailwind-like utility parity work.
+This document is the source of truth for the direct-CSS ban, token utilities,
+and generated atomic declarations.
 
 ## Current Contract
 
@@ -73,7 +72,7 @@ SwiftWebStyle owns the shared style primitives used by both tiers:
 
 | Primitive | Responsibility |
 |---|---|
-| `StyleClass` | One HTML class token plus its escaped CSS selector. It is a token primitive; Tailwind-like variant semantics belong to the utility/variant compiler defined in `UtilityStylingGoalState.md`. |
+| `StyleClass` | One HTML class token plus its escaped CSS selector. It is the shared token primitive for static utilities and generated rules. |
 | `StyleClassList` | Ordered, de-duplicated class composition for framework and user utility classes. |
 | `rule(StyleClass)` | Binds a static utility class to a typed `Style` rule without repeating selector strings. |
 | `StyleRegistry` / `atom(_:)` | Runtime registration for unbounded arbitrary `Style` declarations. |

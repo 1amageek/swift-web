@@ -14,7 +14,8 @@ HelloWorld
 
 ## Run
 
-Use the pinned Swift 6.4 snapshot from the repository contract:
+Use the pinned Swift 6.4 snapshot from the
+[toolchain contract](../../docs/Toolchain.md):
 
 ```bash
 export SWIFT_WEB_TOOLCHAIN_BIN="$HOME/Library/Developer/Toolchains/swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a.xctoolchain/usr/bin"

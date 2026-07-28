@@ -6,7 +6,7 @@
 | `CounterApp` | Canonical sample for `@Page`, SwiftWebUI layout, client `@State`, WASM hydration, server actions, and distributed service RPC. |
 
 Both examples use the pinned Swift 6.4 snapshot documented in
-[Swift 6.4 Toolchain Migration](../docs/Swift64ToolchainMigration.md). Configure
+[Toolchain](../docs/Toolchain.md). Configure
 the real toolchain executable before running them:
 
 ```bash
