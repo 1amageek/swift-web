@@ -1,7 +1,7 @@
 import { createRequire } from "node:module";
 import { execFile, spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, rm, utimes, writeFile } from "node:fs/promises";
 import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -27,11 +27,11 @@ try {
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const swiftWebRoot = path.resolve(scriptDirectory, "../..");
-const defaultSwiftHTMLRoot = path.resolve(swiftWebRoot, "../swift-html");
-const swiftHTMLRoot = path.resolve(process.env.SWIFTWEB_E2E_SWIFT_HTML_ROOT || defaultSwiftHTMLRoot);
+const expectedSwiftHTMLVersion = "0.13.0";
 const exampleAppRoot = path.join(swiftWebRoot, "Examples", "CounterApp");
 const timeoutMs = Number(process.env.SWIFTWEB_E2E_TIMEOUT_MS || 600_000);
-const hmrTimeoutMs = Number(process.env.SWIFTWEB_E2E_HMR_TIMEOUT_MS || 90_000);
+const hmrTimeoutMs = Number(process.env.SWIFTWEB_E2E_HMR_TIMEOUT_MS || 300_000);
+const bindHost = process.env.SWIFTWEB_E2E_BIND_HOST || "127.0.0.1";
 const report = {
   phases: [],
   consoleErrors: [],
@@ -82,6 +82,7 @@ async function waitForHTTP(url, deadline) {
           Accept: "text/html",
         },
       });
+      await response.arrayBuffer();
       if (response.ok) {
         return;
       }
@@ -98,8 +99,189 @@ function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function fetchDevStatus(baseURL) {
+  const response = await fetch(`${baseURL}/__dev/status`, {
+    headers: { Accept: "application/json" },
+  });
+  const body = await response.text();
+  if (!response.ok) {
+    throw new Error(`Dev status returned HTTP ${response.status}: ${body}`);
+  }
+  return JSON.parse(body);
+}
+
+async function waitForDevStatus(baseURL, label, predicate, timeout = hmrTimeoutMs) {
+  const deadline = Date.now() + timeout;
+  let lastStatus = null;
+  let lastError = null;
+  while (Date.now() < deadline) {
+    try {
+      lastStatus = await fetchDevStatus(baseURL);
+      if (predicate(lastStatus)) {
+        return lastStatus;
+      }
+    } catch (error) {
+      lastError = error;
+    }
+    await delay(250);
+  }
+  throw new Error(
+    `Timed out waiting for dev status ${label}: ${JSON.stringify({ lastStatus, lastError: String(lastError || "") })}`
+  );
+}
+
+function isQuiescentDevStatus(status) {
+  return status.phase === "ready"
+    && status.stale === false
+    && status.sourceFingerprint
+    && status.sourceFingerprint === status.servingFingerprint
+    && (status.buildingFingerprint === null || status.buildingFingerprint === undefined);
+}
+
+async function assertQuiescentFingerprintHeaders(baseURL) {
+  const response = await fetch(`${baseURL}/counter`, {
+    headers: { Accept: "text/html" },
+  });
+  const body = await response.text();
+  if (!response.ok) {
+    throw new Error(`Counter page returned HTTP ${response.status}`);
+  }
+  const status = await fetchDevStatus(baseURL);
+  const headers = {
+    build: response.headers.get("x-swiftweb-dev-build"),
+    source: response.headers.get("x-swiftweb-dev-source"),
+    stale: response.headers.get("x-swiftweb-dev-stale"),
+  };
+  if (!isQuiescentDevStatus(status)
+    || !headers.build
+    || headers.build !== headers.source
+    || headers.build !== status.sourceFingerprint
+    || headers.stale !== "false") {
+    throw new Error(`Dev fingerprints did not converge: ${JSON.stringify({ status, headers })}`);
+  }
+  return { status, headers, body };
+}
+
+async function verifyInitialBuildEdit(baseURL, appRoot) {
+  recordPhase("reconciler.initial-build.waiting");
+  const buildingStatus = await waitForDevStatus(
+    baseURL,
+    "initial server build",
+    (status) => status.phase === "building"
+      && status.buildingFingerprint
+      && (status.servingFingerprint === null || status.servingFingerprint === undefined)
+  );
+  const counterPageFile = path.join(appRoot, "Sources", "CounterApp", "Routes", "CounterPage.swift");
+  const originalSource = await readFile(counterPageFile, "utf8");
+  const updatedSource = originalSource.replace(
+    'Text("Server Counter").as(.h2)',
+    'Text("Server Counter Initial Build Edit").as(.h2)'
+  );
+  if (updatedSource === originalSource) {
+    throw new Error("Initial-build edit marker was not found in CounterPage.swift.");
+  }
+  await writeFile(counterPageFile, updatedSource);
+  report.initialBuildEdit = { buildingStatus };
+  recordPhase("reconciler.initial-build.edited");
+}
+
+async function verifyTouchDoesNotRebuild(baseURL, appRoot, tempRoot) {
+  const before = await assertQuiescentFingerprintHeaders(baseURL);
+  const workerBefore = await activeWorkerProcess(tempRoot);
+  const transitionLogCount = report.serverLogTail.filter(
+    (line) => line.includes("server worker") || line.includes("server restart")
+  ).length;
+  const sourceFile = path.join(appRoot, "Sources", "CounterApp", "ClientCounter.swift");
+  const now = new Date();
+  await utimes(sourceFile, now, now);
+  await delay(3_500);
+  const after = await assertQuiescentFingerprintHeaders(baseURL);
+  const workerAfter = await activeWorkerProcess(tempRoot);
+  const nextTransitionLogCount = report.serverLogTail.filter(
+    (line) => line.includes("server worker") || line.includes("server restart")
+  ).length;
+  if (before.status.sourceFingerprint !== after.status.sourceFingerprint
+    || transitionLogCount !== nextTransitionLogCount
+    || workerBefore.pid !== workerAfter.pid) {
+    throw new Error(
+      `Touch-only change triggered a rebuild: ${JSON.stringify({ before, after, workerBefore, workerAfter, transitionLogCount, nextTransitionLogCount })}`
+    );
+  }
+  report.touchVerification = {
+    fingerprint: after.status.sourceFingerprint,
+    workerPID: workerAfter.pid,
+    transitionLogCount,
+  };
+  recordPhase("reconciler.touch.no-rebuild");
+}
+
+function parseProcessLine(line) {
+  const match = line.match(/^(\d+)\s+(.+)$/);
+  if (!match) {
+    return null;
+  }
+  return { pid: Number(match[1]), command: match[2] };
+}
+
+async function activeWorkerProcess(tempRoot) {
+  const matches = await workerProcesses(tempRoot);
+  if (matches.length !== 1) {
+    throw new Error(`Expected one active app-server-dev worker, found: ${JSON.stringify(matches)}`);
+  }
+  return matches[0];
+}
+
+async function workerProcesses(tempRoot) {
+  return (await processLinesMatching(tempRoot))
+    .map(parseProcessLine)
+    .filter(Boolean)
+    .filter((processInfo) => /(^|\/)app-server-dev(?:\s|$)/.test(processInfo.command));
+}
+
+async function waitForReplacementWorker(tempRoot, previousPID, timeout = hmrTimeoutMs) {
+  const deadline = Date.now() + timeout;
+  let lastMatches = [];
+  while (Date.now() < deadline) {
+    lastMatches = await workerProcesses(tempRoot);
+    const replacement = lastMatches.find((processInfo) => processInfo.pid !== previousPID);
+    if (replacement) {
+      return replacement;
+    }
+    await delay(250);
+  }
+  throw new Error(
+    `Timed out waiting for replacement app-server-dev worker: ${JSON.stringify({ previousPID, lastMatches })}`
+  );
+}
+
+async function verifyWorkerCrashRecovery(baseURL, tempRoot) {
+  const before = await assertQuiescentFingerprintHeaders(baseURL);
+  const worker = await activeWorkerProcess(tempRoot);
+  process.kill(worker.pid, "SIGKILL");
+  const replacement = await waitForReplacementWorker(tempRoot, worker.pid);
+  const after = await waitForDevStatus(
+    baseURL,
+    "worker crash recovery",
+    (status) => isQuiescentDevStatus(status)
+      && status.sourceFingerprint === before.status.sourceFingerprint,
+    hmrTimeoutMs
+  );
+  const headers = await assertQuiescentFingerprintHeaders(baseURL);
+  if (headers.headers.build !== before.headers.build) {
+    throw new Error(`Worker crash recovery rebuilt the executable: ${JSON.stringify({ before, after, headers })}`);
+  }
+  report.workerCrashRecovery = {
+    killedPID: worker.pid,
+    replacementPID: replacement.pid,
+    command: replacement.command,
+    fingerprint: after.sourceFingerprint,
+  };
+  recordPhase("reconciler.worker-crash.recovered");
+}
+
 async function prepareAppCopy(root) {
   const appRoot = path.join(root, "CounterApp");
+  await rm(appRoot, { recursive: true, force: true });
   await cp(exampleAppRoot, appRoot, {
     recursive: true,
     filter(source) {
@@ -111,11 +293,12 @@ async function prepareAppCopy(root) {
   const packageFile = path.join(appRoot, "Package.swift");
   let manifest = await readFile(packageFile, "utf8");
   manifest = manifest.replace(
-    /\.package\((?:path|url):\s*"[^"]+"(?:,[^\n]*)?\),\s*\n\s*\.package\((?:path|url):\s*"[^"]+"(?:,[^\n]*)?\),/,
-    `.package(path: "${swiftStringLiteral(swiftWebRoot)}"),\n        .package(path: "${swiftStringLiteral(swiftHTMLRoot)}"),`
+    /\.package\(url:\s*"https:\/\/github\.com\/1amageek\/swift-web\.git",\s*from:\s*"0\.7\.0"\),/,
+    `.package(path: "${swiftStringLiteral(swiftWebRoot)}"),`
   );
-  if (!manifest.includes(swiftStringLiteral(swiftWebRoot)) || !manifest.includes(swiftStringLiteral(swiftHTMLRoot))) {
-    throw new Error("Failed to rewrite CounterApp package dependencies to local swift-web and swift-html paths.");
+  const expectedSwiftHTMLDependency = `.package(url: "https://github.com/1amageek/swift-html.git", from: "${expectedSwiftHTMLVersion}")`;
+  if (!manifest.includes(swiftStringLiteral(swiftWebRoot)) || !manifest.includes(expectedSwiftHTMLDependency)) {
+    throw new Error("Failed to use local swift-web with the released swift-html dependency.");
   }
   await writeFile(packageFile, manifest);
 
@@ -133,7 +316,7 @@ public struct CounterValue: Component {
         self.value = value
     }
 
-    public var body: some HTML {
+    public var content: some Component {
         VStack(spacing: .xsmall) {
             Text(label).as(.small).foregroundStyle(.secondary)
             Text(String(value)).as(.strong)
@@ -151,7 +334,7 @@ public struct ClientDeferredCounter: ClientComponent, Sendable {
 
     public init() {}
 
-    public var body: some HTML {
+    public var content: some Component {
         GroupBox {
             VStack(spacing: .large) {
                 Text("Deferred Client Counter").as(.h3)
@@ -183,7 +366,7 @@ public struct ClientVisibleCounter: ClientComponent, Sendable {
 
     public init() {}
 
-    public var body: some HTML {
+    public var content: some Component {
         GroupBox {
             VStack(spacing: .large) {
                 Text("Visible Client Counter").as(.h3)
@@ -205,7 +388,7 @@ public struct ClientIdleCounter: ClientComponent, Sendable {
 
     public init() {}
 
-    public var body: some HTML {
+    public var content: some Component {
         GroupBox {
             VStack(spacing: .large) {
                 Text("Idle Client Counter").as(.h3)
@@ -227,7 +410,7 @@ public struct ClientManualCounter: ClientComponent, Sendable {
 
     public init() {}
 
-    public var body: some HTML {
+    public var content: some Component {
         GroupBox {
             VStack(spacing: .large) {
                 Text("Manual Client Counter").as(.h3)
@@ -250,7 +433,7 @@ public struct ClientSharedBadgeA: ClientComponent, Sendable {
 
     public init() {}
 
-    public var body: some HTML {
+    public var content: some Component {
         GroupBox {
             VStack(spacing: .small) {
                 Text("Shared Badge A").as(.h3)
@@ -271,7 +454,7 @@ public struct ClientSharedBadgeB: ClientComponent, Sendable {
 
     public init() {}
 
-    public var body: some HTML {
+    public var content: some Component {
         GroupBox {
             VStack(spacing: .small) {
                 Text("Shared Badge B").as(.h3)
@@ -292,7 +475,7 @@ public struct ClientNamedToolA: ClientComponent, Sendable {
 
     public init() {}
 
-    public var body: some HTML {
+    public var content: some Component {
         GroupBox {
             VStack(spacing: .small) {
                 Text("Named Tool A").as(.h3)
@@ -313,7 +496,7 @@ public struct ClientNamedToolB: ClientComponent, Sendable {
 
     public init() {}
 
-    public var body: some HTML {
+    public var content: some Component {
         GroupBox {
             VStack(spacing: .small) {
                 Text("Named Tool B").as(.h3)
@@ -351,7 +534,7 @@ public struct ClientEnvironmentBadge: ClientComponent, Sendable {
 
     public init() {}
 
-    public var body: some HTML {
+    public var content: some Component {
         // Read during SSR as well, so the value enters the hydration snapshot.
         let greeting = self.greeting
         return GroupBox {
@@ -382,6 +565,39 @@ public struct ClientEnvironmentBadge: ClientComponent, Sendable {
   }
   await writeFile(appFile, updatedAppSource);
 
+  await writeFile(
+    path.join(appRoot, "Sources", "CounterApp", "CounterPageE2EComponents.swift"),
+    `import Foundation
+import SwiftHTML
+import SwiftWebUI
+
+struct CounterPageE2EComponents: Component {
+    var content: some Component {
+        ClientEnvironmentBadge()
+
+        GroupBox {
+            VStack(spacing: .small) {
+                Text("Loading Policy E2E Spacer").as(.h3)
+                Text("The visible counter sits below this spacer so IntersectionObserver is required.")
+            }
+        }
+        .accessibilityIdentifier("visible-policy-spacer")
+        .style {
+            .minHeight("960px")
+        }
+
+        ClientVisibleCounter()
+        ClientIdleCounter()
+        ClientManualCounter()
+        ClientSharedBadgeA()
+        ClientSharedBadgeB()
+        ClientNamedToolA()
+        ClientNamedToolB()
+    }
+}
+`
+  );
+
   const counterPageFile = path.join(appRoot, "Sources", "CounterApp", "Routes", "CounterPage.swift");
   const counterPage = await readFile(counterPageFile, "utf8");
   let updatedCounterPage = counterPage.replace(
@@ -391,29 +607,11 @@ public struct ClientEnvironmentBadge: ClientComponent, Sendable {
   const insertedDeferredCounter = updatedCounterPage !== counterPage;
   updatedCounterPage = updatedCounterPage.replace(
     "            Link(\"Reload page\", destination: URL(string: \"/counter\")!)",
-    `            GroupBox {
-                VStack(spacing: .small) {
-                    Text("Loading Policy E2E Spacer").as(.h3)
-                    Text("The visible counter sits below this spacer so IntersectionObserver is required.")
-                }
-            }
-            .accessibilityIdentifier("visible-policy-spacer")
-            .style {
-                .minHeight("960px")
-            }
-
-            ClientVisibleCounter()
-            ClientIdleCounter()
-            ClientManualCounter()
-            ClientSharedBadgeA()
-            ClientSharedBadgeB()
-            ClientNamedToolA()
-            ClientNamedToolB()
-            ClientEnvironmentBadge()
+    `            CounterPageE2EComponents()
 
             Link("Reload page", destination: URL(string: "/counter")!)`
   );
-  const insertedLoadingPolicyCounters = updatedCounterPage.includes("ClientManualCounter()");
+  const insertedLoadingPolicyCounters = updatedCounterPage.includes("CounterPageE2EComponents()");
   if (!insertedDeferredCounter || !insertedLoadingPolicyCounters) {
     throw new Error("Failed to inject E2E ClientComponents into CounterPage.swift.");
   }
@@ -421,9 +619,27 @@ public struct ClientEnvironmentBadge: ClientComponent, Sendable {
   return appRoot;
 }
 
-async function launchDevServer(appRoot, scratchRoot, port) {
+async function launchDevServer(appRoot, scratchRoot, port, host) {
   const swiftWebExecutable = await resolveSwiftWebExecutable();
   const wasmSwiftSDK = process.env.SWIFT_WEB_WASM_SDK || "swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm";
+  const hostSwiftExecutable = process.env.SWIFT_WEB_HOST_SWIFT
+    || process.env.SWIFTWEB_E2E_HOST_SWIFT_EXECUTABLE
+    || process.env.SWIFTWEB_E2E_SWIFT_EXECUTABLE;
+  const hostSwiftToolchainBin = process.env.SWIFT_WEB_HOST_TOOLCHAIN_BIN
+    || (hostSwiftExecutable ? path.dirname(hostSwiftExecutable) : undefined);
+  const childEnvironment = {
+    ...process.env,
+    SWIFT_WEB_PACKAGE_PATH: swiftWebRoot,
+    SWIFT_WEB_WASM_SDK: wasmSwiftSDK,
+  };
+  if (hostSwiftExecutable) {
+    childEnvironment.SWIFT_WEB_HOST_SWIFT = hostSwiftExecutable;
+    report.hostSwiftExecutable = hostSwiftExecutable;
+  }
+  if (hostSwiftToolchainBin) {
+    childEnvironment.SWIFT_WEB_HOST_TOOLCHAIN_BIN = hostSwiftToolchainBin;
+    report.hostSwiftToolchainBin = hostSwiftToolchainBin;
+  }
   report.wasmSwiftSDK = wasmSwiftSDK;
   if (process.env.SWIFT_WEB_WASM_SWIFT) {
     report.wasmSwiftExecutable = process.env.SWIFT_WEB_WASM_SWIFT;
@@ -439,16 +655,14 @@ async function launchDevServer(appRoot, scratchRoot, port) {
       appRoot,
       "--scratch-path",
       scratchRoot,
+      "--host",
+      host,
       "--port",
       String(port),
     ],
     {
       cwd: swiftWebRoot,
-      env: {
-        ...process.env,
-        SWIFT_WEB_PACKAGE_PATH: swiftWebRoot,
-        SWIFT_WEB_WASM_SDK: wasmSwiftSDK,
-      },
+      env: childEnvironment,
       detached: true,
       stdio: ["ignore", "pipe", "pipe"],
     }
@@ -764,7 +978,7 @@ async function runWebKitSmoke(baseURL) {
 function attachPageDiagnostics(page, browserName) {
   page.on("response", (response) => {
     const url = new URL(response.url());
-    if (response.status() >= 400) {
+    if (response.status() >= 400 && response.url() !== report.expectedExpiredGenerationURL) {
       report.httpFailures.push({
         browser: browserName,
         url: response.url(),
@@ -779,6 +993,7 @@ function attachPageDiagnostics(page, browserName) {
       report.consoleErrors.push({
         browser: browserName,
         text: message.text(),
+        location: message.location(),
         at: new Date().toISOString(),
       });
     }
@@ -793,7 +1008,9 @@ function attachPageDiagnostics(page, browserName) {
 }
 
 function isAllowedConsoleError(text) {
-  return text === "Failed to load resource: the server responded with a status of 404 (Not Found)";
+  return text === "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    || (Boolean(report.expectedExpiredGenerationURL)
+      && text === "Failed to load resource: the server responded with a status of 410 (Gone)");
 }
 
 function isAllowedHTTPFailure(failure) {
@@ -835,15 +1052,28 @@ async function counterValue(page, selector) {
   return Number(text.trim());
 }
 
-async function expectCounterValue(page, selector, expected) {
+async function expectCounterValue(page, selector, expected, timeout = timeoutMs) {
   await page.waitForFunction(
     ({ selector, expected }) => {
       const value = document.querySelector(`${selector} [data-accessibility-identifier="counter-value"]`);
       return value && value.textContent.trim() === String(expected);
     },
     { selector, expected },
-    { timeout: timeoutMs }
+    { timeout }
   );
+}
+
+async function waitForServerReconciliation(page, previousEventID) {
+  await page.waitForFunction(
+    (previousID) => {
+      const event = globalThis.__swiftWebDevReload?.lastAppliedEvent;
+      return ["serverRestarted", "pagePatch"].includes(event?.kind)
+        && event.id !== previousID;
+    },
+    previousEventID,
+    { timeout: hmrTimeoutMs }
+  );
+  return await page.evaluate(() => globalThis.__swiftWebDevReload?.lastAppliedEvent?.id ?? null);
 }
 
 async function browserRuntimeState(page) {
@@ -854,6 +1084,10 @@ async function browserRuntimeState(page) {
       connectedAt: globalThis.__swiftWebDevReload?.connectedAt ?? null,
       lastEventKind: globalThis.__swiftWebDevReload?.lastEvent?.kind ?? null,
       lastAppliedEventKind: globalThis.__swiftWebDevReload?.lastAppliedEvent?.kind ?? null,
+      lastErrorEventKind: globalThis.__swiftWebDevReload?.lastErrorEvent?.kind ?? null,
+      lastErrorEventMessage: globalThis.__swiftWebDevReload?.lastErrorEvent?.message ?? null,
+      lastServerRebuildErrorEventKind: globalThis.__swiftWebDevReload?.lastServerRebuildErrorEvent?.kind ?? null,
+      lastServerRebuildErrorEventMessage: globalThis.__swiftWebDevReload?.lastServerRebuildErrorEvent?.message ?? null,
       lastError: globalThis.__swiftWebDevReload?.lastError ?? null,
     },
     wasmStatus: globalThis.__swiftWebWasmRuntimeStatus ?? null,
@@ -1079,7 +1313,8 @@ async function runBrowserAssertions(baseURL, appRoot) {
     );
 
     recordPhase("visible.viewport-load");
-    const visibleBeforeScroll = await page.locator(componentSelector("visible-counter")).evaluate((element) => {
+    const visibleBoundary = page.locator(`[data-component="${visibleComponent.componentID}"]`);
+    const visibleBeforeScroll = await visibleBoundary.evaluate((element) => {
       const rect = element.getBoundingClientRect();
       return {
         top: rect.top,
@@ -1093,7 +1328,7 @@ async function runBrowserAssertions(baseURL, appRoot) {
     if (visibleBeforeScroll.loaded) {
       throw new Error(`Visible bundle loaded before entering viewport: ${JSON.stringify(visibleBeforeScroll)}`);
     }
-    await page.locator(componentSelector("visible-counter")).scrollIntoViewIfNeeded();
+    await visibleBoundary.scrollIntoViewIfNeeded();
     await page.waitForFunction(
       (bundleID) => (window.__swiftWebWasmRuntimeStatus?.loadedBundleIDs || []).includes(bundleID),
       visibleComponent.bundleID,
@@ -1137,7 +1372,8 @@ async function runBrowserAssertions(baseURL, appRoot) {
     report.loadingPolicyAfterExplicitLoad = await runtimeManifestSnapshot(page);
 
     recordPhase("deferred.interaction-load");
-    await page.locator(componentSelector("deferred-counter")).hover();
+    const deferredBoundary = page.locator(`[data-component="${deferredComponent.componentID}"]`);
+    await deferredBoundary.hover();
     await page.waitForFunction(
       (bundleID) => (window.__swiftWebWasmRuntimeStatus?.loadedBundleIDs || []).includes(bundleID),
       deferredComponent.bundleID,
@@ -1188,6 +1424,10 @@ async function runBrowserAssertions(baseURL, appRoot) {
     if (updatedSource === originalSource) {
       throw new Error("HMR source marker was not found in ClientCounter.swift.");
     }
+    const previousHMRServerEventID = await page.evaluate(() => {
+      const event = globalThis.__swiftWebDevReload?.lastAppliedEvent;
+      return ["serverRestarted", "pagePatch"].includes(event?.kind) ? event.id : null;
+    });
     await writeFile(clientCounterFile, updatedSource);
 
     try {
@@ -1200,6 +1440,7 @@ async function runBrowserAssertions(baseURL, appRoot) {
       report.devReloadAfterHMRFailure = await browserRuntimeState(page);
       throw error;
     }
+    await waitForServerReconciliation(page, previousHMRServerEventID);
     await expectCounterValue(page, componentSelector("client-counter"), 1);
     const markerAfterHMR = await page.evaluate(() => window.__swiftWebE2EMarker);
     if (markerAfterHMR !== initialMarker) {
@@ -1224,45 +1465,159 @@ async function runBrowserAssertions(baseURL, appRoot) {
 
 public let swiftWebE2EInjectedCompilerError =
 `);
-    await page.waitForFunction(
-      () => {
-        const applied = globalThis.__swiftWebDevReload?.lastAppliedEvent;
-        return applied?.kind === "error" && String(applied.message || "").includes("Client WASM HMR failed");
-      },
-      undefined,
-      { timeout: hmrTimeoutMs }
+    report.hmrFailureStatus = await waitForDevStatus(
+      baseURL,
+      "latched build failure",
+      (status) => status.phase === "error"
+        && status.stale === true
+        && Boolean(status.lastErrorSummary)
     );
-    await expectCounterValue(page, componentSelector("client-counter"), 1);
-    await expectCounterValue(page, componentSelector("server-counter"), 1);
-    await expectCounterValue(page, componentSelector("deferred-counter"), 1);
-    await expectCounterValue(page, componentSelector("visible-counter"), 1);
-    await expectCounterValue(page, componentSelector("idle-counter"), 1);
-    await expectCounterValue(page, componentSelector("manual-counter"), 1);
-    await expectCounterValue(page, componentSelector("shared-badge-b"), 1);
-    await expectCounterValue(page, componentSelector("named-tool-a"), 1);
-    const markerAfterHMRFailure = await page.evaluate(() => window.__swiftWebE2EMarker);
-    if (markerAfterHMRFailure !== initialMarker) {
-      throw new Error("Failed ClientComponent HMR caused a full page reload.");
+    const failedWorkerResponse = await fetch(`${baseURL}/counter`, {
+      headers: { Accept: "text/html" },
+    });
+    const failedWorkerBody = await failedWorkerResponse.text();
+    if (!failedWorkerResponse.ok || !failedWorkerBody.includes("Client Counter HMR")) {
+      throw new Error("The previous worker did not remain available after a failed rebuild.");
     }
-    report.hmrFailure = await browserRuntimeState(page);
-    if (!report.hmrFailure.devReload.lastAppliedEventKind || report.hmrFailure.devReload.lastAppliedEventKind !== "error") {
-      throw new Error(`Failed ClientComponent HMR did not report an error event: ${JSON.stringify(report.hmrFailure)}`);
+    const failureLogCount = report.serverLogTail.filter(
+      (line) => /Build failed|build failed:/.test(line)
+    ).length;
+    await delay(3_500);
+    const heldFailureStatus = await fetchDevStatus(baseURL);
+    const heldFailureLogCount = report.serverLogTail.filter(
+      (line) => /Build failed|build failed:/.test(line)
+    ).length;
+    if (heldFailureStatus.sourceFingerprint !== report.hmrFailureStatus.sourceFingerprint
+      || heldFailureStatus.phase !== "error"
+      || heldFailureLogCount !== failureLogCount) {
+      throw new Error(
+        `Failed source fingerprint did not remain latched: ${JSON.stringify({ heldFailureStatus, failureLogCount, heldFailureLogCount })}`
+      );
     }
+    report.hmrFailureHold = {
+      status: heldFailureStatus,
+      failureLogCount,
+      previousWorkerServedHTML: true,
+    };
 
     recordPhase("client.hmr.recover");
     await writeFile(clientCounterFile, updatedSource);
+    report.hmrRecoveryStatus = await waitForDevStatus(
+      baseURL,
+      "build failure recovery",
+      isQuiescentDevStatus
+    );
+    report.hmrRecoveryHeaders = await assertQuiescentFingerprintHeaders(baseURL);
     await page.waitForFunction(
       () => {
         const applied = globalThis.__swiftWebDevReload?.lastAppliedEvent;
-        return applied?.kind === "clientComponentUpdate"
-          && document.body
-          && document.body.textContent.includes("Client Counter HMR");
+        return applied?.kind === "connected"
+          && applied?.message === "SwiftWeb source failure cleared"
+          && globalThis.__swiftWebDevReload?.lastErrorEvent?.kind === "error"
+          && document.body?.textContent.includes("Client Counter HMR");
       },
       undefined,
       { timeout: hmrTimeoutMs }
     );
-    await expectCounterValue(page, componentSelector("client-counter"), 1);
-    await expectCounterValue(page, componentSelector("server-counter"), 1);
+    report.hmrRecovery = {
+      runtime: await browserRuntimeState(page),
+      marker: await page.evaluate(() => window.__swiftWebE2EMarker),
+      clientCounter: await counterValue(page, componentSelector("client-counter")),
+      serverCounter: await counterValue(page, componentSelector("server-counter")),
+    };
+    if (report.hmrRecovery.runtime.devReload.lastErrorEventKind !== "error") {
+      throw new Error(`Failed ClientComponent HMR did not report an error event: ${JSON.stringify(report.hmrRecovery)}`);
+    }
+    if (report.hmrRecovery.marker !== initialMarker) {
+      throw new Error("Failed ClientComponent HMR caused a full page reload.");
+    }
+    await expectCounterValue(page, componentSelector("client-counter"), 1, 30_000);
+    await expectCounterValue(page, componentSelector("server-counter"), 0, 30_000);
+    await expectCounterValue(page, componentSelector("deferred-counter"), 1, 30_000);
+    await expectCounterValue(page, componentSelector("visible-counter"), 1, 30_000);
+    await expectCounterValue(page, componentSelector("idle-counter"), 1, 30_000);
+    await expectCounterValue(page, componentSelector("manual-counter"), 1, 30_000);
+    await expectCounterValue(page, componentSelector("shared-badge-b"), 1, 30_000);
+    await expectCounterValue(page, componentSelector("named-tool-a"), 1, 30_000);
+
+    recordPhase("client.hmr.transaction-rollback");
+    report.hmrDOMTransaction = await page.evaluate(async () => {
+      const runtime = window.__swiftWebWasmRuntime;
+      const target = document.querySelector("[data-node]");
+      if (!runtime || !target) {
+        throw new Error("WASM runtime or hydration target was unavailable");
+      }
+      const nodeID = Number(target.getAttribute("data-node"));
+      const targetBefore = target.outerHTML;
+      const styleBefore = document.getElementById("swui-atomic")?.textContent ?? null;
+      const originalStageHotUpdate = runtime.stageHotUpdate;
+      const order = [];
+      let stageIndex = 0;
+      runtime.eventQueue = runtime.eventQueue.then(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        order.push("event");
+      });
+      runtime.stageHotUpdate = async (update) => {
+        order.push(`hmr-${stageIndex}`);
+        const response = stageIndex === 0
+          ? {
+              atomicStyleRules: [{ className: "swiftweb-hmr-rollback", body: "color: red" }],
+              commandBatch: {
+                commands: [{
+                  setProperty: {
+                    node: { rawValue: nodeID },
+                    name: "data-hmr-rollback",
+                    value: "mutated"
+                  }
+                }]
+              },
+              appliesDOMCommandsInRuntime: false
+            }
+          : {
+              atomicStyleRules: [],
+              commandBatch: {
+                commands: [{
+                  updateText: {
+                    node: { rawValue: 2_147_483_647 },
+                    value: "must-not-commit"
+                  }
+                }]
+              },
+              appliesDOMCommandsInRuntime: false
+            };
+        stageIndex += 1;
+        return { bundleID: update.bundleID, update, response };
+      };
+      let error = null;
+      try {
+        await runtime.applyHotUpdateBatch([
+          { bundleID: "hmr-transaction-a", assetPath: "/noop-a.wasm", contentHash: crypto.randomUUID() },
+          { bundleID: "hmr-transaction-b", assetPath: "/noop-b.wasm", contentHash: crypto.randomUUID() }
+        ]);
+      } catch (caught) {
+        error = String(caught && caught.message ? caught.message : caught);
+      } finally {
+        runtime.stageHotUpdate = originalStageHotUpdate;
+      }
+      const restoredTarget = document.querySelector(`[data-node="${nodeID}"]`);
+      const styleAfter = document.getElementById("swui-atomic")?.textContent ?? null;
+      return {
+        error,
+        order,
+        targetRestored: restoredTarget?.outerHTML === targetBefore,
+        styleRestored: styleAfter === styleBefore,
+        leakedAttribute: restoredTarget?.getAttribute("data-hmr-rollback") ?? null
+      };
+    });
+    if (!report.hmrDOMTransaction.error?.includes("could not be applied")
+      || report.hmrDOMTransaction.order.join(",") !== "event,hmr-0,hmr-1"
+      || !report.hmrDOMTransaction.targetRestored
+      || !report.hmrDOMTransaction.styleRestored
+      || report.hmrDOMTransaction.leakedAttribute !== null) {
+      throw new Error(
+        `Client HMR DOM transaction did not roll back atomically: ${JSON.stringify(report.hmrDOMTransaction)}`
+      );
+    }
 
     recordPhase("server.hmr.page-change");
     const counterPageFile = path.join(appRoot, "Sources", "CounterApp", "Routes", "CounterPage.swift");
@@ -1320,6 +1675,51 @@ public let swiftWebE2EInjectedCompilerError =
     ) {
       throw new Error(`Unexpected final values: ${JSON.stringify(finalValues)}`);
     }
+
+    recordPhase("client.hmr.expired-generation-reload");
+    let expiredGenerationResponses = 0;
+    await page.route("**/__swiftweb/dev/wasm/**", async (route) => {
+      if (expiredGenerationResponses === 0) {
+        expiredGenerationResponses += 1;
+        report.expectedExpiredGenerationURL = route.request().url();
+        await route.fulfill({
+          status: 410,
+          contentType: "text/plain; charset=utf-8",
+          body: "expired SwiftWeb WASM generation",
+        });
+        return;
+      }
+      await route.continue();
+    });
+    const expiredReloadSource = updatedSource.replace(
+      "Client Counter HMR",
+      "Client Counter Expired Reload"
+    );
+    if (expiredReloadSource === updatedSource) {
+      throw new Error("Expired-generation HMR source marker was not found.");
+    }
+    await writeFile(clientCounterFile, expiredReloadSource);
+    await page.waitForFunction(
+      () => globalThis.__swiftWebE2EMarker === undefined,
+      undefined,
+      { timeout: hmrTimeoutMs }
+    );
+    await page.waitForFunction(
+      () => document.documentElement.getAttribute("data-wasm-ready") === "true"
+        && document.body?.textContent?.includes("Client Counter Expired Reload"),
+      undefined,
+      { timeout: hmrTimeoutMs }
+    );
+    await page.unroute("**/__swiftweb/dev/wasm/**");
+    if (expiredGenerationResponses !== 1) {
+      throw new Error(
+        `Expected one expired generation response before reload, got ${expiredGenerationResponses}`
+      );
+    }
+    report.expiredGenerationReload = {
+      expiredGenerationResponses,
+      runtime: await browserRuntimeState(page),
+    };
   } finally {
     await browser.close();
   }
@@ -1327,14 +1727,20 @@ public let swiftWebE2EInjectedCompilerError =
 
 let tempRoot;
 let devServer;
+const reusableTempRoot = process.env.SWIFTWEB_E2E_REUSE_TEMP_ROOT
+  ? path.resolve(process.env.SWIFTWEB_E2E_REUSE_TEMP_ROOT)
+  : null;
 
 try {
-  if (!existsSync(swiftHTMLRoot)) {
-    throw new Error(`Local swift-html package was not found: ${swiftHTMLRoot}`);
-  }
   const tempParent = path.join(swiftWebRoot, ".swiftweb", "browser-e2e");
   await mkdir(tempParent, { recursive: true });
-  tempRoot = await mkdtemp(path.join(tempParent, "counter-"));
+  if (reusableTempRoot) {
+    tempRoot = reusableTempRoot;
+    await mkdir(tempRoot, { recursive: true });
+    report.reusedTempRoot = true;
+  } else {
+    tempRoot = await mkdtemp(path.join(tempParent, "counter-"));
+  }
   const appRoot = await prepareAppCopy(tempRoot);
   const scratchRoot = path.join(tempRoot, "scratch");
   await mkdir(scratchRoot, { recursive: true });
@@ -1343,10 +1749,29 @@ try {
   report.tempRoot = tempRoot;
   report.appRoot = appRoot;
   report.baseURL = baseURL;
+  report.bindHost = bindHost;
 
-  recordPhase("server.start", { baseURL });
-  devServer = await launchDevServer(appRoot, scratchRoot, port);
+  recordPhase("server.start", { baseURL, bindHost });
+  devServer = await launchDevServer(appRoot, scratchRoot, port, bindHost);
+  await verifyInitialBuildEdit(baseURL, appRoot);
   await waitForHTTP(`${baseURL}/counter`, Date.now() + timeoutMs);
+  await waitForDevStatus(
+    baseURL,
+    "initial-build edit convergence",
+    isQuiescentDevStatus,
+    hmrTimeoutMs
+  );
+  const initialConvergence = await assertQuiescentFingerprintHeaders(baseURL);
+  if (!initialConvergence.body.includes("Server Counter Initial Build Edit")) {
+    throw new Error("An edit made during the initial build was not served by the converged worker.");
+  }
+  report.initialConvergence = {
+    status: initialConvergence.status,
+    headers: initialConvergence.headers,
+    initialBuildEditServed: true,
+  };
+  await verifyTouchDoesNotRebuild(baseURL, appRoot, tempRoot);
+  await verifyWorkerCrashRecovery(baseURL, tempRoot);
   recordPhase("server.ready");
 
   await runBrowserAssertions(baseURL, appRoot);
@@ -1387,7 +1812,7 @@ try {
       }
     }
   }
-  if (tempRoot && process.env.SWIFTWEB_E2E_KEEP_TEMP !== "1") {
+  if (tempRoot && !reusableTempRoot && process.env.SWIFTWEB_E2E_KEEP_TEMP !== "1") {
     await removeTemporaryRoot(tempRoot);
   }
   const output = JSON.stringify(report, null, 2);

@@ -20,7 +20,7 @@ public struct StoryboardCatalog: Component {
         self.scheme = scheme
     }
 
-    public var body: some HTML {
+    public var content: some Component {
         // Layout geometry lives in the storyboard stylesheet (frame/shell/rail
         // rules) rather than .frame modifiers: attribute wrappers are
         // display:contents and box wrappers are real divs, so classes must sit

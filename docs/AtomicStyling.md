@@ -181,8 +181,8 @@ String/raw `style` attributes are rejected inside a SwiftWeb render scope. Dynam
 flow through typed `Style` declarations so validation and atomic class registration still apply.
 
 ```swift
-func opacity(_ v: Double) -> ModifiedContent<…> {
-    modifier(HTMLAttributeModifier([atom(Style { .opacity(trimmedNumber(v)) })]))  // class, validated
+func opacity(_ value: Double) -> ModifiedContent {
+    modifier(HTMLAttributeModifier([atom(Style { .opacity(trimmedNumber(value)) })]))  // class, validated
 }
 ```
 

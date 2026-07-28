@@ -42,11 +42,15 @@ final class SwiftWebDevHost: Sendable {
             detail: "Public port \(configuration.port) stays alive while workers rebuild."
         )
 
-        let serverConfiguration = try NIOHTTPServerConfiguration(
+        var serverConfiguration = try NIOHTTPServerConfiguration(
             bindTarget: .hostAndPort(host: configuration.host, port: configuration.port),
             supportedHTTPVersions: [.http1_1],
             transportSecurity: .plaintext
         )
+        // The dev event response is intentionally unbounded. The HTTP server's
+        // read-header timer is re-armed after a request body ends, so leaving
+        // its default enabled closes an active SSE response after 30 seconds.
+        serverConfiguration.connectionTimeouts.readHeader = nil
         let server = NIOHTTPServer(
             logger: logger,
             configuration: serverConfiguration
@@ -55,6 +59,9 @@ final class SwiftWebDevHost: Sendable {
             devToken: devToken,
             eventLog: eventLog,
             workerRegistry: workerRegistry,
+            publishedWasmRoot: SwiftWebDevPublishedWasmArtifacts.rootDirectory(
+                for: configuration
+            ),
             logger: logger
         )
 

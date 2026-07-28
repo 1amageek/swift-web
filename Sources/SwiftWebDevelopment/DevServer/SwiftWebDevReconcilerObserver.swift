@@ -20,6 +20,9 @@ package struct SwiftWebDevReconcilerObserver: Sendable {
         any Error,
         _ hasServingWorker: Bool
     ) -> Void = { _, _, _ in }
+    /// A failed source fingerprint was abandoned and the existing worker
+    /// already matches the new desired fingerprint, so no transition is needed.
+    package var failureCleared: @Sendable (SwiftWebDevWorkerHandle) -> Void = { _ in }
     /// The serving worker exited unexpectedly. `willRelaunch` is false when
     /// the crash-loop breaker latched instead.
     package var workerCrashed: @Sendable (Int32, _ willRelaunch: Bool) -> Void = { _, _ in }

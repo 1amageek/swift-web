@@ -1,60 +1,50 @@
 import SwiftHTML
 
+/// A route that resolves to a complete HTML document.
+///
+/// Use ``StaticPage`` for direct document production and ``LoadedPage`` when
+/// rendering depends on an asynchronously loaded model.
 public protocol Page {
-    var title: String { get async throws }
-    var description: String? { get async throws }
-    var language: String { get async throws }
+    associatedtype Document: HTMLDocument
+
     var cache: CachePolicy { get async throws }
-    /// A class applied to the document `<body>`. Default is none; a page opts into
-    /// a body-level surface (e.g. a full-viewport app shell) by returning a class
-    /// the SwiftWebUI root styles.
-    var bodyClass: String? { get async throws }
+    func resolveDocument() async throws -> Document
 }
 
 public extension Page {
-    var title: String {
-        get async throws {
-            #if hasFeature(Embedded)
-            // No type reflection on Embedded; pages provide their own title.
-            ""
-            #else
-            String(describing: Self.self)
-            #endif
-        }
-    }
-
-    var description: String? {
-        get async throws {
-            nil
-        }
-    }
-
-    var language: String {
-        get async throws {
-            "en"
-        }
-    }
-
     var cache: CachePolicy {
         get async throws {
-            // Unspecified: inherit the enclosing scene's `.cache(_:)` value
-            // (itself `.none` when no scene declares one).
             EnvironmentValues.current.pageCachePolicy
         }
     }
+}
 
-    var bodyClass: String? {
-        get async throws {
-            nil
-        }
+/// A page whose document can be produced directly.
+public protocol StaticPage: Page where Document: HTMLDocument {
+    associatedtype Document
+
+    var document: Document { get }
+}
+
+public extension StaticPage {
+    func resolveDocument() async throws -> Document {
+        document
     }
+}
 
-    func metadata() async throws -> PageMetadata {
-        PageMetadata(
-            title: try await title,
-            description: try await description,
-            language: try await language,
-            bodyClass: try await bodyClass
-        )
+/// A page that loads a model before producing its document.
+public protocol LoadedPage: Page where Document: HTMLDocument {
+    associatedtype Model: Sendable
+    associatedtype Document
+
+    func load() async throws -> Model
+
+    func document(_ model: Model) -> Document
+}
+
+public extension LoadedPage {
+    func resolveDocument() async throws -> Document {
+        let model = try await load()
+        return document(model)
     }
 }

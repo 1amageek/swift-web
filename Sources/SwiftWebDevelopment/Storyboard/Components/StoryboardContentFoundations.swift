@@ -381,7 +381,7 @@ func foundationsVariants(for id: String) -> [CatalogVariant]? {
 // MARK: - Demo helpers
 
 /// A labelled cell that fills its grid track, making spans evaluable.
-private func foundationsGridCell(_ label: String, height: Double = 26) -> some HTML {
+private func foundationsGridCell(_ label: String, height: Double = 26) -> some Component {
     Text(label).as(.small)
         .font(Font(size: .px(11), design: .monospaced))
         .foregroundStyle(.accent)
@@ -390,7 +390,7 @@ private func foundationsGridCell(_ label: String, height: Double = 26) -> some H
 }
 
 /// One row of the gap scale: a token label and a block pair separated by it.
-private func foundationsGapRow(_ label: String, spacing: Space) -> some HTML {
+private func foundationsGapRow(_ label: String, spacing: Space) -> some Component {
     HStack(spacing: .small) {
         foundationsSpacingCaption(label)
             .frame(width: 60, alignment: .trailing)
@@ -401,20 +401,20 @@ private func foundationsGapRow(_ label: String, spacing: Space) -> some HTML {
     }
 }
 
-private func foundationsSpacingBlock() -> some HTML {
+private func foundationsSpacingBlock() -> some Component {
     VStack {}
         .frame(width: 20, height: 20)
         .background(Color.accent.opacity(0.35), in: .rect(cornerRadius: 6))
 }
 
-private func foundationsSpacingCaption(_ label: String) -> some HTML {
+private func foundationsSpacingCaption(_ label: String) -> some Component {
     Text(label).as(.small)
         .font(Font(size: .px(11), design: .monospaced))
         .foregroundStyle(.secondary)
 }
 
 /// A chip whose inset grows with the padding token it names.
-private func foundationsPaddedChip(_ label: String, padding: Space) -> some HTML {
+private func foundationsPaddedChip(_ label: String, padding: Space) -> some Component {
     Text(label).as(.small)
         .font(Font(size: .px(11), design: .monospaced))
         .foregroundStyle(.accent)
@@ -422,14 +422,14 @@ private func foundationsPaddedChip(_ label: String, padding: Space) -> some HTML
         .background(Color.accent.opacity(0.12), in: .rect(cornerRadius: 8))
 }
 
-private func foundationsRhythmBar() -> some HTML {
+private func foundationsRhythmBar() -> some Component {
     VStack {}
         .frame(width: 56, height: 8)
         .background(Color.accent.opacity(0.3), in: .rect(cornerRadius: 3))
 }
 
 /// A chip positioned by the given alignment inside a visible bounded frame.
-private func foundationsAlignmentChip(_ alignment: Alignment) -> some HTML {
+private func foundationsAlignmentChip(_ alignment: Alignment) -> some Component {
     Text("View")
         .font(Font(size: .px(12), weight: .semibold))
         .foregroundStyle(.accentText)
@@ -441,27 +441,27 @@ private func foundationsAlignmentChip(_ alignment: Alignment) -> some HTML {
 }
 
 /// A hairline that fixes the width on offer, so hug and fill are comparable.
-private func foundationsLaneRule() -> some HTML {
+private func foundationsLaneRule() -> some Component {
     VStack {}
         .frame(width: 210, height: 3)
         .background(Color.border, in: .capsule)
 }
 
 /// A hatched-chrome stand-in: the band a notch, toolbar, or home indicator occupies.
-private func foundationsChromeBand(height: Double) -> some HTML {
+private func foundationsChromeBand(height: Double) -> some Component {
     VStack {}
         .frame(width: 120, height: height)
         .background(Color.primary.opacity(0.18))
 }
 
-private func foundationsSafeAreaLabel() -> some HTML {
+private func foundationsSafeAreaLabel() -> some Component {
     Text("safe area")
         .font(Font(size: .px(10), weight: .semibold))
         .foregroundStyle(.accent)
 }
 
 /// The label content shared by the material and glass surface demos.
-private func foundationsSurfaceLabel(_ label: String) -> some HTML {
+private func foundationsSurfaceLabel(_ label: String) -> some Component {
     Text(label)
         .font(Font(size: .px(12), weight: .semibold))
         .foregroundStyle(.primary)
@@ -469,7 +469,7 @@ private func foundationsSurfaceLabel(_ label: String) -> some HTML {
         .padding(.vertical, 8)
 }
 
-private func foundationsMaterialSwatch(_ material: Material) -> some HTML {
+private func foundationsMaterialSwatch(_ material: Material) -> some Component {
     VStack {}
         .frame(width: 32, height: 44)
         .background(material, in: .rect(cornerRadius: 8))

@@ -1,7 +1,7 @@
 import SwiftWebDevelopmentHooks
 import SwiftWebPackageGeneration
 import SwiftWebWasmBuild
-import CryptoKit
+import Crypto
 import Foundation
 import SwiftHTML
 import SwiftWebCore
@@ -11,7 +11,7 @@ struct SwiftWebDevBuildProcess: Sendable {
 
   func buildWasmRuntime(
     _ runtime: SwiftWebGeneratedWasmRuntime
-  ) throws -> ClientRuntimeHMRManifest {
+  ) async throws -> ClientRuntimeHMRManifest {
     let sdkName = wasmSwiftSDK
     guard !sdkName.contains("embedded") else {
       throw SwiftWebDevRuntimeError.unsupportedWasmSDK(sdkName)
@@ -85,7 +85,7 @@ struct SwiftWebDevBuildProcess: Sendable {
     environment["SWIFTWEB_WASM_BUILD"] = "1"
     environment["SWIFTWEB_CORE_ONLY"] = "1"
 
-    try runProcess(
+    try await runProcess(
       arguments: arguments,
       environment: environment,
       executableURL: toolchain.swiftExecutableURL,
@@ -122,6 +122,87 @@ struct SwiftWebDevBuildProcess: Sendable {
       stateSchemaHash: schemaHashes.stateSchemaHash,
       environmentSchemaHash: schemaHashes.environmentSchemaHash
     )
+  }
+
+  /// Keeps the currently served Client WASM set intact until every runtime is
+  /// built and its publication callback succeeds. A build or publication
+  /// failure restores every artifact and build stamp in the set.
+  func buildWasmRuntimesAtomically(
+    _ runtimes: [SwiftWebGeneratedWasmRuntime],
+    publish: @Sendable ([ClientRuntimeHMRManifest]) throws -> Void
+  ) async throws -> [ClientRuntimeHMRManifest] {
+    guard !runtimes.isEmpty else {
+      return []
+    }
+    var protectedURLs: [URL] = []
+    for runtime in runtimes {
+      protectedURLs.append(try artifactURL(for: runtime))
+      protectedURLs.append(buildStampURL(for: runtime))
+    }
+    let transaction = try SwiftWebDevFileTransaction(fileURLs: protectedURLs)
+    var publication: SwiftWebDevPublishedWasmArtifacts?
+    let manifests: [ClientRuntimeHMRManifest]
+    do {
+      var builtManifests: [ClientRuntimeHMRManifest] = []
+      builtManifests.reserveCapacity(runtimes.count)
+      for runtime in runtimes {
+        builtManifests.append(try await buildWasmRuntime(runtime))
+      }
+      let stagedPublication = try SwiftWebDevPublishedWasmArtifacts.stage(
+        runtimes: runtimes,
+        contentHashesByProduct: Dictionary(
+          uniqueKeysWithValues: zip(runtimes, builtManifests).map {
+            ($0.0.productName, $0.1.contentHash)
+          }
+        ),
+        artifactURL: artifactURL(for:),
+        configuration: configuration
+      )
+      publication = stagedPublication
+      let publishedManifests = zip(runtimes, builtManifests).map { runtime, manifest in
+        manifest.replacingAssetPath(
+          stagedPublication.assetPath(
+            productName: runtime.productName,
+            contentHash: manifest.contentHash
+          )
+        )
+      }
+      try stagedPublication.commit()
+      try publish(publishedManifests)
+      manifests = publishedManifests
+    } catch {
+      let operationError = error
+      var rollbackFailures: [String] = []
+      do {
+        try publication?.rollback()
+      } catch {
+        rollbackFailures.append("published generation: \(String(describing: error))")
+      }
+      do {
+        try transaction.rollback()
+        try transaction.finish()
+      } catch {
+        rollbackFailures.append("build artifacts: \(String(describing: error))")
+      }
+      if !rollbackFailures.isEmpty {
+        throw SwiftWebDevRuntimeError.clientRuntimeTransactionFailed(
+          reason: "\(String(describing: operationError)); rollback failed: \(rollbackFailures.joined(separator: "; "))"
+        )
+      }
+      throw operationError
+    }
+
+    // Publication is the commit point. Cleanup failure must not roll artifacts
+    // back after observers have received the matching event generation.
+    do {
+      try publication?.finish()
+      try transaction.finish()
+    } catch {
+      throw SwiftWebDevRuntimeError.clientRuntimeTransactionFailed(
+        reason: "Client WASM artifacts and update events committed, but transaction cleanup failed: \(String(describing: error))"
+      )
+    }
+    return manifests
   }
 
   private func cachedWasmManifest(
@@ -239,7 +320,7 @@ struct SwiftWebDevBuildProcess: Sendable {
     environment: [String: String],
     executableURL: URL,
     packageDirectory: URL
-  ) throws {
+  ) async throws {
     let process = Process()
     let outputLog = try SwiftWebDevCapturedProcessLog.create(prefix: "swiftweb-dev-wasm-build")
     defer {
@@ -254,16 +335,33 @@ struct SwiftWebDevBuildProcess: Sendable {
     process.standardOutput = outputLog.handle
     process.standardError = outputLog.handle
 
-    try process.run()
-    process.waitUntilExit()
+    let command = commandDescription(arguments, executableURL: executableURL)
+    let status = try await SwiftWebDevBoundedProcess.run(
+      process,
+      timeout: configuration.buildTimeout,
+      terminationGracePeriod: configuration.processTerminationGracePeriod,
+      timeoutError: SwiftWebDevRuntimeError.buildTimedOut(
+        command: command,
+        timeout: configuration.buildTimeout
+      )
+    )
     outputLog.close()
-    guard process.terminationStatus == 0 else {
+    guard status == 0 else {
       outputLog.writeToStandardError()
       throw SwiftWebDevRuntimeError.processFailed(
-        command: commandDescription(arguments, executableURL: executableURL),
-        status: process.terminationStatus
+        command: command,
+        status: status
       )
     }
+  }
+
+  private func artifactURL(for runtime: SwiftWebGeneratedWasmRuntime) throws -> URL {
+    try SwiftPMWasmArtifact.url(
+      anchorFile: runtime.packageDirectory.appendingPathComponent("Package.swift").path,
+      target: runtime.targetName,
+      artifactName: runtime.productName,
+      scratchDirectory: wasmScratchDirectory
+    )
   }
 
   private func processEnvironment(

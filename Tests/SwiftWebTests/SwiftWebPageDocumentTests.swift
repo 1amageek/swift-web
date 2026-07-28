@@ -9,7 +9,7 @@ import SwiftWeb
 private struct PageDocumentRuntimeClientComponent: ClientComponent {
     @State private var value = 0
 
-    var body: some HTML {
+    var content: some Component {
         button(.type(ButtonType.button), .onClick {
             value += 1
         }) {
@@ -19,7 +19,7 @@ private struct PageDocumentRuntimeClientComponent: ClientComponent {
 }
 
 private struct PageDocumentRuntimeStaticPage: Component {
-    var body: some HTML {
+    var content: some Component {
         main {
             h1 { "Static heading" }
             div {
@@ -36,12 +36,11 @@ struct SwiftWebPageDocumentTests {
     func pageResponseAppliesDocumentStyleRootToBody() async throws {
         try await withApplication { application in
             let request = Request(application: application)
-            let response = try await VStack { Text("Styled") }
-                .preferredColorScheme(.dark)
-                .encodePageResponse(
-                    for: request,
-                    metadata: PageMetadata(title: "Styled")
-                )
+            let response = try await PageDocument(title: "Styled") {
+                VStack { Text("Styled") }
+                    .preferredColorScheme(.dark)
+            }
+            .encodeResponse(for: request)
             let rendered = try #require(response.body.string)
 
             #expect(rendered.contains("<body class=\"swui-root\""))
@@ -57,10 +56,10 @@ struct SwiftWebPageDocumentTests {
     func pageResponseWithoutSchemeFollowsUserAgent() async throws {
         try await withApplication { application in
             let request = Request(application: application)
-            let response = try await Text("Styled").encodePageResponse(
-                for: request,
-                metadata: PageMetadata(title: "Styled")
-            )
+            let response = try await PageDocument(title: "Styled") {
+                Text("Styled")
+            }
+            .encodeResponse(for: request)
             let rendered = try #require(response.body.string)
 
             #expect(rendered.contains("<body class=\"swui-root\" data-theme=\""))
@@ -72,10 +71,10 @@ struct SwiftWebPageDocumentTests {
     func rawHTMLPageResponseSkipsDocumentStyleRoot() async throws {
         try await withApplication { application in
             let request = Request(application: application)
-            let response = try await main { h1 { "Plain" } }.encodePageResponse(
-                for: request,
-                metadata: PageMetadata(title: "Plain")
-            )
+            let response = try await PageDocument(title: "Plain") {
+                main { h1 { "Plain" } }
+            }
+            .encodeResponse(for: request)
             let rendered = try #require(response.body.string)
 
             #expect(!rendered.contains("swui-root"))
@@ -84,12 +83,15 @@ struct SwiftWebPageDocumentTests {
     }
 
     @Test
-    func resolvesAsyncPageMetadata() async throws {
-        let metadata = try await AsyncMetadataPage().metadata()
+    func staticAndLoadedPagesResolveDocuments() async throws {
+        let staticHTML = try await StaticDocumentPage().resolveDocument().render()
+        let loadedHTML = try await LoadedDocumentPage().resolveDocument().render()
+        let macroLoadedHTML = try await MacroLoadedDocumentPage().resolveDocument().render()
 
-        #expect(metadata.title == "Database Title")
-        #expect(metadata.description == "Loaded asynchronously")
-        #expect(metadata.language == "ja")
+        #expect(staticHTML.contains("<title>Static</title>"))
+        #expect(loadedHTML.contains("<title>Loaded</title>"))
+        #expect(loadedHTML.contains("<main>Database value</main>"))
+        #expect(macroLoadedHTML.contains("<main>Macro database value</main>"))
     }
 
     @Test
@@ -118,10 +120,10 @@ struct SwiftWebPageDocumentTests {
     func pageResponseEmitsAtomicCSSInHeadWithoutInlineStyle() async throws {
         try await withApplication { application in
             let request = Request(application: application)
-            let response = try await Spacer(minLength: 12).encodePageResponse(
-                for: request,
-                metadata: PageMetadata(title: "Atomic")
-            )
+            let response = try await PageDocument(title: "Atomic") {
+                Spacer(minLength: 12)
+            }
+            .encodeResponse(for: request)
             let rendered = try #require(response.body.string)
 
             #expect(rendered.contains("<style id=\"swui-atomic\">.swui-"))
@@ -136,13 +138,12 @@ struct SwiftWebPageDocumentTests {
     func pageResponseAtomizesTypedSwiftHTMLStyleAttributes() async throws {
         try await withApplication { application in
             let request = Request(application: application)
-            let response = try await div(.class("raw-element"), .style(.minWidth("14px"))) {
-                "Raw"
+            let response = try await PageDocument(title: "Raw Atomic") {
+                div(.class("raw-element"), .style(.minWidth("14px"))) {
+                    "Raw"
+                }
             }
-            .encodePageResponse(
-                for: request,
-                metadata: PageMetadata(title: "Raw Atomic")
-            )
+            .encodeResponse(for: request)
             let rendered = try #require(response.body.string)
 
             #expect(rendered.contains("<style id=\"swui-atomic\">.swui-minw-14px-"))
@@ -161,10 +162,10 @@ struct SwiftWebPageDocumentTests {
                 )
             )
             let request = Request(application: application)
-            let response = try await PageDocumentRuntimeStaticPage().encodePageResponse(
-                for: request,
-                metadata: PageMetadata(title: "Runtime")
-            )
+            let response = try await PageDocument(title: "Runtime") {
+                PageDocumentRuntimeStaticPage()
+            }
+            .encodeResponse(for: request)
             let rendered = try #require(response.body.string)
             let descriptor = try clientRuntimeDescriptor(in: rendered)
             let descriptorTexts = Set(descriptor.hydrationIndex.nodes.compactMap(\.text))
@@ -196,10 +197,10 @@ struct SwiftWebPageDocumentTests {
             let scope = SwiftWebActorBindingScope(records: [binding])
             let request = Request(application: application)
             let response = try await SwiftWebActorRenderContext.withValue(scope) {
-                try await PageDocumentRuntimeStaticPage().encodePageResponse(
-                    for: request,
-                    metadata: PageMetadata(title: "Runtime")
-                )
+                try await PageDocument(title: "Runtime") {
+                    PageDocumentRuntimeStaticPage()
+                }
+                .encodeResponse(for: request)
             }
             let rendered = try #require(response.body.string)
             let descriptor = try clientRuntimeDescriptor(in: rendered)
@@ -255,22 +256,35 @@ struct SwiftWebPageDocumentTests {
     }
 }
 
-private struct AsyncMetadataPage: Page {
-    var title: String {
-        get async throws {
-            "Database Title"
+private struct StaticDocumentPage: StaticPage {
+    var document: some HTMLDocument {
+        PageDocument(title: "Static") {
+            main { "Static value" }
         }
     }
+}
 
-    var description: String? {
-        get async throws {
-            "Loaded asynchronously"
-        }
+private struct LoadedDocumentPage: LoadedPage {
+    func load() async throws -> String {
+        "Database value"
     }
 
-    var language: String {
-        get async throws {
-            "ja"
+    func document(_ model: String) -> some HTMLDocument {
+        PageDocument(title: "Loaded") {
+            main { model }
+        }
+    }
+}
+
+@Page("/macro-loaded-document")
+private struct MacroLoadedDocumentPage {
+    func load() async throws -> String {
+        "Macro database value"
+    }
+
+    func document(_ model: String) -> some HTMLDocument {
+        PageDocument(title: "Macro Loaded") {
+            main { model }
         }
     }
 }

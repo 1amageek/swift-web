@@ -1,6 +1,12 @@
 import Foundation
 import Synchronization
 
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
+
 /// Incremental reader over the HMR event JSONL file. Each SSE stream owns one
 /// reader; polls decode only bytes appended since the previous poll instead
 /// of re-reading and re-decoding the whole log every 300 ms
@@ -105,18 +111,23 @@ package final class SwiftWebDevEventLogReader: Sendable {
     }
 
     package static let fileChunkReader: ChunkReader = { fileURL, offset in
-        guard FileManager.default.fileExists(atPath: fileURL.path) else {
-            return Data()
-        }
-        let handle = try FileHandle(forReadingFrom: fileURL)
-        defer {
-            do {
-                try handle.close()
-            } catch {
-                // Closing a read-only handle cannot lose data; nothing to
-                // surface beyond the read result itself.
+        let descriptor = open(fileURL.path, O_RDONLY)
+        guard descriptor >= 0 else {
+            if errno == ENOENT {
+                return Data()
             }
+            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
         }
+        defer {
+            close(descriptor)
+        }
+        guard flock(descriptor, LOCK_SH) == 0 else {
+            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+        }
+        defer {
+            flock(descriptor, LOCK_UN)
+        }
+        let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: false)
         try handle.seek(toOffset: offset)
         return try handle.readToEnd() ?? Data()
     }

@@ -8,10 +8,10 @@ import SwiftHTML
 /// common backdrop and keeps their refraction/rim layers from bleeding into
 /// surrounding content. Morph-merge between adjacent glass shapes is a future
 /// extension; for now the container provides the shared context and spacing.
-public struct GlassEffectContainer<Content: HTML>: AttributeComponent {
+public struct GlassEffectContainer<Content: Component>: AttributeComponent {
     private let spacing: Space?
     private let attributes: [HTMLAttribute]
-    private let content: Content
+    private let childContent: Content
 
     public init(
         spacing: Space? = nil,
@@ -20,11 +20,11 @@ public struct GlassEffectContainer<Content: HTML>: AttributeComponent {
     ) {
         self.spacing = spacing
         self.attributes = attributes
-        self.content = content()
+        self.childContent = content()
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         Element(
             "div",
             attributes: mergedAttributes(
@@ -33,7 +33,7 @@ public struct GlassEffectContainer<Content: HTML>: AttributeComponent {
                 extra: attributes
             )
         ) {
-            content
+            childContent
         }
     }
 
@@ -45,12 +45,12 @@ public struct GlassEffectContainer<Content: HTML>: AttributeComponent {
     }
 
     public func addingAttributes(_ attributes: [HTMLAttribute]) -> Self {
-        Self(spacing: spacing, attributes: self.attributes + attributes, content: content)
+        Self(spacing: spacing, attributes: self.attributes + attributes, content: childContent)
     }
 
     private init(spacing: Space?, attributes: [HTMLAttribute], content: Content) {
         self.spacing = spacing
         self.attributes = attributes
-        self.content = content
+        self.childContent = content
     }
 }

@@ -35,13 +35,13 @@ public struct InteractiveDismissDisabledModifier: ComponentModifier {
         self.isDisabled = isDisabled
     }
 
-    @HTMLBuilder
-    public func body(content: ModifierContent) -> some HTML {
+    @ComponentBuilder
+    public func content(_ content: ModifierContent) -> some Component {
         content.transformEnvironment({ $0.interactiveDismissDisabled = isDisabled })
     }
 }
 
-public extension HTML {
+public extension Component {
     /// Conditionally prevents the enclosing presentation from being dismissed
     /// interactively, mirroring SwiftUI `interactiveDismissDisabled(_:)`.
     ///
@@ -58,7 +58,7 @@ public extension HTML {
     /// ```
     func interactiveDismissDisabled(
         _ isDisabled: Bool = true
-    ) -> ModifiedContent<Self, InteractiveDismissDisabledModifier> {
+    ) -> ModifiedContent {
         modifier(InteractiveDismissDisabledModifier(isDisabled))
     }
 }

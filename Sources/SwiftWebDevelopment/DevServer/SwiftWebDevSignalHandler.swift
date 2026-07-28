@@ -1,23 +1,14 @@
-import SwiftWebDevelopmentHooks
-import SwiftWebPackageGeneration
-import SwiftWebWasmBuild
-import Darwin
-import Synchronization
-
-private let swiftWebDevTerminationRequested = Mutex(false)
-
-private func handleSwiftWebDevTerminationSignal(_ signal: Int32) {
-    swiftWebDevTerminationRequested.withLock { $0 = true }
-}
+import CSwiftWebSignals
 
 enum SwiftWebDevSignalHandler {
-    static func install() {
-        swiftWebDevTerminationRequested.withLock { $0 = false }
-        Darwin.signal(SIGINT, handleSwiftWebDevTerminationSignal)
-        Darwin.signal(SIGTERM, handleSwiftWebDevTerminationSignal)
+    static func install() throws {
+        let result = swift_web_install_termination_signal_handlers()
+        guard result == 0 else {
+            throw SwiftWebDevRuntimeError.signalHandlerInstallationFailed(code: result)
+        }
     }
 
     static var shouldStop: Bool {
-        swiftWebDevTerminationRequested.withLock { $0 }
+        swift_web_is_termination_requested()
     }
 }

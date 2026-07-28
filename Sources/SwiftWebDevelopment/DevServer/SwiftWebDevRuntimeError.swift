@@ -16,8 +16,13 @@ public enum SwiftWebDevRuntimeError: Error, Sendable, CustomStringConvertible {
     case unsupportedWasmSDK(String)
     case initialWasmBuildFailed(component: String, product: String, reason: String)
     case workerBuildFailed(command: String, status: Int32, firstErrorLine: String?, logPath: String)
+    case buildTimedOut(command: String, timeout: TimeInterval)
+    case clientRuntimeTransactionFailed(reason: String)
     case workerExitedDuringStartup(status: Int32)
     case artifactSnapshotFailed(source: String, destination: String, reason: String)
+    case signalHandlerInstallationFailed(code: Int32)
+    case processGroupIsolationFailed(processIdentifier: Int32, actualProcessGroup: Int32)
+    case processGroupTerminationTimedOut(processGroupIdentifier: Int32)
 
     public var description: String {
         switch self {
@@ -72,10 +77,20 @@ public enum SwiftWebDevRuntimeError: Error, Sendable, CustomStringConvertible {
             }
             lines.append("Full build log: \(logPath)")
             return lines.joined(separator: "\n")
+        case .buildTimedOut(let command, let timeout):
+            return "dev build timed out after \(timeout) seconds: \(command)"
+        case .clientRuntimeTransactionFailed(let reason):
+            return "Client WASM transaction failed: \(reason)"
         case .workerExitedDuringStartup(let status):
             return "dev worker exited with status \(status) before becoming ready"
         case .artifactSnapshotFailed(let source, let destination, let reason):
             return "dev worker artifact snapshot failed from \(source) to \(destination): \(reason)"
+        case .signalHandlerInstallationFailed(let code):
+            return "dev termination signal handler installation failed with errno \(code)"
+        case .processGroupIsolationFailed(let processIdentifier, let actualProcessGroup):
+            return "dev process \(processIdentifier) was not isolated as its own process group (actual pgid \(actualProcessGroup))"
+        case .processGroupTerminationTimedOut(let processGroupIdentifier):
+            return "dev process group \(processGroupIdentifier) did not terminate after SIGKILL"
         }
     }
 
@@ -88,7 +103,10 @@ public enum SwiftWebDevRuntimeError: Error, Sendable, CustomStringConvertible {
         case .processFailed, .executableNotFound, .hostReadinessTimeout, .workerPortAllocationFailed,
              .workerReadinessTimeout, .hostSwiftToolchainNotFound, .wasmToolchainNotFound,
              .unsupportedWasmSDK, .initialWasmBuildFailed, .workerBuildFailed,
-             .workerExitedDuringStartup, .artifactSnapshotFailed:
+             .buildTimedOut, .clientRuntimeTransactionFailed,
+             .workerExitedDuringStartup, .artifactSnapshotFailed,
+             .signalHandlerInstallationFailed, .processGroupIsolationFailed,
+             .processGroupTerminationTimedOut:
             return 70
         }
     }

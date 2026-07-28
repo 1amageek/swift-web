@@ -15,8 +15,8 @@ public struct TransitionModifier: ComponentModifier {
         self.transition = transition
     }
 
-    @HTMLBuilder
-    public func body(content: ModifierContent) -> some HTML {
+    @ComponentBuilder
+    public func content(_ content: ModifierContent) -> some Component {
         if transition.isIdentity {
             content
         } else {
@@ -57,10 +57,10 @@ public struct TransitionModifier: ComponentModifier {
     }
 }
 
-public extension HTML {
+public extension Component {
     /// Associates a transition with this view's insertion and removal while it is
     /// conditionally present in its container.
-    func transition(_ transition: AnyTransition) -> ModifiedContent<Self, TransitionModifier> {
+    func transition(_ transition: AnyTransition) -> ModifiedContent {
         modifier(TransitionModifier(transition))
     }
 }

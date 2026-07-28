@@ -70,9 +70,11 @@ extension EnvironmentValues {
 private struct SceneEnvironmentPage {
     @Environment(\.sceneGreeting) private var greeting
 
-    func body() -> some HTML {
-        main {
-            p { greeting }
+    var document: some HTMLDocument {
+        PageDocument(title: "Environment") {
+            main {
+                p { greeting }
+            }
         }
     }
 }

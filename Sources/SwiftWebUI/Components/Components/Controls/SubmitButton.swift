@@ -12,8 +12,8 @@ public struct SubmitButton: AttributeComponent {
         self.attributes = []
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         Element(
             "button",
             attributes: mergedAttributes(

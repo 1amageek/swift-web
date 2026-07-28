@@ -533,6 +533,10 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         atPath: wasmSources.appendingPathComponent("SwiftHTML/SwiftHTML.docc").path
       ))
     #expect(
+      !FileManager.default.fileExists(
+        atPath: wasmSources.appendingPathComponent("SwiftHTML/Preview").path
+      ))
+    #expect(
       FileManager.default.fileExists(
         atPath: wasmSources.appendingPathComponent("SwiftWebActors/WebActorSystem.swift").path
       ))
@@ -600,7 +604,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
   }
 
   @Test
-  func materializesEmbeddedWasmRuntimePackage() throws {
+  func rejectsUnsupportedEmbeddedWasmRuntimeProfile() throws {
     let root = FileManager.default.temporaryDirectory
       .appendingPathComponent(
         "SwiftWebEmbeddedWasmMaterializerTests-\(UUID().uuidString)", isDirectory: true)
@@ -710,66 +714,13 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       to: appPackage.appendingPathComponent("Sources/SampleApp/ClientSample.swift")
     )
 
-    let generatedPackage = try SwiftWebGeneratedPackageMaterializer(
-      appPackageDirectory: appPackage,
-      wasmRuntimeProfile: .embedded
-    )
-    .materialize()
-
-    let wasmPackageSwift = try String(
-      contentsOf: generatedPackage.wasmPackageDirectory.appendingPathComponent("Package.swift"),
-      encoding: .utf8
-    )
-    let wasmSources = generatedPackage.wasmPackageDirectory.appendingPathComponent("Sources")
-    let wasmEntrypoint = try String(
-      contentsOf: wasmSources.appendingPathComponent(
-        "SampleAppWasmRuntime/SampleAppWasmRuntime.swift"),
-      encoding: .utf8
-    )
-
-    #expect(wasmPackageSwift.contains("let swiftHTMLClientRuntimeTarget = Target.target("))
-    #expect(wasmPackageSwift.contains("path: \"Sources/SwiftHTMLClientRuntime\""))
-    #expect(wasmPackageSwift.contains("\"SwiftHTMLClientRuntime\""))
-    #expect(wasmPackageSwift.contains("\"JavaScriptKit\""))
-    #expect(!wasmPackageSwift.contains("let swiftHTMLTarget = Target.target("))
-    #expect(!wasmPackageSwift.contains("let swiftWebUITarget = Target.target("))
-    #expect(!wasmPackageSwift.contains("let swiftWebUIRuntimeTarget = Target.target("))
-    #expect(!wasmPackageSwift.contains("let appClientTarget = Target.target("))
-    #expect(!wasmPackageSwift.contains("swift-actor-runtime"))
-    #expect(
-      FileManager.default.fileExists(
-        atPath: wasmSources.appendingPathComponent(
-          "SwiftHTMLClientRuntime/ClientHTMLDocument.swift"
-        ).path
-      ))
-    #expect(
-      FileManager.default.fileExists(
-        atPath: wasmSources.appendingPathComponent(
-          "JavaScriptKit/FundamentalObjects/JSObject.swift"
-        ).path
-      ))
-    #expect(
-      FileManager.default.fileExists(
-        atPath: wasmSources.appendingPathComponent("_CJavaScriptKit/include/_CJavaScriptKit.h").path
-      ))
-    #expect(
-      !FileManager.default.fileExists(
-        atPath: wasmSources.appendingPathComponent("SwiftHTML/Core/HTML.swift").path
-      ))
-    #expect(
-      !FileManager.default.fileExists(
-        atPath: wasmSources.appendingPathComponent("SwiftWebUIRuntime/RuntimeEntrypoint.swift").path
-      ))
-    #expect(
-      !FileManager.default.fileExists(
-        atPath: wasmSources.appendingPathComponent("SampleApp/ClientSample.swift").path
-      ))
-    #expect(wasmEntrypoint.contains("import JavaScriptKit"))
-    #expect(wasmEntrypoint.contains("import SwiftHTMLClientRuntime"))
-    #expect(wasmEntrypoint.contains("SwiftWebClientRuntime"))
-    #expect(wasmEntrypoint.contains("data-swiftweb-runtime"))
-    #expect(!wasmEntrypoint.split(separator: "\n").contains("import SwiftHTML"))
-    #expect(!wasmEntrypoint.contains("ClientBundleRuntimeEntrypoint"))
+    #expect(throws: SwiftWebGeneratedPackageMaterializerError.self) {
+      try SwiftWebGeneratedPackageMaterializer(
+        appPackageDirectory: appPackage,
+        wasmRuntimeProfile: .embedded
+      )
+      .materialize()
+    }
   }
 
   @Test
@@ -1771,6 +1722,10 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     try write(
       "# Documentation",
       to: sourceRoot.appendingPathComponent("SwiftHTML.docc/SwiftHTML.md")
+    )
+    try write(
+      "public macro Preview() = #externalMacro(module: \"SwiftHTMLMacros\", type: \"HTMLPreviewMacro\")",
+      to: sourceRoot.appendingPathComponent("Preview/HTMLPreviewMacro.swift")
     )
   }
 

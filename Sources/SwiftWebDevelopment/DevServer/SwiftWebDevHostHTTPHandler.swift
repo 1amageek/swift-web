@@ -22,23 +22,27 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
     static let buildFingerprintHeaderName = HTTPField.Name("X-SwiftWeb-Dev-Build")!
     static let sourceFingerprintHeaderName = HTTPField.Name("X-SwiftWeb-Dev-Source")!
     static let staleHeaderName = HTTPField.Name("X-SwiftWeb-Dev-Stale")!
+    static let wasmAssetReadChunkSize = 1 * 1_024 * 1_024
 
     struct BodyTooLargeError: Error {}
 
     private let devToken: String
     private let eventLog: SwiftWebDevEventLog
     private let workerRegistry: SwiftWebDevWorkerRegistry
+    private let publishedWasmRoot: URL
     private let logger: Logger
 
     init(
         devToken: String,
         eventLog: SwiftWebDevEventLog,
         workerRegistry: SwiftWebDevWorkerRegistry,
+        publishedWasmRoot: URL,
         logger: Logger
     ) {
         self.devToken = devToken
         self.eventLog = eventLog
         self.workerRegistry = workerRegistry
+        self.publishedWasmRoot = publishedWasmRoot
         self.logger = logger
     }
 
@@ -83,6 +87,13 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
         case "/__swiftweb/dev/reload":
             return try await sendReload(target: target, responseSender: responseSender)
         default:
+            if target.path.hasPrefix(SwiftWebDevPublishedWasmArtifacts.assetRoutePrefix + "/") {
+                return try await sendPublishedWasmAsset(
+                    request: request,
+                    target: target,
+                    responseSender: responseSender
+                )
+            }
             return try await proxy(
                 request: request,
                 target: target,
@@ -90,6 +101,88 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
                 responseSender: responseSender
             )
         }
+    }
+
+    private func sendPublishedWasmAsset(
+        request: HTTPRequest,
+        target: SwiftWebDevHostRequestTarget,
+        responseSender: consuming sending NIOHTTPServer.ResponseSender
+    ) async throws {
+        guard request.method == .get else {
+            return try await Self.sendBytes(
+                status: .methodNotAllowed,
+                headers: [.cacheControl: "no-cache, no-transform"],
+                bytes: [],
+                responseSender: responseSender
+            )
+        }
+        let prefixComponents = SwiftWebDevPublishedWasmArtifacts.assetRoutePrefix
+            .split(separator: "/")
+            .map(String.init)
+        let pathComponents = target.path.split(separator: "/").map(String.init)
+        guard pathComponents.count == prefixComponents.count + 2,
+              Array(pathComponents.prefix(prefixComponents.count)) == prefixComponents,
+              let generationID = pathComponents.dropFirst(prefixComponents.count).first,
+              let fileName = pathComponents.last,
+              fileName.hasSuffix(".wasm"),
+              let requestedContentHash = target.query["v"],
+              !requestedContentHash.isEmpty
+        else {
+            return try await Self.sendBytes(
+                status: .badRequest,
+                headers: [.cacheControl: "no-cache, no-transform"],
+                bytes: Array("invalid SwiftWeb WASM generation request".utf8),
+                responseSender: responseSender
+            )
+        }
+        let productName = String(fileName.dropLast(".wasm".count))
+        let openedAsset: SwiftWebDevPublishedWasmArtifacts.OpenedAsset
+        do {
+            openedAsset = try SwiftWebDevPublishedWasmArtifacts.openAsset(
+                rootDirectory: publishedWasmRoot,
+                generationID: generationID,
+                productName: productName,
+                requestedContentHash: requestedContentHash,
+                acceptEncoding: request.headerFields[HTTPField.Name("Accept-Encoding")!] ?? ""
+            )
+        } catch let error as SwiftWebDevPublishedWasmArtifactError {
+            let status: HTTPResponse.Status
+            switch error {
+            case .invalidGenerationID, .invalidProductName, .missingContentHash:
+                status = .badRequest
+            case .contentHashMismatch:
+                status = .conflict
+            case .generationUnavailable, .artifactUnavailable:
+                status = .gone
+            case .artifactReadFailed:
+                status = .internalServerError
+            }
+            return try await Self.sendBytes(
+                status: status,
+                headers: [
+                    .contentType: "text/plain; charset=utf-8",
+                    .cacheControl: "no-cache, no-transform",
+                ],
+                bytes: Array(error.description.utf8),
+                responseSender: responseSender
+            )
+        }
+        var headers: HTTPFields = [
+            .contentType: "application/wasm",
+            .cacheControl: "no-cache",
+            .eTag: "\"swiftweb-dev-wasm-\(openedAsset.contentEncoding ?? "identity")-\(requestedContentHash)\"",
+            HTTPField.Name("Vary")!: "Accept-Encoding",
+            HTTPField.Name("Content-Length")!: String(openedAsset.byteCount),
+        ]
+        if let contentEncoding = openedAsset.contentEncoding {
+            headers[HTTPField.Name("Content-Encoding")!] = contentEncoding
+        }
+        try await Self.sendFile(
+            status: .ok,
+            headers: headers,
+            fileHandle: openedAsset.fileHandle,
+            responseSender: responseSender
+        )
     }
 
     private func sendStatus(
@@ -272,7 +365,6 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
             )
             return
         }
-
         var context = SwiftWebDevContextCarrier.extract(from: request.headerFields)
         SwiftWebDevContextCarrier.enrich(
             &context,
@@ -345,6 +437,37 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
             buffer: &buffer,
             trailer: nil
         )
+    }
+
+    private static func sendFile(
+        status: HTTPResponse.Status,
+        headers: HTTPFields,
+        fileHandle: FileHandle,
+        responseSender: consuming sending NIOHTTPServer.ResponseSender
+    ) async throws {
+        do {
+            var writer = try await responseSender.send(
+                HTTPResponse(status: status, headerFields: headers)
+            )
+            while let data = try fileHandle.read(upToCount: wasmAssetReadChunkSize), !data.isEmpty {
+                // NIOHTTPServer requires an owned UniqueArray at its async
+                // boundary. This is the single explicit application-layer
+                // copy; the server performs its own bounded transport copy.
+                // Neither layer materializes the complete file.
+                var buffer = UniqueArray<UInt8>(capacity: data.count, copying: data)
+                try await writer.write(buffer: &buffer)
+            }
+            try fileHandle.close()
+            var trailing = UniqueArray<UInt8>()
+            try await writer.finish(buffer: &trailing, finalElement: nil)
+        } catch {
+            do {
+                try fileHandle.close()
+            } catch {
+                // Preserve the response or read failure that triggered cleanup.
+            }
+            throw error
+        }
     }
 
     static func addStalenessHeaders(

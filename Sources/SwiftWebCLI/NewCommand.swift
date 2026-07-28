@@ -135,7 +135,7 @@ struct PlatformAdapterReference: Equatable {
     }
 
     static func parse(_ value: String) throws -> PlatformAdapterReference {
-        let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalized = value.trimmingCharacters(in: Foundation.CharacterSet.whitespacesAndNewlines)
         guard !normalized.isEmpty else {
             throw CLIError(message: "missing value for --platform", exitCode: 64)
         }
@@ -334,7 +334,7 @@ struct TemplateProject {
             ],
             dependencies: [
                 \(SwiftWebPackageReference.packageDependencyDeclaration),
-                .package(url: "https://github.com/1amageek/swift-html.git", from: "0.9.1"),
+                .package(url: "https://github.com/1amageek/swift-html.git", from: "0.13.0"),
             ],
             targets: [
                 .target(
@@ -508,28 +508,21 @@ struct TemplateProject {
 
         @Page("/")
         struct HomePage {
-            var title: String {
-                get async {
-                    "Hello World"
-                }
-            }
-
-            var description: String? {
-                get async {
-                    "A SwiftWeb page rendered by Vapor and SwiftHTML."
-                }
-            }
-
-            func body() -> some HTML {
-                main {
-                    h1 { "Hello World" }
-                    p { "Rendered by SwiftWeb." }
+            var document: some HTMLDocument {
+                PageDocument(
+                    title: "Hello World",
+                    description: "A SwiftWeb page rendered by Vapor and SwiftHTML."
+                ) {
+                    main {
+                        h1 { "Hello World" }
+                        p { "Rendered by SwiftWeb." }
+                    }
                 }
             }
         }
 
         #Preview {
-            HomePage().body()
+            HomePage().document.body
         }
         """
     }
@@ -542,36 +535,29 @@ struct TemplateProject {
 
         @Page("/")
         struct ChatPage {
-            var title: String {
-                get async {
-                    "AI Chat"
-                }
-            }
+            var document: some HTMLDocument {
+                PageDocument(
+                    title: "AI Chat",
+                    description: "A SwiftWeb chat interface ready for an AI provider."
+                ) {
+                    main {
+                        ChatTheme {
+                            div(.class("sw-chat-shell")) {
+                                h1(.class("sw-chat-title")) {
+                                    "swift-web で何を作りましょうか?"
+                                }
 
-            var description: String? {
-                get async {
-                    "A SwiftWeb chat interface ready for an AI provider."
-                }
-            }
-
-            func body() -> some HTML {
-                main {
-                    ChatTheme {
-                        div(.class("sw-chat-shell")) {
-                            h1(.class("sw-chat-title")) {
-                                "swift-web で何を作りましょうか?"
+                                ChatPanel()
                             }
-
-                            ChatPanel()
                         }
                     }
+                    .preferredColorScheme(.dark)
                 }
-                .preferredColorScheme(.dark)
             }
         }
 
         #Preview {
-            ChatPage().body()
+            ChatPage().document.body
         }
         """
     }
@@ -589,7 +575,7 @@ struct TemplateProject {
 
             public init() {}
 
-            public var body: some HTML {
+            public var content: some Component {
                 VStack(alignment: .stretch, spacing: .large) {
                     ScrollView(.vertical, showsIndicators: false) {
                         VStack(alignment: .stretch, spacing: .small) {
@@ -633,7 +619,7 @@ struct TemplateProject {
                 draft = ""
             }
 
-            private func turnRow(_ turn: ChatTurn) -> some HTML {
+            private func turnRow(_ turn: ChatTurn) -> some Component {
                 VStack(alignment: .stretch, spacing: .small) {
                     userMessage(turn.prompt)
                     assistantMessage(Self.responseMessage)
@@ -641,7 +627,7 @@ struct TemplateProject {
                 .class("sw-chat-turn")
             }
 
-            private func assistantMessage(_ text: String) -> some HTML {
+            private func assistantMessage(_ text: String) -> some Component {
                 HStack(alignment: .bottom, spacing: .small) {
                     VStack(alignment: .leading, spacing: 0) {
                         Text(text)
@@ -652,7 +638,7 @@ struct TemplateProject {
                 .class("sw-chat-message sw-chat-message-assistant")
             }
 
-            private func userMessage(_ text: String) -> some HTML {
+            private func userMessage(_ text: String) -> some Component {
                 HStack(alignment: .bottom, spacing: .small) {
                     VStack(alignment: .trailing, spacing: 0) {
                         Text(text)
@@ -683,15 +669,15 @@ struct TemplateProject {
         import SwiftHTML
         import SwiftWebStyle
 
-        struct ChatTheme<Content: HTML>: Component {
-            private let content: Content
+        struct ChatTheme<Content: Component>: Component {
+            private let childContent: Content
 
             init(@HTMLBuilder _ content: () -> Content) {
-                self.content = content()
+                self.childContent = content()
             }
 
-            @HTMLBuilder
-            var body: some HTML {
+            @ComponentBuilder
+            var content: some Component {
                 if let registry = StyleRegistry.current {
                     let _ = registry.registerStylesheet(Self.stylesheet.cssText)
                     EmptyHTML()
@@ -702,7 +688,7 @@ struct TemplateProject {
                 }
 
                 div(.class("sw-chat-root")) {
-                    content
+                    childContent
                 }
             }
 

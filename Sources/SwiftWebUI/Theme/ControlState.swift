@@ -21,5 +21,23 @@ public struct ControlState: Sendable, Equatable {
 }
 
 #if !hasFeature(Embedded)
-extension ControlState: Codable {}
+extension ControlState: Codable {
+    public init(from decoder: any Decoder) throws {
+        var container = try decoder.unkeyedContainer()
+        self.init(
+            isEnabled: try container.decode(Bool.self),
+            isPressed: try container.decode(Bool.self),
+            isFocused: try container.decode(Bool.self),
+            isSelected: try container.decode(Bool.self)
+        )
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.unkeyedContainer()
+        try container.encode(isEnabled)
+        try container.encode(isPressed)
+        try container.encode(isFocused)
+        try container.encode(isSelected)
+    }
+}
 #endif

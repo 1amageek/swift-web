@@ -1,13 +1,13 @@
 import SwiftWebUITheme
 import SwiftHTML
 
-public struct Section<Parent: HTML, Content: HTML, Footer: HTML>: AttributeComponent {
+public struct Section<Parent: Component, Content: Component, Footer: Component>: AttributeComponent {
     private let header: Parent
     private let footer: Footer
     private let showsHeader: Bool
     private let showsFooter: Bool
     private let attributes: [HTMLAttribute]
-    private let content: Content
+    private let childContent: Content
 
     public init(
         @HTMLBuilder content: () -> Content,
@@ -19,18 +19,18 @@ public struct Section<Parent: HTML, Content: HTML, Footer: HTML>: AttributeCompo
         self.showsHeader = true
         self.showsFooter = true
         self.attributes = []
-        self.content = content()
+        self.childContent = content()
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         Element("section", attributes: mergedAttributes(class: "swui-section \(LayoutClass.fillHorizontal)", extra: attributes)) {
             if showsHeader {
                 Element("div", attributes: [.class("swui-section-header")]) {
                     header
                 }
             }
-            content
+            childContent
             if showsFooter {
                 Element("div", attributes: [.class("swui-section-footer")]) {
                     footer
@@ -46,7 +46,7 @@ public struct Section<Parent: HTML, Content: HTML, Footer: HTML>: AttributeCompo
             showsHeader: showsHeader,
             showsFooter: showsFooter,
             attributes: self.attributes + attributes,
-            content: content
+            content: childContent
         )
     }
 
@@ -63,7 +63,7 @@ public struct Section<Parent: HTML, Content: HTML, Footer: HTML>: AttributeCompo
         self.showsHeader = showsHeader
         self.showsFooter = showsFooter
         self.attributes = attributes
-        self.content = content
+        self.childContent = content
     }
 }
 
@@ -114,9 +114,14 @@ public extension Section where Parent == EmptyHTML {
 
 public extension Section where Parent == Text, Footer == EmptyHTML {
     init(_ title: String, @HTMLBuilder content: () -> Content) {
-        self.init(content: content) {
-            Text(title).as(.h3)
-        }
+        self.init(
+            header: Text(title).as(.h3),
+            footer: EmptyHTML(),
+            showsHeader: true,
+            showsFooter: false,
+            attributes: [],
+            content: content()
+        )
     }
 }
 
@@ -126,10 +131,13 @@ public extension Section where Parent == Text, Footer == Text {
         footer: String,
         @HTMLBuilder content: () -> Content
     ) {
-        self.init(content: content) {
-            Text(title).as(.h3)
-        } footer: {
-            Text(footer)
-        }
+        self.init(
+            header: Text(title).as(.h3),
+            footer: Text(footer),
+            showsHeader: true,
+            showsFooter: true,
+            attributes: [],
+            content: content()
+        )
     }
 }

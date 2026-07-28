@@ -8,8 +8,8 @@ public struct Divider: AttributeComponent {
         self.attributes = []
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         Element(
             "div",
             attributes: mergedAttributes(

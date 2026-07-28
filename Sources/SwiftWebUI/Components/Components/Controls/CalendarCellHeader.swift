@@ -20,7 +20,7 @@ import SwiftHTML
 ///     Text(day.isToday ? "Today" : String(day.day))
 /// }
 /// ```
-public struct CalendarCellHeader<Label: HTML>: Component {
+public struct CalendarCellHeader<Label: Component>: Component {
     private let day: CalendarDay
     private let isSelected: Bool
     private let label: Label
@@ -30,12 +30,16 @@ public struct CalendarCellHeader<Label: HTML>: Component {
         isSelected: Bool = false,
         @HTMLBuilder label: () -> Label
     ) {
-        self.day = day
-        self.isSelected = isSelected
-        self.label = label()
+        self.init(day, isSelected: isSelected, label: label())
     }
 
-    public var body: some HTML {
+    private init(_ day: CalendarDay, isSelected: Bool, label: Label) {
+        self.day = day
+        self.isSelected = isSelected
+        self.label = label
+    }
+
+    public var content: some Component {
         div(.class("swui-calendar-cell-header-wrapper")) {
             Element("span", attributes: Self.headerAttributes(day, isSelected: isSelected)) {
                 label
@@ -67,6 +71,6 @@ public struct CalendarCellHeader<Label: HTML>: Component {
 public extension CalendarCellHeader where Label == text {
     /// Renders the day number as the header label.
     init(_ day: CalendarDay, isSelected: Bool = false) {
-        self.init(day, isSelected: isSelected) { text(String(day.day)) }
+        self.init(day, isSelected: isSelected, label: text(String(day.day)))
     }
 }

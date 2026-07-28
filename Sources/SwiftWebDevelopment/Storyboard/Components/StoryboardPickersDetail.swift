@@ -11,7 +11,7 @@ struct PickersDetail: Component {
 
     private var state: [String: String] { ui.wrappedValue }
 
-    var body: some HTML {
+    var content: some Component {
         switch selection {
         case "menu":
             menuDemo()
@@ -21,7 +21,7 @@ struct PickersDetail: Component {
     }
 
     @HTMLBuilder
-    private func menuDemo() -> some HTML {
+    private func menuDemo() -> some Component {
         let disabled = state.controlFlag("menu", "disabled")
         if state.controlFlag("menu", "icon") {
             Menu {
@@ -39,14 +39,14 @@ struct PickersDetail: Component {
     }
 
     @HTMLBuilder
-    private func menuItems() -> some HTML {
+    private func menuItems() -> some Component {
         Button("Duplicate") {}
         Button("Move") {}
         Button("Delete") {}
     }
 
     @HTMLBuilder
-    private func pickerDemo() -> some HTML {
+    private func pickerDemo() -> some Component {
         Picker("View", selection: ui.string("picker.value")) { pickerOptions() }
             .pickerStyle(pickerStyleKind(state.control("picker", "style")))
             .disabled(state.controlFlag("picker", "disabled"))
@@ -61,7 +61,7 @@ struct PickersDetail: Component {
     }
 
     @HTMLBuilder
-    private func pickerOptions() -> some HTML {
+    private func pickerOptions() -> some Component {
         PickerOption("List", value: "list")
         PickerOption("Grid", value: "grid")
         PickerOption("Columns", value: "columns")

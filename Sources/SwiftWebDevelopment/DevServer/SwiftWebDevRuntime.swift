@@ -82,7 +82,7 @@ public struct SwiftWebDevRuntime: Sendable {
       onFileEvent: { wakeRelay.invoke() }
     )
     let buildProcess = SwiftWebDevBuildProcess(configuration: serverConfiguration)
-    SwiftWebDevSignalHandler.install()
+    try SwiftWebDevSignalHandler.install()
 
     logger.info(
       "SwiftWeb dev server starting at \(url)",
@@ -105,11 +105,17 @@ public struct SwiftWebDevRuntime: Sendable {
     try await devHost.start()
 
     do {
-      try buildInitialWasmRuntimes(
-        generatedPackage.wasmRuntimes,
-        eventLog: eventLog,
-        buildProcess: buildProcess
-      )
+      let initialBuildCompleted = try await runUntilTerminationRequested {
+        try await buildInitialWasmRuntimes(
+          generatedPackage.wasmRuntimes,
+          eventLog: eventLog,
+          buildProcess: buildProcess
+        )
+      }
+      guard initialBuildCompleted else {
+        await devHost.stop()
+        return
+      }
     } catch {
       await devHost.stop()
       throw error
@@ -124,7 +130,7 @@ public struct SwiftWebDevRuntime: Sendable {
         try materializer.materialize()
       },
       prepareClientRuntimes: { refreshedPackage, changedPaths in
-        try prepareClientRuntimes(
+        try await prepareClientRuntimes(
           refreshedPackage.wasmRuntimes,
           changedPaths: changedPaths,
           eventLog: eventLog,
@@ -180,11 +186,34 @@ public struct SwiftWebDevRuntime: Sendable {
     }
 
     logger.info("SwiftWeb dev server stopping", metadata: metadata())
+    reconcilerTask.cancel()
     reconciler.shutdown()
     await reconcilerTask.value
     await reconciler.stopWorkerForShutdown()
     workerRegistry.clearSnapshotProvider()
     await devHost.stop()
+  }
+
+  private func runUntilTerminationRequested(
+    _ operation: @escaping @Sendable () async throws -> Void
+  ) async throws -> Bool {
+    try await withThrowingTaskGroup(of: Bool.self) { group in
+      group.addTask {
+        try await operation()
+        return true
+      }
+      group.addTask {
+        while !SwiftWebDevSignalHandler.shouldStop {
+          try await Task.sleep(for: .milliseconds(50))
+        }
+        return false
+      }
+      guard let operationCompleted = try await group.next() else {
+        return false
+      }
+      group.cancelAll()
+      return operationCompleted
+    }
   }
 
   // MARK: - Reconciler observer
@@ -265,6 +294,15 @@ public struct SwiftWebDevRuntime: Sendable {
           "errorSummary": .string(summary.split(separator: "\n").first.map(String.init) ?? summary),
           "error": .string(summary),
         ])
+      )
+    }
+
+    observer.failureCleared = { handle in
+      workerRegistry.activate(handle.target)
+      append(SwiftWebDevEvent(kind: .connected, message: "SwiftWeb source failure cleared"))
+      logger.info(
+        "SwiftWeb dev source failure cleared; existing worker is current",
+        metadata: merged(["fingerprint": .string(handle.fingerprint.short)])
       )
     }
 
@@ -392,55 +430,40 @@ public struct SwiftWebDevRuntime: Sendable {
     changedPaths: [String],
     eventLog: SwiftWebDevEventLog,
     buildProcess: SwiftWebDevBuildProcess
-  ) throws {
-    for runtime in runtimes {
-      appendDevEvent(
-        SwiftWebDevEvent(
-          kind: .clientBuildStarted,
-          message: "SwiftWeb Client WASM rebuilding",
-          changedPaths: changedPaths
-        ),
-        to: eventLog
+  ) async throws {
+    try eventLog.append(
+      SwiftWebDevEvent(
+        kind: .clientBuildStarted,
+        message: "SwiftWeb Client WASM rebuilding",
+        changedPaths: changedPaths
       )
-      do {
-        let manifest = try buildProcess.buildWasmRuntime(runtime)
-        appendDevEvent(
+    )
+    do {
+      let manifests = try await buildProcess.buildWasmRuntimesAtomically(runtimes) { manifests in
+        try eventLog.append(
           SwiftWebDevEvent(
-            kind: .clientComponentUpdate,
-            clientComponentUpdate: manifest,
+            kind: .clientRuntimeBatchUpdate,
+            clientRuntimeUpdates: manifests,
             changedPaths: changedPaths
-          ),
-          to: eventLog
+          )
         )
+      }
+      for (runtime, manifest) in zip(runtimes, manifests) {
         logger.info(
           "SwiftWeb dev client component HMR event emitted",
           metadata: metadata([
-            "component": .string(runtime.componentTypeName),
+            "component": .string(manifest.componentTypeName),
             "product": .string(runtime.productName),
           ])
         )
-      } catch {
-        recordFastPathError(
-          "Client WASM HMR failed for \(runtime.componentTypeName): \(String(describing: error))",
-          changedPaths: changedPaths,
-          eventLog: eventLog
-        )
-        throw error
       }
-    }
-  }
-
-  private func appendDevEvent(
-    _ event: SwiftWebDevEvent,
-    to eventLog: SwiftWebDevEventLog
-  ) {
-    do {
-      try eventLog.append(event)
     } catch {
-      logger.error(
-        "SwiftWeb dev failed to record HMR event",
-        metadata: metadata(["error": .string(String(describing: error))])
+      recordFastPathError(
+        "Client WASM HMR transaction failed: \(String(describing: error))",
+        changedPaths: changedPaths,
+        eventLog: eventLog
       )
+      throw error
     }
   }
 
@@ -471,7 +494,7 @@ public struct SwiftWebDevRuntime: Sendable {
     _ runtimes: [SwiftWebGeneratedWasmRuntime],
     eventLog: SwiftWebDevEventLog,
     buildProcess: SwiftWebDevBuildProcess
-  ) throws {
+  ) async throws {
     guard !runtimes.isEmpty else {
       return
     }
@@ -483,9 +506,9 @@ public struct SwiftWebDevRuntime: Sendable {
       ])
     )
 
-    for runtime in runtimes {
-      do {
-        _ = try buildProcess.buildWasmRuntime(runtime)
+    do {
+      _ = try await buildProcess.buildWasmRuntimesAtomically(runtimes) { _ in }
+      for runtime in runtimes {
         logger.info(
           "SwiftWeb dev initial client WASM build completed",
           metadata: metadata([
@@ -493,38 +516,39 @@ public struct SwiftWebDevRuntime: Sendable {
             "product": .string(runtime.productName),
           ])
         )
-      } catch {
-        let runtimeError = SwiftWebDevRuntimeError.initialWasmBuildFailed(
-          component: runtime.componentTypeName,
-          product: runtime.productName,
-          reason: String(describing: error)
-        )
-        do {
-          try eventLog.append(
-            SwiftWebDevEvent(
-              kind: .error,
-              message: runtimeError.description
-            ))
-        } catch {
-          logger.error(
-            "SwiftWeb dev failed to record initial client WASM build error",
-            metadata: metadata([
-              "component": .string(runtime.componentTypeName),
-              "product": .string(runtime.productName),
-              "error": .string(String(describing: error)),
-            ])
+      }
+    } catch {
+      let runtimeError = SwiftWebDevRuntimeError.initialWasmBuildFailed(
+        component: runtimes.map(\.componentTypeName).joined(separator: ", "),
+        product: runtimes.map(\.productName).joined(separator: ", "),
+        reason: String(describing: error)
+      )
+      do {
+        try eventLog.append(
+          SwiftWebDevEvent(
+            kind: .error,
+            message: runtimeError.description
           )
-        }
+        )
+      } catch {
         logger.error(
-          "SwiftWeb dev initial client WASM build failed",
+          "SwiftWeb dev failed to record initial client WASM build error",
           metadata: metadata([
-            "component": .string(runtime.componentTypeName),
-            "product": .string(runtime.productName),
+            "component": .string(runtimes.map(\.componentTypeName).joined(separator: ",")),
+            "product": .string(runtimes.map(\.productName).joined(separator: ",")),
             "error": .string(String(describing: error)),
           ])
         )
-        throw runtimeError
       }
+      logger.error(
+        "SwiftWeb dev initial client WASM build failed",
+        metadata: metadata([
+          "component": .string(runtimes.map(\.componentTypeName).joined(separator: ",")),
+          "product": .string(runtimes.map(\.productName).joined(separator: ",")),
+          "error": .string(String(describing: error)),
+        ])
+      )
+      throw runtimeError
     }
   }
 

@@ -1,10 +1,10 @@
 import SwiftWebUITheme
 import SwiftHTML
 
-public struct Pane<Content: HTML>: AttributeComponent {
+public struct Pane<Content: Component>: AttributeComponent {
     private let span: Int
     private let attributes: [HTMLAttribute]
-    private let content: Content
+    private let childContent: Content
 
     public init(
         span: Int,
@@ -13,11 +13,11 @@ public struct Pane<Content: HTML>: AttributeComponent {
     ) {
         self.span = max(span, 1)
         self.attributes = attributes
-        self.content = content()
+        self.childContent = content()
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         Element(
             "div",
             attributes: mergedAttributes(
@@ -26,17 +26,17 @@ public struct Pane<Content: HTML>: AttributeComponent {
                 extra: attributes
             )
         ) {
-            content
+            childContent
         }
     }
 
     public func addingAttributes(_ attributes: [HTMLAttribute]) -> Self {
-        Self(span: span, attributes: self.attributes + attributes, content: content)
+        Self(span: span, attributes: self.attributes + attributes, content: childContent)
     }
 
     private init(span: Int, attributes: [HTMLAttribute], content: Content) {
         self.span = span
         self.attributes = attributes
-        self.content = content
+        self.childContent = content
     }
 }

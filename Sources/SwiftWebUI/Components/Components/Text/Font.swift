@@ -2,6 +2,7 @@ import SwiftWebUITheme
 import SwiftHTML
 
 public struct Font: Sendable {
+    @usableFromInline
     let style: Style
 
     public init(

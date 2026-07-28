@@ -1,24 +1,24 @@
 import SwiftWebUITheme
 import SwiftHTML
 
-public struct GroupBox<Label: HTML, Content: HTML>: AttributeComponent {
-    private let label: Label
+public struct GroupBox: AttributeComponent {
+    private let label: ComponentContent
     private let showsLabel: Bool
     private let attributes: [HTMLAttribute]
-    private let content: Content
+    private let childContent: ComponentContent
 
-    public init(
-        @HTMLBuilder content: () -> Content,
-        @HTMLBuilder label: () -> Label
+    public init<Content: Component, Label: Component>(
+        @ComponentBuilder content: () -> Content,
+        @ComponentBuilder label: () -> Label
     ) {
-        self.label = label()
+        self.label = HTMLBuilder.buildExpression(label())
         self.showsLabel = true
         self.attributes = []
-        self.content = content()
+        self.childContent = HTMLBuilder.buildExpression(content())
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         Element(
             "section",
             attributes: mergedAttributes(
@@ -31,35 +31,46 @@ public struct GroupBox<Label: HTML, Content: HTML>: AttributeComponent {
                     label
                 }
             }
-            content
+            childContent
         }
     }
 
     public func addingAttributes(_ attributes: [HTMLAttribute]) -> Self {
-        Self(label: label, showsLabel: showsLabel, attributes: self.attributes + attributes, content: content)
+        Self(label: label, showsLabel: showsLabel, attributes: self.attributes + attributes, content: childContent)
     }
 
-    private init(label: Label, showsLabel: Bool, attributes: [HTMLAttribute], content: Content) {
+    private init(
+        label: ComponentContent,
+        showsLabel: Bool,
+        attributes: [HTMLAttribute],
+        content: ComponentContent
+    ) {
         self.label = label
         self.showsLabel = showsLabel
         self.attributes = attributes
-        self.content = content
+        self.childContent = content
     }
 }
 
-public extension GroupBox where Label == EmptyHTML {
-    init(@HTMLBuilder content: () -> Content) {
-        self.init(label: EmptyHTML(), showsLabel: false, attributes: [], content: content())
+public extension GroupBox {
+    init<Content: Component>(@ComponentBuilder content: () -> Content) {
+        self.init(
+            label: HTMLBuilder.buildExpression(EmptyHTML()),
+            showsLabel: false,
+            attributes: [],
+            content: HTMLBuilder.buildExpression(content())
+        )
     }
-}
 
-public extension GroupBox where Label == Text {
-    init(
+    init<Content: Component>(
         _ title: String,
-        @HTMLBuilder content: () -> Content
+        @ComponentBuilder content: () -> Content
     ) {
-        self.init(content: content) {
-            Text(title).as(.h3)
-        }
+        self.init(
+            label: HTMLBuilder.buildExpression(Text(title).as(.h3)),
+            showsLabel: true,
+            attributes: [],
+            content: HTMLBuilder.buildExpression(content())
+        )
     }
 }

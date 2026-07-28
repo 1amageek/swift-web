@@ -39,6 +39,7 @@ package actor SwiftWebDevReconciler {
     private let wakeContinuation: AsyncStream<Void>.Continuation
 
     private var desired: SwiftWebDevSourceFingerprint
+    private var lastFastPathFingerprint: SwiftWebDevSourceFingerprint?
     private var worker: SwiftWebDevWorkerHandle?
     private var transitioning: SwiftWebDevSourceFingerprint?
     private var transitionTask: Task<Void, Never>?
@@ -149,7 +150,14 @@ package actor SwiftWebDevReconciler {
 
     private func converge() async {
         desired = fingerprinting.fingerprint()
-        await fastPath(desired)
+        let clearedFailure = lastFailure?.fingerprint != desired && lastFailure != nil
+        if clearedFailure {
+            lastFailure = nil
+        }
+        if lastFastPathFingerprint != desired {
+            lastFastPathFingerprint = desired
+            await fastPath(desired)
+        }
 
         // Crash handling precedes the failure latch: even when the current
         // sources cannot be built, a crashed worker is still relaunched from
@@ -166,6 +174,14 @@ package actor SwiftWebDevReconciler {
 
         // Single flight: the completing transition wakes the loop again.
         if transitionTask != nil || isShuttingDown {
+            return
+        }
+
+        if clearedFailure,
+           let worker,
+           worker.isRunning,
+           worker.fingerprint == desired {
+            observer.failureCleared(worker)
             return
         }
 
@@ -264,6 +280,10 @@ package actor SwiftWebDevReconciler {
             await handle.stop()
             return
         }
+        // A source wake can race the final build continuation. Re-read the
+        // level-triggered input before publishing the ready worker so an edit
+        // that landed during the build is immediately visible as queued work.
+        desired = fingerprinting.fingerprint()
         worker = handle
         lastFailure = nil
         if resetsCrashHistory {

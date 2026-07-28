@@ -9,7 +9,7 @@ struct StatusDetail: Component {
     /// Shared control-panel state, keyed "componentID.knob".
     var state: [String: String] = [:]
 
-    var body: some HTML {
+    var content: some Component {
         switch selection {
         case "gauge":
             Gauge(value: state.controlNumber("gauge", "value")) { Text("Value") }
@@ -21,7 +21,7 @@ struct StatusDetail: Component {
     }
 
     @HTMLBuilder
-    private func progressDemo() -> some HTML {
+    private func progressDemo() -> some Component {
         let hasLabel = state.controlFlag("progressview", "label")
         if state.controlFlag("progressview", "indeterminate") {
             if hasLabel {

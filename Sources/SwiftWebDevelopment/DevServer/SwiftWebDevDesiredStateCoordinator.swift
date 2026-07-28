@@ -9,7 +9,7 @@ package actor SwiftWebDevDesiredStateCoordinator {
     package typealias ClientRuntimePreparation = @Sendable (
         SwiftWebGeneratedPackage,
         [String]
-    ) throws -> Void
+    ) async throws -> Void
 
     private let preparePackage: PackagePreparation
     private let prepareClientRuntimes: ClientRuntimePreparation
@@ -31,13 +31,13 @@ package actor SwiftWebDevDesiredStateCoordinator {
     package func prepare(
         for fingerprint: SwiftWebDevSourceFingerprint,
         changedPaths: [String] = []
-    ) throws -> SwiftWebGeneratedPackage {
+    ) async throws -> SwiftWebGeneratedPackage {
         guard fingerprint != readyFingerprint else {
             return currentPackage
         }
 
         let refreshedPackage = try preparePackage()
-        try prepareClientRuntimes(refreshedPackage, changedPaths)
+        try await prepareClientRuntimes(refreshedPackage, changedPaths)
         currentPackage = refreshedPackage
         readyFingerprint = fingerprint
         return refreshedPackage

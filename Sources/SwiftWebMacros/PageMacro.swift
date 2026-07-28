@@ -50,20 +50,18 @@ public struct PageMacro: MemberMacro, ExtensionMacro {
         let getCall = routeArguments.isEmpty
             ? "routes.get"
             : "routes.get(\(routeArguments))"
-        let responseExpression = if let loadInvocation = model.loadInvocation {
-            """
-                        let data = \(loadInvocation)
-                        let metadata = \(model.metadataExpression(dataName: "data"))
-                        let cache = try await (page as any SwiftWeb.Page).cache
-                        return try await page.body(data).encodePageResponse(for: req, metadata: metadata, cache: cache)
-            """
-        } else {
-            """
-                        let metadata = try await page.metadata()
-                        let cache = try await (page as any SwiftWeb.Page).cache
-                        return try await page.body().encodePageResponse(for: req, metadata: metadata, cache: cache)
-            """
-        }
+        let documentResolver = model.hasLoadMethod
+            ? """
+              func resolveDocument() async throws -> some SwiftHTML.HTMLDocument {
+                  let model = try await load()
+                  return document(model)
+              }
+              """
+            : """
+              func resolveDocument() async throws -> some SwiftHTML.HTMLDocument {
+                  document
+              }
+              """
         let basePathLiteral = model.path.map { #""\#($0)""# } ?? #""/""#
         let pageServiceRegistrations = model.pageStoredProperties
             .map { "                try await SwiftWeb.PageOwnedServices.registerService(routePage.\($0), on: application, routes: routes, basePath: basePath)" }
@@ -98,6 +96,8 @@ public struct PageMacro: MemberMacro, ExtensionMacro {
 
         let extensionDecl = DeclSyntax(stringLiteral: """
         extension \(type.trimmed): SwiftWeb.PageRoute, SwiftWeb.Page {
+        \(documentResolver)
+
             static func register(on routes: any SwiftWeb.RoutesBuilder) {
                 Self().register(on: routes)
             }
@@ -112,7 +112,9 @@ public struct PageMacro: MemberMacro, ExtensionMacro {
                             SwiftWeb.RequestValues(request: req, params: params, searchParams: searchParams)
                         ) {
                             let page = routePage
-        \(responseExpression)
+                            let document = try await page.resolveDocument()
+                            let response = try await document.encodeResponse(for: req)
+                            return response.cache(try await page.cache)
                         }
                     }
                 }
@@ -147,9 +149,6 @@ private struct PageModel {
     let paramsFields: [StoredProperty]
     let searchParamsFields: [StoredProperty]
     let hasLoadMethod: Bool
-    let loadInvocation: String?
-    let loadReturnType: String?
-    let metadataMethods: [String: FunctionEffects]
     let pageStoredProperties: [String]
 
     init(
@@ -165,15 +164,7 @@ private struct PageModel {
         self.routeArguments = parsedPath.components
             .map { #""\#($0)""# }
             .joined(separator: ", ")
-        let loadEffects = PageModel.functionEffects(named: "load", in: declaration)
-        self.hasLoadMethod = loadEffects != nil
-        self.loadReturnType = loadEffects?.returnType
-        self.loadInvocation = loadEffects.map { effects in
-            let tryPrefix = effects.isThrowing ? "try " : ""
-            let awaitPrefix = effects.isAsync ? "await " : ""
-            return "\(tryPrefix)\(awaitPrefix)page.load()"
-        }
-        self.metadataMethods = PageModel.dataMetadataMethods(in: declaration)
+        self.hasLoadMethod = PageModel.hasFunction(named: "load", in: declaration)
         self.pageStoredProperties = PageModel.rootStoredPropertyNames(in: declaration)
 
         let nestedTypes = PageModel.nestedTypes(in: declaration)
@@ -355,51 +346,6 @@ private struct PageModel {
         """
     }
 
-    func metadataExpression(dataName: String) -> String {
-        guard loadReturnType != nil, !metadataMethods.isEmpty else {
-            return "try await page.metadata()"
-        }
-
-        let titleExpression = metadataCall(
-            name: "title",
-            dataName: dataName,
-            fallback: "try await (page as any SwiftWeb.Page).title"
-        )
-        let descriptionExpression = metadataCall(
-            name: "description",
-            dataName: dataName,
-            fallback: "try await (page as any SwiftWeb.Page).description"
-        )
-        let languageExpression = metadataCall(
-            name: "language",
-            dataName: dataName,
-            fallback: "try await (page as any SwiftWeb.Page).language"
-        )
-        let bodyClassExpression = metadataCall(
-            name: "bodyClass",
-            dataName: dataName,
-            fallback: "try await (page as any SwiftWeb.Page).bodyClass"
-        )
-
-        return """
-        SwiftWeb.PageMetadata(
-                            title: \(titleExpression),
-                            description: \(descriptionExpression),
-                            language: \(languageExpression),
-                            bodyClass: \(bodyClassExpression)
-                        )
-        """
-    }
-
-    private func metadataCall(name: String, dataName: String, fallback: String) -> String {
-        guard let effects = metadataMethods[name] else {
-            return fallback
-        }
-        let tryPrefix = effects.isThrowing ? "try " : ""
-        let awaitPrefix = effects.isAsync ? "await " : ""
-        return "\(tryPrefix)\(awaitPrefix)page.\(name)(\(dataName))"
-    }
-
     private static func pathLiteral(from attribute: AttributeSyntax) -> String? {
         guard let arguments = attribute.arguments?.as(LabeledExprListSyntax.self),
               let expression = arguments.first?.expression.as(StringLiteralExprSyntax.self),
@@ -424,47 +370,19 @@ private struct PageModel {
         return (components, parameters)
     }
 
-    private static func functionEffects(named functionName: String, in declaration: some DeclGroupSyntax) -> FunctionEffects? {
+    private static func hasFunction(
+        named functionName: String,
+        in declaration: some DeclGroupSyntax
+    ) -> Bool {
         for member in declaration.memberBlock.members {
             guard let functionDecl = member.decl.as(FunctionDeclSyntax.self) else {
                 continue
             }
-            guard functionDecl.name.text == functionName else {
-                continue
+            if functionDecl.name.text == functionName {
+                return true
             }
-            let effectSpecifiers = functionDecl.signature.effectSpecifiers
-            return FunctionEffects(
-                isAsync: effectSpecifiers?.asyncSpecifier != nil,
-                isThrowing: effectSpecifiers?.throwsClause != nil,
-                returnType: functionDecl.signature.returnClause?.type.trimmedDescription
-            )
         }
-        return nil
-    }
-
-    private static func dataMetadataMethods(in declaration: some DeclGroupSyntax) -> [String: FunctionEffects] {
-        var result: [String: FunctionEffects] = [:]
-
-        for member in declaration.memberBlock.members {
-            guard let functionDecl = member.decl.as(FunctionDeclSyntax.self) else {
-                continue
-            }
-            let name = functionDecl.name.text
-            guard name == "title" || name == "description" || name == "language" || name == "bodyClass" else {
-                continue
-            }
-            guard functionDecl.signature.parameterClause.parameters.count == 1 else {
-                continue
-            }
-            let effectSpecifiers = functionDecl.signature.effectSpecifiers
-            result[name] = FunctionEffects(
-                isAsync: effectSpecifiers?.asyncSpecifier != nil,
-                isThrowing: effectSpecifiers?.throwsClause != nil,
-                returnType: functionDecl.signature.returnClause?.type.trimmedDescription
-            )
-        }
-
-        return result
+        return false
     }
 
     private static func rootStoredPropertyNames(in declaration: some DeclGroupSyntax) -> [String] {
@@ -554,12 +472,6 @@ private struct StoredProperty {
     let isArray: Bool
     let isLet: Bool
     let defaultExpression: String?
-}
-
-private struct FunctionEffects {
-    let isAsync: Bool
-    let isThrowing: Bool
-    let returnType: String?
 }
 
 private struct PageDiagnosticMessage: DiagnosticMessage {

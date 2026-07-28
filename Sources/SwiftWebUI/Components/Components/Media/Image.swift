@@ -33,8 +33,8 @@ public struct Image: AttributeComponent {
         self.attributes = []
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         switch source {
         case .url(let url, let scale):
             Element(

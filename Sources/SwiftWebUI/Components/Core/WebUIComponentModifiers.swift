@@ -2,18 +2,15 @@ import SwiftWebUITheme
 import SwiftHTML
 import SwiftWebStyle
 
-public protocol AttributeMutableHTML: HTML {
+public protocol AttributeMutableHTML: Component {
     func addingAttributes(_ attributes: [HTMLAttribute]) -> Self
 }
 
 public protocol AttributeComponent: Component, AttributeMutableHTML {}
 
-extension ModifiedContent: AttributeMutableHTML where Content: AttributeMutableHTML {
+extension ModifiedContent: AttributeMutableHTML {
     public func addingAttributes(_ attributes: [HTMLAttribute]) -> Self {
-        ModifiedContent(
-            content: content.addingAttributes(attributes),
-            modifier: modifier
-        )
+        modifier(HTMLAttributeModifier(attributes))
     }
 }
 
@@ -119,8 +116,8 @@ public extension AttributeMutableHTML {
     }
 }
 
-public extension HTML {
-    func padding() -> ModifiedContent<Self, HTMLAttributeModifier> {
+public extension Component {
+    func padding() -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             .class(Space.medium.paddingClassList(edges: .all))
         ]))
@@ -130,29 +127,29 @@ public extension HTML {
     /// `hidden()` (which keeps the view in the layout, unlike removing it).
     /// The `condition` parameter is a web extension over SwiftUI's
     /// argument-less `hidden()`.
-    func hidden(_ condition: Bool = true) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func hidden(_ condition: Bool = true) -> ModifiedContent {
         condition
             ? modifier(HTMLAttributeModifier([styleAttribute(.visibility("hidden"))]))
             : modifier(HTMLAttributeModifier([]))
     }
 
-    func padding(_ length: Space = .medium) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func padding(_ length: Space = .medium) -> ModifiedContent {
         padding(.all, length)
     }
 
-    func padding(_ length: Length) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func padding(_ length: Length) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             styleAttribute(edgePaddingStyle(edges: .all, value: length.cssValue))
         ]))
     }
 
-    func padding(_ edges: Edge.Set, _ length: Space = .medium) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func padding(_ edges: Edge.Set, _ length: Space = .medium) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             .class(length.paddingClassList(edges: edges))
         ]))
     }
 
-    func padding(_ edges: Edge.Set = .all, _ length: Length?) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func padding(_ edges: Edge.Set = .all, _ length: Length?) -> ModifiedContent {
         if let length {
             return modifier(HTMLAttributeModifier([
                 styleAttribute(edgePaddingStyle(edges: edges, value: length.cssValue))
@@ -163,7 +160,7 @@ public extension HTML {
         ]))
     }
 
-    func padding(_ insets: EdgeInsets) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func padding(_ insets: EdgeInsets) -> ModifiedContent {
         modifier(HTMLAttributeModifier([styleAttribute(.padding(insets.cssValue))]))
     }
 
@@ -174,7 +171,7 @@ public extension HTML {
     /// The stable `swui-clip` hook lets the stylesheet make direct children
     /// inherit the radius, so an inner `.border(...)` follows the clip shape
     /// instead of losing its corners to the clip.
-    func clipShape(_ shape: Shape) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func clipShape(_ shape: Shape) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             .class("swui-clip"),
             styleAttribute(Style {
@@ -184,7 +181,7 @@ public extension HTML {
         ]))
     }
 
-    func opacity(_ value: Double) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func opacity(_ value: Double) -> ModifiedContent {
         modifier(HTMLAttributeModifier([styleAttribute(.opacity(trimmedNumber(value)))]))
     }
 
@@ -193,17 +190,17 @@ public extension HTML {
         radius: Length,
         x: Length = 0,
         y: Length = 0
-    ) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    ) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             styleAttribute(.boxShadow("\(x.cssValue) \(y.cssValue) \(radius.cssValue) \(color.cssValue)"))
         ]))
     }
 
-    func fixedSize() -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func fixedSize() -> ModifiedContent {
         fixedSize(horizontal: true, vertical: true)
     }
 
-    func fixedSize(horizontal: Bool, vertical: Bool) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func fixedSize(horizontal: Bool, vertical: Bool) -> ModifiedContent {
         var tokens: [String] = []
         if horizontal {
             tokens.append(LayoutClass.hugHorizontal)
@@ -224,7 +221,7 @@ public extension HTML {
     /// The default priority (`0`) and negative priorities emit nothing — a
     /// static stylesheet cannot express relative shrink ordering below the
     /// default.
-    func layoutPriority(_ value: Double) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func layoutPriority(_ value: Double) -> ModifiedContent {
         guard value > 0 else {
             return modifier(HTMLAttributeModifier([]))
         }
@@ -232,7 +229,8 @@ public extension HTML {
     }
 }
 
-public extension HTML {
+public extension Component {
+    @_transparent
     func frame(
         width: Double? = nil,
         minWidth: Double? = nil,
@@ -243,8 +241,8 @@ public extension HTML {
         idealHeight: Double? = nil,
         maxHeight: Double? = nil,
         alignment: Alignment = .center
-    ) -> Frame<Self> {
-        Frame(
+    ) -> ModifiedContent {
+        modifier(FrameModifier(
             width: width,
             minWidth: minWidth,
             idealWidth: idealWidth,
@@ -254,8 +252,69 @@ public extension HTML {
             idealHeight: idealHeight,
             maxHeight: maxHeight,
             alignment: alignment
+        ))
+    }
+}
+
+@usableFromInline
+struct FrameModifier: ComponentModifier {
+    @usableFromInline let width: Double?
+    @usableFromInline let minWidth: Double?
+    @usableFromInline let idealWidth: Double?
+    @usableFromInline let maxWidth: Double?
+    @usableFromInline let height: Double?
+    @usableFromInline let minHeight: Double?
+    @usableFromInline let idealHeight: Double?
+    @usableFromInline let maxHeight: Double?
+    @usableFromInline let alignment: Alignment
+
+    @usableFromInline
+    init(
+        width: Double?,
+        minWidth: Double?,
+        idealWidth: Double?,
+        maxWidth: Double?,
+        height: Double?,
+        minHeight: Double?,
+        idealHeight: Double?,
+        maxHeight: Double?,
+        alignment: Alignment
+    ) {
+        self.width = width
+        self.minWidth = minWidth
+        self.idealWidth = idealWidth
+        self.maxWidth = maxWidth
+        self.height = height
+        self.minHeight = minHeight
+        self.idealHeight = idealHeight
+        self.maxHeight = maxHeight
+        self.alignment = alignment
+    }
+
+    @ComponentBuilder
+    @usableFromInline
+    func content(_ content: ModifierContent) -> some Component {
+        let layout = frameLayout(
+            width: width,
+            minWidth: minWidth,
+            idealWidth: idealWidth,
+            maxWidth: maxWidth,
+            height: height,
+            minHeight: minHeight,
+            idealHeight: idealHeight,
+            maxHeight: maxHeight,
+            alignment: alignment
+        )
+        let style = frameWrapperStyle(layout.style, alignment: alignment)
+        Element(
+            "div",
+            attributes: mergedAttributes(
+                class: (["swui-frame"] + layout.classes).joined(separator: " "),
+                styles: style,
+                extra: []
+            )
         ) {
-            self
+            content
         }
     }
 }
@@ -305,7 +364,7 @@ func edgePaddingStyle(edges: Edge.Set, value: String) -> Style {
     return style
 }
 
-public struct Frame<Content: HTML>: AttributeComponent {
+public struct Frame<Content: Component>: AttributeComponent {
     private let width: Double?
     private let minWidth: Double?
     private let idealWidth: Double?
@@ -316,7 +375,7 @@ public struct Frame<Content: HTML>: AttributeComponent {
     private let maxHeight: Double?
     private let alignment: Alignment
     private let attributes: [HTMLAttribute]
-    private let content: Content
+    private let childContent: Content
 
     public init(
         width: Double? = nil,
@@ -340,11 +399,11 @@ public struct Frame<Content: HTML>: AttributeComponent {
         self.maxHeight = maxHeight
         self.alignment = alignment
         self.attributes = []
-        self.content = content()
+        self.childContent = content()
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         let layout = frameLayout(
             width: width,
             minWidth: minWidth,
@@ -368,7 +427,7 @@ public struct Frame<Content: HTML>: AttributeComponent {
                 extra: attributes
             )
         ) {
-            content
+            childContent
         }
     }
 
@@ -384,11 +443,12 @@ public struct Frame<Content: HTML>: AttributeComponent {
             maxHeight: maxHeight,
             alignment: alignment,
             attributes: self.attributes + attributes,
-            content: content
+            content: childContent
         )
     }
 
-    private init(
+    @usableFromInline
+    init(
         width: Double?,
         minWidth: Double?,
         idealWidth: Double?,
@@ -411,10 +471,11 @@ public struct Frame<Content: HTML>: AttributeComponent {
         self.maxHeight = maxHeight
         self.alignment = alignment
         self.attributes = attributes
-        self.content = content
+        self.childContent = content
     }
 }
 
+@usableFromInline
 func styleAttribute(_ style: Style) -> HTMLAttribute {
     // Route every declaration through the atomic registry so SwiftWeb renderers
     // emit classes instead of inline style attributes. See docs/AtomicStyling.md.

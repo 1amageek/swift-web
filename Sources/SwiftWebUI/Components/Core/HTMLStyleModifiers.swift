@@ -14,8 +14,8 @@ public struct ForegroundStylesModifier: ComponentModifier {
     @Environment({ $0.controlState }) private var controlState: ControlState
     @Environment({ $0.isEnabled }) private var isEnabled: Bool
 
-    @HTMLBuilder
-    public func body(content: ModifierContent) -> some HTML {
+    @ComponentBuilder
+    public func content(_ content: ModifierContent) -> some Component {
         Element(
             "div",
             attributes: mergedAttributes(
@@ -114,8 +114,8 @@ public struct ShapeBackgroundStyleModifier<S: ShapeStyle>: ComponentModifier {
     @Environment({ $0.controlState }) private var controlState: ControlState
     @Environment({ $0.isEnabled }) private var isEnabled: Bool
 
-    @HTMLBuilder
-    public func body(content: ModifierContent) -> some HTML {
+    @ComponentBuilder
+    public func content(_ content: ModifierContent) -> some Component {
         Element(
             "div",
             attributes: mergedAttributes(
@@ -178,8 +178,8 @@ public struct BackgroundStyleModifier<S: ShapeStyle>: ComponentModifier {
     @Environment({ $0.layoutDirection }) private var layoutDirection: LayoutDirection
     @Environment({ $0.controlState }) private var controlState: ControlState
 
-    @HTMLBuilder
-    public func body(content: ModifierContent) -> some HTML {
+    @ComponentBuilder
+    public func content(_ content: ModifierContent) -> some Component {
         content.transformEnvironment({ $0.backgroundStyle = resolvedBackgroundStyle })
     }
 
@@ -202,8 +202,8 @@ public struct EnvironmentBackgroundModifier: ComponentModifier {
 
     @Environment({ $0.backgroundStyle }) private var backgroundStyle: String?
 
-    @HTMLBuilder
-    public func body(content: ModifierContent) -> some HTML {
+    @ComponentBuilder
+    public func content(_ content: ModifierContent) -> some Component {
         Element(
             "div",
             attributes: mergedAttributes(
@@ -234,17 +234,18 @@ public struct EnvironmentBackgroundModifier: ComponentModifier {
     }
 }
 
-public extension HTML {
+public extension Component {
+    @_transparent
     func foregroundStyle<S: ShapeStyle>(
         _ style: S
-    ) -> ModifiedContent<Self, StyleModifier<S>> {
+    ) -> ModifiedContent {
         modifier(StyleModifier(property: .foreground, style: style))
     }
 
     func foregroundStyle<Primary: ShapeStyle, Secondary: ShapeStyle>(
         _ primary: Primary,
         _ secondary: Secondary
-    ) -> ModifiedContent<Self, ForegroundStylesModifier> {
+    ) -> ModifiedContent {
         modifier(ForegroundStylesModifier([
             AnyShapeStyle(primary),
             AnyShapeStyle(secondary),
@@ -255,7 +256,7 @@ public extension HTML {
         _ primary: Primary,
         _ secondary: Secondary,
         _ tertiary: Tertiary
-    ) -> ModifiedContent<Self, ForegroundStylesModifier> {
+    ) -> ModifiedContent {
         modifier(ForegroundStylesModifier([
             AnyShapeStyle(primary),
             AnyShapeStyle(secondary),
@@ -266,14 +267,14 @@ public extension HTML {
     func background<S: ShapeStyle>(
         _ style: S,
         ignoresSafeAreaEdges edges: Edge.Set = .all
-    ) -> ModifiedContent<Self, StyleModifier<S>> {
+    ) -> ModifiedContent {
         modifier(StyleModifier(property: .background, style: style, ignoredSafeAreaEdges: edges))
     }
 
     func background<S: ShapeStyle>(
         _ style: S,
         in shape: Shape
-    ) -> ModifiedContent<Self, ShapeBackgroundStyleModifier<S>> {
+    ) -> ModifiedContent {
         modifier(ShapeBackgroundStyleModifier(style: style, shape: shape))
     }
 
@@ -284,7 +285,7 @@ public extension HTML {
     /// token when none is in scope.
     func background(
         in shape: Shape
-    ) -> ModifiedContent<Self, EnvironmentBackgroundModifier> {
+    ) -> ModifiedContent {
         modifier(EnvironmentBackgroundModifier(shape: shape))
     }
 
@@ -295,36 +296,36 @@ public extension HTML {
     /// and paints nothing itself.
     func backgroundStyle<S: ShapeStyle>(
         _ style: S
-    ) -> ModifiedContent<Self, BackgroundStyleModifier<S>> {
+    ) -> ModifiedContent {
         modifier(BackgroundStyleModifier(style))
     }
 
     func tint<S: ShapeStyle>(
         _ style: S
-    ) -> ModifiedContent<Self, TintModifier<S>> {
+    ) -> ModifiedContent {
         modifier(TintModifier(style))
     }
 
     func border<S: ShapeStyle>(
         _ style: S,
         width: Length = 1
-    ) -> ModifiedContent<Self, StyleModifier<S>> {
+    ) -> ModifiedContent {
         modifier(StyleModifier(property: .border(width: width), style: style))
     }
 
-    func controlSize(_ size: ControlSize) -> ModifiedContent<Self, ControlSizeModifier> {
+    func controlSize(_ size: ControlSize) -> ModifiedContent {
         modifier(ControlSizeModifier(size))
     }
 
-    func disabled(_ isDisabled: Bool = true) -> ModifiedContent<Self, DisabledModifier> {
+    func disabled(_ isDisabled: Bool = true) -> ModifiedContent {
         modifier(DisabledModifier(isDisabled))
     }
 
-    func webStyle(_ style: Style) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func webStyle(_ style: Style) -> ModifiedContent {
         modifier(HTMLAttributeModifier([styleAttribute(style)]))
     }
 
-    func webStyle(@StyleBuilder _ content: () -> Style) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func webStyle(@StyleBuilder _ content: () -> Style) -> ModifiedContent {
         webStyle(content())
     }
 }

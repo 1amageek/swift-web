@@ -107,7 +107,7 @@ package struct SwiftWebDevSwiftFileClassifier: Sendable {
     }
 
     private static func canonicalTypeName(_ source: String) -> String? {
-        var value = source.trimmingCharacters(in: .whitespacesAndNewlines)
+        var value = source.trimmingCharacters(in: Foundation.CharacterSet.whitespacesAndNewlines)
         guard !value.isEmpty, !value.hasPrefix(".") else {
             return nil
         }

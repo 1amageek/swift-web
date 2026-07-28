@@ -17,7 +17,7 @@ import SwiftHTML
 /// still shows as an in-flow, CSS-positioned modal panel, but it is not lifted to
 /// the browser top layer and outside-tap dismissal depends on native `closedby`
 /// support. The binding still drives show/hide through the normal re-render path.
-public struct PresentationModifier<PresentedContent: HTML>: ComponentModifier {
+public struct PresentationModifier<PresentedContent: Component>: ComponentModifier {
     private let kind: PresentationKind
     private let isPresented: Binding<Bool>
     private let onDismiss: (@Sendable () -> Void)?
@@ -47,8 +47,8 @@ public struct PresentationModifier<PresentedContent: HTML>: ComponentModifier {
         interactiveDismissDisabled ? .none : kind.closedBy
     }
 
-    @HTMLBuilder
-    public func body(content: ModifierContent) -> some HTML {
+    @ComponentBuilder
+    public func content(_ content: ModifierContent) -> some Component {
         content
         Element("dialog", attributes: dialogAttributes) {
             Element(
@@ -84,14 +84,14 @@ public struct PresentationModifier<PresentedContent: HTML>: ComponentModifier {
     }
 }
 
-public extension HTML {
+public extension Component {
     /// Presents an alert when `isPresented` is true, mirroring SwiftUI
     /// `alert(_:isPresented:actions:)`.
-    func alert<Actions: HTML>(
+    func alert<Actions: Component>(
         _ title: String,
         isPresented: Binding<Bool>,
         @HTMLBuilder actions: () -> Actions
-    ) -> some HTML {
+    ) -> some Component {
         let actions = actions()
         return modifier(
             PresentationModifier(kind: .alert, isPresented: isPresented) {
@@ -103,12 +103,12 @@ public extension HTML {
 
     /// Presents an alert with a message, mirroring SwiftUI
     /// `alert(_:isPresented:actions:message:)`.
-    func alert<Actions: HTML, Message: HTML>(
+    func alert<Actions: Component, Message: Component>(
         _ title: String,
         isPresented: Binding<Bool>,
         @HTMLBuilder actions: () -> Actions,
         @HTMLBuilder message: () -> Message
-    ) -> some HTML {
+    ) -> some Component {
         let actions = actions()
         let message = message()
         return modifier(
@@ -122,12 +122,12 @@ public extension HTML {
 
     /// Presents a confirmation dialog when `isPresented` is true, mirroring
     /// SwiftUI `confirmationDialog(_:isPresented:titleVisibility:actions:)`.
-    func confirmationDialog<Actions: HTML>(
+    func confirmationDialog<Actions: Component>(
         _ title: String,
         isPresented: Binding<Bool>,
         titleVisibility: Visibility = .automatic,
         @HTMLBuilder actions: () -> Actions
-    ) -> some HTML {
+    ) -> some Component {
         let actions = actions()
         // No message: `automatic` hides the title, matching SwiftUI.
         let showsTitle = titleVisibility == .visible
@@ -143,13 +143,13 @@ public extension HTML {
 
     /// Presents a confirmation dialog with a message, mirroring SwiftUI
     /// `confirmationDialog(_:isPresented:titleVisibility:actions:message:)`.
-    func confirmationDialog<Actions: HTML, Message: HTML>(
+    func confirmationDialog<Actions: Component, Message: Component>(
         _ title: String,
         isPresented: Binding<Bool>,
         titleVisibility: Visibility = .automatic,
         @HTMLBuilder actions: () -> Actions,
         @HTMLBuilder message: () -> Message
-    ) -> some HTML {
+    ) -> some Component {
         let actions = actions()
         let message = message()
         // With a message, `automatic` shows the title, matching SwiftUI.
@@ -167,11 +167,11 @@ public extension HTML {
 
     /// Presents a sheet when `isPresented` is true, mirroring SwiftUI
     /// `sheet(isPresented:onDismiss:content:)`.
-    func sheet<Content: HTML>(
+    func sheet<Content: Component>(
         isPresented: Binding<Bool>,
         onDismiss: (@Sendable () -> Void)? = nil,
         @HTMLBuilder content: () -> Content
-    ) -> some HTML {
+    ) -> some Component {
         let content = content()
         return modifier(
             PresentationModifier(kind: .sheet, isPresented: isPresented, onDismiss: onDismiss) {
@@ -182,10 +182,10 @@ public extension HTML {
 
     /// Presents a popover when `isPresented` is true, mirroring SwiftUI
     /// `popover(isPresented:content:)`.
-    func popover<Content: HTML>(
+    func popover<Content: Component>(
         isPresented: Binding<Bool>,
         @HTMLBuilder content: () -> Content
-    ) -> some HTML {
+    ) -> some Component {
         let content = content()
         return modifier(
             PresentationModifier(kind: .popover, isPresented: isPresented) {

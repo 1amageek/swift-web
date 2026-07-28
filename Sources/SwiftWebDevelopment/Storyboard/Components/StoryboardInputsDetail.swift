@@ -13,7 +13,7 @@ struct InputsDetail: Component {
 
     private var state: [String: String] { ui.wrappedValue }
 
-    var body: some HTML {
+    var content: some Component {
         switch selection {
         case "securefield":
             SecureField("Secret", text: ui.string("securefield.value"))
@@ -53,7 +53,7 @@ struct InputsDetail: Component {
     }
 
     @HTMLBuilder
-    private func sliderDemo() -> some HTML {
+    private func sliderDemo() -> some Component {
         let stepped = state.controlFlag("slider", "stepped")
         Slider(value: ui.double("slider.value"), in: 0...1, step: stepped ? 0.25 : 0.05)
             .tint(storyboardTintColor(state.control("slider", "tint")))
@@ -96,7 +96,7 @@ struct InputsDetail: Component {
     }
 
     @HTMLBuilder
-    private func calendarDemo() -> some HTML {
+    private func calendarDemo() -> some Component {
         let calendar = Self.calendarDemoCalendar
         let narrow = state.control("calendar", "weekdays") == "narrow"
         let events = state.controlFlag("calendar", "events")
@@ -134,7 +134,7 @@ struct InputsDetail: Component {
     /// The month pager: ‹ steps back, › steps forward, the title names the
     /// visible month.
     @HTMLBuilder
-    private func calendarPager(calendar: Calendar) -> some HTML {
+    private func calendarPager(calendar: Calendar) -> some Component {
         let due = self.due
         let components = calendar.dateComponents([.year, .month], from: due.wrappedValue)
         let monthName = Self.calendarMonthNames[(((components.month ?? 1) - 1) + 12) % 12]
@@ -160,14 +160,14 @@ struct InputsDetail: Component {
     }
 
     /// A small accent dot standing in for per-day content such as events.
-    private func calendarEventDot() -> some HTML {
+    private func calendarEventDot() -> some Component {
         Text("").as(.span)
             .frame(width: 5, height: 5)
             .background(Color.accent, in: .capsule)
     }
 
     @HTMLBuilder
-    private func datePickerDemo() -> some HTML {
+    private func datePickerDemo() -> some Component {
         let disabled = state.controlFlag("datepicker", "disabled")
         switch state.control("datepicker", "components") {
         case "time":
@@ -183,7 +183,7 @@ struct InputsDetail: Component {
     }
 
     @HTMLBuilder
-    private func formDemo() -> some HTML {
+    private func formDemo() -> some Component {
         if state.controlFlag("form", "hasAction") {
             Form(action: state.control("form", "action"), method: state.control("form", "method") == "get" ? .get : .post) {
                 formFields(submit: true)
@@ -196,7 +196,7 @@ struct InputsDetail: Component {
     }
 
     @HTMLBuilder
-    private func formFields(submit: Bool) -> some HTML {
+    private func formFields(submit: Bool) -> some Component {
         VStack(alignment: .leading, spacing: .medium) {
             Label("Email address", systemImage: "envelope")
             TextField("Email", text: ui.string("form.email"), prompt: Text("you@example.com"))

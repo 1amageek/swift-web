@@ -14,14 +14,6 @@ struct CounterPage {
         self.counterActions = CounterActions(counterService: counterService)
     }
 
-    var title: String {
-        get async { "Counter" }
-    }
-
-    var description: String? {
-        get async { "Client and server counters for validating SwiftWeb state, hydration, server actions, and distributed RPC." }
-    }
-
     var cache: CachePolicy {
         .noStore
     }
@@ -30,46 +22,51 @@ struct CounterPage {
         try await counterService.currentValue()
     }
 
-    func body(_ serverValue: Int) -> some HTML {
-        main {
-            GridSystem {
-                Pane(span: 12) {
-                    VStack(spacing: .xlarge) {
-                        Grid {
-                            ClientCounter()
+    func document(_ serverValue: Int) -> some HTMLDocument {
+        PageDocument(
+            title: "Counter",
+            description: "Client and server counters for validating SwiftWeb state, hydration, server actions, and distributed RPC."
+        ) {
+            main {
+                GridSystem {
+                    Pane(span: 12) {
+                        VStack(spacing: .xlarge) {
+                            Grid {
+                                ClientCounter()
 
-                            GroupBox {
-                                VStack(spacing: .large) {
-                                    Text("Server Counter").as(.h2)
-                                    Text(
-                                        "Each button posts a delta to Vapor. The value is read from server state on the next render."
-                                    )
-                                    .foregroundStyle(.secondary)
-                                    VStack(spacing: .xsmall) {
-                                        Text("Server value").as(.small).foregroundStyle(.secondary)
-                                        Text(String(serverValue)).as(.strong)
-                                            .font(.largeTitle)
-                                            .foregroundStyle(.accent)
-                                            .accessibilityIdentifier("counter-value")
-                                            .accessibilityValue(String(serverValue))
-                                    }
-                                    LazyHStack(spacing: .small) {
-                                        Button("Decrement", action: counterActions.decrementAction)
-                                        Spacer()
-                                        Button("Increment", action: counterActions.incrementAction)
+                                GroupBox {
+                                    VStack(spacing: .large) {
+                                        Text("Server Counter").as(.h2)
+                                        Text(
+                                            "Each button posts a delta to Vapor. The value is read from server state on the next render."
+                                        )
+                                        .foregroundStyle(.secondary)
+                                        VStack(spacing: .xsmall) {
+                                            Text("Server value").as(.small).foregroundStyle(.secondary)
+                                            Text(String(serverValue)).as(.strong)
+                                                .font(.largeTitle)
+                                                .foregroundStyle(.accent)
+                                                .accessibilityIdentifier("counter-value")
+                                                .accessibilityValue(String(serverValue))
+                                        }
+                                        LazyHStack(spacing: .small) {
+                                            Button("Decrement", action: counterActions.decrementAction)
+                                            Spacer()
+                                            Button("Increment", action: counterActions.incrementAction)
+                                        }
                                     }
                                 }
+                                .accessibilityIdentifier("server-counter")
+                                .frame(maxWidth: .infinity, alignment: .top)
                             }
-                            .accessibilityIdentifier("server-counter")
-                            .frame(maxWidth: .infinity, alignment: .top)
-                        }
 
-                        Link("Reload page", destination: URL(string: "/counter")!)
+                            Link("Reload page", destination: URL(string: "/counter")!)
+                        }
                     }
                 }
+                .frame(maxWidth: 920)
             }
-            .frame(maxWidth: 920)
+            .preferredColorScheme(.light)
         }
-        .preferredColorScheme(.light)
     }
 }

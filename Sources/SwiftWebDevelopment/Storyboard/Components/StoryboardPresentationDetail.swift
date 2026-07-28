@@ -11,7 +11,7 @@ struct PresentationDetail: Component {
 
     private var state: [String: String] { ui.wrappedValue }
 
-    var body: some HTML {
+    var content: some Component {
         switch selection {
         case "sheet":
             Button("Show sheet") { ui.bool("sheet.open").wrappedValue = true }

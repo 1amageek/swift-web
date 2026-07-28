@@ -1,5 +1,11 @@
 import Foundation
 
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
+
 package struct SwiftWebDevEventLog: Sendable {
     package static let environmentKey = "SWIFT_WEB_DEV_EVENT_LOG"
 
@@ -35,24 +41,48 @@ package struct SwiftWebDevEventLog: Sendable {
     }
 
     package func append(_ event: SwiftWebDevEvent) throws {
+        try append([event])
+    }
+
+    /// Appends a logical event batch while holding one inter-process lock and
+    /// issuing one file write, so readers observe either the old log or the
+    /// complete batch.
+    package func append(_ events: [SwiftWebDevEvent]) throws {
+        guard !events.isEmpty else {
+            return
+        }
         try FileManager.default.createDirectory(
             at: fileURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        let data = try JSONEncoder.swiftWebDevEvent.encode(event)
-        var line = data
-        line.append(0x0A)
-
-        if !FileManager.default.fileExists(atPath: fileURL.path) {
-            try Data().write(to: fileURL, options: .atomic)
+        var batch = Data()
+        for event in events {
+            batch.append(try JSONEncoder.swiftWebDevEvent.encode(event))
+            batch.append(0x0A)
         }
 
-        let handle = try FileHandle(forWritingTo: fileURL)
+        let descriptor = open(fileURL.path, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR)
+        guard descriptor >= 0 else {
+            throw Self.posixError()
+        }
         defer {
-            handle.closeFile()
+            close(descriptor)
         }
+
+        guard flock(descriptor, LOCK_EX) == 0 else {
+            throw Self.posixError()
+        }
+        defer {
+            flock(descriptor, LOCK_UN)
+        }
+
+        let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: false)
         try handle.seekToEnd()
-        try handle.write(contentsOf: line)
+        try handle.write(contentsOf: batch)
+    }
+
+    private static func posixError() -> POSIXError {
+        POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
     }
 
     package func events(after id: String?) throws -> [SwiftWebDevEvent] {
@@ -60,7 +90,7 @@ package struct SwiftWebDevEventLog: Sendable {
             return []
         }
 
-        let data = try Data(contentsOf: fileURL)
+        let data = try lockedData()
         guard !data.isEmpty else {
             return []
         }
@@ -83,6 +113,24 @@ package struct SwiftWebDevEventLog: Sendable {
 
     package func latestEventID() throws -> String? {
         try events(after: nil).last?.id
+    }
+
+    private func lockedData() throws -> Data {
+        let descriptor = open(fileURL.path, O_RDONLY)
+        guard descriptor >= 0 else {
+            throw Self.posixError()
+        }
+        defer {
+            close(descriptor)
+        }
+        guard flock(descriptor, LOCK_SH) == 0 else {
+            throw Self.posixError()
+        }
+        defer {
+            flock(descriptor, LOCK_UN)
+        }
+        let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: false)
+        return try handle.readToEnd() ?? Data()
     }
 }
 

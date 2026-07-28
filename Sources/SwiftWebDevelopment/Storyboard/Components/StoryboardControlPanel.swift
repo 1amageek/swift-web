@@ -52,7 +52,7 @@ struct StoryboardControlPanel: Component {
     let id: String
     let ui: Binding<[String: String]>
 
-    var body: some HTML {
+    var content: some Component {
         let controls = storyboardControls(for: id)
         if !controls.isEmpty {
             div(.class("swui-storyboard-control-panel")) {
@@ -64,7 +64,7 @@ struct StoryboardControlPanel: Component {
     }
 
     @HTMLBuilder
-    private func controlRow(_ control: StoryboardControl) -> some HTML {
+    private func controlRow(_ control: StoryboardControl) -> some Component {
         HStack(spacing: .small) {
             Text(controlLabel(control)).as(.span)
                 .font(Font(size: .px(11), weight: .bold))
@@ -84,7 +84,7 @@ struct StoryboardControlPanel: Component {
     }
 
     @HTMLBuilder
-    private func controlWidget(_ control: StoryboardControl) -> some HTML {
+    private func controlWidget(_ control: StoryboardControl) -> some Component {
         switch control {
         case let .segmented(_, key, options):
             segmentedWidget(key: key, options: options)
@@ -102,7 +102,7 @@ struct StoryboardControlPanel: Component {
     }
 
     @HTMLBuilder
-    private func colorWidget(key: String) -> some HTML {
+    private func colorWidget(key: String) -> some Component {
         let binding = stringBinding(ui, "\(id).\(key)")
         Element("input", attributes: [
             .value(binding),
@@ -113,7 +113,7 @@ struct StoryboardControlPanel: Component {
     }
 
     @HTMLBuilder
-    private func textWidget(key: String, placeholder: String) -> some HTML {
+    private func textWidget(key: String, placeholder: String) -> some Component {
         // A bare input bound to `ui` — no field label (the row LABEL names it).
         let binding = stringBinding(ui, "\(id).\(key)")
         Element("input", attributes: [
@@ -126,7 +126,7 @@ struct StoryboardControlPanel: Component {
     }
 
     @HTMLBuilder
-    private func segmentedWidget(key: String, options: [StoryboardOption]) -> some HTML {
+    private func segmentedWidget(key: String, options: [StoryboardOption]) -> some Component {
         let fullKey = "\(id).\(key)"
         let selected = ui.wrappedValue[fullKey] ?? storyboardControlDefaults[fullKey] ?? ""
         HStack(spacing: .xsmall) {
@@ -153,7 +153,7 @@ struct StoryboardControlPanel: Component {
     }
 
     @HTMLBuilder
-    private func rangeWidget(key: String, min: Double, max: Double, step: Double, unit: ControlUnit) -> some HTML {
+    private func rangeWidget(key: String, min: Double, max: Double, step: Double, unit: ControlUnit) -> some Component {
         let binding = doubleBinding(ui, "\(id).\(key)", unit)
         div(.class("swui-storyboard-range-widget")) {
             Slider(value: binding, in: min...max, step: step)
@@ -166,7 +166,7 @@ struct StoryboardControlPanel: Component {
     }
 
     @HTMLBuilder
-    private func swatchWidget(key: String, options: [StoryboardSwatch]) -> some HTML {
+    private func swatchWidget(key: String, options: [StoryboardSwatch]) -> some Component {
         let fullKey = "\(id).\(key)"
         let selected = ui.wrappedValue[fullKey] ?? storyboardControlDefaults[fullKey] ?? ""
         HStack(spacing: .xsmall) {

@@ -3,7 +3,7 @@
 @_exported import SwiftWebCore
 
 @attached(member, names: named(params), named(searchParams), named(_bindParams), named(_bindSearchParams), named(url))
-@attached(extension, conformances: PageRoute, Page, names: named(register), named(registerPageOwnedServices))
+@attached(extension, conformances: PageRoute, Page, names: named(resolveDocument), named(register), named(registerPageOwnedServices))
 public macro Page(_ path: String) = #externalMacro(module: "SwiftWebMacros", type: "PageMacro")
 
 #if !hasFeature(Embedded)

@@ -73,7 +73,7 @@ The hand-written app surface is intentionally small:
 CounterApp
 ├─ App.swift                  SwiftWeb.App declaration
 ├─ ClientCounter.swift        ClientComponent used by server render and WASM runtime
-├─ Routes/CounterPage.swift   @Page body
+├─ Routes/CounterPage.swift   @Page document
 ├─ Services/CounterServiceProtocol.swift
 │  └─ CounterServiceProtocol  @Resolvable typed RPC contract copied to WASM
 └─ Actions/CounterService.swift

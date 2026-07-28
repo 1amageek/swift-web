@@ -4,8 +4,12 @@ public struct StyleClassList: Sendable, Equatable, Hashable, ExpressibleByArrayL
     public private(set) var classes: [StyleClass]
 
     public init(_ classes: [StyleClass]) {
-        var seen: Set<StyleClass> = []
-        self.classes = classes.filter { seen.insert($0).inserted }
+        var uniqueClasses: [StyleClass] = []
+        uniqueClasses.reserveCapacity(classes.count)
+        for styleClass in classes where !uniqueClasses.contains(styleClass) {
+            uniqueClasses.append(styleClass)
+        }
+        self.classes = uniqueClasses
     }
 
     public init(_ classes: [StyleClass?]) {

@@ -6,7 +6,7 @@ import Foundation
 #endif
 import SwiftHTML
 
-public struct NavigationLink<Label: HTML>: AttributeComponent {
+public struct NavigationLink<Label: Component>: AttributeComponent {
     private let destination: URL
     private let attributes: [HTMLAttribute]
     private let label: Label
@@ -28,8 +28,8 @@ public struct NavigationLink<Label: HTML>: AttributeComponent {
         self.label = label()
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         Element(
             "a",
             attributes: mergedAttributes(

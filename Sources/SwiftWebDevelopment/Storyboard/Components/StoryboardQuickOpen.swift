@@ -19,7 +19,7 @@ public struct StoryboardQuickOpen: ClientComponent {
 
     public init() {}
 
-    public var body: some HTML {
+    public var content: some Component {
         div(.class("swui-storyboard-quickopen swui-fill-h")) {
             Button {
                 isOpen = true
@@ -46,7 +46,7 @@ public struct StoryboardQuickOpen: ClientComponent {
     }
 
     @HTMLBuilder
-    private func quickOpenOverlay() -> some HTML {
+    private func quickOpenOverlay() -> some Component {
         div(.class("swui-storyboard-quickopen-overlay")) {
             Button {
                 isOpen = false
@@ -79,7 +79,7 @@ public struct StoryboardQuickOpen: ClientComponent {
     }
 
     @HTMLBuilder
-    private func quickOpenRow(_ item: CatalogItem) -> some HTML {
+    private func quickOpenRow(_ item: CatalogItem) -> some Component {
         Link(destination: URL(string: item.path)!) {
             VStack(alignment: .leading, spacing: .xsmall) {
                 HStack(spacing: .small) {

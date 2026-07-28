@@ -14,10 +14,10 @@ import SwiftHTML
 /// image stacks above it in the same grid cell — the placeholder shows until
 /// the image paints, and because the image is decorative (`alt=""`) a failed
 /// load leaves the placeholder visible instead of a broken-image glyph.
-public struct AsyncImage<ImageContent: HTML, Placeholder: HTML>: Component {
+public struct AsyncImage<ImageContent: Component, Placeholder: Component>: Component {
     private let url: URL?
     private let scale: Double
-    private let content: @Sendable (Image) -> ImageContent
+    private let childContent: @Sendable (Image) -> ImageContent
     private let placeholder: (@Sendable () -> Placeholder)?
 
     /// Displays the image, mirroring SwiftUI's `AsyncImage(url:scale:)`.
@@ -27,7 +27,7 @@ public struct AsyncImage<ImageContent: HTML, Placeholder: HTML>: Component {
     ) where ImageContent == Image, Placeholder == EmptyHTML {
         self.url = url
         self.scale = scale
-        self.content = { image in image }
+        self.childContent = { image in image }
         self.placeholder = nil
     }
 
@@ -42,12 +42,12 @@ public struct AsyncImage<ImageContent: HTML, Placeholder: HTML>: Component {
     ) {
         self.url = url
         self.scale = scale
-        self.content = content
+        self.childContent = content
         self.placeholder = placeholder
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         if let url {
             if let placeholder {
                 Element(
@@ -55,10 +55,10 @@ public struct AsyncImage<ImageContent: HTML, Placeholder: HTML>: Component {
                     attributes: mergedAttributes(class: "swui-async-image", extra: [])
                 ) {
                     placeholder()
-                    content(Image(url: url, scale: scale))
+                    childContent(Image(url: url, scale: scale))
                 }
             } else {
-                content(Image(url: url, scale: scale))
+                childContent(Image(url: url, scale: scale))
             }
         } else if let placeholder {
             // A nil URL never resolves, exactly like SwiftUI: only the

@@ -1,4 +1,4 @@
-/// Exposes the page's decoded `SearchParams` to the page body:
+/// Exposes the page's decoded `SearchParams` to document production:
 ///
 ///     @Page("/search")
 ///     struct SearchPage {
@@ -8,7 +8,7 @@
 ///
 ///         @Query var query: SearchParams
 ///
-///         func body() -> some HTML { ... }
+///         var document: some HTMLDocument { ... }
 ///     }
 ///
 /// The value is decoded once per request by the route registration the

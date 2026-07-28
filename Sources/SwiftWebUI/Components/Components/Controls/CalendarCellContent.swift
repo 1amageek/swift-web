@@ -14,16 +14,16 @@ import SwiftHTML
 ///     }
 /// }
 /// ```
-public struct CalendarCellContent<Content: HTML>: Component {
-    private let content: Content
+public struct CalendarCellContent<Content: Component>: Component {
+    private let childContent: Content
 
     public init(@HTMLBuilder content: () -> Content) {
-        self.content = content()
+        self.childContent = content()
     }
 
-    public var body: some HTML {
+    public var content: some Component {
         div(.class("swui-calendar-cell-content"), .data("slot", "cell-content")) {
-            content
+            childContent
         }
     }
 }

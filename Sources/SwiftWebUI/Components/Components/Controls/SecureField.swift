@@ -1,7 +1,7 @@
 import SwiftWebUITheme
 import SwiftHTML
 
-public struct SecureField<Label: HTML>: AttributeComponent {
+public struct SecureField<Label: Component>: AttributeComponent {
     private let field: TextField<Label>
 
     public init(
@@ -20,8 +20,8 @@ public struct SecureField<Label: HTML>: AttributeComponent {
         )
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         field
     }
 

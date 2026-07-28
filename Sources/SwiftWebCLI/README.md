@@ -165,7 +165,7 @@ The runtime watches the app package plus local `.package(path:)` dependencies so
 
 Startup, ready, reload, child-exit, and shutdown events are emitted through `swift-log` with `codes.swiftweb.dev` as the logger label.
 
-The CLI does not implement HMR itself. It delegates to `SwiftWebDevRuntime` in `SwiftWebDevServer`, which emits typed development events such as `stylePatch`, `clientComponentUpdate`, `serverBuildStarted`, `serverRestarted`, `pagePatch`, `fullReload`, and `error`. The browser runtime connects to `/__swiftweb/dev/events` through the persistent DevHost and uses `/__swiftweb/dev/reload` token waiting only as a compatibility fallback.
+The CLI does not implement HMR itself. It delegates to `SwiftWebDevRuntime` in `SwiftWebDevServer`, which emits typed development events such as `stylePatch`, generation-level `clientRuntimeBatchUpdate`, `serverBuildStarted`, `serverRestarted`, `pagePatch`, `fullReload`, and `error`. The browser runtime connects to `/__swiftweb/dev/events` through the persistent DevHost and uses `/__swiftweb/dev/reload` token waiting only as a compatibility fallback. The legacy `clientComponentUpdate` event remains decodable for compatibility.
 
 The public DevHost is a long-lived development control plane that keeps the configured port stable while worker processes rebuild. Application routes still run in the Vapor worker, but HMR event streaming is served by the DevHost so it does not depend on Vapor response-body streaming support.
 

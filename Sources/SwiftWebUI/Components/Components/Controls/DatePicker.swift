@@ -20,7 +20,7 @@ import SwiftHTML
 /// use `Calendar.current` (the runtime's calendar and time zone). This is an
 /// explicit, documented choice — the same one SwiftUI makes through its
 /// environment calendar — not a silent default.
-public struct DatePicker<Label: HTML>: AttributeComponent {
+public struct DatePicker<Label: Component>: AttributeComponent {
     private let label: Label
     private let selection: Binding<Date>
     private let displayedComponents: DatePickerComponents
@@ -52,8 +52,8 @@ public struct DatePicker<Label: HTML>: AttributeComponent {
         self.attributes = attributes
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         let selection = self.selection
         let type = displayedComponents.inputType
         Element("label", attributes: [.class("swui-field swui-date-picker-field")]) {

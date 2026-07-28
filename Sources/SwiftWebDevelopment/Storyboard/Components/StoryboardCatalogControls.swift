@@ -14,7 +14,7 @@ struct CatalogSegmentOption: Identifiable, Sendable {
     }
 }
 
-private func controlLabel(_ label: String) -> some HTML {
+private func controlLabel(_ label: String) -> some Component {
     Text(label).as(.span)
         .font(.footnote)
         .fontWeight(.medium)
@@ -25,7 +25,7 @@ struct CatalogRangeControl: Component {
     let label: String
     let value: Binding<Double>
 
-    var body: some HTML {
+    var content: some Component {
         HStack(spacing: .medium) {
             // Name the range input from the visible label; a bare range input
             // would otherwise be announced only as "slider".
@@ -51,7 +51,7 @@ struct CatalogStepperControl: Component {
     let label: String
     let value: Binding<Int>
 
-    var body: some HTML {
+    var content: some Component {
         HStack(spacing: .medium) {
             controlLabel(label)
             Stepper(label, value: value, in: 0...8)
@@ -64,7 +64,7 @@ struct CatalogToggleControl: Component {
     let label: String
     let value: Binding<Bool>
 
-    var body: some HTML {
+    var content: some Component {
         Toggle(label, isOn: value)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -75,7 +75,7 @@ struct CatalogSegmentControl: Component {
     let selection: Binding<String>
     let options: [CatalogSegmentOption]
 
-    var body: some HTML {
+    var content: some Component {
         HStack(spacing: .medium) {
             controlLabel(label)
             HStack(spacing: .xsmall) {
@@ -108,7 +108,7 @@ struct CatalogTextControl: Component {
     let value: Binding<String>
     let placeholder: String
 
-    var body: some HTML {
+    var content: some Component {
         HStack(spacing: .medium) {
             controlLabel(label)
             TextField(placeholder, text: value)

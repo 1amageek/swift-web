@@ -13,7 +13,7 @@ public struct SafeAreaRegions: OptionSet, Sendable, Equatable {
     public static let all: SafeAreaRegions = [.container, .keyboard]
 }
 
-public struct SafeAreaInsetModifier<InsetContent: HTML>: ComponentModifier {
+public struct SafeAreaInsetModifier<InsetContent: Component>: ComponentModifier {
     private let edge: Edge
     private let alignment: Alignment
     private let spacing: Length?
@@ -31,8 +31,8 @@ public struct SafeAreaInsetModifier<InsetContent: HTML>: ComponentModifier {
         self.insetContent = content()
     }
 
-    @HTMLBuilder
-    public func body(content: ModifierContent) -> some HTML {
+    @ComponentBuilder
+    public func content(_ content: ModifierContent) -> some Component {
         Element(
             "div",
             attributes: [
@@ -51,7 +51,7 @@ public struct SafeAreaInsetModifier<InsetContent: HTML>: ComponentModifier {
     }
 
     @HTMLBuilder
-    private var inset: some HTML {
+    private var inset: some Component {
         Element(
             "div",
             attributes: [
@@ -88,34 +88,34 @@ public struct SafeAreaInsetModifier<InsetContent: HTML>: ComponentModifier {
     }
 }
 
-public extension HTML {
+public extension Component {
     func ignoresSafeArea(
         _ regions: SafeAreaRegions = .all,
         edges: Edge.Set = .all
-    ) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    ) -> ModifiedContent {
         return modifier(HTMLAttributeModifier([
             .data("safe-area-regions", regions.cssName),
             styleAttribute(safeAreaExpansionStyle(edges: edges)),
         ]))
     }
 
-    func safeAreaPadding(_ insets: EdgeInsets) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func safeAreaPadding(_ insets: EdgeInsets) -> ModifiedContent {
         modifier(HTMLAttributeModifier([styleAttribute(safeAreaPaddingStyle(insets: insets))]))
     }
 
     func safeAreaPadding(
         _ edges: Edge.Set = .all,
         _ length: Length? = nil
-    ) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    ) -> ModifiedContent {
         modifier(HTMLAttributeModifier([styleAttribute(safeAreaPaddingStyle(edges: edges, length: length))]))
     }
 
-    func safeAreaInset<InsetContent: HTML>(
+    func safeAreaInset<InsetContent: Component>(
         edge: VerticalEdge,
         alignment: HorizontalAlignment = .center,
         spacing: Length? = nil,
         @HTMLBuilder content: () -> InsetContent
-    ) -> ModifiedContent<Self, SafeAreaInsetModifier<InsetContent>> {
+    ) -> ModifiedContent {
         modifier(SafeAreaInsetModifier(
             edge: edge.edge,
             alignment: Alignment(horizontal: alignment, vertical: edge.defaultVerticalAlignment),
@@ -124,12 +124,12 @@ public extension HTML {
         ))
     }
 
-    func safeAreaInset<InsetContent: HTML>(
+    func safeAreaInset<InsetContent: Component>(
         edge: HorizontalEdge,
         alignment: VerticalAlignment = .center,
         spacing: Length? = nil,
         @HTMLBuilder content: () -> InsetContent
-    ) -> ModifiedContent<Self, SafeAreaInsetModifier<InsetContent>> {
+    ) -> ModifiedContent {
         modifier(SafeAreaInsetModifier(
             edge: edge.edge,
             alignment: Alignment(horizontal: edge.defaultHorizontalAlignment, vertical: alignment),

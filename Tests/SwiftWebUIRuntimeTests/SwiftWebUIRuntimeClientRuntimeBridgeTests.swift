@@ -9,7 +9,7 @@ import SwiftWebUI
 private struct WasmBridgeCounter: ClientComponent {
     @State private var value = 0
 
-    var body: some HTML {
+    var content: some Component {
         button(.type(ButtonType.button), .onClick {
             value += 1
         }) {
@@ -21,7 +21,7 @@ private struct WasmBridgeCounter: ClientComponent {
 private struct WasmBridgeAnimatedCounter: ClientComponent {
     @State private var value = 0
 
-    var body: some HTML {
+    var content: some Component {
         button(.type(ButtonType.button), .onClick {
             withAnimation(.easeInOut(duration: 0.3)) {
                 value += 1
@@ -65,7 +65,7 @@ private final class AnimationRecordingHost: BrowserDOMHost {
 private struct WasmBridgeAppendList: ClientComponent {
     @State private var values = [1, 2]
 
-    var body: some HTML {
+    var content: some Component {
         button(.type(ButtonType.button), .onClick {
             values.append((values.last ?? 0) + 1)
         }) {
@@ -84,7 +84,7 @@ private struct WasmBridgeAppendList: ClientComponent {
 private struct WasmBridgeAppendPairList: ClientComponent {
     @State private var entries = ["a0", "u1", "a2"]
 
-    var body: some HTML {
+    var content: some Component {
         button(.type(ButtonType.button), .onClick {
             let nextIndex = entries.count
             entries = entries + [
@@ -118,7 +118,7 @@ private struct WasmBridgeProperty: Identifiable, Sendable {
 private struct WasmBridgePropertyRow: Component {
     let property: WasmBridgeProperty
 
-    var body: some HTML {
+    var content: some Component {
         article {
             h3 {
                 property.name
@@ -148,7 +148,7 @@ private struct WasmBridgePropertySelectionOwner: ClientComponent {
         ]
     }
 
-    var body: some HTML {
+    var content: some Component {
         button(.type(ButtonType.button), .onClick {
             selection = "button"
         }) {
@@ -176,7 +176,7 @@ private extension EnvironmentValues {
 private struct WasmBridgeEnvironmentReader: ClientComponent {
     @Environment(\.wasmBridgeValue) private var value: String
 
-    var body: some HTML {
+    var content: some Component {
         span {
             value
         }
@@ -187,7 +187,7 @@ private struct WasmBridgeScopedEnvironmentRoot: Component {
     let left: String
     let right: String
 
-    var body: some HTML {
+    var content: some Component {
         div {
             WasmBridgeEnvironmentReader()
                 .environment(\.wasmBridgeValue, left)
@@ -201,7 +201,7 @@ private struct WasmBridgeRevealingBadge: ClientComponent {
     @Environment(\.wasmBridgeValue) private var value: String
     @State private var revealed = false
 
-    var body: some HTML {
+    var content: some Component {
         // Read during server rendering too, so the value enters the snapshot.
         let value = self.value
         return div {
@@ -218,7 +218,7 @@ private struct WasmBridgeRevealingBadge: ClientComponent {
 }
 
 private struct WasmBridgeEnvironmentPage: Component {
-    var body: some HTML {
+    var content: some Component {
         div {
             span {
                 "server prefix"
@@ -229,11 +229,16 @@ private struct WasmBridgeEnvironmentPage: Component {
 }
 
 private enum WasmBridgeHotReloadFixture {
-    nonisolated(unsafe) static var text = "Before"
+    private static let storage = Mutex("Before")
+
+    static var text: String {
+        get { storage.withLock { $0 } }
+        set { storage.withLock { $0 = newValue } }
+    }
 }
 
 private struct WasmBridgeHotReloadComponent: ClientComponent {
-    var body: some HTML {
+    var content: some Component {
         span {
             WasmBridgeHotReloadFixture.text
         }
@@ -241,13 +246,18 @@ private struct WasmBridgeHotReloadComponent: ClientComponent {
 }
 
 private enum WasmBridgeHotReloadStateFixture {
-    nonisolated(unsafe) static var text = "Before"
+    private static let storage = Mutex("Before")
+
+    static var text: String {
+        get { storage.withLock { $0 } }
+        set { storage.withLock { $0 = newValue } }
+    }
 }
 
 private struct WasmBridgeHotReloadStatefulComponent: ClientComponent {
     @State private var value = 0
 
-    var body: some HTML {
+    var content: some Component {
         button(.type(ButtonType.button), .onClick {
             value += 1
         }) {
@@ -257,11 +267,16 @@ private struct WasmBridgeHotReloadStatefulComponent: ClientComponent {
 }
 
 private enum WasmBridgeHotReloadStructureFixture {
-    nonisolated(unsafe) static var showsDetail = false
+    private static let storage = Mutex(false)
+
+    static var showsDetail: Bool {
+        get { storage.withLock { $0 } }
+        set { storage.withLock { $0 = newValue } }
+    }
 }
 
 private struct WasmBridgeHotReloadStructuralComponent: ClientComponent {
-    var body: some HTML {
+    var content: some Component {
         div {
             span {
                 "Stable"
@@ -276,7 +291,7 @@ private struct WasmBridgeHotReloadStructuralComponent: ClientComponent {
 }
 
 private struct WasmBridgeReplacementBefore: Component {
-    var body: some HTML {
+    var content: some Component {
         section {
             p {
                 "Before replacement"
@@ -286,7 +301,7 @@ private struct WasmBridgeReplacementBefore: Component {
 }
 
 private struct WasmBridgeReplacementAfter: Component {
-    var body: some HTML {
+    var content: some Component {
         section {
             p {
                 "After replacement"
@@ -298,7 +313,7 @@ private struct WasmBridgeReplacementAfter: Component {
 private struct WasmBridgeComponentReplacement: ClientComponent {
     @State private var showsAfter = false
 
-    var body: some HTML {
+    var content: some Component {
         button(.type(ButtonType.button), .onClick {
             showsAfter = true
         }) {
@@ -315,8 +330,8 @@ private struct WasmBridgeComponentReplacement: ClientComponent {
 private struct WasmBridgeSelectionOwner: ClientComponent {
     @State private var selection = "typography"
 
-    @HTMLBuilder
-    var body: some HTML {
+    @ComponentBuilder
+    var content: some Component {
         button(.type(ButtonType.button), .onClick {
             selection = "color"
         }) {
@@ -333,8 +348,8 @@ private struct WasmBridgeTextareaComposer: ClientComponent {
     @State private var draft = ""
     @State private var submitted = ""
 
-    @HTMLBuilder
-    var body: some HTML {
+    @ComponentBuilder
+    var content: some Component {
         if !submitted.isEmpty {
             p {
                 submitted
@@ -353,8 +368,8 @@ private struct WasmBridgeTextareaComposer: ClientComponent {
 private struct WasmBridgeSelectionChild: Component {
     let selection: String
 
-    @HTMLBuilder
-    var body: some HTML {
+    @ComponentBuilder
+    var content: some Component {
         switch selection {
         case "color":
             div {
@@ -379,7 +394,7 @@ private struct WasmBridgeSelectionChild: Component {
 }
 
 private struct WasmBridgeMountedRoot: Component {
-    var body: some HTML {
+    var content: some Component {
         div {
             span {
                 "server prefix"
@@ -390,7 +405,7 @@ private struct WasmBridgeMountedRoot: Component {
 }
 
 private struct WasmBridgeMountedReplacementRoot: Component {
-    var body: some HTML {
+    var content: some Component {
         div {
             span {
                 "server prefix"
@@ -401,7 +416,7 @@ private struct WasmBridgeMountedReplacementRoot: Component {
 }
 
 private struct WasmBridgeMountedSelectionRoot: Component {
-    var body: some HTML {
+    var content: some Component {
         div {
             span {
                 "server prefix"
@@ -412,7 +427,7 @@ private struct WasmBridgeMountedSelectionRoot: Component {
 }
 
 private struct WasmBridgeMountedTextareaRoot: Component {
-    var body: some HTML {
+    var content: some Component {
         div {
             span {
                 "server prefix"
@@ -423,7 +438,7 @@ private struct WasmBridgeMountedTextareaRoot: Component {
 }
 
 private struct WasmBridgeMountedTextareaRootWithTrailingDocumentNodes: Component {
-    var body: some HTML {
+    var content: some Component {
         div {
             WasmBridgeTextareaComposer()
             div {
@@ -438,7 +453,7 @@ private struct WasmBridgeMountedTextareaRootWithTrailingDocumentNodes: Component
 }
 
 private struct WasmBridgeMountedRootWithEarlierHandler: Component {
-    var body: some HTML {
+    var content: some Component {
         div {
             button(.type(ButtonType.button), .onClick {}) {
                 "server action"
@@ -449,7 +464,7 @@ private struct WasmBridgeMountedRootWithEarlierHandler: Component {
 }
 
 private struct WasmBridgeMountedListRoot: Component {
-    var body: some HTML {
+    var content: some Component {
         div {
             span {
                 "server prefix"
@@ -460,7 +475,7 @@ private struct WasmBridgeMountedListRoot: Component {
 }
 
 private struct WasmBridgeMountedAppendPairListRoot: Component {
-    var body: some HTML {
+    var content: some Component {
         div {
             span {
                 "server prefix"
@@ -471,12 +486,37 @@ private struct WasmBridgeMountedAppendPairListRoot: Component {
 }
 
 private struct WasmBridgeMountedPropertySelectionRoot: Component {
-    var body: some HTML {
+    var content: some Component {
         div {
             span {
                 "server prefix"
             }
             WasmBridgePropertySelectionOwner()
+        }
+    }
+}
+
+private struct WasmBridgeLargeKeyedList: ClientComponent {
+    @State private var values = Array(0..<2_000)
+
+    var content: some Component {
+        button(.type(ButtonType.button), .onClick {
+            values.reverse()
+        }) {
+            "Reverse"
+        }
+        ul {
+            ForEach(values, id: { value in value }) { value in
+                li { "Large item \(value)" }
+            }
+        }
+    }
+}
+
+private struct WasmBridgeMountedLargeKeyedListRoot: Component {
+    var content: some Component {
+        div {
+            WasmBridgeLargeKeyedList()
         }
     }
 }
@@ -1336,6 +1376,43 @@ struct SwiftWebUIRuntimeClientRuntimeBridgeTests {
             return false
         })
         try assertCommandTargetsResolve(update, currentIndex: serverIndex)
+    }
+
+    @Test(.timeLimit(.minutes(1)))
+    func bridgeRebasesLargeKeyedHydrationTreeWithoutQuadraticLookupPaths() throws {
+        let serverIndex = WasmBridgeMountedLargeKeyedListRoot()
+            .renderArtifact()
+            .browserHydrationIndex()
+        let component = try #require(serverIndex.components.first {
+            $0.typeName == String(reflecting: WasmBridgeLargeKeyedList.self)
+        })
+        let handler = try #require(serverIndex.handlers.first {
+            $0.componentID == component.id
+        })
+        let bridge = ClientRuntimeBridge<WasmBridgeLargeKeyedList>(
+            componentMount: ClientComponentMount(WasmBridgeLargeKeyedList.self)
+        ) { _ in
+            WasmBridgeLargeKeyedList()
+        }
+
+        _ = try bridge.bootstrap(
+            ClientRuntimeBootstrapRequest(
+                hydrationIndex: serverIndex,
+                location: ClientRuntimeBootstrapLocation(href: "/large", search: "")
+            )
+        )
+        let update = try bridge.dispatch(
+            ClientRuntimeEventRequest(handlerID: handler.handlerID, event: DOMEvent())
+        )
+        let nextIndex = try #require(update.hydrationIndex)
+        let textValues = nextIndex.nodes.compactMap { node in
+            node.role == .text && node.text?.hasPrefix("Large item ") == true ? node.text : nil
+        }
+        #expect(textValues.count == 2_000)
+        #expect(textValues.contains("Large item 1999"))
+        #expect(textValues.contains("Large item 0"))
+        #expect(update.commandBatch?.commands.isEmpty == false)
+        try assertCommandTargetsResolve(update)
     }
 
     @Test

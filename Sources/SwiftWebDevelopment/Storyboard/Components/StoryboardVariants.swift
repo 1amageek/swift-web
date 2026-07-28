@@ -19,7 +19,7 @@ struct CatalogVariant: Identifiable, Sendable {
     init(
         _ title: String,
         detail: String,
-        @HTMLBuilder demo: () -> some HTML
+        @HTMLBuilder demo: () -> some Component
     ) {
         self.id = title
         self.title = title
@@ -37,7 +37,7 @@ struct CatalogVariantsPanel: Component {
     let scene: StoryboardScene
     let variants: [CatalogVariant]
 
-    var body: some HTML {
+    var content: some Component {
         div(.class("swui-storyboard-variants")) {
             ForEach(variants) { variant in
                 CatalogVariantCard(scene: scene, variant: variant)
@@ -50,7 +50,7 @@ struct CatalogVariantCard: Component {
     let scene: StoryboardScene
     let variant: CatalogVariant
 
-    var body: some HTML {
+    var content: some Component {
         div(.class("swui-storyboard-variant")) {
             div(.class("swui-storyboard-variant-stage \(scene.className)")) {
                 rawHTML(variant.demoHTML())

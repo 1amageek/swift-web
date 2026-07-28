@@ -91,7 +91,7 @@ package final class SwiftWebDevWorkerBuilder: SwiftWebDevWorkerBuilding {
             .split(whereSeparator: \.isNewline)
             .last
             .map(String.init)?
-            .trimmingCharacters(in: .whitespacesAndNewlines),
+            .trimmingCharacters(in: Foundation.CharacterSet.whitespacesAndNewlines),
             !binPath.isEmpty
         else {
             throw SwiftWebDevRuntimeError.executableNotFound(configuration.product)

@@ -54,7 +54,7 @@ public struct ClientEnvironmentBadge: ClientComponent {
 
     public init() {}
 
-    public var body: some HTML {
+    public var content: some Component {
         // Read during SSR as well, so the value enters the hydration snapshot.
         let greeting = self.greeting
         return GroupBox {

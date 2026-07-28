@@ -1,6 +1,6 @@
 import SwiftHTML
 
-public struct GridContent<Content: HTML>: Sendable {
+public struct GridContent<Content: Component>: Sendable {
     let content: Content
     let maximumColumnCount: Int
 

@@ -2,6 +2,9 @@ import SwiftWebDevelopmentHooks
 import SwiftWebPackageGeneration
 import SwiftWebWasmBuild
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import NIOCore
 
 enum SwiftWebDevHostReadiness {

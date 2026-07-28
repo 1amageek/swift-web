@@ -10,10 +10,10 @@ This README describes the current Vapor-backed runtime target. The target archit
 |---|---|
 | App composition | Defines `App`, `Scene`, `SceneBuilder`, app-level route/runtime declarations, and optional app-wide service registration. |
 | Page routing | Defines `Page`, `PageRoute`, `NoParams`, `NoSearchParams`, route path handling, and parameter decoding. |
-| Page metadata | Resolves async `title`, `description`, and `language` values before rendering the document shell. |
+| Page documents | Accepts complete `HTMLDocument` values; `PageDocument` provides SwiftWeb metadata and head-injection defaults. |
 | Macro surface | Exposes `@Page` as the public macro imported by applications. |
 | Request context | Provides request-scoped values, params, search params, route environment, and session access. |
-| Responses | Wraps page bodies in `PageDocument` and converts rendered SwiftHTML artifacts into Vapor `Response` values. |
+| Responses | Encodes page-produced `HTMLDocument` values into Vapor `Response` values. |
 | Actions | Provides route actions, form/button server action gateway contracts, `ClientAction`, `ActionResult`, `ActionReference`, and action contexts. |
 | Action gateway contract | Server Action contracts live in SwiftWebCore. The ActorRuntime gateway for `@Resolvable` RPC lives in `SwiftWebVaporWebActors` and uses `SwiftWebActors`. |
 | Streaming | Defines `StreamingPage`, `StreamWriter`, `SSERoute`, and SSE event types. End-to-end delivery depends on Vapor HTTP response streaming support. |
@@ -45,10 +45,10 @@ flowchart LR
   B --> C["@Page routes"]
   C --> D["Vapor RoutesBuilder"]
   D --> E["params/search decode"]
-  E --> F["load"]
-  F --> G["async page metadata"]
-  G --> H["body HTML"]
-  H --> I["PageDocument"]
+  E --> F["optional load"]
+  F --> G["document / document(model)"]
+  G --> H["HTMLDocument"]
+  H --> I["SwiftHTML render"]
   I --> J["Vapor Response"]
 ```
 
@@ -109,6 +109,21 @@ public var body: some Scene {
 
 User app packages should expose an app library. The generated package owns the concrete `@main` launchers for CLI dev, Xcode dev, and server builds.
 
+```text
+Page
+├─ StaticPage: document
+└─ LoadedPage: load() → document(model)
+                         ↓
+                   HTMLDocument
+                   ├─ head
+                   └─ body
+```
+
+`@Page` recognizes the same two shapes and synthesizes `Page.resolveDocument()`
+alongside route registration. The public authoring boundary and its migration
+contract are recorded in
+[`docs/HTMLAuthoringModel.md`](../../../docs/HTMLAuthoringModel.md).
+
 Page-specific server services should be ordinary stored properties on the page. They are held for the route lifetime because `@Page` registers the page instance, not a fresh `Self()` per request.
 
 ```swift
@@ -124,11 +139,13 @@ struct CounterPage {
         try await counterService.currentValue()
     }
 
-    func body(_ value: Int) -> some HTML {
-        HStack {
-            Button("Decrement", action: counterService.decrementAction)
-            Text(String(value))
-            Button("Increment", action: counterService.incrementAction)
+    func document(_ value: Int) -> some HTMLDocument {
+        PageDocument(title: "Counter") {
+            HStack {
+                Button("Decrement", action: counterService.decrementAction)
+                Text(String(value))
+                Button("Increment", action: counterService.incrementAction)
+            }
         }
     }
 }
@@ -145,7 +162,7 @@ struct CounterPage {
 ## Request Session
 
 `@Session` exposes the current client session to request-time surfaces such as page
-bodies and server actions. The public value is `WebSession`, so app code can read and
+documents and server actions. The public value is `WebSession`, so app code can read and
 mutate session state without depending on the host request type.
 
 ```swift
@@ -153,11 +170,13 @@ mutate session state without depending on the host request type.
 struct AccountPage {
     @Session var session
 
-    func body() -> some HTML {
-        if session.isAuthenticated {
-            AccountView()
-        } else {
-            LoginView()
+    var document: some HTMLDocument {
+        PageDocument(title: "Account") {
+            if session.isAuthenticated {
+                AccountView()
+            } else {
+                LoginView()
+            }
         }
     }
 }
@@ -184,7 +203,7 @@ SwiftWeb surface.
 
 `@Session` is the right tool for request-local rendering and action logic. Shared
 route access control should be declared on the scene graph as a policy descriptor,
-not repeated inside every page body.
+not repeated inside every page document.
 
 ```mermaid
 flowchart TD
@@ -192,7 +211,7 @@ flowchart TD
   B --> C["route registration"]
   C --> D["request arrives"]
   D --> E["policy reads WebSession"]
-  E -->|allow| F["Page.load / Page.body / action"]
+  E -->|allow| F["Page.load / Page.document / action"]
   E -->|deny| G["redirect / 401 / 403"]
 ```
 
@@ -546,8 +565,8 @@ public struct ActionInvocationContext: Sendable, Codable {
 - `@Page` lowers to Vapor routes; SwiftWeb must not become a custom router.
 - Route grouping, middleware, priority, and matching belong to Vapor.
 - Params and search params are decoded before page execution.
-- Page `body` returns page content only; `PageDocument` owns `html`, `head`, `title`, metadata, and `body`.
-- `title`, `description`, and `language` are async page properties so they may read request context or server-side stores.
+- A static page exposes `document`; a loaded page transforms its model with `document(_:)`.
+- `PageDocument` is SwiftWeb's metadata-aware `HTMLDocument`; custom document types can be returned when the page needs direct control of `head` and `body`.
 - Server Action represents explicit intent to mutate server-side state or call a server-side service.
 - Server Action uses an HTTP method and path plus typed handler invocation, and remains a page command model, not the `@Resolvable` RPC model.
 - Server Action references are form/action metadata; client-side typed service calls use Apple `@Resolvable` protocols and `WebActorSystem`.

@@ -73,12 +73,12 @@ system contributes visual rules.
 | Step | Input | Output |
 |---|---|---|
 | 1 | Component configuration | Semantic state such as `isEnabled`, `controlSize`, selected value, bounds, and roles. |
-| 2 | Component body | Stable classes such as `swui-list`, `swui-text`, `swui-control-large`, `swui-control-disabled`. |
+| 2 | Component content | Stable classes such as `swui-list`, `swui-text`, `swui-control-large`, `swui-control-disabled`. |
 | 3 | Environment modifiers | Scoped values such as `colorScheme`, `theme`, `tint`, `controlSize`, and semantic style kinds. |
 | 4 | `RootStylesheet` | CSS variables, base component rules, state rules, and contextual selectors. |
 | 5 | SwiftHTML | HTML graph, stylesheet output, hydration metadata, and SSR output. |
 
-The component body may set CSS custom properties only for per-instance values
+The component content may set CSS custom properties only for per-instance values
 that come from modifiers or data, such as `--swui-control-tint`. It must not
 encode the component's design recipe inline.
 
@@ -207,7 +207,7 @@ The default token scale is rhythm-first:
 
 Component tokens map semantic tiers to CSS variables. One-off raw values
 require a component-specific reason and should live in stylesheet rules rather
-than component bodies.
+than component `content`.
 
 ## Styling Gates
 

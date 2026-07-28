@@ -11,7 +11,7 @@ struct NavigationDetail: Component {
 
     private var state: [String: String] { ui.wrappedValue }
 
-    var body: some HTML {
+    var content: some Component {
         switch selection {
         case "tabview":
             tabViewDemo()
@@ -30,7 +30,7 @@ struct NavigationDetail: Component {
     }
 
     @HTMLBuilder
-    private func tabViewDemo() -> some HTML {
+    private func tabViewDemo() -> some Component {
         if state.controlFlag("tabview", "icons") {
             TabView(selection: ui.string("tabview.tab")) {
                 Tab("Summary", systemImage: "doc.text", value: "summary") { tabPanel("Summary") }
@@ -46,19 +46,19 @@ struct NavigationDetail: Component {
         }
     }
 
-    private func tabPanel(_ name: String) -> some HTML {
+    private func tabPanel(_ name: String) -> some Component {
         Text("\(name) panel content.").foregroundStyle(.secondary)
     }
 
     @HTMLBuilder
-    private func navigationLinkDemo() -> some HTML {
+    private func navigationLinkDemo() -> some Component {
         let url = URL(string: "#overview")!
         navigationLinkInner(url: url, icon: state.controlFlag("navigationlink", "icon"), styled: state.control("navigationlink", "style") == "bordered")
             .disabled(state.controlFlag("navigationlink", "disabled"))
     }
 
     @HTMLBuilder
-    private func navigationLinkInner(url: URL, icon: Bool, styled: Bool) -> some HTML {
+    private func navigationLinkInner(url: URL, icon: Bool, styled: Bool) -> some Component {
         if styled {
             navigationLinkBase(url: url, icon: icon).buttonStyle(.bordered)
         } else {
@@ -67,7 +67,7 @@ struct NavigationDetail: Component {
     }
 
     @HTMLBuilder
-    private func navigationLinkBase(url: URL, icon: Bool) -> some HTML {
+    private func navigationLinkBase(url: URL, icon: Bool) -> some Component {
         if icon {
             NavigationLink(destination: url) { Label(linkLabel, systemImage: "photo") }
         } else {
@@ -76,7 +76,7 @@ struct NavigationDetail: Component {
     }
 
     @HTMLBuilder
-    private func navigationStackDemo() -> some HTML {
+    private func navigationStackDemo() -> some Component {
         NavigationStack {
             VStack(alignment: .leading, spacing: .small) {
                 if state.controlFlag("navigationstack", "icons") {

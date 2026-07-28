@@ -114,7 +114,8 @@ package enum SwiftWebDevHotReload {
   package static func sseData(for event: SwiftWebDevEvent) throws -> String {
     let data = try JSONEncoder.swiftWebDevEvent.encode(event)
     let json = String(decoding: data, as: UTF8.self)
-    return SSEEvent(event: event.kind.rawValue, id: event.id, data: json).render()
+    let eventName = event.kind == .error ? "swiftWebError" : event.kind.rawValue
+    return SSEEvent(event: eventName, id: event.id, data: json).render()
   }
 
   package static func eventPayload(
@@ -232,7 +233,12 @@ package enum SwiftWebDevHotReload {
           lastEventAt: null,
           lastAppliedEvent: null,
           lastAppliedEventAt: null,
+          lastErrorEvent: null,
+          lastErrorEventAt: null,
+          lastServerRebuildErrorEvent: null,
+          lastServerRebuildErrorEventAt: null,
           lastError: null,
+          eventQueue: Promise.resolve(),
           close() {
             if (this.abortController) {
               this.abortController.abort();
@@ -403,7 +409,14 @@ package enum SwiftWebDevHotReload {
             return;
           }
           const payloadText = message.data.join("\\n");
-          swiftWebHandleDevEvent(JSON.parse(payloadText)).catch((error) => {
+          swiftWebEnqueueDevEvent(JSON.parse(payloadText));
+        }
+        function swiftWebEnqueueDevEvent(payload) {
+          const operation = state.eventQueue
+            .catch(() => {})
+            .then(() => swiftWebHandleDevEvent(payload));
+          state.eventQueue = operation;
+          operation.catch((error) => {
             state.lastError = String(error && error.message ? error.message : error);
             console.error("SwiftWeb HMR event failed", error);
             showDevStatus(String(error && error.message ? error.message : error), "error");
@@ -472,6 +485,18 @@ package enum SwiftWebDevHotReload {
             window.location.reload();
             return;
           }
+          if (payload.kind === "clientRuntimeBatchUpdate") {
+            const runtime = window.__swiftWebWasmRuntime;
+            if (runtime && typeof runtime.applyHotUpdateBatch === "function") {
+              await runtime.applyHotUpdateBatch(payload.clientRuntimeUpdates || []);
+              showDevStatus("SwiftWeb HMR: client runtimes updated", "client");
+              state.lastAppliedEvent = payload;
+              state.lastAppliedEventAt = Date.now();
+              return;
+            }
+            window.location.reload();
+            return;
+          }
           if (payload.kind === "serverBuildStarted") {
             showDevStatus("SwiftWeb HMR: server rebuilding", "server");
             state.lastAppliedEvent = payload;
@@ -496,6 +521,12 @@ package enum SwiftWebDevHotReload {
           }
           if (payload.kind === "error") {
             showDevStatus(payload.message || "SwiftWeb HMR error", "error");
+            state.lastErrorEvent = payload;
+            state.lastErrorEventAt = Date.now();
+            if (String(payload.message || "").includes("Server rebuild failed")) {
+              state.lastServerRebuildErrorEvent = payload;
+              state.lastServerRebuildErrorEventAt = Date.now();
+            }
             state.lastAppliedEvent = payload;
             state.lastAppliedEventAt = Date.now();
           }
@@ -608,11 +639,7 @@ package enum SwiftWebDevHotReload {
               if (!event || typeof event.data !== "string" || event.data.length === 0) {
                 return;
               }
-              swiftWebHandleDevEvent(JSON.parse(event.data)).catch((error) => {
-                state.lastError = String(error && error.message ? error.message : error);
-                console.error("SwiftWeb HMR event failed", error);
-                showDevStatus(String(error && error.message ? error.message : error), "error");
-              });
+              swiftWebEnqueueDevEvent(JSON.parse(event.data));
             } catch (error) {
               state.lastError = String(error && error.message ? error.message : error);
               console.error("SwiftWeb HMR event parse failed", error);
@@ -623,11 +650,12 @@ package enum SwiftWebDevHotReload {
             "stylePatch",
             "clientBuildStarted",
             "clientComponentUpdate",
+            "clientRuntimeBatchUpdate",
             "serverBuildStarted",
             "serverRestarted",
             "pagePatch",
             "fullReload",
-            "error"
+            "swiftWebError"
           ]) {
             source.addEventListener(name, handleEvent);
           }

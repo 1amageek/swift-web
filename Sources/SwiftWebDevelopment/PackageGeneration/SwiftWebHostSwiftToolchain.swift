@@ -113,7 +113,7 @@ package struct SwiftWebHostSwiftToolchain: Sendable {
     }
 
     let path = String(decoding: data, as: UTF8.self)
-      .trimmingCharacters(in: .whitespacesAndNewlines)
+      .trimmingCharacters(in: Foundation.CharacterSet.whitespacesAndNewlines)
     guard !path.isEmpty else {
       return nil
     }

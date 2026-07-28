@@ -1,7 +1,12 @@
 import SwiftWebDevelopmentHooks
 import SwiftWebWasmBuild
-import Darwin
 import Foundation
+
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
 
 public struct SwiftWebGeneratedPackageMaterializer: Sendable {
   public var appPackageDirectory: URL
@@ -91,6 +96,11 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
   }
 
   public func materialize() throws -> SwiftWebGeneratedPackage {
+    guard wasmRuntimeProfile == .standard else {
+      throw SwiftWebGeneratedPackageMaterializerError.unsupportedWasmRuntimeProfile(
+        wasmRuntimeProfile
+      )
+    }
     let packageName = try SwiftWebPackageManifestInspector.packageName(in: appPackageDirectory)
     let appProductName = appProductName ?? packageName
     let devProductName = devProductName ?? "\(packageName)-dev"
@@ -144,14 +154,17 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
   }
 
   private func resolveSwiftWebPackageDirectory() throws -> URL {
+    // An explicit source override must win over an app's resolved checkout.
+    // Local CLI development otherwise combines the current generator with an
+    // older mirrored runtime from the app's remote dependency checkout.
+    if let root = try Self.optionalConfiguredSwiftWebPackageDirectory() {
+      return root
+    }
+
     if let root = try SwiftWebPackageManifestInspector.optionalPackageRoot(
       named: SwiftWebPackageReference.packageName,
       in: appPackageDirectory
     ) {
-      return root
-    }
-
-    if let root = try Self.optionalConfiguredSwiftWebPackageDirectory() {
       return root
     }
 
@@ -245,6 +258,7 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
   }
 
   private static func currentExecutableURL() -> URL? {
+    #if canImport(Darwin)
     var size: UInt32 = 0
     _ = _NSGetExecutablePath(nil, &size)
     var buffer = [CChar](repeating: 0, count: Int(size))
@@ -255,6 +269,24 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
     return URL(fileURLWithPath: String(decoding: pathBytes, as: UTF8.self))
       .resolvingSymlinksInPath()
       .standardizedFileURL
+    #elseif canImport(Glibc)
+    var buffer = [CChar](repeating: 0, count: 4_096)
+    let byteCount = buffer.withUnsafeMutableBufferPointer { pointer in
+      guard let baseAddress = pointer.baseAddress else {
+        return -1
+      }
+      return Glibc.readlink("/proc/self/exe", baseAddress, pointer.count - 1)
+    }
+    guard byteCount > 0 else {
+      return nil
+    }
+    let pathBytes = buffer.prefix(Int(byteCount)).map { UInt8(bitPattern: $0) }
+    return URL(fileURLWithPath: String(decoding: pathBytes, as: UTF8.self))
+      .resolvingSymlinksInPath()
+      .standardizedFileURL
+    #else
+    return nil
+    #endif
   }
 
   private func resolveAppPackageDependencies() throws {
@@ -321,19 +353,11 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
 
     try removeLegacyMaterializationLockFile()
     try removeLegacySinglePackageLayout()
-    switch wasmRuntimeProfile {
-    case .standard:
-      try wasmSourceMirror.copyStandardSources(
-        appProductName: appProductName,
-        swiftHTMLPackageDirectory: swiftHTMLPackageDirectory,
-        swiftWebPackageDirectory: swiftWebPackageDirectory
-      )
-    case .embedded:
-      try wasmSourceMirror.copyEmbeddedSources(
-        swiftHTMLPackageDirectory: swiftHTMLPackageDirectory,
-        swiftWebPackageDirectory: swiftWebPackageDirectory
-      )
-    }
+    try wasmSourceMirror.copyStandardSources(
+      appProductName: appProductName,
+      swiftHTMLPackageDirectory: swiftHTMLPackageDirectory,
+      swiftWebPackageDirectory: swiftWebPackageDirectory
+    )
     try wasmSourceMirror.removeStaleWasmSourceTargets(
       keeping: Set(
         wasmRuntimeProfile.wasmSourceTargets(appProductName: appProductName)

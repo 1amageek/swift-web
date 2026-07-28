@@ -1,6 +1,6 @@
 import SwiftWebDevelopmentHooks
 import SwiftWebPackageGeneration
-import CryptoKit
+import Crypto
 import Foundation
 
 package struct SwiftWebWasmBuildInputHasher: Sendable {

@@ -1,9 +1,9 @@
 import SwiftHTML
 
-public struct GridRow<Content: HTML>: AttributeComponent {
+public struct GridRow<Content: Component>: AttributeComponent {
     private let alignment: VerticalAlignment?
     private let attributes: [HTMLAttribute]
-    private let content: Content
+    private let childContent: Content
     let cellCount: Int
 
     public init(
@@ -14,12 +14,12 @@ public struct GridRow<Content: HTML>: AttributeComponent {
         let rowContent = content()
         self.alignment = alignment
         self.attributes = attributes
-        self.content = rowContent.content
+        self.childContent = rowContent.content
         self.cellCount = rowContent.cellCount
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         Element(
             "div",
             attributes: mergedAttributes(
@@ -28,7 +28,7 @@ public struct GridRow<Content: HTML>: AttributeComponent {
                 extra: attributes
             )
         ) {
-            content
+            childContent
         }
     }
 
@@ -36,7 +36,7 @@ public struct GridRow<Content: HTML>: AttributeComponent {
         Self(
             alignment: alignment,
             attributes: self.attributes + attributes,
-            content: content,
+            content: childContent,
             cellCount: cellCount
         )
     }
@@ -49,7 +49,7 @@ public struct GridRow<Content: HTML>: AttributeComponent {
     ) {
         self.alignment = alignment
         self.attributes = attributes
-        self.content = content
+        self.childContent = content
         self.cellCount = cellCount
     }
 

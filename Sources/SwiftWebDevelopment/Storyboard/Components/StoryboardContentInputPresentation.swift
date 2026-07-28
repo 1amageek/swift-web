@@ -18,14 +18,14 @@ private func constant<Value: Sendable>(_ value: Value) -> Binding<Value> {
 private let variantDate = Date(timeIntervalSince1970: 1_781_515_800)
 
 /// A small rounded swatch that paints one `Color`.
-private func colorSwatch(_ color: Color) -> some HTML {
+private func colorSwatch(_ color: Color) -> some Component {
     Text("").as(.span)
         .frame(width: 22, height: 22)
         .background(color, in: .rect(cornerRadius: 7))
 }
 
 /// A pill-shaped chip used as horizontally scrolling content.
-private func scrollChip(_ title: String) -> some HTML {
+private func scrollChip(_ title: String) -> some Component {
     Text(title).as(.span)
         .font(.footnote)
         .padding(.horizontal, 10)
@@ -449,7 +449,7 @@ private var calendarVariantCalendar: Calendar {
 }
 
 /// A small accent dot standing in for per-day content such as events.
-private func calendarVariantEventDot() -> some HTML {
+private func calendarVariantEventDot() -> some Component {
     Text("").as(.span)
         .frame(width: 5, height: 5)
         .background(Color.accent, in: .capsule)

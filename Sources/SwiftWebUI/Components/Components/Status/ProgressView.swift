@@ -8,7 +8,7 @@ import SwiftHTML
 /// element; an indeterminate progress (no `value`) lowers to a circular spinner
 /// driven by a CSS animation. The bar track composes the shared ultra-thin
 /// material so its fill tracks the active design style.
-public struct ProgressView<Label: HTML>: AttributeComponent {
+public struct ProgressView<Label: Component>: AttributeComponent {
     private let label: Label
     private let showsLabel: Bool
     private let accessibilityLabel: String?
@@ -42,8 +42,8 @@ public struct ProgressView<Label: HTML>: AttributeComponent {
         self.attributes = attributes
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         Element(
             "div",
             attributes: mergedAttributes(

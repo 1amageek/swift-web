@@ -153,9 +153,41 @@ still-evolving 6.4-era server APIs (`swift-http-server` 0.x). The repository
 therefore pins the exact toolchain and matching WASM SDK snapshot instead of
 silently selecting another 6.4 build.
 
+## SwiftHTML Authoring Model
+
+SwiftWeb uses SwiftHTML's explicit document/component boundary. A complete
+page document and nestable component content are different types:
+
+```mermaid
+flowchart TD
+  HTML["HTML: renderable and Sendable"] --> Document["HTMLDocument"]
+  HTML --> Component["Component"]
+  Document --> Shell["Complete doctype + html + head + body"]
+  Component --> Nested["Nestable tags, text, and custom components"]
+  Page["SwiftWeb Page"] --> Document
+  Document -.-> Guard["Not accepted by component builders"]
+```
+
+| Boundary | Required API | Responsibility |
+|---|---|---|
+| Custom component | `var content: some Component` | Produce reusable, nestable content. |
+| Static page | `var document: some HTMLDocument` | Produce one complete page document. |
+| Loaded page | `load()` + `document(_:)` | Load a `Sendable` model, then produce the document. |
+| Component helper | Return `some Component` | Produce content accepted by component builders. |
+| Complete document | `HTMLDocument` with `head` and `body` | Own the document shell and remain outside component builders. |
+
+SwiftHTML's builder lowers authored component trees to stable
+`ComponentContent` storage. Application code should continue to expose
+`some Component`; it should not name or store `ComponentContent` directly.
+The separation prevents a complete document from being accidentally nested in
+an element and gives SwiftWeb pages one explicit document-producing contract.
+
+The repository and examples use the released SwiftHTML `0.13.0` authoring
+model.
+
 ## Installation
 
-The current developer-preview release is `0.6.4`. Depend on it by version:
+Depend on SwiftWeb `0.7.0` and SwiftHTML `0.13.0`:
 
 ```swift
 // swift-tools-version: 6.4
@@ -170,8 +202,8 @@ let package = Package(
         .library(name: "MyApp", targets: ["MyApp"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/1amageek/swift-web.git", from: "0.6.4"),
-        .package(url: "https://github.com/1amageek/swift-html.git", from: "0.11.0"),
+        .package(url: "https://github.com/1amageek/swift-web.git", from: "0.7.0"),
+        .package(url: "https://github.com/1amageek/swift-html.git", from: "0.13.0"),
     ],
     targets: [
         .target(
@@ -201,8 +233,7 @@ let package = Package(
 
 ### Install The CLI With Mint
 
-Mint can install the `sweb` executable product directly from the repository. Pin
-`@0.6.4` for a reproducible install; `@main` tracks the latest development.
+Mint can install the `sweb` executable product from the `0.7.0` release.
 
 Mint invokes `swift` from `PATH`, so put the pinned Swift 6.4 snapshot first for
 the current shell:
@@ -210,17 +241,17 @@ the current shell:
 ```bash
 export SWIFT_WEB_TOOLCHAIN_BIN="$HOME/Library/Developer/Toolchains/swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a.xctoolchain/usr/bin"
 export PATH="$SWIFT_WEB_TOOLCHAIN_BIN:$PATH"
-mint install 1amageek/swift-web@0.6.4 sweb
+mint install 1amageek/swift-web@0.7.0 sweb
 ```
 
 | Need | Command |
 |---|---|
-| Install and link `sweb` globally | `mint install 1amageek/swift-web@0.6.4 sweb` |
-| Run without linking | `mint run 1amageek/swift-web@0.6.4 sweb <command>` |
-| Print the installed executable path | `mint which 1amageek/swift-web@0.6.4 sweb` |
+| Install and link `sweb` globally | `mint install 1amageek/swift-web@0.7.0 sweb` |
+| Run without linking | `mint run 1amageek/swift-web@0.7.0 sweb <command>` |
+| Print the installed executable path | `mint which 1amageek/swift-web@0.7.0 sweb` |
 
 ```bash
-mint install 1amageek/swift-web@0.6.4 sweb
+mint install 1amageek/swift-web@0.7.0 sweb
 sweb --help
 sweb new MyApp --output ../MyApp
 ```
@@ -279,7 +310,6 @@ Chat
    └─ wasm
 ```
 
-The app package depends on the SwiftWeb `main` branch and released `swift-html 0.7.1`.
 `sweb new` also materializes the generated launchers, dev packages, server packages,
 and WASM packages under `.swiftweb/generated`. Use `sweb prepare` only when you want
 to refresh generated packages for an existing SwiftWeb app without building or
@@ -372,24 +402,53 @@ import SwiftWeb
 
 @Page("/")
 struct HomePage {
-    func body() -> some HTML {
-        div {
-            h1 { "Hello SwiftWeb" }
-            p { "Rendered by SwiftHTML and served through SwiftWeb." }
+    var document: some HTMLDocument {
+        PageDocument(title: "Home") {
+            div {
+                h1 { "Hello SwiftWeb" }
+                p { "Rendered by SwiftHTML and served through SwiftWeb." }
+            }
         }
     }
 }
 ```
+
+The page boundary owns document production, while SwiftHTML owns document
+structure and rendering:
+
+```mermaid
+flowchart LR
+  Static["StaticPage"] --> StaticDocument["document"]
+  Loaded["LoadedPage"] --> Load["load()"]
+  Load --> LoadedDocument["document(model)"]
+  StaticDocument --> HTMLDocument["HTMLDocument"]
+  LoadedDocument --> HTMLDocument
+  HTMLDocument --> Response["HTTP response"]
+```
+
+| Page shape | Required API | Use |
+|---|---|---|
+| Static | `var document: some HTMLDocument` | Render directly from request context and stored values. |
+| Loaded | `load()` + `document(_:)` | Load a `Sendable` model, then build the document. |
+
+`@Page` synthesizes the `Page` resolver from that shape. `StaticPage` and
+`LoadedPage` expose the same contracts for types that adopt the protocols
+without the route macro. The accepted authoring boundary—`Component` for
+nestable content, `HTMLDocument` for complete documents, and `Page` for
+document production—is recorded in
+[`docs/HTMLAuthoringModel.md`](docs/HTMLAuthoringModel.md).
 
 Add another route by creating another `@Page` type and mounting it from `App.body`:
 
 ```swift
 @Page("/about")
 struct AboutPage {
-    func body() -> some HTML {
-        main {
-            h1 { "About" }
-            p { "This page is rendered on the server." }
+    var document: some HTMLDocument {
+        PageDocument(title: "About") {
+            main {
+                h1 { "About" }
+                p { "This page is rendered on the server." }
+            }
         }
     }
 }
@@ -417,7 +476,7 @@ public var body: some Scene {
 
 ### 6. Read The Request Session
 
-Use `@Session` inside request-time surfaces such as page bodies and server actions.
+Use `@Session` inside request-time surfaces such as page documents and server actions.
 The wrapped value is `WebSession`, not a raw host request object.
 
 ```swift
@@ -425,11 +484,13 @@ The wrapped value is `WebSession`, not a raw host request object.
 struct AccountPage {
     @Session var session
 
-    func body() -> some HTML {
-        if session.isAuthenticated {
-            AccountView()
-        } else {
-            LoginView()
+    var document: some HTMLDocument {
+        PageDocument(title: "Account") {
+            if session.isAuthenticated {
+                AccountView()
+            } else {
+                LoginView()
+            }
         }
     }
 }
@@ -470,20 +531,22 @@ import SwiftWebUI
 
 @Page("/")
 struct HomePage {
-    func body() -> some HTML {
-        main {
-            GridSystem {
-                Pane(span: 12) {
-                    VStack(spacing: .medium) {
-                        Text("Hello SwiftWeb")
-                            .font(.title)
+    var document: some HTMLDocument {
+        PageDocument(title: "Home") {
+            main {
+                GridSystem {
+                    Pane(span: 12) {
+                        VStack(spacing: .medium) {
+                            Text("Hello SwiftWeb")
+                                .font(.title)
 
-                        Link("Continue", destination: URL(string: "/about")!)
-                            .buttonStyle(.borderedProminent)
+                            Link("Continue", destination: URL(string: "/about")!)
+                                .buttonStyle(.borderedProminent)
+                        }
                     }
                 }
+                .frame(maxWidth: 720)
             }
-            .frame(maxWidth: 720)
         }
     }
 }
@@ -723,7 +786,7 @@ public struct ClientSummary: ClientComponent {
 
     public init() {}
 
-    public var body: some HTML {
+    public var content: some Component {
         Button("Count \(count)") {
             count += 1
         }
@@ -741,7 +804,7 @@ public struct ClientChart: ClientComponent {
 
     public init() {}
 
-    public var body: some HTML {
+    public var content: some Component {
         GroupBox {
             Text("Chart").as(.h2)
             Text("Loaded when the chart approaches the viewport.").foregroundStyle(.secondary)
@@ -789,10 +852,9 @@ WASM content hash so unchanged artifacts are not recompressed.
 | Topic | Current contract |
 |---|---|
 | Swift version | Keep `Package.swift` at `// swift-tools-version: 6.4`. |
-| `swift-html` | Released dependency: `0.11.1`. Storyboard development can still use a local sibling checkout when present. |
+| `swift-html` | Uses released version `0.13.0` with the `Component.content` / `HTMLDocument` authoring model. |
 | Host compatibility | The `swift-http-server` host stack uses the pinned Swift 6.4 snapshot (see Why Swift 6.4). |
 | WASM compatibility | Browser builds use the matching standard SDK. The matching Embedded SDK is pinned for capability validation but is not a public SwiftWeb browser profile. |
-| Versioned SwiftPM release | Released: every dependency resolves behind a version requirement as of `0.6.0`. |
 
 ## License
 

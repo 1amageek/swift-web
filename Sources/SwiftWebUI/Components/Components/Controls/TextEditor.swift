@@ -22,8 +22,8 @@ public struct TextEditor: AttributeComponent {
         self.attributes = attributes
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         let text = self.text
         // SwiftHTML renders a textarea value binding as text content for SSR,
         // while keeping it as a property binding for client-side patching.

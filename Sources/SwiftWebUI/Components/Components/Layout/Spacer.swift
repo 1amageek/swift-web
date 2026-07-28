@@ -18,8 +18,8 @@ public struct Spacer: AttributeComponent {
         self.attributes = attributes
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         Element("div", attributes: resolvedAttributes)
     }
 

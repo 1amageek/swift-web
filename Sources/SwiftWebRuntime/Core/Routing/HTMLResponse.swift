@@ -2,23 +2,7 @@ import SwiftWebBrowserRuntime
 import SwiftHTML
 import SwiftWebStyle
 
-extension HTML {
-    public func encodePageResponse(for request: Request, metadata: PageMetadata) async throws -> Response {
-        try await PageDocument(metadata: metadata) {
-            self
-        }
-        .encodeResponse(for: request)
-    }
-
-    public func encodePageResponse(
-        for request: Request,
-        metadata: PageMetadata,
-        cache: CachePolicy
-    ) async throws -> Response {
-        let response = try await encodePageResponse(for: request, metadata: metadata)
-        return response.cache(cache)
-    }
-
+extension HTMLDocument {
     public func encodeResponse(for request: Request) async throws -> Response {
         let stateStore = StateStore()
         let baseOptions = SwiftWebRenderOptions.current

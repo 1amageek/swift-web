@@ -74,8 +74,8 @@ public struct Stepper: AttributeComponent {
         self.attributes = attributes
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         let value = self.value
         let step = self.step
         let bounds = self.bounds

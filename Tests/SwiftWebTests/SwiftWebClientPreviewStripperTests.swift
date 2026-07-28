@@ -12,21 +12,23 @@ struct SwiftWebClientPreviewStripperTests {
 
             @Page("/")
             struct HomePage {
-                func body() -> some HTML {
-                    main {
-                        h1 { "Hello World" }
+                var document: some HTMLDocument {
+                    PageDocument(title: "Hello World") {
+                        main {
+                            h1 { "Hello World" }
+                        }
                     }
                 }
             }
 
             #Preview {
-                HomePage().body()
+                HomePage().document.body
             }
             """
         let stripped = SwiftWebClientPreviewStripper.stripHTMLPreview(inSource: source)
 
         #expect(!stripped.contains("#Preview"))
-        #expect(!stripped.contains("HomePage().body()"))
+        #expect(!stripped.contains("HomePage().document.body"))
         #expect(stripped.contains("struct HomePage"))
         #expect(stripped.contains("h1 { \"Hello World\" }"))
         #expect(stripped.contains("import SwiftHTML"))

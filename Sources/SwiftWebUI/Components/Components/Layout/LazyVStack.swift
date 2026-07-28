@@ -2,45 +2,45 @@ import SwiftWebUITheme
 import SwiftHTML
 import SwiftWebStyle
 
-public struct LazyVStack<Content: HTML>: AttributeComponent {
+public struct LazyVStack: AttributeComponent {
     private let gap: StackGap
     private let alignment: HorizontalAlignment
     private let pinnedViews: PinnedScrollableViews
     private let attributes: [HTMLAttribute]
-    private let content: Content
+    private let childContent: ComponentContent
 
-    public init(
+    public init<Content: Component>(
         alignment: HorizontalAlignment = .center,
         spacing: Double? = nil,
         pinnedViews: PinnedScrollableViews = [],
-        @HTMLBuilder content: () -> Content
+        @ComponentBuilder content: () -> Content
     ) {
         self.gap = stackGap(spacing)
         self.alignment = alignment
         self.pinnedViews = pinnedViews
         self.attributes = []
-        self.content = content()
+        self.childContent = HTMLBuilder.buildExpression(content())
     }
 
     /// Token-named spacing convenience over the theme spacing scale.
     /// Disfavored so `spacing: .none` resolves to `Double?.none` (the default
     /// system spacing, matching SwiftUI's `nil`) instead of `Space.none`.
     @_disfavoredOverload
-    public init(
+    public init<Content: Component>(
         alignment: HorizontalAlignment = .center,
         spacing: Space,
         pinnedViews: PinnedScrollableViews = [],
-        @HTMLBuilder content: () -> Content
+        @ComponentBuilder content: () -> Content
     ) {
         self.gap = stackGap(spacing)
         self.alignment = alignment
         self.pinnedViews = pinnedViews
         self.attributes = []
-        self.content = content()
+        self.childContent = HTMLBuilder.buildExpression(content())
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         Element(
             "div",
             attributes: mergedAttributes(
@@ -53,7 +53,7 @@ public struct LazyVStack<Content: HTML>: AttributeComponent {
                 extra: lazyAttributes(axis: "vertical", pinnedViews: pinnedViews) + attributes
             )
         ) {
-            content
+            childContent
         }
     }
 
@@ -63,7 +63,7 @@ public struct LazyVStack<Content: HTML>: AttributeComponent {
             alignment: alignment,
             pinnedViews: pinnedViews,
             attributes: self.attributes + attributes,
-            content: content
+            content: childContent
         )
     }
 
@@ -72,12 +72,12 @@ public struct LazyVStack<Content: HTML>: AttributeComponent {
         alignment: HorizontalAlignment,
         pinnedViews: PinnedScrollableViews,
         attributes: [HTMLAttribute],
-        content: Content
+        content: ComponentContent
     ) {
         self.gap = gap
         self.alignment = alignment
         self.pinnedViews = pinnedViews
         self.attributes = attributes
-        self.content = content
+        self.childContent = content
     }
 }

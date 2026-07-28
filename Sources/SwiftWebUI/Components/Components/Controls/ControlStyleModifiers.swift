@@ -62,42 +62,42 @@ public enum TabViewStyleKind: String, Sendable, Equatable {
     case page
 }
 
-public extension HTML {
-    func toggleStyle(_ style: ToggleStyleKind) -> some HTML {
+public extension Component {
+    func toggleStyle(_ style: ToggleStyleKind) -> some Component {
         transformEnvironment({ $0.toggleStyle = style })
     }
 
-    func textFieldStyle(_ style: TextFieldStyleKind) -> some HTML {
+    func textFieldStyle(_ style: TextFieldStyleKind) -> some Component {
         transformEnvironment({ $0.textFieldStyle = style })
     }
 
-    func labelStyle(_ style: LabelStyleKind) -> some HTML {
+    func labelStyle(_ style: LabelStyleKind) -> some Component {
         transformEnvironment({ $0.labelStyle = style })
     }
 
-    func listStyle(_ style: ListStyleKind) -> some HTML {
+    func listStyle(_ style: ListStyleKind) -> some Component {
         transformEnvironment({ $0.listStyle = style })
     }
 
-    func formStyle(_ style: FormStyleKind) -> some HTML {
+    func formStyle(_ style: FormStyleKind) -> some Component {
         transformEnvironment({ $0.formStyle = style })
     }
 
-    func menuStyle(_ style: MenuStyleKind) -> some HTML {
+    func menuStyle(_ style: MenuStyleKind) -> some Component {
         transformEnvironment({ $0.menuStyle = style })
     }
 
     func progressViewStyle(
         _ style: ProgressViewStyleKind
-    ) -> some HTML {
+    ) -> some Component {
         transformEnvironment({ $0.progressViewStyle = style })
     }
 
-    func gaugeStyle(_ style: GaugeStyleKind) -> some HTML {
+    func gaugeStyle(_ style: GaugeStyleKind) -> some Component {
         transformEnvironment({ $0.gaugeStyle = style })
     }
 
-    func tabViewStyle(_ style: TabViewStyleKind) -> some HTML {
+    func tabViewStyle(_ style: TabViewStyleKind) -> some Component {
         transformEnvironment({ $0.tabViewStyle = style })
     }
 }

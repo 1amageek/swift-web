@@ -31,42 +31,6 @@ public enum JavaScriptKitBrowserRuntime {
     public static func installExecutor() {
     }
 
-    // Atomic class names already injected into <style id="swui-atomic">, so each rule
-    // is added once across re-renders. Single-threaded (WASI), but Mutex keeps it
-    // Sendable-correct.
-    private static let injectedAtomicClasses = Mutex<Set<String>>([])
-
-    /// Append not-yet-injected atomic rules into the live `<style id="swui-atomic">`,
-    /// so a class produced by a client re-render (e.g. a new arbitrary value from a
-    /// control change) has its rule present in the document.
-    public static func flushAtomicRules(_ rules: [(className: String, body: String)]) {
-        let element = atomicStyleElement()
-        let existing = element.textContent.string ?? ""
-        let fresh = injectedAtomicClasses.withLock { injected in
-            rules.filter { rule in
-                guard !existing.contains(".\(rule.className) ") else {
-                    injected.insert(rule.className)
-                    return false
-                }
-                return injected.insert(rule.className).inserted
-            }
-        }
-        guard !fresh.isEmpty else { return }
-        let css = fresh.map { ".\($0.className) { \($0.body) }" }.joined()
-        element.textContent = .string(existing + css)
-    }
-
-    private static func atomicStyleElement() -> JSObject {
-        if let element = document.getElementById("swui-atomic").object {
-            return element
-        }
-        let element = document.createElement("style").object!
-        // JSObject dynamic methods are optional callables in the JavaScriptKit fork.
-        _ = element.setAttribute!("id", "swui-atomic")
-        _ = document.head.appendChild(element)
-        return element
-    }
-
     public static func apply(
         _ batch: BrowserDOMCommandBatch,
         hydrationIndex: BrowserHydrationIndex

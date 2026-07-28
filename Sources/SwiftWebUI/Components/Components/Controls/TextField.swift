@@ -1,7 +1,7 @@
 import SwiftWebUITheme
 import SwiftHTML
 
-public struct TextField<Label: HTML>: AttributeComponent {
+public struct TextField<Label: Component>: AttributeComponent {
     private let label: Label
     private let placeholder: String?
     private let type: InputType
@@ -36,8 +36,8 @@ public struct TextField<Label: HTML>: AttributeComponent {
         self.attributes = attributes
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         Element("label", attributes: [.class("swui-field \(LayoutClass.fillHorizontal)")]) {
             span(.class("swui-field-label")) {
                 label

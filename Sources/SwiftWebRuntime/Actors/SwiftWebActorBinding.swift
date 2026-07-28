@@ -207,29 +207,6 @@ public struct SwiftWebActorBindingScope: Sendable {
 }
 
 public enum SwiftWebActorBindingContext {
-    #if hasFeature(Embedded)
-    nonisolated(unsafe) public static var current: SwiftWebActorBindingScope?
-
-    public static func withValue<Result>(
-        _ value: SwiftWebActorBindingScope,
-        operation: () throws -> Result
-    ) rethrows -> Result {
-        let previous = current
-        current = value
-        defer { current = previous }
-        return try operation()
-    }
-
-    public static func withValue<Result: Sendable>(
-        _ value: SwiftWebActorBindingScope,
-        operation: @Sendable () async throws -> Result
-    ) async rethrows -> Result {
-        let previous = current
-        current = value
-        defer { current = previous }
-        return try await operation()
-    }
-    #else
     @TaskLocal public static var current: SwiftWebActorBindingScope?
 
     public static func withValue<Result>(
@@ -245,7 +222,6 @@ public enum SwiftWebActorBindingContext {
     ) async rethrows -> Result {
         try await $current.withValue(value, operation: operation)
     }
-    #endif
 }
 
 public enum SwiftWebActorBinding {

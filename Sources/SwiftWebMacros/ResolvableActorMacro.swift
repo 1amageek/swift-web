@@ -69,16 +69,21 @@ public struct ResolvableActorMacro: ExtensionMacro {
     }
 
     private static func normalizedExistentialType(_ source: String) -> String {
-        var value = source.trimmingCharacters(in: .whitespacesAndNewlines)
+        var value = trimWhitespace(source)
         if value.hasPrefix("("), value.hasSuffix(")") {
             value.removeFirst()
             value.removeLast()
-            value = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            value = trimWhitespace(value)
         }
         if value.hasPrefix("any ") {
             value.removeFirst("any ".count)
         }
-        return value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimWhitespace(value)
+    }
+
+    private static func trimWhitespace(_ source: String) -> String {
+        let withoutLeadingWhitespace = source.drop(while: { $0.isWhitespace })
+        return String(withoutLeadingWhitespace.reversed().drop(while: { $0.isWhitespace }).reversed())
     }
 
     private static func stubType(for contract: String) -> String {

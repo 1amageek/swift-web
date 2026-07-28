@@ -13,8 +13,8 @@ public struct AnimationModifier: ComponentModifier {
         self.animation = animation
     }
 
-    @HTMLBuilder
-    public func body(content: ModifierContent) -> some HTML {
+    @ComponentBuilder
+    public func content(_ content: ModifierContent) -> some Component {
         div(.class("swui-animation-scope"), styleAttribute(.custom("--swui-animation", cssValue))) {
             content
         }
@@ -27,7 +27,7 @@ public struct AnimationModifier: ComponentModifier {
     }
 }
 
-public extension HTML {
+public extension Component {
     /// Applies the given animation to value-driven changes within this subtree.
     ///
     /// The web lowering publishes the animation as the inherited
@@ -37,7 +37,7 @@ public extension HTML {
     func animation(
         _ animation: Animation?,
         value: some Equatable
-    ) -> ModifiedContent<Self, AnimationModifier> {
+    ) -> ModifiedContent {
         modifier(AnimationModifier(animation))
     }
 }

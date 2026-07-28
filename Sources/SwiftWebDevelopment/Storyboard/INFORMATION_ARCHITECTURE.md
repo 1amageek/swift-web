@@ -61,7 +61,7 @@ StoryboardComponent {
     controls:   [Control]                 // ③ control panel knobs
     properties: [Property]                // ⑥ name, type, description
     related:    [String]                  // ⑦ sibling ids
-    demo:       (State) -> some HTML       // ③ live preview, reads State
+    demo:       (State) -> some Component       // ③ live preview, reads State
     snippet:    (State) -> String         // ④ usage example, reads State
 }
 ```

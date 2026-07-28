@@ -7,10 +7,10 @@ import SwiftHTML
 /// closes without any client runtime. The summary is interactive glass; the
 /// floating panel composes the shared `regularMaterial` recipe, matching the
 /// other overlay chrome.
-public struct Menu<Label: HTML, Content: HTML>: AttributeComponent {
+public struct Menu<Label: Component, Content: Component>: AttributeComponent {
     private let attributes: [HTMLAttribute]
     private let label: Label
-    private let content: Content
+    private let childContent: Content
     @Environment({ $0.menuStyle }) private var menuStyle: MenuStyleKind
 
     public init(
@@ -18,12 +18,12 @@ public struct Menu<Label: HTML, Content: HTML>: AttributeComponent {
         @HTMLBuilder label: () -> Label
     ) {
         self.attributes = []
-        self.content = content()
+        self.childContent = content()
         self.label = label()
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         Element(
             "details",
             attributes: mergedAttributes(class: controlClassName("swui-menu", menuStyle.className), extra: attributes)
@@ -45,26 +45,24 @@ public struct Menu<Label: HTML, Content: HTML>: AttributeComponent {
                     .class("swui-menu-content \(MaterialClass.material) \(MaterialClass.regular)"),
                 ]
             ) {
-                content
+                childContent
             }
         }
     }
 
     public func addingAttributes(_ attributes: [HTMLAttribute]) -> Self {
-        Self(attributes: self.attributes + attributes, content: content, label: label)
+        Self(attributes: self.attributes + attributes, content: childContent, label: label)
     }
 
     private init(attributes: [HTMLAttribute], content: Content, label: Label) {
         self.attributes = attributes
-        self.content = content
+        self.childContent = content
         self.label = label
     }
 }
 
 public extension Menu where Label == text {
     init(_ title: String, @HTMLBuilder content: () -> Content) {
-        self.init(content: content) {
-            title
-        }
+        self.init(attributes: [], content: content(), label: text(title))
     }
 }

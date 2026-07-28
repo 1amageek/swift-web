@@ -12,9 +12,9 @@ extension EnvironmentValues {
     }
 }
 
-public struct NavigationStack<Content: HTML>: AttributeComponent {
+public struct NavigationStack<Content: Component>: AttributeComponent {
     private let path: Binding<NavigationPath>?
-    private let content: Content
+    private let childContent: Content
     private let attributes: [HTMLAttribute]
 
     public init(
@@ -24,11 +24,11 @@ public struct NavigationStack<Content: HTML>: AttributeComponent {
     ) {
         self.path = path
         self.attributes = attributes
-        self.content = root()
+        self.childContent = root()
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         Element(
             "nav",
             attributes: mergedAttributes(
@@ -36,19 +36,19 @@ public struct NavigationStack<Content: HTML>: AttributeComponent {
                 extra: navigationAttributes + attributes
             )
         ) {
-            content
+            childContent
                 .transformEnvironment({ $0.navigationPathSegments = path?.wrappedValue.components })
         }
     }
 
     public func addingAttributes(_ attributes: [HTMLAttribute]) -> Self {
-        Self(path: path, attributes: self.attributes + attributes, content: content)
+        Self(path: path, attributes: self.attributes + attributes, content: childContent)
     }
 
     private init(path: Binding<NavigationPath>?, attributes: [HTMLAttribute], content: Content) {
         self.path = path
         self.attributes = attributes
-        self.content = content
+        self.childContent = content
     }
 
     private var navigationAttributes: [HTMLAttribute] {

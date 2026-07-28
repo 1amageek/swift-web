@@ -1,4 +1,4 @@
-import CryptoKit
+import Crypto
 import Foundation
 
 package struct SwiftWebWasmCompressionCache: Sendable, Codable, Equatable {

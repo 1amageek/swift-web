@@ -1,7 +1,9 @@
 import SwiftWebDevelopmentHooks
 import SwiftWebPackageGeneration
 import SwiftWebWasmBuild
+#if canImport(CoreServices)
 import CoreServices
+#endif
 import Foundation
 import Synchronization
 
@@ -104,6 +106,7 @@ private final class SwiftWebDevPendingEventFlag: Sendable {
     }
 }
 
+#if canImport(CoreServices)
 private final class SwiftWebDevFileEventStream: Sendable {
     private struct State {
         var streamAddress: UInt?
@@ -205,6 +208,17 @@ private final class SwiftWebDevFileEventStream: Sendable {
         stream.onChange()
     }
 }
+#else
+private final class SwiftWebDevFileEventStream: Sendable {
+    init(roots: [URL], onChange: @escaping @Sendable () -> Void) {}
+
+    func start() -> Bool {
+        false
+    }
+
+    func stop() {}
+}
+#endif
 
 private struct SwiftWebDevFileSnapshotKey: Hashable {
     let rootPath: String

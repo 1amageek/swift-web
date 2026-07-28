@@ -191,11 +191,13 @@ public var body: some Scene {
 struct AccountPage {
     @Session var session
 
-    func body() -> some HTML {
-        if session.isAuthenticated {
-            AccountView()
-        } else {
-            LoginView()
+    var document: some HTMLDocument {
+        PageDocument(title: "Account") {
+            if session.isAuthenticated {
+                AccountView()
+            } else {
+                LoginView()
+            }
         }
     }
 }
@@ -204,7 +206,7 @@ struct AccountPage {
 | Surface | Evaluation time | Session access |
 |---|---|---|
 | `Scene.body` | App build / host lowering time. | Use policy descriptors such as `.restrict(...)`. |
-| `Page.body` | Request time. | Read `@Session` directly. |
+| `Page.document` / `Page.document(_:)` | Request time. | Read `@Session` directly. |
 | Server action | Request time. | Read and mutate session state directly. |
 | Worker method | Event time. | Read session only when passed through an explicit event/request context. |
 
@@ -241,7 +243,7 @@ public var body: some Scene {
 | Contract | Required behavior |
 |---|---|
 | Attachment surface | Available on `Page`, `PageGroup`, and other route-bearing scenes. |
-| Evaluation timing | After route match, before `Page.load`, `Page.body`, streaming setup, upload handling, or action invocation. |
+| Evaluation timing | After route match, before `Page.load`, document production, streaming setup, upload handling, or action invocation. |
 | Inheritance | Parent policy applies to nested scenes; child policies compose with parent policies. |
 | Composition | Default composition is conjunctive: every inherited policy must allow the request. |
 | Denial modes | Redirect for navigational pages; `401` for unauthenticated API/action requests; `403` for authenticated-but-forbidden requests. |
@@ -251,7 +253,7 @@ public var body: some Scene {
 | Anti-pattern | Replacement |
 |---|---|
 | Reading `@Session` in `Scene.body`. | Use `.restrict(...)` on the scene graph. |
-| Copying auth checks into every page body. | Put the shared policy on `PageGroup`. |
+| Copying auth checks into every page document. | Put the shared policy on `PageGroup`. |
 | Returning different app topology per user. | Keep topology stable and branch at request-time policy evaluation. |
 | Exposing host request/session objects in policy APIs. | Keep policy APIs on `WebSession` and SwiftWeb-owned request context. |
 

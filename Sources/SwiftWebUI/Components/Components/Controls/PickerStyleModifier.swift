@@ -8,14 +8,14 @@ public struct PickerStyleModifier: ComponentModifier {
         self.style = style
     }
 
-    @HTMLBuilder
-    public func body(content: ModifierContent) -> some HTML {
+    @ComponentBuilder
+    public func content(_ content: ModifierContent) -> some Component {
         content.transformEnvironment({ $0.pickerStyle = style })
     }
 }
 
-public extension HTML {
-    func pickerStyle(_ style: PickerStyleKind) -> ModifiedContent<Self, PickerStyleModifier> {
+public extension Component {
+    func pickerStyle(_ style: PickerStyleKind) -> ModifiedContent {
         modifier(PickerStyleModifier(style))
     }
 }

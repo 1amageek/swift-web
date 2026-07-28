@@ -35,12 +35,12 @@ extension EnvironmentValues {
 /// `:has(.swui-tab-input:checked)`, so tab switching needs no client runtime;
 /// the enclosing `TabView` keeps the selection binding in sync through one
 /// delegated change handler.
-public struct Tab<Content: HTML>: AttributeComponent {
+public struct Tab<Content: Component>: AttributeComponent {
     private let title: String
     private let systemImage: String?
     private let value: String
     private let attributes: [HTMLAttribute]
-    private let content: Content
+    private let childContent: Content
 
     @Environment({ $0.tabSelection }) private var tabSelection: String?
     @Environment({ $0.tabGroupName }) private var tabGroupName: String?
@@ -56,7 +56,7 @@ public struct Tab<Content: HTML>: AttributeComponent {
         self.systemImage = nil
         self.value = value
         self.attributes = attributes
-        self.content = content()
+        self.childContent = content()
     }
 
     public init(
@@ -70,11 +70,11 @@ public struct Tab<Content: HTML>: AttributeComponent {
         self.systemImage = systemImage
         self.value = value
         self.attributes = attributes
-        self.content = content()
+        self.childContent = content()
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         // The tab button is interactive glass; the active state fills with the
         // accent. The panel composes no chrome of its own — it hosts the tab's
         // content and is shown only when this tab's radio is checked.
@@ -114,7 +114,7 @@ public struct Tab<Content: HTML>: AttributeComponent {
                     .aria("labelledby", tabControlID),
                 ]
             ) {
-                content
+                childContent
             }
         }
     }
@@ -125,7 +125,7 @@ public struct Tab<Content: HTML>: AttributeComponent {
             systemImage: systemImage,
             value: value,
             attributes: self.attributes + attributes,
-            content: content
+            content: childContent
         )
     }
 
@@ -140,7 +140,7 @@ public struct Tab<Content: HTML>: AttributeComponent {
         self.systemImage = systemImage
         self.value = value
         self.attributes = attributes
-        self.content = content
+        self.childContent = content
     }
 
     // Stable ids that wire each tab to its panel (`aria-controls`) and back

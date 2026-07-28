@@ -40,7 +40,7 @@ public struct StoryboardDetailIsland: ClientComponent {
         self.selection = catalogSelectionID(for: initialSelection)
     }
 
-    public var body: some HTML {
+    public var content: some Component {
         VStack(alignment: .leading, spacing: .large) {
             previewSection()
             codeSection(
@@ -70,14 +70,14 @@ public struct StoryboardDetailIsland: ClientComponent {
         return pathComponents[selectionIndex]
     }
 
-    private func sectionTitle(_ title: String, anchor: String) -> some HTML {
+    private func sectionTitle(_ title: String, anchor: String) -> some Component {
         Text(title, .id(anchor)).as(.h2)
             .font(.headline)
             .fontWeight(.semibold)
     }
 
     @HTMLBuilder
-    private func previewSection() -> some HTML {
+    private func previewSection() -> some Component {
         VStack(alignment: .leading, spacing: .small) {
             sectionTitle("Playground", anchor: "preview")
             Text("Drive the live component; the usage snippet follows every knob.")
@@ -100,7 +100,7 @@ public struct StoryboardDetailIsland: ClientComponent {
         text: String,
         language: String,
         showsLineNumbers: Bool
-    ) -> some HTML {
+    ) -> some Component {
         VStack(alignment: .leading, spacing: .small) {
             sectionTitle(title, anchor: anchor)
             Code(language: language, showsLineNumbers: showsLineNumbers) { text }
@@ -109,7 +109,7 @@ public struct StoryboardDetailIsland: ClientComponent {
     }
 
     @HTMLBuilder
-    private func domContractSection() -> some HTML {
+    private func domContractSection() -> some Component {
         VStack(alignment: .leading, spacing: .small) {
             div(.class("swui-storyboard-section-rule")) { EmptyHTML() }
             DisclosureGroup {
@@ -156,7 +156,7 @@ public struct StoryboardDetailIsland: ClientComponent {
     }
 
     @HTMLBuilder
-    private func detailDemo() -> some HTML {
+    private func detailDemo() -> some Component {
         switch selection {
         case "gridsystem", "spacing", "alignment", "style", "responsive", "safearea", "materials":
             FoundationsDetail(selection: selection, state: ui)

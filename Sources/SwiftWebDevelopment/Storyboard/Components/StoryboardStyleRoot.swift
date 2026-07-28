@@ -1,15 +1,15 @@
 import SwiftHTML
 import SwiftWebStyle
 
-struct StoryboardStyleRoot<Content: HTML>: Component {
-    private let content: Content
+struct StoryboardStyleRoot<Content: Component>: Component {
+    private let childContent: Content
 
     init(@HTMLBuilder content: () -> Content) {
-        self.content = content()
+        self.childContent = content()
     }
 
-    @HTMLBuilder
-    var body: some HTML {
+    @ComponentBuilder
+    var content: some Component {
         if let registry = StyleRegistry.current {
             let _ = registry.registerStylesheet(StoryboardStylesheet.css)
             let _ = registry.registerScript(id: "swui-storyboard-scheme", body: StoryboardSchemeScript.script)
@@ -20,7 +20,7 @@ struct StoryboardStyleRoot<Content: HTML>: Component {
             }
             rawHTML("<script>\(StoryboardSchemeScript.script)</script>")
         }
-        content
+        childContent
     }
 }
 

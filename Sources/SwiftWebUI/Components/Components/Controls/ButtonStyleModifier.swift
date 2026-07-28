@@ -8,14 +8,14 @@ public struct ButtonStyleModifier: ComponentModifier {
         self.style = style
     }
 
-    @HTMLBuilder
-    public func body(content: ModifierContent) -> some HTML {
+    @ComponentBuilder
+    public func content(_ content: ModifierContent) -> some Component {
         content.transformEnvironment({ $0.buttonStyle = style })
     }
 }
 
-public extension HTML {
-    func buttonStyle(_ style: ButtonStyleKind) -> ModifiedContent<Self, ButtonStyleModifier> {
+public extension Component {
+    func buttonStyle(_ style: ButtonStyleKind) -> ModifiedContent {
         modifier(ButtonStyleModifier(style))
     }
 }

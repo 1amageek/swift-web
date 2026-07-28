@@ -9,7 +9,7 @@ struct LayoutDetail: Component {
     /// Shared control-panel state, keyed "componentID.knob".
     var state: [String: String] = [:]
 
-    var body: some HTML {
+    var content: some Component {
         switch selection {
         case "spacer":
             spacerDemo(state.control("spacer", "pos"), axis: state.control("spacer", "axis"))
@@ -23,7 +23,7 @@ struct LayoutDetail: Component {
     }
 
     @HTMLBuilder
-    private func stacksDemo(_ axis: String) -> some HTML {
+    private func stacksDemo(_ axis: String) -> some Component {
         switch axis {
         case "v":
             VStack(spacing: .small) {
@@ -48,7 +48,7 @@ struct LayoutDetail: Component {
     }
 
     @HTMLBuilder
-    private func spacerDemo(_ pos: String, axis: String) -> some HTML {
+    private func spacerDemo(_ pos: String, axis: String) -> some Component {
         if axis == "vertical" {
             VStack(alignment: .leading, spacing: .small) {
                 spacerContent(pos)
@@ -63,7 +63,7 @@ struct LayoutDetail: Component {
     }
 
     @HTMLBuilder
-    private func spacerContent(_ pos: String) -> some HTML {
+    private func spacerContent(_ pos: String) -> some Component {
         switch pos {
         case "leading":
             Spacer()
@@ -87,7 +87,7 @@ struct LayoutDetail: Component {
     }
 
     @HTMLBuilder
-    private func dividerDemo(_ orientation: String, constrained: Bool) -> some HTML {
+    private func dividerDemo(_ orientation: String, constrained: Bool) -> some Component {
         if orientation == "vertical" {
             HStack(spacing: .medium) {
                 Text("Edit")
@@ -108,7 +108,7 @@ struct LayoutDetail: Component {
     }
 
     @HTMLBuilder
-    private func dividerElement(constrained: Bool, vertical: Bool) -> some HTML {
+    private func dividerElement(constrained: Bool, vertical: Bool) -> some Component {
         if constrained {
             if vertical {
                 Divider().frame(height: 32)
@@ -121,7 +121,7 @@ struct LayoutDetail: Component {
     }
 
     @HTMLBuilder
-    private func hugFillDemo(fill: Bool, align: String, context: String) -> some HTML {
+    private func hugFillDemo(fill: Bool, align: String, context: String) -> some Component {
         // Hug sizes the control to its content; fill makes the frame greedy while
         // the control keeps its intrinsic size, positioned by the alignment.
         if context == "row" {
@@ -139,7 +139,7 @@ struct LayoutDetail: Component {
     }
 
     @HTMLBuilder
-    private func hugFillButton(fill: Bool, align: String, label: String) -> some HTML {
+    private func hugFillButton(fill: Bool, align: String, label: String) -> some Component {
         if fill {
             Button(label).buttonStyle(.borderedProminent)
                 .frame(maxWidth: .infinity, alignment: hugAlignment(align))

@@ -4,26 +4,14 @@ import SwiftWebUI
 
 @Page("/storyboard")
 struct StoryboardPage {
-    var title: String {
-        get async {
-            "SwiftWebUI Storyboard"
+    var document: some HTMLDocument {
+        PageDocument(
+            title: "SwiftWebUI Storyboard",
+            description: "A theme catalog of every SwiftWebUI component.",
+            bodyClass: "swui-viewport"
+        ) {
+            StoryboardCatalog(scheme: StoryboardSchemePreference.currentFromRequest())
         }
-    }
-
-    var description: String? {
-        get async {
-            "A theme catalog of every SwiftWebUI component."
-        }
-    }
-
-    // The catalog is a fixed, viewport-filling app shell whose columns scroll
-    // internally, so the page opts into the viewport body surface.
-    var bodyClass: String? {
-        "swui-viewport"
-    }
-
-    func body() -> some HTML {
-        StoryboardCatalog(scheme: StoryboardSchemePreference.currentFromRequest())
     }
 }
 
@@ -37,30 +25,18 @@ struct StoryboardSelectionPage {
         catalogSelectionID(for: params.selection)
     }
 
-    var title: String {
-        get async {
-            if let item = catalogItem(for: selectionID) {
-                return "\(item.name) - SwiftWebUI Storyboard"
-            }
-            return "SwiftWebUI Storyboard"
+    var document: some HTMLDocument {
+        let item = catalogItem(for: selectionID)
+        return PageDocument(
+            title: item.map { "\($0.name) - SwiftWebUI Storyboard" } ?? "SwiftWebUI Storyboard",
+            description: item?.summary,
+            bodyClass: "swui-viewport"
+        ) {
+            StoryboardCatalog(
+                initialSelection: selectionID,
+                scheme: StoryboardSchemePreference.currentFromRequest()
+            )
         }
-    }
-
-    var description: String? {
-        get async {
-            catalogItem(for: selectionID)?.summary
-        }
-    }
-
-    var bodyClass: String? {
-        "swui-viewport"
-    }
-
-    func body() -> some HTML {
-        StoryboardCatalog(
-            initialSelection: selectionID,
-            scheme: StoryboardSchemePreference.currentFromRequest()
-        )
     }
 }
 

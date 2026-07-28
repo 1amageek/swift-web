@@ -57,7 +57,14 @@ final class SwiftWebDevWorkerRegistry: Sendable {
     }
 
     func markRestarting(message: String, detail: String? = nil) {
-        updateStatus(phase: "restarting", message: message, detail: detail)
+        state.withLock { state in
+            state.activeTarget = nil
+            state.status = SwiftWebDevHostStatus(
+                phase: "restarting",
+                message: message,
+                detail: detail
+            )
+        }
     }
 
     func markUnavailable(message: String, detail: String? = nil) {

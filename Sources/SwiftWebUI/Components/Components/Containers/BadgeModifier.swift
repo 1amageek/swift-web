@@ -1,14 +1,14 @@
 import SwiftWebUITheme
 import SwiftHTML
 
-public extension HTML {
+public extension Component {
     /// Displays a trailing badge next to this view, mirroring SwiftUI's
     /// `badge(_:)`. Passing `nil` or an empty string shows no badge.
     ///
     /// The wrapper is layout-transparent (`display: contents`), so inside a
     /// list row or any horizontal flow the pill sits at the trailing edge.
     @HTMLBuilder
-    func badge(_ label: String?) -> some HTML {
+    func badge(_ label: String?) -> some Component {
         if let label, !label.isEmpty {
             Element(
                 "div",
@@ -24,7 +24,7 @@ public extension HTML {
 
     /// Displays a trailing numeric badge; `0` hides the badge, matching
     /// SwiftUI's count semantics.
-    func badge(_ count: Int) -> some HTML {
+    func badge(_ count: Int) -> some Component {
         badge(count == 0 ? nil : String(count))
     }
 }
@@ -43,8 +43,8 @@ struct BadgePill: Component {
         self.attributes = attributes
     }
 
-    @HTMLBuilder
-    var body: some HTML {
+    @ComponentBuilder
+    var content: some Component {
         Element(
             "span",
             attributes: mergedAttributes(

@@ -2,7 +2,7 @@ import SwiftWebUITheme
 import SwiftWebStyle
 import SwiftHTML
 
-public extension HTML {
+public extension Component {
     /// Sets the color scheme for the rendered document.
     ///
     /// This matches SwiftUI's presentation semantics: the preference applies to
@@ -16,7 +16,7 @@ public extension HTML {
     /// that environment to its own subtree so reads below it stay consistent
     /// with the document.
     @HTMLBuilder
-    func preferredColorScheme(_ colorScheme: ColorScheme?) -> some HTML {
+    func preferredColorScheme(_ colorScheme: ColorScheme?) -> some Component {
         let _ = DocumentStyle.current?.recordPreferredColorScheme(colorScheme?.rawValue)
         if let colorScheme {
             transformEnvironment({ $0.colorScheme = colorScheme })

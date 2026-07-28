@@ -91,8 +91,8 @@ public struct OnChangeModifier<Value: Equatable & CodableWhenAvailable & Sendabl
         self._previousValue = State(wrappedValue: .absent)
     }
 
-    @HTMLBuilder
-    public func body(content: ModifierContent) -> some HTML {
+    @ComponentBuilder
+    public func content(_ content: ModifierContent) -> some Component {
         let _ = observeChange()
         Element(
             "div",
@@ -123,24 +123,24 @@ public struct OnChangeModifier<Value: Equatable & CodableWhenAvailable & Sendabl
     }
 }
 
-public extension HTML {
+public extension Component {
     func onSubmit(
         of triggers: SubmitTriggers = .text,
         _ action: @escaping @Sendable () -> Void
-    ) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    ) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             .data("submit-triggers", triggers.cssName),
             .onSubmit { _ in action() },
         ], role: .semantic))
     }
 
-    func submitScope(_ isBlocking: Bool = true) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func submitScope(_ isBlocking: Bool = true) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             .data("submit-scope", isBlocking ? "blocking" : "nonblocking")
         ], role: .semantic))
     }
 
-    func focused(_ condition: FocusState<Bool>.Binding) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func focused(_ condition: FocusState<Bool>.Binding) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             .event("focusin") { _ in condition.wrappedValue = true },
             .event("focusout") { _ in condition.wrappedValue = false },
@@ -150,7 +150,7 @@ public extension HTML {
     func focused<Value>(
         _ binding: FocusState<Value?>.Binding,
         equals value: Value
-    ) -> ModifiedContent<Self, HTMLAttributeModifier> where Value: Hashable & CodableWhenAvailable & Sendable {
+    ) -> ModifiedContent where Value: Hashable & CodableWhenAvailable & Sendable {
         modifier(HTMLAttributeModifier([
             .event("focusin") { _ in binding.wrappedValue = value },
             .event("focusout") { _ in
@@ -161,7 +161,7 @@ public extension HTML {
         ], role: .semantic))
     }
 
-    func focusable(_ isFocusable: Bool = true) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func focusable(_ isFocusable: Bool = true) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             HTMLAttribute("tabindex", isFocusable ? "0" : "-1"),
             .data("focusable", isFocusable ? "true" : "false"),
@@ -172,7 +172,7 @@ public extension HTML {
         of value: Value,
         initial: Bool = false,
         _ action: @escaping @Sendable (Value, Value) -> Void
-    ) -> ModifiedContent<Self, OnChangeModifier<Value>> where Value: Equatable & CodableWhenAvailable & Sendable {
+    ) -> ModifiedContent where Value: Equatable & CodableWhenAvailable & Sendable {
         modifier(OnChangeModifier(value: value, initial: initial, action: action))
     }
 
@@ -180,7 +180,7 @@ public extension HTML {
         of value: Value,
         initial: Bool = false,
         _ action: @escaping @Sendable () -> Void
-    ) -> ModifiedContent<Self, OnChangeModifier<Value>> where Value: Equatable & CodableWhenAvailable & Sendable {
+    ) -> ModifiedContent where Value: Equatable & CodableWhenAvailable & Sendable {
         onChange(of: value, initial: initial) { _, _ in
             action()
         }

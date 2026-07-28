@@ -1,12 +1,12 @@
 import SwiftWebUITheme
 import SwiftHTML
 
-public struct Grid<Content: HTML>: AttributeComponent {
+public struct Grid<Content: Component>: AttributeComponent {
     private let alignment: Alignment
     private let horizontalSpacing: Double?
     private let verticalSpacing: Double?
     private let attributes: [HTMLAttribute]
-    private let content: Content
+    private let childContent: Content
     private let columnCount: Int
 
     public init(
@@ -20,12 +20,12 @@ public struct Grid<Content: HTML>: AttributeComponent {
         self.horizontalSpacing = horizontalSpacing
         self.verticalSpacing = verticalSpacing
         self.attributes = []
-        self.content = gridContent.content
+        self.childContent = gridContent.content
         self.columnCount = Swift.max(1, gridContent.maximumColumnCount)
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         Element(
             "div",
             attributes: mergedAttributes(
@@ -40,7 +40,7 @@ public struct Grid<Content: HTML>: AttributeComponent {
                 extra: attributes
             )
         ) {
-            content
+            childContent
         }
     }
 
@@ -50,7 +50,7 @@ public struct Grid<Content: HTML>: AttributeComponent {
             horizontalSpacing: horizontalSpacing,
             verticalSpacing: verticalSpacing,
             attributes: self.attributes + attributes,
-            content: content,
+            content: childContent,
             columnCount: columnCount
         )
     }
@@ -67,7 +67,7 @@ public struct Grid<Content: HTML>: AttributeComponent {
         self.horizontalSpacing = horizontalSpacing
         self.verticalSpacing = verticalSpacing
         self.attributes = attributes
-        self.content = content
+        self.childContent = content
         self.columnCount = columnCount
     }
 }

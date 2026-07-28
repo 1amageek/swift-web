@@ -26,21 +26,6 @@ struct WasmRuntimeSourceMirror: Sendable {
     )
   }
 
-  func copyEmbeddedSources(
-    swiftHTMLPackageDirectory: URL?,
-    swiftWebPackageDirectory: URL
-  ) throws {
-    try copySwiftHTMLClientRuntimeSources(
-      swiftHTMLPackageDirectory: swiftHTMLPackageDirectory,
-      swiftWebPackageDirectory: swiftWebPackageDirectory,
-      to: wasmPackageDirectory
-    )
-    try copyJavaScriptKitRuntimeSources(
-      swiftWebPackageDirectory: swiftWebPackageDirectory,
-      to: wasmPackageDirectory
-    )
-  }
-
   func removeStaleWasmSourceTargets(keeping names: Set<String>) throws {
     let sourcesDirectory = wasmPackageDirectory.appendingPathComponent("Sources", isDirectory: true)
     guard FileManager.default.fileExists(atPath: sourcesDirectory.path) else {
@@ -130,31 +115,6 @@ struct WasmRuntimeSourceMirror: Sendable {
     )
   }
 
-  private func copySwiftHTMLClientRuntimeSources(
-    swiftHTMLPackageDirectory: URL?,
-    swiftWebPackageDirectory: URL,
-    to packageDirectory: URL
-  ) throws {
-    let sourceDirectory = try swiftHTMLClientRuntimeSourceDirectory(
-      swiftHTMLPackageDirectory: swiftHTMLPackageDirectory,
-      swiftWebPackageDirectory: swiftWebPackageDirectory
-    )
-    let destinationDirectory =
-      packageDirectory
-      .appendingPathComponent("Sources", isDirectory: true)
-      .appendingPathComponent("SwiftHTMLClientRuntime", isDirectory: true)
-    try FileManager.default.createDirectory(
-      at: destinationDirectory,
-      withIntermediateDirectories: true
-    )
-    try fileWriter.mirrorDirectoryContents(
-      from: sourceDirectory,
-      to: destinationDirectory,
-      relativePath: "",
-      shouldSkip: { _ in false }
-    )
-  }
-
   private func swiftHTMLSourceDirectory(
     swiftHTMLPackageDirectory: URL?,
     swiftWebPackageDirectory: URL
@@ -168,23 +128,6 @@ struct WasmRuntimeSourceMirror: Sendable {
       return candidate
     }
     throw SwiftWebGeneratedPackageMaterializerError.swiftHTMLRuntimeSourcesNotFound(candidates)
-  }
-
-  private func swiftHTMLClientRuntimeSourceDirectory(
-    swiftHTMLPackageDirectory: URL?,
-    swiftWebPackageDirectory: URL
-  ) throws -> URL {
-    let candidates = Self.swiftHTMLClientRuntimeSourceDirectoryCandidates(
-      swiftHTMLPackageDirectory: swiftHTMLPackageDirectory,
-      appPackageDirectory: appPackageDirectory,
-      swiftWebPackageDirectory: swiftWebPackageDirectory
-    )
-    for candidate in candidates where Self.isSwiftHTMLClientRuntimeSourceDirectory(candidate) {
-      return candidate
-    }
-    throw SwiftWebGeneratedPackageMaterializerError.swiftHTMLClientRuntimeSourcesNotFound(
-      candidates
-    )
   }
 
   private static func swiftHTMLSourceDirectoryCandidates(
@@ -224,43 +167,6 @@ struct WasmRuntimeSourceMirror: Sendable {
     }
   }
 
-  private static func swiftHTMLClientRuntimeSourceDirectoryCandidates(
-    swiftHTMLPackageDirectory: URL?,
-    appPackageDirectory: URL,
-    swiftWebPackageDirectory: URL
-  ) -> [URL] {
-    let compiledPackageDirectory = PackageGenerationSourceLocator.packageDirectoryContainingThisFile()
-    let explicitCandidates =
-      swiftHTMLPackageDirectory.map {
-        [$0.appendingPathComponent("Sources/SwiftHTMLClientRuntime", isDirectory: true)]
-      } ?? []
-    let checkoutParents = [
-      appPackageDirectory.appendingPathComponent(".build/checkouts", isDirectory: true),
-      swiftWebPackageDirectory.appendingPathComponent(".build/checkouts", isDirectory: true),
-      swiftWebPackageDirectory.deletingLastPathComponent(),
-      compiledPackageDirectory.appendingPathComponent(".build/checkouts", isDirectory: true),
-      compiledPackageDirectory.deletingLastPathComponent(),
-    ]
-
-    var candidates = explicitCandidates
-    for parent in checkoutParents {
-      candidates.append(
-        parent.appendingPathComponent("swift-html/Sources/SwiftHTMLClientRuntime", isDirectory: true))
-      candidates.append(
-        parent.appendingPathComponent("SwiftHTML/Sources/SwiftHTMLClientRuntime", isDirectory: true))
-    }
-
-    var seen = Set<String>()
-    return candidates.filter { candidate in
-      let path = candidate.standardizedFileURL.path
-      guard !seen.contains(path) else {
-        return false
-      }
-      seen.insert(path)
-      return true
-    }
-  }
-
   private static func isSwiftHTMLSourceDirectory(_ sourceDirectory: URL) -> Bool {
     let htmlSource = sourceDirectory.appendingPathComponent("Core/HTML.swift")
     let rendererSource = sourceDirectory.appendingPathComponent("Rendering/HTMLRenderer.swift")
@@ -268,16 +174,11 @@ struct WasmRuntimeSourceMirror: Sendable {
       && FileManager.default.fileExists(atPath: rendererSource.path)
   }
 
-  private static func isSwiftHTMLClientRuntimeSourceDirectory(_ sourceDirectory: URL) -> Bool {
-    let documentSource = sourceDirectory.appendingPathComponent("ClientHTMLDocument.swift")
-    let hostSource = sourceDirectory.appendingPathComponent("ClientDOMHost.swift")
-    return FileManager.default.fileExists(atPath: documentSource.path)
-      && FileManager.default.fileExists(atPath: hostSource.path)
-  }
-
   private static func shouldSkipSwiftHTMLRuntimeSource(relativePath: String) -> Bool {
     let firstComponent = relativePath.split(separator: "/", maxSplits: 1).first.map(String.init)
-    return relativePath == "README.md" || firstComponent == "SwiftHTML.docc"
+    return relativePath == "README.md"
+      || firstComponent == "Preview"
+      || firstComponent == "SwiftHTML.docc"
   }
 
   private static func shouldPreserveGeneratedAppSource(relativePath: String) -> Bool {

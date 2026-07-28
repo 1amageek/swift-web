@@ -30,8 +30,8 @@ public struct Text: AttributeComponent {
         self.attributes = attributes
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         // `as` selects only the tag; it never contributes a style class. The
         // single `swui-text` class normalizes every element's typography to the
         // inherited baseline (see the stylesheet), so `.as(.code)` and `.as(.h1)`

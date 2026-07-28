@@ -218,7 +218,7 @@ func statusAnimationVariants(for id: String) -> [CatalogVariant]? {
 /// A static vocabulary card: a symbol rendered as code over a short meaning.
 /// Used by the animation-family pages, whose variants name the vocabulary
 /// instead of faking motion — the playground is where the values change.
-private func vocabularyChip(_ symbol: String, _ meaning: String) -> some HTML {
+private func vocabularyChip(_ symbol: String, _ meaning: String) -> some Component {
     VStack(spacing: 2) {
         Text(symbol).as(.code)
             .font(.caption)

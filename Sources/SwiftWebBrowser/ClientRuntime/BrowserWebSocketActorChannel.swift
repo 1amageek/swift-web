@@ -1,5 +1,6 @@
 #if os(WASI)
 import JavaScriptKit
+import Synchronization
 import SwiftWebActors
 
 /// Drives a `WebSocketActorTransport` over the browser's native WebSocket:
@@ -13,48 +14,49 @@ import SwiftWebActors
 ///     )
 ///     channel.transport.bind(clientSystem)
 ///     clientSystem.setTransport(channel.transport)
-public final class BrowserWebSocketActorChannel: @unchecked Sendable {
+@MainActor
+public final class BrowserWebSocketActorChannel {
     public let transport: WebSocketActorTransport
 
-    // The browser runtime is single-threaded; these are only touched from
-    // the JS event loop.
     private var socket: JSObject?
     private var queued: [String] = []
     private var opened = false
     private var retainedClosures: [JSClosure] = []
 
     public init(url: String, observerID: String? = nil) {
-        var sendQueued: (@Sendable (String) -> Void)!
-        // The transport outlives `self` setup; route sends through a box so
-        // the closure can be created before the socket exists.
         let box = ChannelBox()
         self.transport = WebSocketActorTransport(senderID: observerID) { text in
-            box.channel?.sendOrQueue(text)
+            box.send(text)
         }
-        box.channel = self
-        _ = sendQueued
+        box.bind(self)
 
         guard let socketConstructor = JSObject.global.WebSocket.function else {
             transport.closed(RuntimeError.transportFailed("Browser WebSocket API is not available"))
             return
         }
         let socket = socketConstructor.new(url)
-        self.socket = socket
 
         let onOpen = JSClosure { [weak self] _ in
-            self?.flushQueue()
+            Task { @MainActor [weak self] in
+                self?.flushQueue()
+            }
             return .undefined
         }
         let onMessage = JSClosure { [weak self] arguments in
             if let text = arguments.first?.object?.data.string {
-                self?.transport.receive(text)
+                Task { @MainActor [weak self] in
+                    self?.transport.receive(text)
+                }
             }
             return .undefined
         }
         let onClose = JSClosure { [weak self] _ in
-            self?.transport.closed()
+            Task { @MainActor [weak self] in
+                self?.transport.closed()
+            }
             return .undefined
         }
+        self.socket = socket
         retainedClosures = [onOpen, onMessage, onClose]
         socket.onopen = .object(onOpen)
         socket.onmessage = .object(onMessage)
@@ -62,27 +64,47 @@ public final class BrowserWebSocketActorChannel: @unchecked Sendable {
         socket.onerror = .object(onClose)
     }
 
-    private func sendOrQueue(_ text: String) {
-        if opened, let socket {
-            _ = socket.send?(text)
-        } else {
+    fileprivate func sendOrQueue(_ text: String) {
+        guard opened else {
             queued.append(text)
+            return
+        }
+        if let socket {
+            _ = socket.send?(text)
         }
     }
 
     private func flushQueue() {
         opened = true
+        let pending = queued
+        queued.removeAll(keepingCapacity: true)
         guard let socket else {
             return
         }
-        for frame in queued {
+        for frame in pending {
             _ = socket.send?(frame)
         }
-        queued.removeAll()
     }
 }
 
-private final class ChannelBox: @unchecked Sendable {
-    weak var channel: BrowserWebSocketActorChannel?
+private final class ChannelBox: Sendable {
+    private let sender = Mutex<(@Sendable (String) -> Void)?>(nil)
+
+    func bind(_ channel: BrowserWebSocketActorChannel) {
+        sender.withLock { sender in
+            sender = { [weak channel] text in
+                Task { @MainActor [weak channel] in
+                    channel?.sendOrQueue(text)
+                }
+            }
+        }
+    }
+
+    func send(_ text: String) {
+        let send = sender.withLock { sender in
+            sender
+        }
+        send?(text)
+    }
 }
 #endif

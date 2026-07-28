@@ -10,19 +10,19 @@ import SwiftWebStyle
 /// preview surfaces that pin a palette independently of the document (the
 /// `.swui-root .swui-root` stylesheet scope), and isolated `render()` output in
 /// tests, where there is no response encoder to assemble a document.
-package struct StyleRoot<Content: HTML>: Component {
+package struct StyleRoot<Content: Component>: Component {
     @Environment({ $0.theme }) private var theme: Theme
 
     private let colorScheme: ColorScheme?
-    private let content: Content
+    private let childContent: Content
 
     package init(colorScheme: ColorScheme? = nil, @HTMLBuilder _ content: () -> Content) {
         self.colorScheme = colorScheme
-        self.content = content()
+        self.childContent = content()
     }
 
-    @HTMLBuilder
-    package var body: some HTML {
+    @ComponentBuilder
+    package var content: some Component {
         if let registry = StyleRegistry.current {
             let css = RootStylesheet.css(for: theme)
             let _ = registry.registerStylesheet(css)
@@ -38,13 +38,13 @@ package struct StyleRoot<Content: HTML>: Component {
         }
         if let colorScheme {
             div {
-                content
+                childContent
                     .transformEnvironment({ $0.colorScheme = colorScheme })
             }
             .attributes(rootAttributes)
         } else {
             div {
-                content
+                childContent
             }
             .attributes(rootAttributes)
         }

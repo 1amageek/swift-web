@@ -66,6 +66,7 @@ struct SwiftWebDevReconcilerTests {
     world.reconciler.wake()
     try await Task.sleep(nanoseconds: 200_000_000)
     #expect(world.builder.startedCount == 1)
+    #expect(world.fastPathRecorder.count == 1)
     let failedSnapshot = await world.reconciler.snapshot()
     #expect(failedSnapshot.lastErrorSummary?.contains("expected expression") == true)
 
@@ -77,11 +78,48 @@ struct SwiftWebDevReconcilerTests {
     }
     #expect(await world.reconciler.snapshot().phase == .building)
     try await waitUntil("retry build starts") { world.builder.startedCount == 2 }
+    #expect(world.fastPathRecorder.count == 2)
+    #expect(world.fastPathRecorder.fingerprints == [fingerprintA, fingerprintB])
     world.builder.completeNext(with: URL(fileURLWithPath: "/tmp/exe-2"))
     try await waitUntil("recovered worker serves") {
       await world.reconciler.snapshot().phase == .serving
     }
     #expect(await world.reconciler.snapshot().lastErrorSummary == nil)
+
+    world.reconciler.shutdown()
+    await runTask.value
+  }
+
+  @Test
+  func revertingFailedSourcesToServingFingerprintClearsFailureWithoutBuild() async throws {
+    let world = World(initial: fingerprintA)
+    let runTask = Task { await world.reconciler.run() }
+    defer { world.reconciler.shutdown() }
+
+    try await serveInitialWorker(world, executablePath: "/tmp/exe-1")
+    world.fingerprinting.set(fingerprintB)
+    world.reconciler.wake()
+    try await waitUntil("replacement build starts") { world.builder.startedCount == 2 }
+    world.builder.failNext(with: SwiftWebDevRuntimeError.workerBuildFailed(
+      command: "swift build",
+      status: 1,
+      firstErrorLine: "error: expected expression",
+      logPath: "/tmp/build.log"
+    ))
+    try await waitUntil("replacement failure latches") {
+      await world.reconciler.snapshot().phase == .failed
+    }
+
+    world.fingerprinting.set(fingerprintA)
+    world.reconciler.wake()
+    try await waitUntil("existing worker becomes current") {
+      let snapshot = await world.reconciler.snapshot()
+      return snapshot.phase == .serving && snapshot.lastErrorSummary == nil
+    }
+
+    #expect(world.builder.startedCount == 2)
+    #expect(world.launcher.launchCount == 1)
+    #expect(world.recorder.clearedFailureFingerprints == [fingerprintA])
 
     world.reconciler.shutdown()
     await runTask.value
@@ -212,6 +250,7 @@ struct SwiftWebDevReconcilerTests {
     let builder: FakeBuilder
     let launcher: FakeLauncher
     let recorder: ObserverRecorder
+    let fastPathRecorder: FastPathRecorder
     let reconciler: SwiftWebDevReconciler
 
     init(
@@ -223,18 +262,39 @@ struct SwiftWebDevReconcilerTests {
       let builder = FakeBuilder()
       let launcher = FakeLauncher()
       let recorder = ObserverRecorder()
+      let fastPathRecorder = FastPathRecorder()
       self.fingerprinting = fingerprinting
       self.builder = builder
       self.launcher = launcher
       self.recorder = recorder
+      self.fastPathRecorder = fastPathRecorder
       self.reconciler = SwiftWebDevReconciler(
         fingerprinting: fingerprinting,
         builder: builder,
         launcher: launcher,
         observer: recorder.observer,
+        fastPath: { fingerprint in
+          fastPathRecorder.record(fingerprint)
+        },
         timerInterval: timerInterval,
         maxCrashCount: maxCrashCount
       )
+    }
+  }
+
+  private final class FastPathRecorder: Sendable {
+    private let storage = Mutex<[SwiftWebDevSourceFingerprint]>([])
+
+    var count: Int {
+      storage.withLock(\.count)
+    }
+
+    var fingerprints: [SwiftWebDevSourceFingerprint] {
+      storage.withLock { $0 }
+    }
+
+    func record(_ fingerprint: SwiftWebDevSourceFingerprint) {
+      storage.withLock { $0.append(fingerprint) }
     }
   }
 
@@ -409,6 +469,7 @@ struct SwiftWebDevReconcilerTests {
     private struct State {
       var queued: [SwiftWebDevSourceFingerprint] = []
       var replaced: [SwiftWebDevSourceFingerprint] = []
+      var clearedFailures: [SwiftWebDevSourceFingerprint] = []
       var crashes: [Crash] = []
     }
 
@@ -426,6 +487,10 @@ struct SwiftWebDevReconcilerTests {
       state.withLock { $0.crashes }
     }
 
+    var clearedFailureFingerprints: [SwiftWebDevSourceFingerprint] {
+      state.withLock { $0.clearedFailures }
+    }
+
     var observer: SwiftWebDevReconcilerObserver {
       var observer = SwiftWebDevReconcilerObserver()
       observer.changesQueuedDuringTransition = { fingerprint in
@@ -435,6 +500,9 @@ struct SwiftWebDevReconcilerTests {
         if let previous {
           self.state.withLock { $0.replaced.append(previous.fingerprint) }
         }
+      }
+      observer.failureCleared = { worker in
+        self.state.withLock { $0.clearedFailures.append(worker.fingerprint) }
       }
       observer.workerCrashed = { status, willRelaunch in
         self.state.withLock { $0.crashes.append(Crash(status: status, willRelaunch: willRelaunch)) }

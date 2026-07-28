@@ -1,10 +1,10 @@
 import SwiftWebUITheme
 import SwiftHTML
 
-public struct Button<Label: HTML>: AttributeComponent {
+public struct Button: AttributeComponent {
     private let attributes: [HTMLAttribute]
     private let action: (any ActionRepresentable)?
-    private let label: Label
+    private let label: ComponentContent
     @Environment({ $0.theme }) private var theme: Theme
     @Environment({ $0.colorScheme }) private var colorScheme: ColorScheme
     @Environment({ $0.layoutDirection }) private var layoutDirection: LayoutDirection
@@ -14,35 +14,35 @@ public struct Button<Label: HTML>: AttributeComponent {
     @Environment({ $0.buttonStyle }) private var buttonStyle: ButtonStyleKind
     @Environment({ $0.isInsideForm }) private var isInsideForm: Bool
 
-    public init(
-        @HTMLBuilder label: () -> Label
+    public init<Label: Component>(
+        @ComponentBuilder label: () -> Label
     ) {
         self.attributes = [.type(ButtonType.button)]
         self.action = nil
-        self.label = label()
+        self.label = HTMLBuilder.buildExpression(label())
     }
 
-    public init(
+    public init<Label: Component>(
         action: @escaping @Sendable () -> Void,
-        @HTMLBuilder label: () -> Label
+        @ComponentBuilder label: () -> Label
     ) {
         self.attributes = [.type(ButtonType.button), .onClick(action)]
         self.action = nil
-        self.label = label()
+        self.label = HTMLBuilder.buildExpression(label())
     }
 
-    public init(
+    public init<Label: Component>(
         action: any ActionRepresentable,
-        @HTMLBuilder label: () -> Label
+        @ComponentBuilder label: () -> Label
     ) {
         self.attributes = []
         self.action = action
-        self.label = label()
+        self.label = HTMLBuilder.buildExpression(label())
     }
 
-    public init(
+    public init<Label: Component>(
         action: ButtonAction,
-        @HTMLBuilder label: () -> Label
+        @ComponentBuilder label: () -> Label
     ) {
         self.init(
             action: action as any ActionRepresentable,
@@ -50,8 +50,8 @@ public struct Button<Label: HTML>: AttributeComponent {
         )
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         if let action {
             if isInsideForm {
                 actionButton(action)
@@ -83,7 +83,7 @@ public struct Button<Label: HTML>: AttributeComponent {
     private init(
         attributes: [HTMLAttribute],
         action: (any ActionRepresentable)?,
-        label: Label
+        label: ComponentContent
     ) {
         self.attributes = attributes
         self.action = action
@@ -132,7 +132,7 @@ public struct Button<Label: HTML>: AttributeComponent {
     }
 
     @HTMLBuilder
-    private func standaloneActionForm(_ action: any ActionRepresentable) -> some HTML {
+    private func standaloneActionForm(_ action: any ActionRepresentable) -> some Component {
         Form(
             action: action.path,
             method: action.method,
@@ -150,7 +150,7 @@ public struct Button<Label: HTML>: AttributeComponent {
     }
 
     @HTMLBuilder
-    private func actionButton(_ action: any ActionRepresentable) -> some HTML {
+    private func actionButton(_ action: any ActionRepresentable) -> some Component {
         Element(
             "button",
             attributes: mergedAttributes(
@@ -206,8 +206,8 @@ private struct ButtonActionHiddenFields: ServerComponent {
         self.excludedNames = excludedNames
     }
 
-    @HTMLBuilder
-    var body: some HTML {
+    @ComponentBuilder
+    var content: some Component {
         for field in actionHiddenFields {
             if !excludedNames.contains(field.name) {
                 Element(
@@ -224,37 +224,45 @@ private struct ButtonActionHiddenFields: ServerComponent {
     }
 }
 
-public extension Button where Label == text {
+public extension Button {
     init(_ title: String) {
-        self.init {
-            title
-        }
+        self.init(
+            attributes: [.type(ButtonType.button)],
+            action: nil,
+            label: HTMLBuilder.buildExpression(text(title))
+        )
     }
 
     init(
         _ title: String,
         action: @escaping @Sendable () -> Void
     ) {
-        self.init(action: action) {
-            title
-        }
+        self.init(
+            attributes: [.type(ButtonType.button), .onClick(action)],
+            action: nil,
+            label: HTMLBuilder.buildExpression(text(title))
+        )
     }
 
     init(
         _ title: String,
         action: any ActionRepresentable
     ) {
-        self.init(action: action) {
-            title
-        }
+        self.init(
+            attributes: [],
+            action: action,
+            label: HTMLBuilder.buildExpression(text(title))
+        )
     }
 
     init(
         _ title: String,
         action: ButtonAction
     ) {
-        self.init(action: action) {
-            title
-        }
+        self.init(
+            attributes: [],
+            action: action as any ActionRepresentable,
+            label: HTMLBuilder.buildExpression(text(title))
+        )
     }
 }

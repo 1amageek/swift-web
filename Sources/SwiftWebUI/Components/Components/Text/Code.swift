@@ -22,8 +22,8 @@ public struct Code: AttributeComponent {
         self.attributes = attributes
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         Element("pre", attributes: mergedAttributes(class: "swui-code-block", extra: codeBlockAttributes)) {
             Element("code", attributes: codeAttributes) {
                 ForEach(lines, id: { line in line.number }) { line in

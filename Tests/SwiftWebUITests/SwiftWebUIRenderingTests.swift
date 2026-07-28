@@ -2102,7 +2102,7 @@ private struct OnChangeProbe: ClientComponent {
   let value: Int
   let recorder: ChangeRecorder<Int>
 
-  var body: some HTML {
+  var content: some Component {
     Text("Value")
       .onChange(of: value, initial: true) { oldValue, newValue in
         recorder.record(oldValue: oldValue, newValue: newValue)

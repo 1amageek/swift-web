@@ -38,7 +38,7 @@ public struct StreamWriter: Sendable {
         }
     }
 
-    public func write(_ html: some HTML) async throws {
+    public func write(_ html: some Component) async throws {
         let styleRegistry = StyleRegistry()
         let documentStyle = DocumentStyle()
         let artifact = StyleRegistry.withCurrent(styleRegistry) {

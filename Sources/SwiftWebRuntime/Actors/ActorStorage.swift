@@ -97,19 +97,6 @@ enum ActorStorageActivationContext {
         }
     }
 
-    #if hasFeature(Embedded)
-    nonisolated(unsafe) static var current: Collector?
-
-    static func withValue<Result>(
-        _ value: Collector,
-        operation: () throws -> Result
-    ) rethrows -> Result {
-        let previous = current
-        current = value
-        defer { current = previous }
-        return try operation()
-    }
-    #else
     @TaskLocal static var current: Collector?
 
     static func withValue<Result>(
@@ -118,7 +105,6 @@ enum ActorStorageActivationContext {
     ) rethrows -> Result {
         try $current.withValue(value, operation: operation)
     }
-    #endif
 
     static func register(_ box: any PersistentValueBox) {
         current?.add(box)

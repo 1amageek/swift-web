@@ -14,7 +14,7 @@ enum CatalogChromeMetrics {
 struct CatalogTopBar: Component {
     let scheme: StoryboardSchemePreference
 
-    var body: some HTML {
+    var content: some Component {
         // The bar carries no surface of its own: its content sits directly on the
         // atmosphere. It keeps the `.toolbar` context so bar typography still
         // applies, but no material fill, blur, or rim is composed.
@@ -70,7 +70,7 @@ struct CatalogTopBar: Component {
         .accessibilityRole("banner")
     }
 
-    private func topBarLink(_ title: String, _ href: String, muted: Bool) -> some HTML {
+    private func topBarLink(_ title: String, _ href: String, muted: Bool) -> some Component {
         Link(destination: URL(string: href)!) {
             Text(title)
         }
@@ -81,7 +81,7 @@ struct CatalogTopBar: Component {
     // A real switcher: the registered scheme script drives the document's
     // `data-color-scheme` from these chips and keeps the choice in a cookie.
     // "Auto" clears the attribute and follows the user agent.
-    private func colorSchemeChip(_ title: String, value: StoryboardSchemePreference) -> some HTML {
+    private func colorSchemeChip(_ title: String, value: StoryboardSchemePreference) -> some Component {
         Element(
             "button",
             attributes: [
@@ -101,7 +101,7 @@ struct CatalogTopBar: Component {
 struct CatalogSidebar: Component {
     let selection: String
 
-    var body: some HTML {
+    var content: some Component {
         ScrollView(.vertical) {
             VStack(alignment: .leading, spacing: .large) {
                 ForEach(catalogCategories) { category in
@@ -142,7 +142,7 @@ struct CatalogSidebarRow: Component {
 
     private var isSelected: Bool { selection == item.id }
 
-    var body: some HTML {
+    var content: some Component {
         Link(destination: URL(string: item.path)!, .aria("current", isSelected ? "page" : "false")) {
             Text(item.name)
         }
@@ -171,7 +171,7 @@ struct CatalogInspector: Component {
         !catalogVariants(for: selection).isEmpty
     }
 
-    var body: some HTML {
+    var content: some Component {
         ScrollView(.vertical) {
             VStack(alignment: .leading, spacing: .medium) {
                 // Label for the "complementary" landmark, not a document heading.
@@ -229,7 +229,7 @@ struct CatalogInspector: Component {
         .accessibilityLabel("On This Page")
     }
 
-    private func inspectorLink(_ title: String, anchor: String, selected: Bool = false) -> some HTML {
+    private func inspectorLink(_ title: String, anchor: String, selected: Bool = false) -> some Component {
         Link(destination: URL(string: "#\(anchor)")!) {
             Text(title)
         }

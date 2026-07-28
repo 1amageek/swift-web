@@ -5,7 +5,7 @@ import SwiftHTML
 ///
 /// Lowers to a native `<meter>` element. The meter track composes the shared
 /// ultra-thin material so its fill tracks the active design style.
-public struct Gauge<Label: HTML>: AttributeComponent {
+public struct Gauge<Label: Component>: AttributeComponent {
     private let value: Double
     private let bounds: ClosedRange<Double>
     private let label: Label
@@ -33,8 +33,8 @@ public struct Gauge<Label: HTML>: AttributeComponent {
         self.attributes = attributes
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         Element(
             "div",
             attributes: mergedAttributes(

@@ -9,7 +9,7 @@ struct ButtonsDetail: Component {
     /// Shared control-panel state, keyed "componentID.knob".
     var state: [String: String] = [:]
 
-    var body: some HTML {
+    var content: some Component {
         switch selection {
         case "button-styles":
             buttonStylesDemo(
@@ -53,7 +53,7 @@ struct ButtonsDetail: Component {
     }
 
     @HTMLBuilder
-    private func buttonDemo(label: String, prominence: String, icon: Bool, labelStyle: String, fill: Bool) -> some HTML {
+    private func buttonDemo(label: String, prominence: String, icon: Bool, labelStyle: String, fill: Bool) -> some Component {
         if fill {
             styledButton(label: label, prominence: prominence, icon: icon, labelStyle: labelStyle)
                 .frame(maxWidth: .infinity)
@@ -63,7 +63,7 @@ struct ButtonsDetail: Component {
     }
 
     @HTMLBuilder
-    private func styledButton(label: String, prominence: String, icon: Bool, labelStyle: String) -> some HTML {
+    private func styledButton(label: String, prominence: String, icon: Bool, labelStyle: String) -> some Component {
         if prominence == "secondary" {
             buttonLabel(label: label, icon: icon, labelStyle: labelStyle)
         } else {
@@ -73,7 +73,7 @@ struct ButtonsDetail: Component {
     }
 
     @HTMLBuilder
-    private func buttonLabel(label: String, icon: Bool, labelStyle: String) -> some HTML {
+    private func buttonLabel(label: String, icon: Bool, labelStyle: String) -> some Component {
         if icon {
             Button(action: {}) {
                 Label(label, systemImage: "star.fill")
@@ -85,7 +85,7 @@ struct ButtonsDetail: Component {
     }
 
     @HTMLBuilder
-    private func buttonStylesDemo(label: String, style: String, size: String, tint: String, disabled: Bool) -> some HTML {
+    private func buttonStylesDemo(label: String, style: String, size: String, tint: String, disabled: Bool) -> some Component {
         Button(label)
             .buttonStyle(buttonStyleKind(style))
             .controlSize(controlSizeValue(size))
@@ -94,7 +94,7 @@ struct ButtonsDetail: Component {
     }
 
     @HTMLBuilder
-    private func linkDemo(label: String, style: String, tint: String, icon: Bool, disabled: Bool) -> some HTML {
+    private func linkDemo(label: String, style: String, tint: String, icon: Bool, disabled: Bool) -> some Component {
         let url = URL(string: "#")!
         linkContent(url: url, label: label, icon: icon, style: style)
             .tint(tintColor(tint))
@@ -102,7 +102,7 @@ struct ButtonsDetail: Component {
     }
 
     @HTMLBuilder
-    private func linkContent(url: URL, label: String, icon: Bool, style: String) -> some HTML {
+    private func linkContent(url: URL, label: String, icon: Bool, style: String) -> some Component {
         if style == "plain" {
             linkInner(url: url, label: label, icon: icon)
         } else {
@@ -112,7 +112,7 @@ struct ButtonsDetail: Component {
     }
 
     @HTMLBuilder
-    private func linkInner(url: URL, label: String, icon: Bool) -> some HTML {
+    private func linkInner(url: URL, label: String, icon: Bool) -> some Component {
         if icon {
             Link(destination: url) { Label(label, systemImage: "envelope") }
         } else {

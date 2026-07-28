@@ -102,73 +102,77 @@ public enum AccessibilityHeadingLevel: Sendable, Equatable {
     }
 }
 
-public extension HTML {
-    func accessibilityIdentifier(_ identifier: String) -> ModifiedContent<Self, HTMLAttributeModifier> {
+public extension Component {
+    @_transparent
+    func accessibilityIdentifier(_ identifier: String) -> ModifiedContent {
         modifier(HTMLAttributeModifier([.data("accessibility-identifier", identifier)], role: .semantic))
     }
 
-    func accessibilityLabel(_ label: String, isEnabled: Bool = true) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    @_transparent
+    func accessibilityLabel(_ label: String, isEnabled: Bool = true) -> ModifiedContent {
         guard isEnabled else {
             return modifier(HTMLAttributeModifier([], role: .semantic))
         }
         return modifier(HTMLAttributeModifier([.aria("label", label)], role: .semantic))
     }
 
-    func accessibilityHint(_ hint: String, isEnabled: Bool = true) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    @_transparent
+    func accessibilityHint(_ hint: String, isEnabled: Bool = true) -> ModifiedContent {
         guard isEnabled else {
             return modifier(HTMLAttributeModifier([], role: .semantic))
         }
         return modifier(HTMLAttributeModifier([.aria("description", hint)], role: .semantic))
     }
 
-    func accessibilityValue(_ value: String, isEnabled: Bool = true) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    @_transparent
+    func accessibilityValue(_ value: String, isEnabled: Bool = true) -> ModifiedContent {
         guard isEnabled else {
             return modifier(HTMLAttributeModifier([], role: .semantic))
         }
         return modifier(HTMLAttributeModifier([.aria("valuetext", value)], role: .semantic))
     }
 
-    func accessibilityHidden(_ hidden: Bool = true) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func accessibilityHidden(_ hidden: Bool = true) -> ModifiedContent {
         modifier(HTMLAttributeModifier([.aria("hidden", hidden ? "true" : "false")], role: .semantic))
     }
 
-    func accessibilityRole(_ role: String) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func accessibilityRole(_ role: String) -> ModifiedContent {
         modifier(HTMLAttributeModifier([.role(role)], role: .semantic))
     }
 
-    func accessibilityAddTraits(_ traits: AccessibilityTraits) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func accessibilityAddTraits(_ traits: AccessibilityTraits) -> ModifiedContent {
         modifier(HTMLAttributeModifier(accessibilityTraitAttributes(traits, mode: "add"), role: .semantic))
     }
 
-    func accessibilityRemoveTraits(_ traits: AccessibilityTraits) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func accessibilityRemoveTraits(_ traits: AccessibilityTraits) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             .data("accessibility-remove-traits", traits.cssValue)
         ], role: .semantic))
     }
 
-    func accessibility(addTraits traits: AccessibilityTraits) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func accessibility(addTraits traits: AccessibilityTraits) -> ModifiedContent {
         accessibilityAddTraits(traits)
     }
 
-    func accessibility(removeTraits traits: AccessibilityTraits) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func accessibility(removeTraits traits: AccessibilityTraits) -> ModifiedContent {
         accessibilityRemoveTraits(traits)
     }
 
     func accessibilityElement(
         children: AccessibilityChildBehavior = .ignore
-    ) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    ) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             .data("accessibility-child-behavior", children.cssValue)
         ], role: .semantic))
     }
 
-    func accessibilitySortPriority(_ sortPriority: Double) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func accessibilitySortPriority(_ sortPriority: Double) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             .data("accessibility-sort-priority", trimmedNumber(sortPriority))
         ], role: .semantic))
     }
 
-    func accessibilityHeading(_ level: AccessibilityHeadingLevel) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func accessibilityHeading(_ level: AccessibilityHeadingLevel) -> ModifiedContent {
         var attributes: [HTMLAttribute] = [
             .role("heading")
         ]
@@ -178,7 +182,7 @@ public extension HTML {
         return modifier(HTMLAttributeModifier(attributes, role: .semantic))
     }
 
-    func accessibilityInputLabels(_ labels: [String]) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func accessibilityInputLabels(_ labels: [String]) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             .aria("label", labels.joined(separator: ", ")),
             .data("accessibility-input-labels", labels.joined(separator: "|")),
@@ -188,7 +192,7 @@ public extension HTML {
     func accessibilityAction(
         _ actionKind: AccessibilityActionKind = .default,
         _ handler: @escaping @Sendable () -> Void
-    ) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    ) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             .data("accessibility-action", actionKind.cssValue),
             .event("accessibilityaction") { _ in handler() },
@@ -198,7 +202,7 @@ public extension HTML {
     func accessibilityAction(
         named name: String,
         _ handler: @escaping @Sendable () -> Void
-    ) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    ) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             .data("accessibility-action", name),
             .event("accessibilityaction") { _ in handler() },
@@ -207,7 +211,7 @@ public extension HTML {
 
     func accessibilityAdjustableAction(
         _ handler: @escaping @Sendable (AccessibilityAdjustmentDirection) -> Void
-    ) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    ) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             .data("accessibility-adjustable", "true"),
             .event("accessibilityadjust") { event in
@@ -233,13 +237,13 @@ public extension HTML {
         ], role: .semantic))
     }
 
-    func accessibilityActivationPoint(_ activationPoint: UnitPoint) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func accessibilityActivationPoint(_ activationPoint: UnitPoint) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             .data("accessibility-activation-point", activationPoint.cssValue)
         ], role: .semantic))
     }
 
-    func accessibilityActivationPoint(_ activationPoint: CGPoint) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func accessibilityActivationPoint(_ activationPoint: CGPoint) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             .data("accessibility-activation-point", "\(activationPoint.x.cssValue) \(activationPoint.y.cssValue)")
         ], role: .semantic))
@@ -249,7 +253,7 @@ public extension HTML {
         _ point: UnitPoint,
         description: String,
         isEnabled: Bool = true
-    ) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    ) -> ModifiedContent {
         guard isEnabled else {
             return modifier(HTMLAttributeModifier([], role: .semantic))
         }
@@ -263,7 +267,7 @@ public extension HTML {
         _ point: UnitPoint,
         description: String,
         isEnabled: Bool = true
-    ) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    ) -> ModifiedContent {
         guard isEnabled else {
             return modifier(HTMLAttributeModifier([], role: .semantic))
         }
@@ -275,176 +279,10 @@ public extension HTML {
 
     func accessibilityRespondsToUserInteraction(
         _ respondsToUserInteraction: Bool = true
-    ) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    ) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             .data("accessibility-responds-to-user-interaction", respondsToUserInteraction ? "true" : "false")
         ], role: .semantic))
-    }
-}
-
-public extension AttributeMutableHTML {
-    func accessibilityIdentifier(_ identifier: String) -> Self {
-        addingAttributes([.data("accessibility-identifier", identifier)])
-    }
-
-    func accessibilityLabel(_ label: String, isEnabled: Bool = true) -> Self {
-        guard isEnabled else {
-            return self
-        }
-        return addingAttributes([.aria("label", label)])
-    }
-
-    func accessibilityHint(_ hint: String, isEnabled: Bool = true) -> Self {
-        guard isEnabled else {
-            return self
-        }
-        return addingAttributes([.aria("description", hint)])
-    }
-
-    func accessibilityValue(_ value: String, isEnabled: Bool = true) -> Self {
-        guard isEnabled else {
-            return self
-        }
-        return addingAttributes([.aria("valuetext", value)])
-    }
-
-    func accessibilityHidden(_ hidden: Bool = true) -> Self {
-        addingAttributes([.aria("hidden", hidden ? "true" : "false")])
-    }
-
-    func accessibilityRole(_ role: String) -> Self {
-        addingAttributes([.role(role)])
-    }
-
-    func accessibilityAddTraits(_ traits: AccessibilityTraits) -> Self {
-        addingAttributes(accessibilityTraitAttributes(traits, mode: "add"))
-    }
-
-    func accessibilityRemoveTraits(_ traits: AccessibilityTraits) -> Self {
-        addingAttributes([.data("accessibility-remove-traits", traits.cssValue)])
-    }
-
-    func accessibility(addTraits traits: AccessibilityTraits) -> Self {
-        accessibilityAddTraits(traits)
-    }
-
-    func accessibility(removeTraits traits: AccessibilityTraits) -> Self {
-        accessibilityRemoveTraits(traits)
-    }
-
-    func accessibilityElement(children: AccessibilityChildBehavior = .ignore) -> Self {
-        addingAttributes([.data("accessibility-child-behavior", children.cssValue)])
-    }
-
-    func accessibilitySortPriority(_ sortPriority: Double) -> Self {
-        addingAttributes([.data("accessibility-sort-priority", trimmedNumber(sortPriority))])
-    }
-
-    func accessibilityHeading(_ level: AccessibilityHeadingLevel) -> Self {
-        var attributes: [HTMLAttribute] = [.role("heading")]
-        if let ariaLevel = level.ariaLevel {
-            attributes.append(.aria("level", ariaLevel))
-        }
-        return addingAttributes(attributes)
-    }
-
-    func accessibilityInputLabels(_ labels: [String]) -> Self {
-        addingAttributes([
-            .aria("label", labels.joined(separator: ", ")),
-            .data("accessibility-input-labels", labels.joined(separator: "|")),
-        ])
-    }
-
-    func accessibilityAction(
-        _ actionKind: AccessibilityActionKind = .default,
-        _ handler: @escaping @Sendable () -> Void
-    ) -> Self {
-        addingAttributes([
-            .data("accessibility-action", actionKind.cssValue),
-            .event("accessibilityaction") { _ in handler() },
-        ])
-    }
-
-    func accessibilityAction(
-        named name: String,
-        _ handler: @escaping @Sendable () -> Void
-    ) -> Self {
-        addingAttributes([
-            .data("accessibility-action", name),
-            .event("accessibilityaction") { _ in handler() },
-        ])
-    }
-
-    func accessibilityAdjustableAction(
-        _ handler: @escaping @Sendable (AccessibilityAdjustmentDirection) -> Void
-    ) -> Self {
-        addingAttributes([
-            .data("accessibility-adjustable", "true"),
-            .event("accessibilityadjust") { event in
-                switch event["direction"] {
-                case AccessibilityAdjustmentDirection.increment.cssValue:
-                    handler(.increment)
-                case AccessibilityAdjustmentDirection.decrement.cssValue:
-                    handler(.decrement)
-                default:
-                    break
-                }
-            },
-            .onKeyDown { event in
-                switch event.key {
-                case "ArrowUp", "ArrowRight":
-                    handler(.increment)
-                case "ArrowDown", "ArrowLeft":
-                    handler(.decrement)
-                default:
-                    break
-                }
-            },
-        ])
-    }
-
-    func accessibilityActivationPoint(_ activationPoint: UnitPoint) -> Self {
-        addingAttributes([.data("accessibility-activation-point", activationPoint.cssValue)])
-    }
-
-    func accessibilityActivationPoint(_ activationPoint: CGPoint) -> Self {
-        addingAttributes([
-            .data("accessibility-activation-point", "\(activationPoint.x.cssValue) \(activationPoint.y.cssValue)")
-        ])
-    }
-
-    func accessibilityDragPoint(
-        _ point: UnitPoint,
-        description: String,
-        isEnabled: Bool = true
-    ) -> Self {
-        guard isEnabled else {
-            return self
-        }
-        return addingAttributes([
-            .data("accessibility-drag-point", point.cssValue),
-            .data("accessibility-drag-description", description),
-        ])
-    }
-
-    func accessibilityDropPoint(
-        _ point: UnitPoint,
-        description: String,
-        isEnabled: Bool = true
-    ) -> Self {
-        guard isEnabled else {
-            return self
-        }
-        return addingAttributes([
-            .data("accessibility-drop-point", point.cssValue),
-            .data("accessibility-drop-description", description),
-        ])
-    }
-
-    func accessibilityRespondsToUserInteraction(_ respondsToUserInteraction: Bool = true) -> Self {
-        addingAttributes([
-            .data("accessibility-responds-to-user-interaction", respondsToUserInteraction ? "true" : "false")
-        ])
     }
 }
 

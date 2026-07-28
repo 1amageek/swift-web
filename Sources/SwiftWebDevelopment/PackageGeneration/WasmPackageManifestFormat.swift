@@ -1,20 +1,12 @@
 struct WasmPackageManifestFormat {
   func packageSwift(context: GeneratedPackageRenderContext) -> String {
     let targetNames = context.wasmRuntimeTargets.map(\.targetName)
-    switch context.wasmRuntimeProfile {
-    case .standard:
-      return standardWasmPackageSwift(
-        appPackageName: context.appPackageName,
-        appProductName: context.appProductName,
-        wasmRuntimeTargetNames: targetNames,
-        actorRuntimeDependencyDeclaration: context.actorRuntimeDependencyDeclaration
-      )
-    case .embedded:
-      return embeddedWasmPackageSwift(
-        appPackageName: context.appPackageName,
-        wasmRuntimeTargetNames: targetNames
-      )
-    }
+    return standardWasmPackageSwift(
+      appPackageName: context.appPackageName,
+      appProductName: context.appProductName,
+      wasmRuntimeTargetNames: targetNames,
+      actorRuntimeDependencyDeclaration: context.actorRuntimeDependencyDeclaration
+    )
   }
 
   private func standardWasmPackageSwift(
@@ -125,33 +117,6 @@ struct WasmPackageManifestFormat {
     )
   }
 
-  private func embeddedWasmPackageSwift(
-    appPackageName: String,
-    wasmRuntimeTargetNames: [String]
-  ) -> String {
-    wasmPackageSwiftContents(
-      appPackageName: appPackageName,
-      wasmRuntimeTargetNames: wasmRuntimeTargetNames,
-      targetDeclarations: wasmRuntimeTargetNames.map(embeddedWasmRuntimeTargetDeclaration),
-      supportTargetDeclarations: [
-        javaScriptKitTargetDeclarations(),
-        """
-        let swiftHTMLClientRuntimeTarget = Target.target(
-            name: "SwiftHTMLClientRuntime",
-            path: "Sources/SwiftHTMLClientRuntime",
-            swiftSettings: swiftSettings
-        )
-        """,
-      ],
-      supportTargets: [
-        "cJavaScriptKitTarget",
-        "javaScriptKitTarget",
-        "swiftHTMLClientRuntimeTarget",
-      ],
-      dependencies: []
-    )
-  }
-
   private func wasmPackageSwiftContents(
     appPackageName: String,
     wasmRuntimeTargetNames: [String],
@@ -202,8 +167,8 @@ struct WasmPackageManifestFormat {
               "-Xlinker", "--export=swiftweb_dispatch_event",
               "-Xlinker", "--export=swiftweb_snapshot_state",
               "-Xlinker", "--export=swiftweb_restore_state",
-              "-Xlinker", "--export=swiftweb_response_ptr",
               "-Xlinker", "--export=swiftweb_response_len",
+              "-Xlinker", "--export=swiftweb_response_copy",
               "-Xlinker", "--export=swiftweb_response_free",
           ]),
       ]
@@ -242,21 +207,6 @@ struct WasmPackageManifestFormat {
             "SwiftHTML",
             "SwiftWebUI",
             "SwiftWebUIRuntime",
-        ],
-        path: "Sources/\(targetName)",
-        swiftSettings: wasmSwiftSettings,
-        linkerSettings: wasmLinkerSettings
-    )
-    """
-  }
-
-  private func embeddedWasmRuntimeTargetDeclaration(targetName: String) -> String {
-    """
-    let \(GeneratedPackageNameFormatter.variableName(for: targetName)) = Target.executableTarget(
-        name: "\(targetName)",
-        dependencies: [
-            "SwiftHTMLClientRuntime",
-            "JavaScriptKit",
         ],
         path: "Sources/\(targetName)",
         swiftSettings: wasmSwiftSettings,

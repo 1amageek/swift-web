@@ -41,15 +41,15 @@ extension EnvironmentValues {
     }
 }
 
-public struct SearchSuggestionsModifier<Suggestions: HTML>: ComponentModifier {
+public struct SearchSuggestionsModifier<Suggestions: Component>: ComponentModifier {
     private let suggestions: Suggestions
 
     init(@HTMLBuilder suggestions: () -> Suggestions) {
         self.suggestions = suggestions()
     }
 
-    @HTMLBuilder
-    public func body(content: ModifierContent) -> some HTML {
+    @ComponentBuilder
+    public func content(_ content: ModifierContent) -> some Component {
         Element("div", attributes: [.class("swui-search-suggestion-host")]) {
             content
             Element(
@@ -65,7 +65,7 @@ public struct SearchSuggestionsModifier<Suggestions: HTML>: ComponentModifier {
     }
 }
 
-public struct SearchScopesModifier<Scopes: HTML>: ComponentModifier {
+public struct SearchScopesModifier<Scopes: Component>: ComponentModifier {
     private let selection: Binding<String>
     private let scopes: Scopes
     private let sourceFileID: String
@@ -86,8 +86,8 @@ public struct SearchScopesModifier<Scopes: HTML>: ComponentModifier {
         self.sourceColumn = sourceColumn
     }
 
-    @HTMLBuilder
-    public func body(content: ModifierContent) -> some HTML {
+    @ComponentBuilder
+    public func content(_ content: ModifierContent) -> some Component {
         let selection = self.selection
         let groupName = self.groupName
         Element("div", attributes: [.class("swui-search-scoped")]) {
@@ -121,7 +121,7 @@ public struct SearchScopesModifier<Scopes: HTML>: ComponentModifier {
     }
 }
 
-public struct SearchTokensModifier<TokenContent: HTML>: ComponentModifier {
+public struct SearchTokensModifier<TokenContent: Component>: ComponentModifier {
     private let tokens: Binding<[String]>
     private let tokenContent: @Sendable (String) -> TokenContent
 
@@ -133,8 +133,8 @@ public struct SearchTokensModifier<TokenContent: HTML>: ComponentModifier {
         self.tokenContent = token
     }
 
-    @HTMLBuilder
-    public func body(content: ModifierContent) -> some HTML {
+    @ComponentBuilder
+    public func content(_ content: ModifierContent) -> some Component {
         let tokens = self.tokens
         Element("div", attributes: [.class("swui-search-tokenized")]) {
             Element("div", attributes: [.class("swui-search-tokens")]) {
@@ -181,8 +181,8 @@ public struct SearchScope: AttributeComponent {
         self.init(title: title, value: String(value), attributes: attributes)
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         Element("label", attributes: [.class("swui-search-scope")]) {
             Element("input", attributes: inputAttributes, isVoid: true)
             span(.class("swui-search-scope-label")) {
@@ -247,8 +247,8 @@ public struct SearchableModifier: ComponentModifier {
         self.prompt = prompt
     }
 
-    @HTMLBuilder
-    public func body(content: ModifierContent) -> some HTML {
+    @ComponentBuilder
+    public func content(_ content: ModifierContent) -> some Component {
         let isPresented = self.isPresented?.wrappedValue ?? true
         Element(
             "div",
@@ -265,7 +265,7 @@ public struct SearchableModifier: ComponentModifier {
     }
 
     @HTMLBuilder
-    private var searchField: some HTML {
+    private var searchField: some Component {
         let text = self.text
         Element(
             "div",
@@ -296,12 +296,12 @@ public struct SearchableModifier: ComponentModifier {
     }
 }
 
-public extension HTML {
+public extension Component {
     func searchable(
         text: Binding<String>,
         placement: SearchFieldPlacement = .automatic,
         prompt: String? = nil
-    ) -> ModifiedContent<Self, SearchableModifier> {
+    ) -> ModifiedContent {
         modifier(SearchableModifier(
             text: text,
             placement: placement,
@@ -314,7 +314,7 @@ public extension HTML {
         isPresented: Binding<Bool>,
         placement: SearchFieldPlacement = .automatic,
         prompt: String? = nil
-    ) -> ModifiedContent<Self, SearchableModifier> {
+    ) -> ModifiedContent {
         modifier(SearchableModifier(
             text: text,
             isPresented: isPresented,
@@ -323,70 +323,70 @@ public extension HTML {
         ))
     }
 
-    func searchable<Suggestions: HTML>(
+    func searchable<Suggestions: Component>(
         text: Binding<String>,
         placement: SearchFieldPlacement = .automatic,
         prompt: String? = nil,
         @HTMLBuilder suggestions: () -> Suggestions
-    ) -> some HTML {
+    ) -> some Component {
         searchable(text: text, placement: placement, prompt: prompt)
             .searchSuggestions(suggestions)
     }
 
-    func searchable<Suggestions: HTML>(
+    func searchable<Suggestions: Component>(
         text: Binding<String>,
         isPresented: Binding<Bool>,
         placement: SearchFieldPlacement = .automatic,
         prompt: String? = nil,
         @HTMLBuilder suggestions: () -> Suggestions
-    ) -> some HTML {
+    ) -> some Component {
         searchable(text: text, isPresented: isPresented, placement: placement, prompt: prompt)
             .searchSuggestions(suggestions)
     }
 
-    func searchable<TokenContent: HTML>(
+    func searchable<TokenContent: Component>(
         text: Binding<String>,
         tokens: Binding<[String]>,
         placement: SearchFieldPlacement = .automatic,
         prompt: String? = nil,
         @HTMLBuilder token: @escaping @Sendable (String) -> TokenContent
-    ) -> some HTML {
+    ) -> some Component {
         searchable(text: text, placement: placement, prompt: prompt)
             .searchTokens(tokens, token: token)
     }
 
-    func searchable<TokenContent: HTML, Suggestions: HTML>(
+    func searchable<TokenContent: Component, Suggestions: Component>(
         text: Binding<String>,
         tokens: Binding<[String]>,
         placement: SearchFieldPlacement = .automatic,
         prompt: String? = nil,
         @HTMLBuilder token: @escaping @Sendable (String) -> TokenContent,
         @HTMLBuilder suggestions: () -> Suggestions
-    ) -> some HTML {
+    ) -> some Component {
         searchable(text: text, placement: placement, prompt: prompt, suggestions: suggestions)
             .searchTokens(tokens, token: token)
     }
 
-    func searchSuggestions<Suggestions: HTML>(
+    func searchSuggestions<Suggestions: Component>(
         @HTMLBuilder _ suggestions: () -> Suggestions
-    ) -> ModifiedContent<Self, SearchSuggestionsModifier<Suggestions>> {
+    ) -> ModifiedContent {
         modifier(SearchSuggestionsModifier(suggestions: suggestions))
     }
 
-    func searchCompletion(_ completion: String) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func searchCompletion(_ completion: String) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             .data("search-completion", completion),
             .role("option"),
         ], role: .semantic))
     }
 
-    func searchScopes<Scopes: HTML>(
+    func searchScopes<Scopes: Component>(
         _ selection: Binding<String>,
         fileID: String = #fileID,
         line: Int = #line,
         column: Int = #column,
         @HTMLBuilder scopes: () -> Scopes
-    ) -> ModifiedContent<Self, SearchScopesModifier<Scopes>> {
+    ) -> ModifiedContent {
         modifier(SearchScopesModifier(
             selection: selection,
             sourceFileID: fileID,
@@ -396,10 +396,10 @@ public extension HTML {
         ))
     }
 
-    func searchTokens<TokenContent: HTML>(
+    func searchTokens<TokenContent: Component>(
         _ tokens: Binding<[String]>,
         @HTMLBuilder token: @escaping @Sendable (String) -> TokenContent
-    ) -> ModifiedContent<Self, SearchTokensModifier<TokenContent>> {
+    ) -> ModifiedContent {
         modifier(SearchTokensModifier(tokens: tokens, token: token))
     }
 }

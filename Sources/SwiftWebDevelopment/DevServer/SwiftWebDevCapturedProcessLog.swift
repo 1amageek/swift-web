@@ -10,7 +10,7 @@ struct SwiftWebDevCapturedProcessLog {
   static func create(prefix: String) throws -> SwiftWebDevCapturedProcessLog {
     let fileURL = FileManager.default.temporaryDirectory
       .appendingPathComponent("\(prefix)-\(UUID().uuidString).log")
-    FileManager.default.createFile(atPath: fileURL.path, contents: nil)
+    _ = FileManager.default.createFile(atPath: fileURL.path, contents: nil)
     let handle = try FileHandle(forWritingTo: fileURL)
     return SwiftWebDevCapturedProcessLog(fileURL: fileURL, handle: handle)
   }

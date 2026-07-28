@@ -9,26 +9,26 @@ import SwiftWebStyle
 /// stylesheet, so `List { Text("a"); Text("b") }` needs no row wrapper type.
 /// The data-driven initializers wrap each element in a semantic row
 /// (`role="listitem"`), giving collection lists full list semantics.
-public struct List<Content: HTML>: AttributeComponent {
+public struct List: AttributeComponent {
     private let attributes: [HTMLAttribute]
-    private let content: Content
+    private let childContent: ComponentContent
     private let isSemanticList: Bool
     @Environment({ $0.listStyle }) private var listStyle: ListStyleKind
 
-    public init(
+    public init<Content: Component>(
         _ attributes: HTMLAttribute...,
-        @HTMLBuilder content: () -> Content
+        @ComponentBuilder content: () -> Content
     ) {
         self.attributes = attributes
-        self.content = content()
+        self.childContent = HTMLBuilder.buildExpression(content())
         // Builder children carry no per-row elements the runtime can mark as
         // listitems, so the container stays a visual list: emitting
         // `role="list"` without `role="listitem"` children would be invalid ARIA.
         self.isSemanticList = false
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         Element(
             "div",
             attributes: mergedAttributes(
@@ -41,17 +41,17 @@ public struct List<Content: HTML>: AttributeComponent {
                 extra: (isSemanticList ? [.role("list")] : []) + attributes
             )
         ) {
-            content
+            childContent
         }
     }
 
     public func addingAttributes(_ attributes: [HTMLAttribute]) -> Self {
-        Self(attributes: self.attributes + attributes, content: content, isSemanticList: isSemanticList)
+        Self(attributes: self.attributes + attributes, content: childContent, isSemanticList: isSemanticList)
     }
 
-    private init(attributes: [HTMLAttribute], content: Content, isSemanticList: Bool) {
+    private init(attributes: [HTMLAttribute], content: ComponentContent, isSemanticList: Bool) {
         self.attributes = attributes
-        self.content = content
+        self.childContent = content
         self.isSemanticList = isSemanticList
     }
 }
@@ -59,31 +59,33 @@ public struct List<Content: HTML>: AttributeComponent {
 public extension List {
     /// Creates a list from a collection of identifiable data, mirroring
     /// SwiftUI's `List(_:rowContent:)`.
-    init<Data: RandomAccessCollection & Sendable, RowContent: HTML>(
+    init<Data: RandomAccessCollection & Sendable, RowContent: Component>(
         _ data: Data,
-        @HTMLBuilder rowContent: @escaping @Sendable (Data.Element) -> RowContent
-    ) where Data.Element: Identifiable & Sendable, Content == ForEach<Data, Data.Element.ID, ListRowContainer<RowContent>> {
+        @ComponentBuilder rowContent: @escaping @Sendable (Data.Element) -> RowContent
+    ) where Data.Element: Identifiable & Sendable, Data.Element.ID: Sendable {
+        let rows = ForEach(data) { element in
+            ListRowContainer { rowContent(element) }
+        }
         self.init(
             attributes: [],
-            content: ForEach(data) { element in
-                ListRowContainer { rowContent(element) }
-            },
+            content: HTMLBuilder.buildExpression(rows),
             isSemanticList: true
         )
     }
 
     /// Creates a list from a collection keyed by `id`, mirroring SwiftUI's
     /// `List(_:id:rowContent:)`.
-    init<Data: RandomAccessCollection & Sendable, ID: Hashable & Sendable, RowContent: HTML>(
+    init<Data: RandomAccessCollection & Sendable, ID: Hashable & Sendable, RowContent: Component>(
         _ data: Data,
         id: @escaping @Sendable (Data.Element) -> ID,
-        @HTMLBuilder rowContent: @escaping @Sendable (Data.Element) -> RowContent
-    ) where Data.Element: Sendable, Content == ForEach<Data, ID, ListRowContainer<RowContent>> {
+        @ComponentBuilder rowContent: @escaping @Sendable (Data.Element) -> RowContent
+    ) where Data.Element: Sendable {
+        let rows = ForEach(data, id: id) { element in
+            ListRowContainer { rowContent(element) }
+        }
         self.init(
             attributes: [],
-            content: ForEach(data, id: id) { element in
-                ListRowContainer { rowContent(element) }
-            },
+            content: HTMLBuilder.buildExpression(rows),
             isSemanticList: true
         )
     }
@@ -91,15 +93,15 @@ public extension List {
 
 /// The semantic row box the data-driven `List` initializers wrap each element
 /// in. Builder-form lists style their children directly and never emit it.
-public struct ListRowContainer<Content: HTML>: Component {
-    private let content: Content
+public struct ListRowContainer<Content: Component>: Component {
+    private let childContent: Content
 
     init(@HTMLBuilder content: () -> Content) {
-        self.content = content()
+        self.childContent = content()
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         Element(
             "div",
             attributes: mergedAttributes(
@@ -107,7 +109,7 @@ public struct ListRowContainer<Content: HTML>: Component {
                 extra: [.role("listitem")]
             )
         ) {
-            content
+            childContent
         }
     }
 }

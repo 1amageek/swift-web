@@ -26,19 +26,6 @@ final class WebActorPendingID: Sendable {
 /// activation, so `WebActorSystem.assignID` can bind the new instance to the
 /// ID the incoming envelope targets.
 enum WebActorActivationContext {
-    #if hasFeature(Embedded)
-    nonisolated(unsafe) static var current: WebActorPendingID?
-
-    static func withValue<Result>(
-        _ value: WebActorPendingID,
-        operation: () throws -> Result
-    ) rethrows -> Result {
-        let previous = current
-        current = value
-        defer { current = previous }
-        return try operation()
-    }
-    #else
     @TaskLocal static var current: WebActorPendingID?
 
     static func withValue<Result>(
@@ -47,6 +34,5 @@ enum WebActorActivationContext {
     ) rethrows -> Result {
         try $current.withValue(value, operation: operation)
     }
-    #endif
 }
 #endif

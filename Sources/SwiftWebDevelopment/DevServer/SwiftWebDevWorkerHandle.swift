@@ -1,9 +1,14 @@
 import SwiftWebDevelopmentHooks
 import SwiftWebPackageGeneration
 import SwiftWebWasmBuild
-import Darwin
 import Foundation
 import Synchronization
+
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
 
 /// A running (or exited) dev worker process together with the source
 /// fingerprint its executable was built from. Termination is observable so
@@ -19,6 +24,7 @@ package final class SwiftWebDevWorkerHandle: Sendable {
     private struct State {
         var process: Process?
         var terminationStatus: Int32?
+        var generationLeaseURL: URL?
         var observers: [@Sendable (Int32) -> Void] = []
     }
 
@@ -62,17 +68,44 @@ package final class SwiftWebDevWorkerHandle: Sendable {
 
     /// Called exactly once by the launcher's `Process.terminationHandler`.
     package func markExited(status: Int32) {
-        let observers: [@Sendable (Int32) -> Void] = state.withLock { state in
+        let resources: (observers: [@Sendable (Int32) -> Void], leaseURL: URL?) = state.withLock { state in
             guard state.terminationStatus == nil else {
-                return []
+                return ([], nil)
             }
             state.terminationStatus = status
             let observers = state.observers
             state.observers = []
-            return observers
+            let leaseURL = state.generationLeaseURL
+            state.generationLeaseURL = nil
+            return (observers, leaseURL)
         }
-        for observer in observers {
+        if let leaseURL = resources.leaseURL {
+            do {
+                try FileManager.default.removeItem(at: leaseURL)
+            } catch {
+                // Generation pruning also removes stale leases whose process no longer exists.
+            }
+        }
+        for observer in resources.observers {
             observer(status)
+        }
+    }
+
+    package func installGenerationLease(_ leaseURL: URL) {
+        let installed = state.withLock { state in
+            guard state.terminationStatus == nil else {
+                return false
+            }
+            state.generationLeaseURL = leaseURL
+            return true
+        }
+        guard !installed else {
+            return
+        }
+        do {
+            try FileManager.default.removeItem(at: leaseURL)
+        } catch {
+            // The process already exited; a future generation prune removes a stale lease.
         }
     }
 
@@ -91,7 +124,11 @@ package final class SwiftWebDevWorkerHandle: Sendable {
             return
         }
 
+        #if canImport(Darwin)
         Darwin.kill(process.processIdentifier, SIGKILL)
+        #elseif canImport(Glibc)
+        Glibc.kill(process.processIdentifier, SIGKILL)
+        #endif
         _ = await waitForExit(timeout: gracePeriod)
     }
 

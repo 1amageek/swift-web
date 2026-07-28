@@ -27,12 +27,12 @@ flowchart TD
 
 ## Component Graph
 
-The component graph is the semantic tree produced by `Component.body`. It is not the final DOM tree. The final render artifact remains the arena-backed `HTMLGraph`.
+The component graph is the semantic tree produced by `Component.content`. It is not the final DOM tree. The final render artifact remains the arena-backed `HTMLGraph`.
 
 ```mermaid
 flowchart LR
-    A["Component value"] --> B["body"]
-    B --> C["HTML / child components"]
+    A["Component value"] --> B["content"]
+    B --> C["child Components"]
     C --> D["HTMLGraphBuilder"]
     D --> E["HTMLGraph arenas"]
     D --> F["HydrationManifest"]
@@ -44,7 +44,7 @@ flowchart LR
 
 | Rule | Design |
 |---|---|
-| `body` shape | `var body: some HTML { get }`; it is not a function |
+| `content` shape | `var content: some Component { get }`; it is not a function |
 | Identity | Component identity is derived from type, render path, and explicit keys |
 | State lifetime | State is keyed by component identity plus property source location |
 | Client boundary | `ClientComponent` owns state, event closures, and WASM hydration |
@@ -67,7 +67,7 @@ sequenceDiagram
 
     R->>G: enter component context
     G->>D: install task-local render context
-    R->>C: evaluate body
+    R->>C: evaluate content
     C->>D: read/write wrappedValue
     D->>G: register reads, slots, diagnostics
     G->>R: exit component context
@@ -127,19 +127,21 @@ Text("Title")
 
 ```swift
 public protocol ComponentModifier: Sendable {
-    associatedtype Body: HTML
+    associatedtype Content: Component
 
     @HTMLBuilder
-    func body(content: ModifierContent) -> Body
+    func content(_ content: ModifierContent) -> Content
 }
 
-public struct ModifiedContent<Content: HTML, Modifier: ComponentModifier>: HTML {
-    public let content: Content
-    public let modifier: Modifier
+public struct ModifiedContent: Component {
+    public init<Content: Component, Modifier: ComponentModifier>(
+        content: Content,
+        modifier: Modifier
+    )
 }
 
-public struct ModifierContent: HTML {
-    let build: @Sendable (inout HTMLGraphBuilder) -> HTMLNodeID
+public struct ModifierContent: Component {
+    // Stable lowering boundary for the wrapped component.
 }
 ```
 
@@ -155,7 +157,11 @@ public struct ModifierContent: HTML {
 | Accessibility | Emit semantic attributes, ARIA, or native HTML equivalents |
 | Navigation | Bind route/history metadata to links or navigation containers |
 
-`WebUIAttributeComponent` can remain as a low-level optimization, but public SwiftWebUI modifiers should work on any `HTML`, not only components that manually store `[HTMLAttribute]`.
+`WebUIAttributeComponent` can remain as a low-level optimization, but public
+SwiftWebUI modifiers should work on any `Component`, not only components that
+manually store `[HTMLAttribute]`. Fragment nodes are renderer internals and
+must not appear in this public modifier contract. See
+[`HTMLAuthoringModel.md`](HTMLAuthoringModel.md).
 
 ## Style Abstraction
 

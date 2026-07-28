@@ -181,15 +181,17 @@ separate client-side view stack.
 ```swift
 @Page("/files/**")
 struct FilesPage {
-    func body() -> some HTML {
-        FilesBrowser()
+    var document: some HTMLDocument {
+        PageDocument(title: "Files") {
+            FilesBrowser()
+        }
     }
 }
 
 public struct FilesBrowser: ClientComponent {
     @State private var path = NavigationPath()
 
-    public var body: some HTML {
+    public var content: some Component {
         NavigationStack(path: $path) {
             FileList(onOpen: { name in path.append(name) })
         }

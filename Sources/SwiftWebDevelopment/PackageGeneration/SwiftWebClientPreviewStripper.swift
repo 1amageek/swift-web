@@ -6,10 +6,10 @@ import SwiftSyntax
 /// browser WASM packages compile without the SwiftHTML preview macro (a
 /// host-only Xcode tool).
 ///
-/// SwiftHTML's `#Preview` is a freestanding declaration macro declared only
-/// where WebKit is available. The vendored WASM copy of `SwiftHTML` omits that
-/// declaration, so any `#Preview` left in a mirrored page source would fail to
-/// resolve. The preview has no client-side meaning, so it is stripped.
+/// SwiftHTML's `#Preview` uses a host-only macro implementation. The vendored
+/// WASM copy of `SwiftHTML` omits its preview sources, so any `#Preview` left in
+/// a mirrored page source would fail to resolve. The preview has no client-side
+/// meaning, so it is stripped.
 enum SwiftWebClientPreviewStripper {
     static func stripHTMLPreview(inSource source: String) -> String {
         guard source.contains("Preview") else {
@@ -37,7 +37,7 @@ private final class PreviewStripRewriter: SyntaxRewriter {
         if filtered.count != node.count {
             didStrip = true
         }
-        return super.visit(CodeBlockItemListSyntax(filtered))
+        return super.visit(filtered)
     }
 
     override func visit(_ node: MemberBlockItemListSyntax) -> MemberBlockItemListSyntax {
@@ -45,7 +45,7 @@ private final class PreviewStripRewriter: SyntaxRewriter {
         if filtered.count != node.count {
             didStrip = true
         }
-        return super.visit(MemberBlockItemListSyntax(filtered))
+        return super.visit(filtered)
     }
 
     private static let previewMacroNames: Set<String> = ["Preview", "HTMLPreview"]

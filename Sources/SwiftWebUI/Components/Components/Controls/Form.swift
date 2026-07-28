@@ -13,11 +13,11 @@ import SwiftHTML
 ///
 /// With `action`, the container lowers to a real `<form>` that submits the
 /// contained named controls to the given path.
-public struct Form<Content: HTML>: AttributeComponent {
+public struct Form<Content: Component>: AttributeComponent {
     private let action: String?
     private let method: FormMethod
     private let attributes: [HTMLAttribute]
-    private let content: Content
+    private let childContent: Content
     @Environment({ $0.formStyle }) private var formStyle: FormStyleKind
 
     public init(
@@ -27,7 +27,7 @@ public struct Form<Content: HTML>: AttributeComponent {
         self.action = nil
         self.method = .post
         self.attributes = attributes
-        self.content = content()
+        self.childContent = content()
     }
 
     public init(
@@ -39,11 +39,11 @@ public struct Form<Content: HTML>: AttributeComponent {
         self.action = action
         self.method = method
         self.attributes = attributes
-        self.content = content()
+        self.childContent = content()
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         if let action {
             Element(
                 "form",
@@ -52,7 +52,7 @@ public struct Form<Content: HTML>: AttributeComponent {
                     extra: [.action(action), .method(method)] + attributes
                 )
             ) {
-                content.transformEnvironment({ $0.isInsideForm = true })
+                childContent.transformEnvironment({ $0.isInsideForm = true })
             }
         } else {
             // `isInsideForm` stays false here so a server-action Button takes
@@ -64,19 +64,19 @@ public struct Form<Content: HTML>: AttributeComponent {
                     extra: attributes
                 )
             ) {
-                content
+                childContent
             }
         }
     }
 
     public func addingAttributes(_ attributes: [HTMLAttribute]) -> Self {
-        Self(action: action, method: method, attributes: self.attributes + attributes, content: content)
+        Self(action: action, method: method, attributes: self.attributes + attributes, content: childContent)
     }
 
     private init(action: String?, method: FormMethod, attributes: [HTMLAttribute], content: Content) {
         self.action = action
         self.method = method
         self.attributes = attributes
-        self.content = content
+        self.childContent = content
     }
 }

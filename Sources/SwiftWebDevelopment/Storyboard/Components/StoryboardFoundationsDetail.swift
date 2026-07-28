@@ -9,7 +9,7 @@ struct FoundationsDetail: Component {
     /// Shared control-panel state, keyed "componentID.knob".
     var state: [String: String] = [:]
 
-    var body: some HTML {
+    var content: some Component {
         switch selection {
         case "gridsystem":
             // Reactive: columns, gutter, and arrangement are driven by the panel.
@@ -149,7 +149,7 @@ struct FoundationsDetail: Component {
     }
 
     @HTMLBuilder
-    private func colorDemo() -> some HTML {
+    private func colorDemo() -> some Component {
         let name = state.control("color", "name")
         let opacity = state.controlNumber("color", "opacity")
         let custom = Color(cssValue: state.control("color", "custom"))
@@ -165,7 +165,7 @@ struct FoundationsDetail: Component {
         .frame(maxWidth: .infinity, alignment: .center)
     }
 
-    private func colorChip(_ color: Color, label: String) -> some HTML {
+    private func colorChip(_ color: Color, label: String) -> some Component {
         VStack(spacing: .xsmall) {
             VStack {}
                 .frame(width: 96, height: 72)
@@ -184,7 +184,7 @@ struct FoundationsDetail: Component {
         }
     }
 
-    private func materialSample(_ level: String) -> some HTML {
+    private func materialSample(_ level: String) -> some Component {
         VStack(spacing: .xsmall) {
             Text("Material").font(.subheadline).fontWeight(.semibold).foregroundStyle(.primary)
             Text("\(materialLabel(level)) · blur").font(Font(size: .px(11), design: .monospaced)).foregroundStyle(.secondary)
@@ -214,7 +214,7 @@ struct FoundationsDetail: Component {
         }
     }
 
-    private func glassSample(variant: String, tint: String, shape: String, interactive: Bool) -> some HTML {
+    private func glassSample(variant: String, tint: String, shape: String, interactive: Bool) -> some Component {
         var glass: Glass = variant == "clear" ? .clear : .regular
         if tint != "none" {
             glass = glass.tint(storyboardTintColor(tint))
@@ -232,7 +232,7 @@ struct FoundationsDetail: Component {
         .glassEffect(glass, in: clip)
     }
 
-    private func gridPane(_ label: String) -> some HTML {
+    private func gridPane(_ label: String) -> some Component {
         Text(label).as(.small)
             .font(Font(size: .px(12), design: .monospaced))
             .foregroundStyle(.accent)
@@ -378,7 +378,7 @@ struct FoundationsDetail: Component {
     // lives in the Storyboard stylesheet instead of being faked with a solid
     // component border.
     @HTMLBuilder
-    private func alignmentDemo(align: String, target: String) -> some HTML {
+    private func alignmentDemo(align: String, target: String) -> some Component {
         switch target {
         case "stack":
             VStack(spacing: .small) {
@@ -424,7 +424,7 @@ struct FoundationsDetail: Component {
     }
 
     @HTMLBuilder
-    private func styleDemo(_ context: String) -> some HTML {
+    private func styleDemo(_ context: String) -> some Component {
         switch context {
         case "toolbar":
             VStack(spacing: .medium) {
@@ -458,7 +458,7 @@ struct FoundationsDetail: Component {
     /// A device frame whose chrome insets (top/bottom) shrink the inner safe
     /// area. The hatched chrome bands and dashed accent safe-area box are
     /// storyboard stylesheet classes, not inline styles.
-    private func deviceMock(_ device: String, ignore: String) -> some HTML {
+    private func deviceMock(_ device: String, ignore: String) -> some Component {
         let top = safeAreaTop(device)
         let bottom = safeAreaBottom(device)
         // `all` bleeds the accent background behind every edge; `top` tints only
@@ -480,7 +480,7 @@ struct FoundationsDetail: Component {
     /// or below the 8px baseline render nothing (no chrome on that edge). A
     /// tinted band shows an accent background reaching under that chrome.
     @HTMLBuilder
-    private func chromeBand(edge: String, height: Double, notch: Bool, tinted: Bool) -> some HTML {
+    private func chromeBand(edge: String, height: Double, notch: Bool, tinted: Bool) -> some Component {
         if height > 8 {
             div(.class("swui-storyboard-chrome-band swui-storyboard-chrome-\(edge)")) {
                 if notch {
@@ -525,7 +525,7 @@ struct FoundationsDetail: Component {
         }
     }
 
-    private func spacingBar(_ label: String, width: Double, active: Bool) -> some HTML {
+    private func spacingBar(_ label: String, width: Double, active: Bool) -> some Component {
         HStack(spacing: .small) {
             Text(label).as(.small)
                 .font(Font(size: .px(12), design: .monospaced))

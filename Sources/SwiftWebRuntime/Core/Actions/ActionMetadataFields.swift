@@ -10,8 +10,8 @@ public struct ActionMetadataFields<Input: Codable & Sendable, Output: Sendable>:
         self.reference = reference
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         for field in reference.fields {
             input(
                 .type(InputType.hidden),

@@ -1,6 +1,7 @@
 import SwiftWebUITheme
 import SwiftHTML
 
+@usableFromInline
 enum HTMLModifierRole: Sendable, Equatable {
     case box
     case textStyle
@@ -22,13 +23,14 @@ public struct HTMLAttributeModifier: ComponentModifier {
     private let attributes: [HTMLAttribute]
     private let role: HTMLModifierRole
 
+    @usableFromInline
     init(_ attributes: [HTMLAttribute], role: HTMLModifierRole = .box) {
         self.attributes = attributes
         self.role = role
     }
 
-    @HTMLBuilder
-    public func body(content: ModifierContent) -> some HTML {
+    @ComponentBuilder
+    public func content(_ content: ModifierContent) -> some Component {
         Element(
             "div",
             attributes: mergedAttributes(
@@ -41,7 +43,7 @@ public struct HTMLAttributeModifier: ComponentModifier {
     }
 }
 
-public extension HTML {
+public extension Component {
     /// Sets a plain HTML attribute on the content's rendered root element,
     /// for contracts expressed as data attributes (e.g. WebMapKit's
     /// `data-mapkit-select` selection triggers) and ARIA annotations.
@@ -49,7 +51,7 @@ public extension HTML {
     /// Attaches via `RootAttributes` — no wrapper node is introduced, so
     /// parent CSS contracts (grid/flex children, direct-child selectors)
     /// are preserved.
-    func attribute(_ name: String, _ value: String? = nil) -> some HTML {
+    func attribute(_ name: String, _ value: String? = nil) -> some Component {
         RootAttributes([.attribute(name, value)]) { self }
     }
 }

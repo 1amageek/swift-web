@@ -111,7 +111,7 @@ let package = Package(
         .trait(name: "Actors"),
     ],
     dependencies: [
-        .package(url: "https://github.com/1amageek/swift-html.git", from: "0.11.0"),
+        .package(url: "https://github.com/1amageek/swift-html.git", from: "0.13.0"),
         .package(url: "https://github.com/1amageek/JavaScriptKit.git", from: "0.57.0"),
         .package(url: "https://github.com/1amageek/swift-actor-runtime.git", exact: "0.6.0"),
         .package(url: "https://github.com/apple/swift-http-types", from: "1.0.0"),
@@ -124,6 +124,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-http-api-proposal.git", from: "0.2.0"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.82.0"),
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.6.0"),
+        .package(url: "https://github.com/apple/swift-crypto.git", from: "4.0.0"),
         .package(url: "https://github.com/apple/swift-service-context.git", from: "1.3.0"),
         .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "602.0.0"),
     ]),
@@ -341,6 +342,7 @@ let package = Package(
         .target(
             name: "SwiftWebWasmBuild",
             dependencies: [
+                .product(name: "Crypto", package: "swift-crypto"),
             ],
             path: "Sources/SwiftWebDevelopment/WasmBuild",
             swiftSettings: swiftWebSwiftSettings
@@ -360,9 +362,11 @@ let package = Package(
         .target(
             name: "SwiftWebDevServer",
             dependencies: [
+                "CSwiftWebSignals",
                 swiftHTMLDependency,
                 .product(name: "AsyncHTTPClient", package: "async-http-client"),
                 .product(name: "BasicContainers", package: "swift-collections"),
+                .product(name: "Crypto", package: "swift-crypto"),
                 .product(name: "HTTPAPIs", package: "swift-http-api-proposal"),
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "Logging", package: "swift-log"),
@@ -376,6 +380,11 @@ let package = Package(
             ],
             path: "Sources/SwiftWebDevelopment/DevServer",
             swiftSettings: swiftWebSwiftSettings
+        ),
+        .target(
+            name: "CSwiftWebSignals",
+            path: "Sources/CSwiftWebSignals",
+            publicHeadersPath: "include"
         ),
         .target(
             name: "SwiftWebStoryboardTooling",
@@ -437,6 +446,7 @@ let package = Package(
                 "SwiftWebStyle",
             ],
             path: "Tools/LayoutConformance",
+            exclude: ["report.html"],
             swiftSettings: swiftWebSwiftSettings
         ),
         .testTarget(

@@ -1,6 +1,7 @@
 import SwiftWebDevelopmentHooks
 import SwiftWebPackageGeneration
 import SwiftWebWasmBuild
+import SwiftWebCore
 import Foundation
 
 /// Launches built dev worker executables on freshly allocated loopback ports
@@ -47,6 +48,19 @@ package final class SwiftWebDevWorkerLauncher: SwiftWebDevWorkerLaunching {
         if let wasmScratchDirectory = environment.wasmScratchDirectory {
             workerEnvironment["SWIFTWEB_WASM_SCRATCH_PATH"] = wasmScratchDirectory.path
         }
+        let publishedWasmRoot = SwiftWebDevPublishedWasmArtifacts.rootDirectory(
+            for: configuration
+        )
+        workerEnvironment[SwiftPMWasmArtifactLocation.publishedArtifactDirectoryEnvironmentKey] =
+            publishedWasmRoot.path
+        let publishedGeneration = try SwiftWebDevPublishedWasmArtifacts.currentGenerationID(
+            in: publishedWasmRoot
+        )
+        if let publishedGeneration {
+            workerEnvironment[
+                SwiftPMWasmArtifactLocation.publishedArtifactGenerationEnvironmentKey
+            ] = publishedGeneration
+        }
 
         let process = Process()
         process.executableURL = executable
@@ -80,6 +94,19 @@ package final class SwiftWebDevWorkerLauncher: SwiftWebDevWorkerLaunching {
         } catch {
             process.terminationHandler = nil
             throw error
+        }
+        if let publishedGeneration {
+            do {
+                let leaseURL = try SwiftWebDevPublishedWasmArtifacts.acquireLease(
+                    rootDirectory: publishedWasmRoot,
+                    generationID: publishedGeneration,
+                    processIdentifier: process.processIdentifier
+                )
+                handle.installGenerationLease(leaseURL)
+            } catch {
+                await handle.stop(gracePeriod: configuration.processTerminationGracePeriod)
+                throw error
+            }
         }
         return handle
     }

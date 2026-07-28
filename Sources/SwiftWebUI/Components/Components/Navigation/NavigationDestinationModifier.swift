@@ -1,7 +1,7 @@
 import SwiftWebUITheme
 import SwiftHTML
 
-public extension HTML {
+public extension Component {
     /// Presents a destination view for the enclosing URL-backed
     /// `NavigationStack`, mirroring SwiftUI's `navigationDestination(for:destination:)`.
     ///
@@ -10,36 +10,36 @@ public extension HTML {
     /// (it stays in the document, preserving its state, like SwiftUI's covered
     /// root). Value types convert through `LosslessStringConvertible` because
     /// path components are URL path segments.
-    func navigationDestination<V: LosslessStringConvertible & Sendable, D: HTML>(
+    func navigationDestination<V: LosslessStringConvertible & Sendable, D: Component>(
         for valueType: V.Type,
         @HTMLBuilder destination: @Sendable @escaping (V) -> D
-    ) -> some HTML {
+    ) -> some Component {
         NavigationDestinationSwitch(content: self, destination: destination)
     }
 }
 
-struct NavigationDestinationSwitch<Content: HTML, V: LosslessStringConvertible & Sendable, D: HTML>: Component {
+struct NavigationDestinationSwitch<Content: Component, V: LosslessStringConvertible & Sendable, D: Component>: Component {
     @Environment({ $0.navigationPathSegments }) private var segments: [String]?
 
-    private let content: Content
+    private let childContent: Content
     private let destination: @Sendable (V) -> D
 
     init(content: Content, destination: @Sendable @escaping (V) -> D) {
-        self.content = content
+        self.childContent = content
         self.destination = destination
     }
 
-    @HTMLBuilder
-    var body: some HTML {
+    @ComponentBuilder
+    var content: some Component {
         if let top = segments?.last, let value = V(top) {
             Element("div", attributes: [HTMLAttribute("data-navigation-origin", "true")]) {
-                content
+                childContent
             }
             Element("div", attributes: [HTMLAttribute("data-navigation-destination", "true")]) {
                 destination(value)
             }
         } else {
-            content
+            childContent
         }
     }
 }

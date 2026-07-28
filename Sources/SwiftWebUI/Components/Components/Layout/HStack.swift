@@ -2,40 +2,40 @@ import SwiftWebUITheme
 import SwiftHTML
 import SwiftWebStyle
 
-public struct HStack<Content: HTML>: AttributeComponent {
+public struct HStack: AttributeComponent {
     private let gap: StackGap
     private let alignment: VerticalAlignment
     private let attributes: [HTMLAttribute]
-    private let content: Content
+    private let childContent: ComponentContent
 
-    public init(
+    public init<Content: Component>(
         alignment: VerticalAlignment = .center,
         spacing: Double? = nil,
-        @HTMLBuilder content: () -> Content
+        @ComponentBuilder content: () -> Content
     ) {
         self.gap = stackGap(spacing)
         self.alignment = alignment
         self.attributes = []
-        self.content = content()
+        self.childContent = HTMLBuilder.buildExpression(content())
     }
 
     /// Token-named spacing convenience over the theme spacing scale.
     /// Disfavored so `spacing: .none` resolves to `Double?.none` (the default
     /// system spacing, matching SwiftUI's `nil`) instead of `Space.none`.
     @_disfavoredOverload
-    public init(
+    public init<Content: Component>(
         alignment: VerticalAlignment = .center,
         spacing: Space,
-        @HTMLBuilder content: () -> Content
+        @ComponentBuilder content: () -> Content
     ) {
         self.gap = stackGap(spacing)
         self.alignment = alignment
         self.attributes = []
-        self.content = content()
+        self.childContent = HTMLBuilder.buildExpression(content())
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         Element(
             "div",
             attributes: mergedAttributes(
@@ -48,18 +48,23 @@ public struct HStack<Content: HTML>: AttributeComponent {
                 extra: attributes
             )
         ) {
-            content
+            childContent
         }
     }
 
     public func addingAttributes(_ attributes: [HTMLAttribute]) -> Self {
-        Self(gap: gap, alignment: alignment, attributes: self.attributes + attributes, content: content)
+        Self(gap: gap, alignment: alignment, attributes: self.attributes + attributes, content: childContent)
     }
 
-    private init(gap: StackGap, alignment: VerticalAlignment, attributes: [HTMLAttribute], content: Content) {
+    private init(
+        gap: StackGap,
+        alignment: VerticalAlignment,
+        attributes: [HTMLAttribute],
+        content: ComponentContent
+    ) {
         self.gap = gap
         self.alignment = alignment
         self.attributes = attributes
-        self.content = content
+        self.childContent = content
     }
 }

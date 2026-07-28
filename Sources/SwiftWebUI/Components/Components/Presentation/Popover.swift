@@ -114,7 +114,7 @@ enum PopoverStyle {
 /// light-dismisses on outside tap / Escape). The invoking button is the
 /// panel's implicit CSS anchor, so `data-placement` positioning works
 /// without extra plumbing on browsers with anchor positioning.
-public struct Popover<Panel: HTML>: Component {
+public struct Popover<Panel: Component>: Component {
     private let id: String
     private let placement: PopoverPlacement
     private let panel: Panel
@@ -129,7 +129,7 @@ public struct Popover<Panel: HTML>: Component {
         self.panel = content()
     }
 
-    public var body: some HTML {
+    public var content: some Component {
         let _ = StyleRegistry.current?.registerStylesheet(PopoverStyle.css)
         Element(
             "div",
@@ -152,13 +152,13 @@ public extension HTMLAttribute {
     }
 }
 
-private struct HoverPopoverModifier<Panel: HTML>: ComponentModifier {
+private struct HoverPopoverModifier<Panel: Component>: ComponentModifier {
     let placement: PopoverPlacement
     let alignment: PopoverAlignment
     let panel: Panel
 
-    @HTMLBuilder
-    func body(content: ModifierContent) -> some HTML {
+    @ComponentBuilder
+    func content(_ content: ModifierContent) -> some Component {
         let _ = StyleRegistry.current?.registerStylesheet(PopoverStyle.css)
         // anchor-scope keeps one shared anchor name local to each wrapper,
         // so no per-instance identifiers (or style attributes) are needed.
@@ -179,15 +179,15 @@ private struct HoverPopoverModifier<Panel: HTML>: ComponentModifier {
     }
 }
 
-public extension HTML {
+public extension Component {
     /// Shows a card while the wrapped element is hovered or focused.
     /// Pure CSS — pair it with a ``Popover`` + `.popoverTarget(_:)` so touch
     /// devices can reach the same content.
-    func hoverPopover<Panel: HTML>(
+    func hoverPopover<Panel: Component>(
         placement: PopoverPlacement = .top,
         alignment: PopoverAlignment = .center,
         @HTMLBuilder content: () -> Panel
-    ) -> some HTML {
+    ) -> some Component {
         modifier(HoverPopoverModifier(placement: placement, alignment: alignment, panel: content()))
     }
 }

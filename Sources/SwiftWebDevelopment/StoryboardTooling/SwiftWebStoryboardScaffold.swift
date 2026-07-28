@@ -205,7 +205,7 @@ public struct SwiftWebStoryboardScaffold: Sendable {
             return #".package(path: "\#(Self.swiftStringLiteral(directory.path))")"#
         }
 
-        return #".package(url: "https://github.com/1amageek/swift-html.git", from: "0.7.1")"#
+        return #".package(url: "https://github.com/1amageek/swift-html.git", from: "0.13.0")"#
     }
 
     private func localSwiftHTMLPackageDirectory() throws -> URL? {
@@ -214,16 +214,6 @@ public struct SwiftWebStoryboardScaffold: Sendable {
             in: swiftWebPackageDirectory
         ) {
             return root
-        }
-
-        let sibling = swiftWebPackageDirectory
-            .deletingLastPathComponent()
-            .appendingPathComponent("swift-html", isDirectory: true)
-            .standardizedFileURL
-        if FileManager.default.fileExists(atPath: sibling.appendingPathComponent("Package.swift").path),
-           try SwiftWebPackageManifestInspector.packageName(in: sibling) == "swift-html"
-        {
-            return sibling
         }
 
         return nil

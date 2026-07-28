@@ -45,8 +45,8 @@ public struct PickerOption: AttributeComponent {
         self.init(value: String(value), label: label, attributes: attributes)
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         if pickerStyle.usesRadioGroup {
             radioOption
         } else {
@@ -79,7 +79,7 @@ public struct PickerOption: AttributeComponent {
     }
 
     @HTMLBuilder
-    private var radioOption: some HTML {
+    private var radioOption: some Component {
         Element("label", attributes: [.class("swui-picker-segment")]) {
             Element(
                 "input",

@@ -1,12 +1,12 @@
 import SwiftWebUITheme
 import SwiftHTML
 
-public struct GridSystem<Content: HTML>: AttributeComponent {
+public struct GridSystem<Content: Component>: AttributeComponent {
     private let columns: Int
     private let gutter: Space
     private let verticalPadding: Space
     private let attributes: [HTMLAttribute]
-    private let content: Content
+    private let childContent: Content
 
     public init(
         columns: Int = 12,
@@ -19,11 +19,11 @@ public struct GridSystem<Content: HTML>: AttributeComponent {
         self.gutter = gutter
         self.verticalPadding = verticalPadding
         self.attributes = attributes
-        self.content = content()
+        self.childContent = content()
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         Element(
             "div",
             attributes: mergedAttributes(
@@ -32,7 +32,7 @@ public struct GridSystem<Content: HTML>: AttributeComponent {
                 extra: attributes
             )
         ) {
-            content
+            childContent
         }
     }
 
@@ -42,7 +42,7 @@ public struct GridSystem<Content: HTML>: AttributeComponent {
             gutter: gutter,
             verticalPadding: verticalPadding,
             attributes: self.attributes + attributes,
-            content: content
+            content: childContent
         )
     }
 
@@ -57,7 +57,7 @@ public struct GridSystem<Content: HTML>: AttributeComponent {
         self.gutter = gutter
         self.verticalPadding = verticalPadding
         self.attributes = attributes
-        self.content = content
+        self.childContent = content
     }
 
     private var styles: Style {

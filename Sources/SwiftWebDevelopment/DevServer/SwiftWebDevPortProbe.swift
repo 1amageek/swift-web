@@ -1,8 +1,13 @@
 import SwiftWebDevelopmentHooks
 import SwiftWebPackageGeneration
 import SwiftWebWasmBuild
-import Darwin
 import Foundation
+
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
 
 public enum SwiftWebDevPortProbe {
     static func isListening(host: String, port: Int) -> Bool {
@@ -39,23 +44,25 @@ public enum SwiftWebDevPortProbe {
     }
 
     private static func canConnect(host: String, port: Int) -> Bool {
-        let socketDescriptor = Darwin.socket(AF_INET, SOCK_STREAM, 0)
+        let socketDescriptor = socket(AF_INET, streamSocketType, 0)
         guard socketDescriptor >= 0 else {
             return false
         }
         defer {
-            Darwin.close(socketDescriptor)
+            close(socketDescriptor)
         }
 
         var address = sockaddr_in()
+        #if canImport(Darwin)
         address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        #endif
         address.sin_family = sa_family_t(AF_INET)
         address.sin_port = in_port_t(port).bigEndian
         address.sin_addr = in_addr(s_addr: inet_addr(probeHost(for: host)))
 
         let result = withUnsafePointer(to: &address) { pointer in
             pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) { socketAddress in
-                Darwin.connect(socketDescriptor, socketAddress, socklen_t(MemoryLayout<sockaddr_in>.size))
+                connect(socketDescriptor, socketAddress, socklen_t(MemoryLayout<sockaddr_in>.size))
             }
         }
 
@@ -69,5 +76,13 @@ public enum SwiftWebDevPortProbe {
         default:
             return host
         }
+    }
+
+    private static var streamSocketType: Int32 {
+        #if canImport(Darwin)
+        SOCK_STREAM
+        #elseif canImport(Glibc)
+        Int32(SOCK_STREAM.rawValue)
+        #endif
     }
 }

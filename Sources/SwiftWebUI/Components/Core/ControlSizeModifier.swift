@@ -8,8 +8,8 @@ public struct ControlSizeModifier: ComponentModifier {
         self.size = size
     }
 
-    @HTMLBuilder
-    public func body(content: ModifierContent) -> some HTML {
+    @ComponentBuilder
+    public func content(_ content: ModifierContent) -> some Component {
         content.transformEnvironment({ $0.controlSize = size })
     }
 }

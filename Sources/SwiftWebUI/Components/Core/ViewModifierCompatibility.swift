@@ -15,11 +15,11 @@ public enum ContentMode: Sendable, Equatable {
     }
 }
 
-public extension HTML {
+public extension Component {
     func aspectRatio(
         _ aspectRatio: Double? = nil,
         contentMode: ContentMode
-    ) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    ) -> ModifiedContent {
         var style = Style.objectFit(contentMode.objectFitValue)
         if let aspectRatio {
             style.append(.aspectRatio(trimmedNumber(aspectRatio)))
@@ -31,39 +31,39 @@ public extension HTML {
         width: Double,
         height: Double,
         contentMode: ContentMode
-    ) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    ) -> ModifiedContent {
         aspectRatio(width / height, contentMode: contentMode)
     }
 
-    func scaledToFit() -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func scaledToFit() -> ModifiedContent {
         aspectRatio(contentMode: .fit)
     }
 
-    func scaledToFill() -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func scaledToFill() -> ModifiedContent {
         aspectRatio(contentMode: .fill)
     }
 
     func offset(
         x: Length = 0,
         y: Length = 0
-    ) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    ) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             styleAttribute(.transform("translate(\(x.cssValue), \(y.cssValue))"))
         ]))
     }
 
-    func offset(_ offset: CGSize) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func offset(_ offset: CGSize) -> ModifiedContent {
         self.offset(x: offset.width, y: offset.height)
     }
 
-    func position(_ position: CGPoint) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func position(_ position: CGPoint) -> ModifiedContent {
         self.position(x: position.x, y: position.y)
     }
 
     func position(
         x: Length = 0,
         y: Length = 0
-    ) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    ) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             styleAttribute(Style {
                 .position("absolute")
@@ -74,14 +74,14 @@ public extension HTML {
         ]))
     }
 
-    func zIndex(_ value: Double) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func zIndex(_ value: Double) -> ModifiedContent {
         modifier(HTMLAttributeModifier([styleAttribute(.zIndex(trimmedNumber(value)))]))
     }
 
     func containerRelativeFrame(
         _ axes: Axis.Set,
         alignment: Alignment = .center
-    ) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    ) -> ModifiedContent {
         var style = Style()
         if axes.contains(.horizontal) {
             style.append(.width("100%"))
@@ -100,7 +100,7 @@ public extension HTML {
         span: Int = 1,
         spacing: Length,
         alignment: Alignment = .center
-    ) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    ) -> ModifiedContent {
         let denominator = max(count, 1)
         let numerator = min(max(span, 1), denominator)
         let gaps = max(denominator - 1, 0)
@@ -122,7 +122,7 @@ public extension HTML {
     func alignmentGuide(
         _ guide: HorizontalAlignment,
         computeValue: @escaping (ViewDimensions) -> Length
-    ) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    ) -> ModifiedContent {
         let value = computeValue(ViewDimensions())
         return modifier(HTMLAttributeModifier([
             .data("alignment-guide-horizontal", guide.cssName),
@@ -133,7 +133,7 @@ public extension HTML {
     func alignmentGuide(
         _ guide: VerticalAlignment,
         computeValue: @escaping (ViewDimensions) -> Length
-    ) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    ) -> ModifiedContent {
         let value = computeValue(ViewDimensions())
         return modifier(HTMLAttributeModifier([
             .data("alignment-guide-vertical", guide.cssName),

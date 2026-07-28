@@ -1,7 +1,7 @@
 import SwiftWebUITheme
 import SwiftHTML
 
-public struct Toggle<Label: HTML>: AttributeComponent {
+public struct Toggle<Label: Component>: AttributeComponent {
     private let label: Label
     private let isOn: Binding<Bool>?
     private let initialValue: Bool
@@ -21,8 +21,8 @@ public struct Toggle<Label: HTML>: AttributeComponent {
         self.attributes = attributes
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         Element(
             "label",
             attributes: [.class(controlClassName("swui-toggle", toggleStyle.className, controlSize.className))]

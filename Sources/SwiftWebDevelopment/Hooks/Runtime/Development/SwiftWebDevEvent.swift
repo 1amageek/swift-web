@@ -7,6 +7,7 @@ package struct SwiftWebDevEvent: Sendable, Codable, Equatable {
   package let message: String?
   package let stylePatch: SwiftWebDevStylePatch?
   package let clientComponentUpdate: ClientRuntimeHMRManifest?
+  package let clientRuntimeUpdates: [ClientRuntimeHMRManifest]?
   package let changedPaths: [String]
 
   package init(
@@ -15,6 +16,7 @@ package struct SwiftWebDevEvent: Sendable, Codable, Equatable {
     message: String? = nil,
     stylePatch: SwiftWebDevStylePatch? = nil,
     clientComponentUpdate: ClientRuntimeHMRManifest? = nil,
+    clientRuntimeUpdates: [ClientRuntimeHMRManifest]? = nil,
     changedPaths: [String] = []
   ) {
     self.id = id
@@ -22,6 +24,7 @@ package struct SwiftWebDevEvent: Sendable, Codable, Equatable {
     self.message = message
     self.stylePatch = stylePatch
     self.clientComponentUpdate = clientComponentUpdate
+    self.clientRuntimeUpdates = clientRuntimeUpdates
     self.changedPaths = changedPaths
   }
 
@@ -30,6 +33,7 @@ package struct SwiftWebDevEvent: Sendable, Codable, Equatable {
     case stylePatch
     case clientBuildStarted
     case clientComponentUpdate
+    case clientRuntimeBatchUpdate
     case serverBuildStarted
     case serverRestarted
     case pagePatch
@@ -70,6 +74,17 @@ package struct ClientRuntimeHMRManifest: Sendable, Codable, Equatable {
     self.contentHash = contentHash
     self.stateSchemaHash = stateSchemaHash
     self.environmentSchemaHash = environmentSchemaHash
+  }
+
+  package func replacingAssetPath(_ assetPath: String) -> ClientRuntimeHMRManifest {
+    ClientRuntimeHMRManifest(
+      componentTypeName: componentTypeName,
+      bundleID: bundleID,
+      assetPath: assetPath,
+      contentHash: contentHash,
+      stateSchemaHash: stateSchemaHash,
+      environmentSchemaHash: environmentSchemaHash
+    )
   }
 }
 

@@ -4,6 +4,7 @@ import Testing
 
 @testable import SwiftWebDevelopmentHooks
 @testable import SwiftWebDevServer
+@testable import SwiftWebPackageGeneration
 
 @Suite
 struct SwiftWebDevWorkerLauncherTests {
@@ -101,6 +102,65 @@ struct SwiftWebDevWorkerLauncherTests {
     }
     // Early exit must be reported well before the readiness timeout burns.
     #expect(Date().timeIntervalSince(started) < 2)
+  }
+
+  @Test
+  func workerLaunchPinsGenerationLeaseUntilProcessExit() async throws {
+    let root = try makeTemporaryRoot()
+    defer { removeTemporaryRoot(root) }
+    let runtimeConfiguration = configuration(packageDirectory: root)
+    let source = root.appendingPathComponent("runtime.wasm")
+    try Data("runtime".utf8).write(to: source)
+    let runtime = SwiftWebGeneratedWasmRuntime(
+      targetName: "Runtime",
+      productName: "runtime_name",
+      componentTypeName: "ClientRuntime",
+      assetPath: "/assets/runtime.wasm"
+    )
+    let publication = try SwiftWebDevPublishedWasmArtifacts.stage(
+      runtimes: [runtime],
+      contentHashesByProduct: [runtime.productName: "runtime-hash"],
+      artifactURL: { _ in source },
+      configuration: runtimeConfiguration
+    )
+    try publication.commit()
+    try publication.finish()
+
+    let executable = root.appendingPathComponent("leased-worker")
+    try makeExecutable(
+      at: executable,
+      script: "#!/bin/sh\ntrap 'exit 0' TERM\nexec /bin/sleep 30\n"
+    )
+    let launcher = SwiftWebDevWorkerLauncher(
+      configuration: runtimeConfiguration,
+      devToken: "test-token"
+    )
+    let handle = try await launcher.launch(
+      executable: executable,
+      fingerprint: SwiftWebDevSourceFingerprint(digest: "leased", fileCount: 1)
+    )
+    defer { Task { await handle.stop() } }
+
+    let generationDirectory = SwiftWebDevPublishedWasmArtifacts
+      .rootDirectory(for: runtimeConfiguration)
+      .appendingPathComponent(publication.generationID, isDirectory: true)
+    let leasesWhileRunning = try FileManager.default.contentsOfDirectory(atPath: generationDirectory.path)
+      .filter { $0.hasPrefix(".lease-") }
+    #expect(leasesWhileRunning.count == 1)
+
+    await handle.stop(gracePeriod: 0.1)
+    let deadline = Date().addingTimeInterval(1)
+    while Date() < deadline {
+      let leases = try FileManager.default.contentsOfDirectory(atPath: generationDirectory.path)
+        .filter { $0.hasPrefix(".lease-") }
+      if leases.isEmpty {
+        break
+      }
+      try await Task.sleep(for: .milliseconds(10))
+    }
+    let leasesAfterExit = try FileManager.default.contentsOfDirectory(atPath: generationDirectory.path)
+      .filter { $0.hasPrefix(".lease-") }
+    #expect(leasesAfterExit.isEmpty)
   }
 
   // MARK: - Helpers

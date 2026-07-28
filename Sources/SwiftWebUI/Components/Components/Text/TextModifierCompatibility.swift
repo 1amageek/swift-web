@@ -101,8 +101,8 @@ public enum TextSelectability: Sendable, Equatable {
     }
 }
 
-public extension HTML {
-    func lineLimit(_ number: Int?) -> ModifiedContent<Self, HTMLAttributeModifier> {
+public extension Component {
+    func lineLimit(_ number: Int?) -> ModifiedContent {
         guard let number else {
             return modifier(HTMLAttributeModifier([]))
         }
@@ -116,11 +116,11 @@ public extension HTML {
         ]))
     }
 
-    func multilineTextAlignment(_ alignment: TextAlignment) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func multilineTextAlignment(_ alignment: TextAlignment) -> ModifiedContent {
         modifier(HTMLAttributeModifier([styleAttribute(.textAlign(alignment.cssValue))], role: .textStyle))
     }
 
-    func lineSpacing(_ lineSpacing: Length) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func lineSpacing(_ lineSpacing: Length) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             styleAttribute(Style {
                 .custom("--swui-line-spacing", lineSpacing.cssValue)
@@ -129,7 +129,7 @@ public extension HTML {
         ], role: .textStyle))
     }
 
-    func truncationMode(_ mode: Text.TruncationMode) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func truncationMode(_ mode: Text.TruncationMode) -> ModifiedContent {
         let style: Style
         switch mode {
         case .tail:
@@ -156,19 +156,19 @@ public extension HTML {
         return modifier(HTMLAttributeModifier([styleAttribute(style)], role: .textStyle))
     }
 
-    func allowsTightening(_ flag: Bool) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func allowsTightening(_ flag: Bool) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             styleAttribute(.fontKerning(flag ? "normal" : "none"))
         ], role: .textStyle))
     }
 
-    func minimumScaleFactor(_ factor: Double) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func minimumScaleFactor(_ factor: Double) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             styleAttribute(.custom("--swui-minimum-scale-factor", trimmedNumber(factor)))
         ], role: .textStyle))
     }
 
-    func textCase(_ textCase: Text.Case?) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func textCase(_ textCase: Text.Case?) -> ModifiedContent {
         guard let textCase else {
             return modifier(HTMLAttributeModifier([], role: .textStyle))
         }
@@ -177,7 +177,7 @@ public extension HTML {
         ], role: .textStyle))
     }
 
-    func fontWidth(_ width: Font.Width?) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func fontWidth(_ width: Font.Width?) -> ModifiedContent {
         guard let width else {
             return modifier(HTMLAttributeModifier([], role: .textStyle))
         }
@@ -186,17 +186,17 @@ public extension HTML {
         ], role: .textStyle))
     }
 
-    func kerning(_ kerning: Length) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func kerning(_ kerning: Length) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             styleAttribute(.letterSpacing(kerning.cssValue))
         ], role: .textStyle))
     }
 
-    func tracking(_ tracking: Length) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func tracking(_ tracking: Length) -> ModifiedContent {
         kerning(tracking)
     }
 
-    func baselineOffset(_ baselineOffset: Length) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func baselineOffset(_ baselineOffset: Length) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             styleAttribute(.verticalAlign(baselineOffset.cssValue))
         ], role: .textStyle))
@@ -206,7 +206,7 @@ public extension HTML {
         _ isActive: Bool = true,
         pattern: Text.LineStyle.Pattern = .solid,
         color: Color? = nil
-    ) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    ) -> ModifiedContent {
         var style = Style.textDecorationLine(isActive ? "underline" : "none")
         if isActive {
             style.append(.textDecorationStyle(pattern.cssValue))
@@ -223,7 +223,7 @@ public extension HTML {
         _ isActive: Bool = true,
         pattern: Text.LineStyle.Pattern = .solid,
         color: Color? = nil
-    ) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    ) -> ModifiedContent {
         var style = Style.textDecorationLine(isActive ? "line-through" : "none")
         if isActive {
             style.append(.textDecorationStyle(pattern.cssValue))
@@ -236,7 +236,7 @@ public extension HTML {
         ], role: .textStyle))
     }
 
-    func textSelection(_ selectability: TextSelectability) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func textSelection(_ selectability: TextSelectability) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             styleAttribute(.userSelect(selectability.cssValue))
         ], role: .textStyle))

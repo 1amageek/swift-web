@@ -6,23 +6,26 @@ public enum GridRowContentBuilder {
         GridRowContent(content: EmptyHTML(), cellCount: 0)
     }
 
-    public static func buildPartialBlock<Content: HTML>(
+    public static func buildPartialBlock<Content: Component>(
         first: GridRowContent<Content>
     ) -> GridRowContent<Content> {
         first
     }
 
-    public static func buildPartialBlock<Accumulated: HTML, Next: HTML>(
+    public static func buildPartialBlock<Accumulated: Component, Next: Component>(
         accumulated: GridRowContent<Accumulated>,
         next: GridRowContent<Next>
-    ) -> GridRowContent<TupleComponent2<Accumulated, Next>> {
+    ) -> GridRowContent<Group<ComponentContent>> {
         GridRowContent(
-            content: TupleComponent2(accumulated.content, next.content),
+            content: Group {
+                accumulated.content
+                next.content
+            },
             cellCount: accumulated.cellCount + next.cellCount
         )
     }
 
-    public static func buildExpression<Content: HTML>(
+    public static func buildExpression<Content: Component>(
         _ expression: Content
     ) -> GridRowContent<Content> {
         GridRowContent(content: expression, cellCount: 1)
@@ -44,7 +47,7 @@ public enum GridRowContentBuilder {
         buildExpression(text(String(expression)))
     }
 
-    public static func buildOptional<Content: HTML>(
+    public static func buildOptional<Content: Component>(
         _ component: GridRowContent<Content>?
     ) -> GridRowContent<OptionalComponent<Content>> {
         GridRowContent(
@@ -53,7 +56,7 @@ public enum GridRowContentBuilder {
         )
     }
 
-    public static func buildEither<TrueContent: HTML, FalseContent: HTML>(
+    public static func buildEither<TrueContent: Component, FalseContent: Component>(
         first component: GridRowContent<TrueContent>
     ) -> GridRowContent<ConditionalComponent<TrueContent, FalseContent>> {
         GridRowContent(
@@ -62,7 +65,7 @@ public enum GridRowContentBuilder {
         )
     }
 
-    public static func buildEither<TrueContent: HTML, FalseContent: HTML>(
+    public static func buildEither<TrueContent: Component, FalseContent: Component>(
         second component: GridRowContent<FalseContent>
     ) -> GridRowContent<ConditionalComponent<TrueContent, FalseContent>> {
         GridRowContent(
@@ -71,7 +74,7 @@ public enum GridRowContentBuilder {
         )
     }
 
-    public static func buildArray<Content: HTML>(
+    public static func buildArray<Content: Component>(
         _ components: [GridRowContent<Content>]
     ) -> GridRowContent<ArrayComponent<Content>> {
         var cellCount = 0
@@ -87,7 +90,7 @@ public enum GridRowContentBuilder {
         )
     }
 
-    public static func buildLimitedAvailability<Content: HTML>(
+    public static func buildLimitedAvailability<Content: Component>(
         _ component: GridRowContent<Content>
     ) -> GridRowContent<Content> {
         component

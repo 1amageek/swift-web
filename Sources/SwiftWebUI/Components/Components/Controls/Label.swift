@@ -1,7 +1,7 @@
 import SwiftWebUITheme
 import SwiftHTML
 
-public struct Label<Title: HTML, Icon: HTML>: AttributeComponent {
+public struct Label<Title: Component, Icon: Component>: AttributeComponent {
     private let title: Title
     private let icon: Icon
     private let attributes: [HTMLAttribute]
@@ -16,8 +16,8 @@ public struct Label<Title: HTML, Icon: HTML>: AttributeComponent {
         self.attributes = []
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         Element(
             "span",
             attributes: mergedAttributes(

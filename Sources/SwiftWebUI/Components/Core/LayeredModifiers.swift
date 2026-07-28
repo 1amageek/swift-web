@@ -1,17 +1,21 @@
 import SwiftWebUITheme
 import SwiftHTML
 
-public struct BackgroundModifier<Background: HTML>: ComponentModifier {
+public struct BackgroundModifier<Background: Component>: ComponentModifier {
     private let alignment: Alignment
     private let background: Background
 
     init(alignment: Alignment, @HTMLBuilder background: () -> Background) {
-        self.alignment = alignment
-        self.background = background()
+        self.init(alignment: alignment, background: background())
     }
 
-    @HTMLBuilder
-    public func body(content: ModifierContent) -> some HTML {
+    init(alignment: Alignment, background: Background) {
+        self.alignment = alignment
+        self.background = background
+    }
+
+    @ComponentBuilder
+    public func content(_ content: ModifierContent) -> some Component {
         Element("div", attributes: [.class("swui-layered swui-background-layered")]) {
             Element("div", attributes: layerAttributes(kind: "background", alignment: alignment)) {
                 background
@@ -23,17 +27,21 @@ public struct BackgroundModifier<Background: HTML>: ComponentModifier {
     }
 }
 
-public struct OverlayModifier<Overlay: HTML>: ComponentModifier {
+public struct OverlayModifier<Overlay: Component>: ComponentModifier {
     private let alignment: Alignment
     private let overlay: Overlay
 
     init(alignment: Alignment, @HTMLBuilder overlay: () -> Overlay) {
-        self.alignment = alignment
-        self.overlay = overlay()
+        self.init(alignment: alignment, overlay: overlay())
     }
 
-    @HTMLBuilder
-    public func body(content: ModifierContent) -> some HTML {
+    init(alignment: Alignment, overlay: Overlay) {
+        self.alignment = alignment
+        self.overlay = overlay
+    }
+
+    @ComponentBuilder
+    public func content(_ content: ModifierContent) -> some Component {
         Element("div", attributes: [.class("swui-layered swui-overlay-layered")]) {
             Element("div", attributes: [.class("swui-layer swui-layer-content")]) {
                 content
@@ -45,39 +53,39 @@ public struct OverlayModifier<Overlay: HTML>: ComponentModifier {
     }
 }
 
-public extension HTML {
-    func background<Background: HTML>(
+public extension Component {
+    func background<Background: Component>(
         alignment: Alignment = .center,
         @HTMLBuilder content: () -> Background
-    ) -> ModifiedContent<Self, BackgroundModifier<Background>> {
+    ) -> ModifiedContent {
         modifier(BackgroundModifier(alignment: alignment, background: content))
     }
 
-    func background<Background: HTML>(
+    func background<Background: Component>(
         _ background: Background,
         alignment: Alignment = .center
-    ) -> ModifiedContent<Self, BackgroundModifier<Background>> {
-        modifier(BackgroundModifier(alignment: alignment) { background })
+    ) -> ModifiedContent {
+        modifier(BackgroundModifier(alignment: alignment, background: background))
     }
 
-    func overlay<Overlay: HTML>(
+    func overlay<Overlay: Component>(
         alignment: Alignment = .center,
         @HTMLBuilder content: () -> Overlay
-    ) -> ModifiedContent<Self, OverlayModifier<Overlay>> {
+    ) -> ModifiedContent {
         modifier(OverlayModifier(alignment: alignment, overlay: content))
     }
 
-    func overlay<Overlay: HTML>(
+    func overlay<Overlay: Component>(
         _ overlay: Overlay,
         alignment: Alignment = .center
-    ) -> ModifiedContent<Self, OverlayModifier<Overlay>> {
-        modifier(OverlayModifier(alignment: alignment) { overlay })
+    ) -> ModifiedContent {
+        modifier(OverlayModifier(alignment: alignment, overlay: overlay))
     }
 
     func overlay<S: ShapeStyle>(
         _ style: S,
         ignoresSafeAreaEdges edges: Edge.Set = .all
-    ) -> ModifiedContent<Self, StyleModifier<S>> {
+    ) -> ModifiedContent {
         modifier(StyleModifier(property: .overlay, style: style, ignoredSafeAreaEdges: edges))
     }
 }

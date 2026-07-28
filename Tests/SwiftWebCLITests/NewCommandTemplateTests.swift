@@ -63,6 +63,16 @@ struct NewCommandTemplateTests {
         #expect(files.keys.contains("Sources/Chat/Components/ChatTheme.swift"))
         #expect(files["Package.swift"]?.contains(".product(name: \"SwiftWebStyle\", package: \"swift-web\")") == true)
         #expect(files["Package.swift"]?.contains(".product(name: \"SwiftWebUI\", package: \"swift-web\")") == true)
+        #expect(
+            files["Package.swift"]?.contains(
+                #".package(url: "https://github.com/1amageek/swift-html.git", from: "0.13.0")"#
+            ) == true
+        )
+        #expect(
+            files["Package.swift"]?.contains(
+                #".package(url: "https://github.com/1amageek/swift-web.git", from: "0.7.0")"#
+            ) == true
+        )
         #expect(files["Sources/Chat/App.swift"]?.contains("ChatPage()") == true)
         #expect(files["Sources/Chat/Components/ChatPanel.swift"]?.contains("public struct ChatPanel: ClientComponent {") == true)
         #expect(files["Sources/Chat/Components/ChatPanel.swift"]?.contains("sw-chat-composer") == true)
@@ -113,6 +123,16 @@ struct NewCommandTemplateTests {
         #expect(!paths.contains(".swiftweb/platform.json"))
         #expect(!package.contains(".product(name: \"SwiftWebStyle\", package: \"swift-web\")"))
         #expect(!package.contains(".product(name: \"SwiftWebUI\", package: \"swift-web\")"))
+        #expect(
+            package.contains(
+                #".package(url: "https://github.com/1amageek/swift-html.git", from: "0.13.0")"#
+            )
+        )
+        #expect(
+            package.contains(
+                #".package(url: "https://github.com/1amageek/swift-web.git", from: "0.7.0")"#
+            )
+        )
     }
 
     @Test

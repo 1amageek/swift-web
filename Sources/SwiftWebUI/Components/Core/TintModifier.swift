@@ -13,8 +13,8 @@ public struct TintModifier<S: ShapeStyle>: ComponentModifier {
     @Environment({ $0.layoutDirection }) private var layoutDirection: LayoutDirection
     @Environment({ $0.controlState }) private var controlState: ControlState
 
-    @HTMLBuilder
-    public func body(content: ModifierContent) -> some HTML {
+    @ComponentBuilder
+    public func content(_ content: ModifierContent) -> some Component {
         content.transformEnvironment({ $0.tint = resolvedTint })
     }
 

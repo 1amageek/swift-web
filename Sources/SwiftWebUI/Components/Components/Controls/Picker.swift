@@ -1,12 +1,12 @@
 import SwiftWebUITheme
 import SwiftHTML
 
-public struct Picker<Label: HTML, Content: HTML>: AttributeComponent {
+public struct Picker<Label: Component, Content: Component>: AttributeComponent {
     private let label: Label
     private let labelText: String?
     private let selection: Binding<String>
     private let attributes: [HTMLAttribute]
-    private let content: Content
+    private let childContent: Content
     @Environment({ $0.controlSize }) private var controlSize: ControlSize
     @Environment({ $0.isEnabled }) private var isEnabled: Bool
     @Environment({ $0.pickerStyle }) private var pickerStyle: PickerStyleKind
@@ -21,11 +21,11 @@ public struct Picker<Label: HTML, Content: HTML>: AttributeComponent {
         self.labelText = nil
         self.selection = selection
         self.attributes = attributes
-        self.content = content()
+        self.childContent = content()
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         if pickerStyle.usesRadioGroup {
             radioGroupField
         } else {
@@ -34,7 +34,7 @@ public struct Picker<Label: HTML, Content: HTML>: AttributeComponent {
     }
 
     @HTMLBuilder
-    private var menuField: some HTML {
+    private var menuField: some Component {
         Element("label", attributes: [.class("swui-picker-field \(LayoutClass.fillHorizontal)")]) {
             span(.class("swui-field-label")) {
                 label
@@ -51,13 +51,13 @@ public struct Picker<Label: HTML, Content: HTML>: AttributeComponent {
                     extra: selectAttributes
                 )
             ) {
-                content.transformEnvironment({ $0.pickerSelection = selection.wrappedValue })
+                childContent.transformEnvironment({ $0.pickerSelection = selection.wrappedValue })
             }
         }
     }
 
     @HTMLBuilder
-    private var radioGroupField: some HTML {
+    private var radioGroupField: some Component {
         // Segmented and inline pickers lower to a `role="radiogroup"` of native
         // radio inputs. The segmented variant composes the shared `bar` material;
         // the inline variant is a plain vertical list with no surrounding chrome.
@@ -76,7 +76,7 @@ public struct Picker<Label: HTML, Content: HTML>: AttributeComponent {
                     extra: radioGroupAttributes
                 )
             ) {
-                content
+                childContent
                     .transformEnvironment({ $0.pickerSelection = selection.wrappedValue })
                     .transformEnvironment({ $0.pickerGroupName = groupName })
             }
@@ -89,7 +89,7 @@ public struct Picker<Label: HTML, Content: HTML>: AttributeComponent {
             labelText: labelText,
             selection: selection,
             attributes: self.attributes + attributes,
-            content: content
+            content: childContent
         )
     }
 
@@ -104,7 +104,7 @@ public struct Picker<Label: HTML, Content: HTML>: AttributeComponent {
         self.labelText = labelText
         self.selection = selection
         self.attributes = attributes
-        self.content = content
+        self.childContent = content
     }
 
     private var selectAttributes: [HTMLAttribute] {

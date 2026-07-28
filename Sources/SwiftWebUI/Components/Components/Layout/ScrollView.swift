@@ -1,11 +1,11 @@
 import SwiftWebUITheme
 import SwiftHTML
 
-public struct ScrollView<Content: HTML>: AttributeComponent {
+public struct ScrollView<Content: Component>: AttributeComponent {
     private let axes: Axis.Set
     private let showsIndicators: Bool
     private let attributes: [HTMLAttribute]
-    private let content: Content
+    private let childContent: Content
 
     public init(
         _ axes: Axis.Set = .vertical,
@@ -16,11 +16,11 @@ public struct ScrollView<Content: HTML>: AttributeComponent {
         self.axes = axes
         self.showsIndicators = showsIndicators
         self.attributes = attributes
-        self.content = content()
+        self.childContent = content()
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         Element(
             "div",
             attributes: mergedAttributes(
@@ -29,19 +29,19 @@ public struct ScrollView<Content: HTML>: AttributeComponent {
                 extra: attributes
             )
         ) {
-            content
+            childContent
         }
     }
 
     public func addingAttributes(_ attributes: [HTMLAttribute]) -> Self {
-        Self(axes: axes, showsIndicators: showsIndicators, attributes: self.attributes + attributes, content: content)
+        Self(axes: axes, showsIndicators: showsIndicators, attributes: self.attributes + attributes, content: childContent)
     }
 
     private init(axes: Axis.Set, showsIndicators: Bool, attributes: [HTMLAttribute], content: Content) {
         self.axes = axes
         self.showsIndicators = showsIndicators
         self.attributes = attributes
-        self.content = content
+        self.childContent = content
     }
 
     private var className: String {

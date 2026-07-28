@@ -436,6 +436,35 @@ struct SwiftWebDevHMRTests {
   }
 
   @Test
+  func eventLogSerializesConcurrentAppends() async throws {
+    let root = FileManager.default.temporaryDirectory
+      .appendingPathComponent(
+        "SwiftWebDevConcurrentEventLogTests-\(UUID().uuidString)", isDirectory: true)
+    defer {
+      do {
+        try FileManager.default.removeItem(at: root)
+      } catch {}
+    }
+
+    let log = SwiftWebDevEventLog(fileURL: root.appendingPathComponent("events.jsonl"))
+    try log.reset()
+
+    try await withThrowingTaskGroup(of: Void.self) { group in
+      for index in 0..<100 {
+        group.addTask {
+          try log.append(
+            SwiftWebDevEvent(kind: .clientBuildStarted, message: "event-\(index)"))
+        }
+      }
+      try await group.waitForAll()
+    }
+
+    let events = try log.events(after: nil)
+    #expect(events.count == 100)
+    #expect(Set(events.compactMap(\.message)).count == 100)
+  }
+
+  @Test
   func clientManifestSnapshotStoreReturnsRuntimeSchemaHashes() throws {
     let root = FileManager.default.temporaryDirectory
       .appendingPathComponent(
@@ -552,6 +581,17 @@ struct SwiftWebDevHMRTests {
     #expect(!payload.contains(oldEvent.id))
     #expect(payload.contains(nextEvent.id))
     #expect(payload.contains("event: clientBuildStarted"))
+  }
+
+  @Test
+  func devErrorEventUsesNonReservedSSEEventName() throws {
+    let event = SwiftWebDevEvent(kind: .error, message: "client build failed")
+
+    let payload = try SwiftWebDevHotReload.sseData(for: event)
+
+    #expect(payload.contains("event: swiftWebError"))
+    #expect(!payload.contains("event: error"))
+    #expect(payload.contains(#""kind":"error""#))
   }
 
   @Test
@@ -776,6 +816,19 @@ struct SwiftWebDevHMRTests {
   }
 
   @Test
+  func workerRegistryRemovesCrashedTargetWhileRestarting() {
+    let registry = SwiftWebDevWorkerRegistry()
+    let target = SwiftWebDevWorkerTarget(host: "127.0.0.1", port: 12345)
+
+    registry.activate(target)
+    registry.markRestarting(message: "restarting", detail: "worker crashed")
+
+    #expect(registry.activeTarget() == nil)
+    #expect(registry.status().activeWorkerURL == nil)
+    #expect(registry.status().phase == "restarting")
+  }
+
+  @Test
   func stalenessHeadersUseTheWorkerThatProducedTheResponse() {
     let desired = SwiftWebDevSourceFingerprint(
       digest: String(repeating: "b", count: 64),
@@ -945,6 +998,125 @@ struct SwiftWebDevHMRTests {
 
     await host.stop()
     #expect(!SwiftWebDevPortProbe.isListening(host: "127.0.0.1", port: publicPort))
+  }
+
+  @Test(.timeLimit(.minutes(1)))
+  func devHostServesExactCompressedGenerationThenReturnsGoneAfterCollection() async throws {
+    let publicPort = try SwiftWebDevPortAllocator.allocateLoopbackPort()
+    let root = FileManager.default.temporaryDirectory
+      .appendingPathComponent("SwiftWebDevHostGenerationTests-\(UUID().uuidString)", isDirectory: true)
+    defer {
+      do {
+        try FileManager.default.removeItem(at: root)
+      } catch {
+        Issue.record("SwiftWeb generation host test cleanup failed: \(String(describing: error))")
+      }
+    }
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    let configuration = SwiftWebDevRuntimeConfiguration(
+      packageDirectory: root,
+      host: "127.0.0.1",
+      port: publicPort,
+      readinessTimeout: 2
+    )
+    let source = root.appendingPathComponent("runtime.wasm")
+    let runtime = SwiftWebGeneratedWasmRuntime(
+      targetName: "Runtime_Name",
+      productName: "runtime_name",
+      componentTypeName: "ClientRuntime_Name",
+      assetPath: "/assets/runtime_name.wasm"
+    )
+    func publish(_ version: Int) throws -> SwiftWebDevPublishedWasmArtifacts {
+      try Data("raw-v\(version)".utf8).write(to: source)
+      try Data("gzip-v\(version)".utf8).write(
+        to: URL(fileURLWithPath: source.path + ".gz")
+      )
+      try Data("brotli-v\(version)".utf8).write(
+        to: URL(fileURLWithPath: source.path + ".br")
+      )
+      let publication = try SwiftWebDevPublishedWasmArtifacts.stage(
+        runtimes: [runtime],
+        contentHashesByProduct: [runtime.productName: "hash-v\(version)"],
+        artifactURL: { _ in source },
+        configuration: configuration
+      )
+      try publication.commit()
+      try publication.finish()
+      return publication
+    }
+
+    let firstPublication = try publish(1)
+    let firstPath = firstPublication.assetPath(
+      productName: runtime.productName,
+      contentHash: "hash-v1"
+    )
+    let secondPublication = try publish(2)
+    let secondPath = secondPublication.assetPath(
+      productName: runtime.productName,
+      contentHash: "hash-v2"
+    )
+    let eventLog = SwiftWebDevEventLog(fileURL: root.appendingPathComponent("events.jsonl"))
+    try eventLog.reset()
+    let host = SwiftWebDevHost(
+      configuration: configuration,
+      devToken: "test-token",
+      eventLog: eventLog,
+      workerRegistry: SwiftWebDevWorkerRegistry(),
+      logger: Logger(label: "codes.swiftweb.tests.dev-host-generation")
+    )
+    try await host.start()
+    do {
+      let firstResponse = try await fetchRawResponse(
+        "http://127.0.0.1:\(publicPort)\(firstPath)",
+        headers: ["Accept-Encoding": "br, gzip;q=0.5"]
+      )
+      #expect(firstResponse.status == 200)
+      #expect(firstResponse.headers.first(name: "Content-Encoding") == "br")
+      #expect(firstResponse.headers.first(name: "Vary") == "Accept-Encoding")
+      #expect(firstResponse.data == Data("brotli-v1".utf8))
+
+      let secondResponse = try await fetchRawResponse(
+        "http://127.0.0.1:\(publicPort)\(secondPath)",
+        headers: ["Accept-Encoding": "identity"]
+      )
+      #expect(secondResponse.status == 200)
+      #expect(secondResponse.headers.first(name: "Content-Encoding") == nil)
+      #expect(secondResponse.data == Data("raw-v2".utf8))
+
+      let conflictResponse = try await fetchRawResponse(
+        "http://127.0.0.1:\(publicPort)\(firstPath.replacingOccurrences(of: "hash-v1", with: "wrong"))"
+      )
+      #expect(conflictResponse.status == 409)
+
+      let openedFirstGeneration = try SwiftWebDevPublishedWasmArtifacts.openAsset(
+        rootDirectory: SwiftWebDevPublishedWasmArtifacts.rootDirectory(for: configuration),
+        generationID: firstPublication.generationID,
+        productName: runtime.productName,
+        requestedContentHash: "hash-v1",
+        acceptEncoding: "br"
+      )
+      defer {
+        do {
+          try openedFirstGeneration.fileHandle.close()
+        } catch {
+          Issue.record("Failed to close pinned generation fixture: \(error)")
+        }
+      }
+      for version in 3...9 {
+        _ = try publish(version)
+      }
+      #expect(openedFirstGeneration.contentEncoding == "br")
+      #expect(openedFirstGeneration.byteCount == Int64(Data("brotli-v1".utf8).count))
+      #expect(try openedFirstGeneration.fileHandle.readToEnd() == Data("brotli-v1".utf8))
+      let goneResponse = try await fetchRawResponse(
+        "http://127.0.0.1:\(publicPort)\(firstPath)"
+      )
+      #expect(goneResponse.status == 410)
+    } catch {
+      await host.stop()
+      throw error
+    }
+    await host.stop()
   }
 
   @Test(.timeLimit(.minutes(1)))
@@ -1379,6 +1551,32 @@ private func fetch(_ urlString: String) async throws -> Data {
     throw SwiftWebDevHMRError.unexpectedStatus(httpResponse.statusCode)
   }
   return data
+}
+
+private struct SwiftWebDevFetchedResponse {
+  var status: Int
+  var headers: HTTPHeaders
+  var data: Data
+}
+
+private func fetchRawResponse(
+  _ urlString: String,
+  headers: [String: String] = [:]
+) async throws -> SwiftWebDevFetchedResponse {
+  var request = HTTPClientRequest(url: urlString)
+  for (name, value) in headers {
+    request.headers.add(name: name, value: value)
+  }
+  let response = try await HTTPClient.shared.execute(request, timeout: .seconds(10))
+  var data = Data()
+  for try await chunk in response.body {
+    data.append(contentsOf: chunk.readableBytesView)
+  }
+  return SwiftWebDevFetchedResponse(
+    status: Int(response.status.code),
+    headers: response.headers,
+    data: data
+  )
 }
 
 private func fetchFirstServerSentEvent(_ urlString: String) async throws -> String {

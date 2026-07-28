@@ -8,7 +8,7 @@ import SwiftWebUI
 enum WebFixtures {
     /// A fixed-size probe box. The probe attribute goes on the Frame
     /// wrapper (the element that carries the sizing), not the inner div.
-    private static func box(_ probe: String, width: Double, height: Double) -> some HTML {
+    private static func box(_ probe: String, width: Double, height: Double) -> some Component {
         div(.style("background: #e74c3c; width: 100%; height: 100%;"))
             .frame(width: width, height: height)
             .addingAttributes([.data("probe", probe)])
@@ -19,14 +19,14 @@ enum WebFixtures {
         _ probe: String,
         maxWidth: Double? = nil,
         height: Double
-    ) -> some HTML {
+    ) -> some Component {
         div(.style("background: #3498db; width: 100%; height: 100%;"))
             .frame(maxWidth: maxWidth, height: height)
             .addingAttributes([.data("probe", probe)])
     }
 
     @HTMLBuilder
-    private static func fixture(_ id: FixtureID) -> some HTML {
+    private static func fixture(_ id: FixtureID) -> some Component {
         switch id {
         case .hstackSpacer:
             HStack(spacing: 0) {

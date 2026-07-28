@@ -10,10 +10,10 @@ import SwiftHTML
 /// keeps the selection binding in sync, so switching tabs works without a client
 /// runtime while server-side state stays consistent. The binding's current value
 /// chooses the initially selected tab.
-public struct TabView<Content: HTML>: AttributeComponent {
+public struct TabView<Content: Component>: AttributeComponent {
     private let selection: Binding<String>
     private let attributes: [HTMLAttribute]
-    private let content: Content
+    private let childContent: Content
     // The call-site source location gives every `TabView` a stable, unique radio
     // group `name` so multiple tab views on one page do not share a group. This
     // is the same identity `@State` uses, so it survives re-renders.
@@ -34,14 +34,14 @@ public struct TabView<Content: HTML>: AttributeComponent {
     ) {
         self.selection = selection
         self.attributes = attributes
-        self.content = content()
+        self.childContent = content()
         self.sourceFileID = fileID
         self.sourceLine = line
         self.sourceColumn = column
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         Element(
             "div",
             attributes: mergedAttributes(
@@ -49,7 +49,7 @@ public struct TabView<Content: HTML>: AttributeComponent {
                 extra: tabViewAttributes
             )
         ) {
-            content
+            childContent
                 .transformEnvironment({ $0.tabSelection = selection.wrappedValue })
                 .transformEnvironment({ $0.tabGroupName = groupName })
         }
@@ -59,7 +59,7 @@ public struct TabView<Content: HTML>: AttributeComponent {
         Self(
             selection: selection,
             attributes: self.attributes + attributes,
-            content: content,
+            content: childContent,
             sourceFileID: sourceFileID,
             sourceLine: sourceLine,
             sourceColumn: sourceColumn
@@ -76,7 +76,7 @@ public struct TabView<Content: HTML>: AttributeComponent {
     ) {
         self.selection = selection
         self.attributes = attributes
-        self.content = content
+        self.childContent = content
         self.sourceFileID = sourceFileID
         self.sourceLine = sourceLine
         self.sourceColumn = sourceColumn

@@ -12,7 +12,7 @@ struct AnimationDetail: Component {
     private var state: [String: String] { ui.wrappedValue }
     private var on: Binding<Bool> { ui.bool("\(selection).on") }
 
-    var body: some HTML {
+    var content: some Component {
         switch selection {
         case "transition":
             // Removal is animated by the runtime; insertion by CSS @starting-style.

@@ -99,7 +99,7 @@ struct StoryboardProductionServer {
             "--show-bin-path",
         ]
         let binPath = try capturedProcessOutput(arguments: arguments)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: Foundation.CharacterSet.whitespacesAndNewlines)
         guard !binPath.isEmpty else {
             throw CLIError(message: "swift build --show-bin-path returned an empty path", exitCode: 70)
         }

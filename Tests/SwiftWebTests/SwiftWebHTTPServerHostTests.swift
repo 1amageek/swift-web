@@ -322,9 +322,11 @@ private struct HostFixtureApp: App {
 
 @Page("/inherit")
 private struct HostGroupInheritCachePage {
-    func body() -> some HTML {
-        main {
-            p { "inherit" }
+    var document: some HTMLDocument {
+        PageDocument(title: "Inherit") {
+            main {
+                p { "inherit" }
+            }
         }
     }
 }
@@ -337,18 +339,22 @@ private struct HostGroupOverrideCachePage {
         }
     }
 
-    func body() -> some HTML {
-        main {
-            p { "override" }
+    var document: some HTMLDocument {
+        PageDocument(title: "Override") {
+            main {
+                p { "override" }
+            }
         }
     }
 }
 
 @Page("/")
 private struct HostRootPage {
-    func body() -> some HTML {
-        main {
-            h1 { "Host Root" }
+    var document: some HTMLDocument {
+        PageDocument(title: "Host Root") {
+            main {
+                h1 { "Host Root" }
+            }
         }
     }
 }
@@ -359,9 +365,11 @@ private struct HostItemPage {
         let id: Int
     }
 
-    func body() -> some HTML {
-        main {
-            h1 { "Item" }
+    var document: some HTMLDocument {
+        PageDocument(title: "Item") {
+            main {
+                h1 { "Item" }
+            }
         }
     }
 }
@@ -374,9 +382,11 @@ private struct HostSearchPage {
 
     @Query var query: SearchParams
 
-    func body() -> some HTML {
-        main {
-            p { query.q }
+    var document: some HTMLDocument {
+        PageDocument(title: "Search") {
+            main {
+                p { query.q }
+            }
         }
     }
 }
@@ -385,9 +395,11 @@ private struct HostSearchPage {
 private struct HostSessionReadPage {
     @Session var session
 
-    func body() -> some HTML {
-        main {
-            p { session.isAuthenticated ? "authenticated" : "guest" }
+    var document: some HTMLDocument {
+        PageDocument(title: "Session") {
+            main {
+                p { session.isAuthenticated ? "authenticated" : "guest" }
+            }
         }
     }
 }
@@ -396,10 +408,12 @@ private struct HostSessionReadPage {
 private struct HostSessionLoginPage {
     @Session var session
 
-    func body() -> some HTML {
+    var document: some HTMLDocument {
         session.authenticate(userID: "host-user")
-        return main {
-            p { "logged in" }
+        return PageDocument(title: "Login") {
+            main {
+                p { "logged in" }
+            }
         }
     }
 }

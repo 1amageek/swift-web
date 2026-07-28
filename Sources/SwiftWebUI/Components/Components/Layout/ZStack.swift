@@ -1,22 +1,22 @@
 import SwiftWebUITheme
 import SwiftHTML
 
-public struct ZStack<Content: HTML>: AttributeComponent {
+public struct ZStack: AttributeComponent {
     private let alignment: Alignment
     private let attributes: [HTMLAttribute]
-    private let content: Content
+    private let childContent: ComponentContent
 
-    public init(
+    public init<Content: Component>(
         alignment: Alignment = .center,
-        @HTMLBuilder content: () -> Content
+        @ComponentBuilder content: () -> Content
     ) {
         self.alignment = alignment
         self.attributes = []
-        self.content = content()
+        self.childContent = HTMLBuilder.buildExpression(content())
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         Element(
             "div",
             attributes: mergedAttributes(
@@ -29,17 +29,17 @@ public struct ZStack<Content: HTML>: AttributeComponent {
                 extra: attributes
             )
         ) {
-            content
+            childContent
         }
     }
 
     public func addingAttributes(_ attributes: [HTMLAttribute]) -> Self {
-        Self(alignment: alignment, attributes: self.attributes + attributes, content: content)
+        Self(alignment: alignment, attributes: self.attributes + attributes, content: childContent)
     }
 
-    private init(alignment: Alignment, attributes: [HTMLAttribute], content: Content) {
+    private init(alignment: Alignment, attributes: [HTMLAttribute], content: ComponentContent) {
         self.alignment = alignment
         self.attributes = attributes
-        self.content = content
+        self.childContent = content
     }
 }

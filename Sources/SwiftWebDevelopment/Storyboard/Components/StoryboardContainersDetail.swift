@@ -11,7 +11,7 @@ struct ContainersDetail: Component {
 
     private var state: [String: String] { ui.wrappedValue }
 
-    var body: some HTML {
+    var content: some Component {
         switch selection {
         case "badge":
             // A settings-style list showing the standard badge(_:) usage: the
@@ -82,7 +82,7 @@ struct ContainersDetail: Component {
     }
 
     @HTMLBuilder
-    private func badgeFirstRow(kind: String, label: String, tint: Color) -> some HTML {
+    private func badgeFirstRow(kind: String, label: String, tint: Color) -> some Component {
         if kind == "count" {
             Text("Wi-Fi").badge(Int(label) ?? 3).tint(tint)
         } else {
@@ -91,7 +91,7 @@ struct ContainersDetail: Component {
     }
 
     @HTMLBuilder
-    private func toolbarDemo() -> some HTML {
+    private func toolbarDemo() -> some Component {
         let label = value("toolbar", "label", "Save")
         let placement = toolbarPlacement(state.control("toolbar", "placement"))
         let grouped = state.controlFlag("toolbar", "group")
@@ -119,7 +119,7 @@ struct ContainersDetail: Component {
     }
 
     @HTMLBuilder
-    private func disclosureGroupDemo() -> some HTML {
+    private func disclosureGroupDemo() -> some Component {
         let title = value("disclosuregroup", "title", "Advanced options")
         if state.controlFlag("disclosuregroup", "icon") {
             DisclosureGroup(isExpanded: ui.bool("disclosuregroup.open")) {
@@ -134,7 +134,7 @@ struct ContainersDetail: Component {
         }
     }
 
-    private var disclosureContent: some HTML {
+    private var disclosureContent: some Component {
         VStack(alignment: .leading, spacing: .small) {
             Text("Nested content reveals when expanded.").foregroundStyle(.secondary)
             Label("Verbose logging", systemImage: "doc.text")
@@ -143,7 +143,7 @@ struct ContainersDetail: Component {
     }
 
     @HTMLBuilder
-    private func groupBoxDemo() -> some HTML {
+    private func groupBoxDemo() -> some Component {
         let title = value("groupbox", "title", "Storage")
         let pad = padding(state.control("groupbox", "pad"))
         if state.controlFlag("groupbox", "icon") {
@@ -159,7 +159,7 @@ struct ContainersDetail: Component {
         }
     }
 
-    private func groupBoxContent(_ pad: Space) -> some HTML {
+    private func groupBoxContent(_ pad: Space) -> some Component {
         VStack(alignment: .leading, spacing: .small) {
             Text("iCloud Drive")
             Text("128 GB of 200 GB used").foregroundStyle(.secondary)
@@ -178,7 +178,7 @@ struct ContainersDetail: Component {
     }
 
     @HTMLBuilder
-    private func lazyDemo() -> some HTML {
+    private func lazyDemo() -> some Component {
         if state.control("lazy", "kind") == "grid" {
             lazyGridDemo(adaptive: state.control("lazy", "tracks") == "adaptive")
         } else {
@@ -187,7 +187,7 @@ struct ContainersDetail: Component {
     }
 
     @HTMLBuilder
-    private func lazyGridDemo(adaptive: Bool) -> some HTML {
+    private func lazyGridDemo(adaptive: Bool) -> some Component {
         let columns: [GridItem] = adaptive
             ? [GridItem(.adaptive(minimum: 48))]
             : [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())]
@@ -210,7 +210,7 @@ struct ContainersDetail: Component {
     }
 
     @HTMLBuilder
-    private func lazyStackDemo(_ axis: String) -> some HTML {
+    private func lazyStackDemo(_ axis: String) -> some Component {
         if axis == "hstack" {
             ScrollView(.horizontal) {
                 LazyHStack(spacing: .small) {
@@ -242,7 +242,7 @@ struct ContainersDetail: Component {
     }
 
     @HTMLBuilder
-    private func scrollViewDemo() -> some HTML {
+    private func scrollViewDemo() -> some Component {
         let height = state.controlNumber("scrollview", "height")
         let isHorizontal = state.control("scrollview", "axes") == "horizontal"
         let showsIndicators = state.controlFlag("scrollview", "showsIndicators")
@@ -272,7 +272,7 @@ struct ContainersDetail: Component {
     }
 
     @HTMLBuilder
-    private func gridDemo() -> some HTML {
+    private func gridDemo() -> some Component {
         let h = state.controlNumber("grid", "hSpacing")
         let v = state.controlNumber("grid", "vSpacing")
         Grid(alignment: gridAlignment(state.control("grid", "align")), horizontalSpacing: h, verticalSpacing: v) {

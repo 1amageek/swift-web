@@ -1,6 +1,7 @@
 import SwiftHTML
 import SwiftWebActors
 import SwiftWebStyle
+import Synchronization
 
 public struct ClientRuntimeBootstrapLocation: Sendable, Codable, Equatable {
     public let href: String
@@ -35,6 +36,7 @@ public struct ClientRuntimeBootstrapRequest: Sendable, Codable, Equatable {
         self.stateSnapshot = stateSnapshot
         self.actorBindings = actorBindings
     }
+
 }
 
 public enum ClientRuntimeBootstrapMode: String, Sendable, Codable, Equatable {
@@ -44,6 +46,16 @@ public enum ClientRuntimeBootstrapMode: String, Sendable, Codable, Equatable {
 }
 
 public typealias ClientRuntimeStateSnapshot = StateStoreSnapshot
+
+public struct ClientRuntimeAtomicStyleRule: Sendable, Codable, Equatable {
+    public let className: String
+    public let body: String
+
+    public init(className: String, body: String) {
+        self.className = className
+        self.body = body
+    }
+}
 
 public struct ClientRuntimeEventRequest: Sendable, Codable, Equatable {
     public let handlerID: HandlerID
@@ -64,17 +76,20 @@ public struct ClientRuntimeEventRequest: Sendable, Codable, Equatable {
 public struct ClientRuntimeResponse: Sendable, Codable, Equatable {
     public let commandBatch: BrowserDOMCommandBatch?
     public let hydrationIndex: BrowserHydrationIndex?
+    public let atomicStyleRules: [ClientRuntimeAtomicStyleRule]
     public let error: String?
     public let appliesDOMCommandsInRuntime: Bool
 
     public init(
         commandBatch: BrowserDOMCommandBatch? = nil,
         hydrationIndex: BrowserHydrationIndex? = nil,
+        atomicStyleRules: [ClientRuntimeAtomicStyleRule] = [],
         error: String? = nil,
         appliesDOMCommandsInRuntime: Bool = false
     ) {
         self.commandBatch = commandBatch
         self.hydrationIndex = hydrationIndex
+        self.atomicStyleRules = atomicStyleRules
         self.error = error
         self.appliesDOMCommandsInRuntime = appliesDOMCommandsInRuntime
     }
@@ -83,6 +98,7 @@ public struct ClientRuntimeResponse: Sendable, Codable, Equatable {
 public enum ClientRuntimeBridgeError: Error, Sendable, CustomStringConvertible {
     case notBootstrapped
     case componentMountNotFound(String)
+    case duplicateStateSlot(String)
 
     public var description: String {
         switch self {
@@ -90,6 +106,8 @@ public enum ClientRuntimeBridgeError: Error, Sendable, CustomStringConvertible {
             "SwiftHTML browser runtime was not bootstrapped"
         case .componentMountNotFound(let typeName):
             "SwiftHTML browser component mount was not found for \(typeName)"
+        case .duplicateStateSlot(let slotID):
+            "SwiftHTML browser runtime produced duplicate state slot \(slotID)"
         }
     }
 }
@@ -98,7 +116,7 @@ public struct ClientComponentMount: Sendable, Equatable {
     public let typeName: String
     public let componentID: ComponentID?
 
-    public init<Root: HTML>(_ type: Root.Type) {
+    public init<Root: Component>(_ type: Root.Type) {
         self.typeName = String(reflecting: type)
         self.componentID = nil
     }
@@ -109,7 +127,208 @@ public struct ClientComponentMount: Sendable, Equatable {
     }
 }
 
-public final class ClientRuntimeBridge<Root: HTML> {
+public final class ClientRuntimeBridge<Root: Component>: Sendable {
+    private struct StableDOMSignatureRecord {
+        let nodeID: HTMLNodeID
+        let signature: String
+    }
+
+    private struct StableDOMSignatureIndex {
+        let recordsByNodeID: [StableDOMSignatureRecord]
+        let recordsBySignature: [StableDOMSignatureRecord]
+
+        init(_ records: [StableDOMSignatureRecord]) {
+            self.recordsByNodeID = records.sorted { left, right in
+                left.nodeID.rawValue < right.nodeID.rawValue
+            }
+            self.recordsBySignature = records.sorted { left, right in
+                left.signature < right.signature
+            }
+        }
+
+        func signature(for nodeID: HTMLNodeID) -> String? {
+            var lowerBound = 0
+            var upperBound = recordsByNodeID.count
+            while lowerBound < upperBound {
+                let middle = lowerBound + (upperBound - lowerBound) / 2
+                if recordsByNodeID[middle].nodeID.rawValue < nodeID.rawValue {
+                    lowerBound = middle + 1
+                } else {
+                    upperBound = middle
+                }
+            }
+            guard lowerBound < recordsByNodeID.count,
+                  recordsByNodeID[lowerBound].nodeID == nodeID else {
+                return nil
+            }
+            return recordsByNodeID[lowerBound].signature
+        }
+
+        func nodeID(for signature: String) -> HTMLNodeID? {
+            var lowerBound = 0
+            var upperBound = recordsBySignature.count
+            while lowerBound < upperBound {
+                let middle = lowerBound + (upperBound - lowerBound) / 2
+                if recordsBySignature[middle].signature < signature {
+                    lowerBound = middle + 1
+                } else {
+                    upperBound = middle
+                }
+            }
+            guard lowerBound < recordsBySignature.count,
+                  recordsBySignature[lowerBound].signature == signature else {
+                return nil
+            }
+            return recordsBySignature[lowerBound].nodeID
+        }
+    }
+
+    private struct MountedComponentByNodeIndex {
+        let records: [BrowserHydrationComponentRecord]
+
+        init(_ records: [BrowserHydrationComponentRecord]) {
+            self.records = records.sorted { $0.nodeID.rawValue < $1.nodeID.rawValue }
+        }
+
+        func record(for nodeID: HTMLNodeID) -> BrowserHydrationComponentRecord? {
+            ClientRuntimeBridge.binarySearch(records, nodeID: nodeID, key: \.nodeID)
+        }
+    }
+
+    private struct MountedServerSlotByNodeIndex {
+        let records: [ServerSlotRecord]
+
+        init(_ records: [ServerSlotRecord]) {
+            self.records = records.sorted { $0.nodeID.rawValue < $1.nodeID.rawValue }
+        }
+
+        func record(for nodeID: HTMLNodeID) -> ServerSlotRecord? {
+            ClientRuntimeBridge.binarySearch(records, nodeID: nodeID, key: \.nodeID)
+        }
+    }
+
+    private struct MountedHandlerIndex {
+        let records: [BrowserHydrationEventBinding]
+
+        init(_ records: [BrowserHydrationEventBinding]) {
+            self.records = records.sorted { left, right in
+                if left.nodeID != right.nodeID {
+                    return left.nodeID.rawValue < right.nodeID.rawValue
+                }
+                return left.eventName < right.eventName
+            }
+        }
+
+        func handlerID(for nodeID: HTMLNodeID, eventName: String) -> HandlerID? {
+            var lowerBound = 0
+            var upperBound = records.count
+            while lowerBound < upperBound {
+                let midpoint = lowerBound + (upperBound - lowerBound) / 2
+                let candidate = records[midpoint]
+                if candidate.nodeID.rawValue < nodeID.rawValue
+                    || (candidate.nodeID == nodeID && candidate.eventName < eventName) {
+                    lowerBound = midpoint + 1
+                } else {
+                    upperBound = midpoint
+                }
+            }
+            guard lowerBound < records.count,
+                  records[lowerBound].nodeID == nodeID,
+                  records[lowerBound].eventName == eventName else {
+                return nil
+            }
+            return records[lowerBound].handlerID
+        }
+    }
+
+    private struct MountedKeyedChildIndex {
+        private struct Entry {
+            let signature: String
+            let node: BrowserHydrationNodeRecord
+        }
+
+        private let entries: [Entry]
+
+        init(childIDs: [HTMLNodeID], index: BrowserHydrationIndex) {
+            var entries: [Entry] = []
+            entries.reserveCapacity(childIDs.count)
+            for childID in childIDs {
+                guard let node = index.node(childID), let key = node.key else {
+                    continue
+                }
+                entries.append(Entry(signature: Self.signature(for: key), node: node))
+            }
+            self.entries = entries.sorted { $0.signature < $1.signature }
+        }
+
+        func nodeID(
+            for key: Key,
+            compatibleWith localNode: BrowserHydrationNodeRecord,
+            excluding usedIDs: NodeIDSet
+        ) -> HTMLNodeID? {
+            let signature = Self.signature(for: key)
+            var lowerBound = 0
+            var upperBound = entries.count
+            while lowerBound < upperBound {
+                let midpoint = lowerBound + (upperBound - lowerBound) / 2
+                if entries[midpoint].signature < signature {
+                    lowerBound = midpoint + 1
+                } else {
+                    upperBound = midpoint
+                }
+            }
+            var cursor = lowerBound
+            while cursor < entries.count, entries[cursor].signature == signature {
+                let mountedNode = entries[cursor].node
+                if !usedIDs.contains(mountedNode.id),
+                   mountedNode.key == key,
+                   mountedNode.role == localNode.role,
+                   mountedNode.name == localNode.name,
+                   (mountedNode.componentID != nil) == (localNode.componentID != nil),
+                   (mountedNode.serverSlotID != nil) == (localNode.serverSlotID != nil) {
+                    return mountedNode.id
+                }
+                cursor += 1
+            }
+            return nil
+        }
+
+        private static func signature(for key: Key) -> String {
+            "\(key.identity.utf8.count):\(key.identity)\(key.rawValue)"
+        }
+    }
+
+    private static func binarySearch<Record>(
+        _ records: [Record],
+        nodeID: HTMLNodeID,
+        key: KeyPath<Record, HTMLNodeID>
+    ) -> Record? {
+        var lowerBound = 0
+        var upperBound = records.count
+        while lowerBound < upperBound {
+            let midpoint = lowerBound + (upperBound - lowerBound) / 2
+            if records[midpoint][keyPath: key].rawValue < nodeID.rawValue {
+                lowerBound = midpoint + 1
+            } else {
+                upperBound = midpoint
+            }
+        }
+        guard lowerBound < records.count,
+              records[lowerBound][keyPath: key] == nodeID else {
+            return nil
+        }
+        return records[lowerBound]
+    }
+
+    private struct RuntimeState: Sendable {
+        var session: HydrationRuntimeSession<Root>?
+        var mountedHydrationIndex: BrowserHydrationIndex?
+        var mountedNodeMap = NodeMap()
+        var mountedToLocalNodeMap = NodeMap()
+        var documentNodeIDUpperBound: Int?
+        var actorBindingScope: SwiftWebActorBindingScope?
+    }
+
     public typealias RootFactory = @Sendable (ClientRuntimeBootstrapRequest) throws -> Root
     public typealias EnvironmentFactory = @Sendable (ClientRuntimeBootstrapRequest) throws -> EnvironmentValues
     public typealias ComponentEnvironmentFactory = @Sendable (
@@ -125,11 +344,8 @@ public final class ClientRuntimeBridge<Root: HTML> {
     private let stateStore: StateStore
     private let actorResolverRegistry: SwiftWebActorResolverRegistry
     private let actorSystem: WebActorSystem
-    private var session: HydrationRuntimeSession<Root>?
-    private var mountedHydrationIndex: BrowserHydrationIndex?
-    private var mountedNodeMap: [HTMLNodeID: HTMLNodeID] = [:]
-    private var documentNodeIDUpperBound: Int?
-    private var actorBindingScope: SwiftWebActorBindingScope?
+    private let accessGate = ClientRuntimeAccessGate()
+    private let runtimeState = Mutex(RuntimeState())
 
     public init(
         environmentRegistry: ClientEnvironmentRegistry = .empty,
@@ -153,7 +369,7 @@ public final class ClientRuntimeBridge<Root: HTML> {
             // `.environment()`). Those values are uniform across the mounted
             // subtree: decode the mount's own snapshot into the session's root
             // environment instead. `.environment()` applied inside the
-            // component body re-executes during client rendering and needs no
+            // component content re-executes during client rendering and needs no
             // restoration.
             guard let componentMount,
                   let mounted = Self.component(in: request.hydrationIndex, matching: componentMount),
@@ -192,21 +408,25 @@ public final class ClientRuntimeBridge<Root: HTML> {
     }
 
     public func bootstrap(_ request: ClientRuntimeBootstrapRequest) throws -> ClientRuntimeResponse {
-        let actorBindingScope = SwiftWebActorBindingScope(
-            records: request.actorBindings,
-            resolverRegistry: actorResolverRegistry,
-            actorSystem: actorSystem
-        )
-        self.actorBindingScope = actorBindingScope
-        return try SwiftWebActorBindingContext.withValue(actorBindingScope) {
-            try bootstrapWithCurrentActorBindings(request)
+        try accessGate.withExclusiveAccess {
+            let actorBindingScope = SwiftWebActorBindingScope(
+                records: request.actorBindings,
+                resolverRegistry: actorResolverRegistry,
+                actorSystem: actorSystem
+            )
+            return try SwiftWebActorBindingContext.withValue(actorBindingScope) {
+                try bootstrapWithCurrentActorBindings(
+                    request,
+                    actorBindingScope: actorBindingScope
+                )
+            }
         }
     }
 
     private func bootstrapWithCurrentActorBindings(
-        _ request: ClientRuntimeBootstrapRequest
+        _ request: ClientRuntimeBootstrapRequest,
+        actorBindingScope: SwiftWebActorBindingScope
     ) throws -> ClientRuntimeResponse {
-        documentNodeIDUpperBound = request.documentNodeIDUpperBound
         let root = try rootFactory(request)
         let environment = try environmentFactory(request)
         let componentEnvironmentOverrides = try componentEnvironmentFactory(request, environment)
@@ -218,7 +438,7 @@ public final class ClientRuntimeBridge<Root: HTML> {
         )
         // Collect atomic CSS used while rendering the initial tree.
         let styleRegistry = StyleRegistry()
-        session = try StyleRegistry.withCurrent(styleRegistry) {
+        let session = try StyleRegistry.withCurrent(styleRegistry) {
             try makeSession(
                 root: root,
                 environment: environment,
@@ -226,31 +446,29 @@ public final class ClientRuntimeBridge<Root: HTML> {
                 restoring: request.stateSnapshot
             )
         }
-        #if os(WASI)
-        JavaScriptKitBrowserRuntime.flushAtomicRules(styleRegistry.rules())
-        #endif
+        let atomicStyleRules = styleRegistry.rules().map {
+            ClientRuntimeAtomicStyleRule(className: $0.className, body: $0.body)
+        }
         if let componentMount {
-            let localIndex = session?.artifact.browserHydrationIndex() ?? .empty
-            mountedHydrationIndex = request.hydrationIndex
+            let localIndex = session.artifact.browserHydrationIndex()
             let initialNodeMap = try Self.nodeMap(
                 localIndex: localIndex,
                 mountedIndex: request.hydrationIndex,
                 mount: componentMount
             )
-            mountedNodeMap = initialNodeMap
             if request.mode == .hotReload {
                 let nextNodeMap = Self.structuralNodeMap(
                     localIndex: localIndex,
                     mountedIndex: request.hydrationIndex,
                     mount: componentMount,
-                    documentNodeIDUpperBound: documentNodeIDUpperBound
+                    documentNodeIDUpperBound: request.documentNodeIDUpperBound
                 )
                 let previousNodeMap = Self.boundaryNodeMap(
                     mountedIndex: request.hydrationIndex,
                     mount: componentMount
                 )
                 let commandBatch = Self.hotReloadCommandBatch(
-                    localArtifact: session?.artifact,
+                    localArtifact: session.artifact,
                     localIndex: localIndex,
                     mountedIndex: request.hydrationIndex,
                     nodeMap: nextNodeMap,
@@ -263,14 +481,21 @@ public final class ClientRuntimeBridge<Root: HTML> {
                     nodeMap: nextNodeMap,
                     mount: componentMount
                 )
-                mountedHydrationIndex = nextHydrationIndex
-                mountedNodeMap = nextNodeMap
                 if let domHost {
                     try domHost.apply(commandBatch, currentIndex: request.hydrationIndex)
+                }
+                runtimeState.withLock { state in
+                    state.session = session
+                    state.mountedHydrationIndex = nextHydrationIndex
+                    state.mountedNodeMap = nextNodeMap
+                    state.mountedToLocalNodeMap = nextNodeMap.inverted()
+                    state.documentNodeIDUpperBound = request.documentNodeIDUpperBound
+                    state.actorBindingScope = actorBindingScope
                 }
                 return ClientRuntimeResponse(
                     commandBatch: commandBatch,
                     hydrationIndex: nextHydrationIndex,
+                    atomicStyleRules: atomicStyleRules,
                     appliesDOMCommandsInRuntime: domHost != nil
                 )
             }
@@ -290,16 +515,35 @@ public final class ClientRuntimeBridge<Root: HTML> {
             if let domHost, !syncBatch.commands.isEmpty {
                 try domHost.apply(syncBatch, currentIndex: request.hydrationIndex)
             }
+            runtimeState.withLock { state in
+                state.session = session
+                state.mountedHydrationIndex = request.hydrationIndex
+                state.mountedNodeMap = initialNodeMap
+                state.mountedToLocalNodeMap = initialNodeMap.inverted()
+                state.documentNodeIDUpperBound = request.documentNodeIDUpperBound
+                state.actorBindingScope = actorBindingScope
+            }
             return ClientRuntimeResponse(
                 commandBatch: syncBatch,
                 hydrationIndex: request.hydrationIndex,
+                atomicStyleRules: atomicStyleRules,
                 appliesDOMCommandsInRuntime: domHost != nil
             )
         }
 
+        let hydrationIndex = session.artifact.browserHydrationIndex()
+        runtimeState.withLock { state in
+            state.session = session
+            state.mountedHydrationIndex = nil
+            state.mountedNodeMap = NodeMap()
+            state.mountedToLocalNodeMap = NodeMap()
+            state.documentNodeIDUpperBound = request.documentNodeIDUpperBound
+            state.actorBindingScope = actorBindingScope
+        }
         return ClientRuntimeResponse(
             commandBatch: BrowserDOMCommandBatch(commands: []),
-            hydrationIndex: session?.artifact.browserHydrationIndex()
+            hydrationIndex: hydrationIndex,
+            atomicStyleRules: atomicStyleRules
         )
     }
 
@@ -307,7 +551,7 @@ public final class ClientRuntimeBridge<Root: HTML> {
     /// `data-event-*` attribute to the local render's handler id.
     private static func eventAttributeSyncCommands(
         localIndex: BrowserHydrationIndex,
-        nodeMap: [HTMLNodeID: HTMLNodeID]
+        nodeMap: NodeMap
     ) -> [BrowserDOMCommand] {
         localIndex.handlers.compactMap { binding in
             guard let mountedNodeID = nodeMap[binding.nodeID] else {
@@ -322,32 +566,55 @@ public final class ClientRuntimeBridge<Root: HTML> {
     }
 
     public func snapshotState() throws -> ClientRuntimeStateSnapshot {
-        guard let session else {
-            return .empty
+        try accessGate.withExclusiveAccess {
+            let schemaHash = runtimeState.withLock { state in
+                state.session?.artifact.hydration.stateSchemaHash
+            }
+            guard let schemaHash else {
+                return .empty
+            }
+            return try stateStore.snapshot(schemaHash: schemaHash)
         }
-        return try stateStore.snapshot(schemaHash: session.artifact.hydration.stateSchemaHash)
     }
 
-    public func restoreState(_ snapshot: ClientRuntimeStateSnapshot) {
-        guard let session,
-              let rebasedSnapshot = Self.rebasedSnapshot(snapshot, into: session.artifact)
-        else {
-            return
+    public func restoreState(_ snapshot: ClientRuntimeStateSnapshot) throws {
+        try accessGate.withExclusiveAccess {
+            let artifact = runtimeState.withLock { state in
+                state.session?.artifact
+            }
+            guard let artifact,
+                  let rebasedSnapshot = Self.rebasedSnapshot(snapshot, into: artifact)
+            else {
+                return
+            }
+            stateStore.restore(rebasedSnapshot)
         }
-        stateStore.restore(rebasedSnapshot)
     }
 
     public func dispatch(_ request: ClientRuntimeEventRequest) throws -> ClientRuntimeResponse {
-        let actorBindingScope = actorBindingScope ?? .empty
-        return try SwiftWebActorBindingContext.withValue(actorBindingScope) {
-            try dispatchWithCurrentActorBindings(request)
+        try accessGate.withExclusiveAccess {
+            let actorBindingScope = runtimeState.withLock { state in
+                state.actorBindingScope
+            } ?? .empty
+            return try SwiftWebActorBindingContext.withValue(actorBindingScope) {
+                try dispatchWithCurrentActorBindings(request)
+            }
         }
     }
 
     private func dispatchWithCurrentActorBindings(
         _ request: ClientRuntimeEventRequest
     ) throws -> ClientRuntimeResponse {
-        guard var session else {
+        let state = runtimeState.withLock { state in
+            (
+                session: state.session,
+                mountedHydrationIndex: state.mountedHydrationIndex,
+                mountedNodeMap: state.mountedNodeMap,
+                mountedToLocalNodeMap: state.mountedToLocalNodeMap,
+                documentNodeIDUpperBound: state.documentNodeIDUpperBound
+            )
+        }
+        guard var session = state.session else {
             throw ClientRuntimeBridgeError.notBootstrapped
         }
 
@@ -361,27 +628,34 @@ public final class ClientRuntimeBridge<Root: HTML> {
         let update = try StyleRegistry.withCurrent(styleRegistry) {
             try Transaction.$current.withValue(transaction) {
                 try session.invoke(
-                    handlerID: translatedHandlerID(request.handlerID, in: session),
+                    handlerID: translatedHandlerID(
+                        request.handlerID,
+                        in: session,
+                        mountedHydrationIndex: state.mountedHydrationIndex,
+                        mountedToLocalNodeMap: state.mountedToLocalNodeMap
+                    ),
                     event: request.event
                 )
             }
         }
-        #if os(WASI)
-        JavaScriptKitBrowserRuntime.flushAtomicRules(styleRegistry.rules())
-        #endif
-        self.session = session
+        let atomicStyleRules = styleRegistry.rules().map {
+            ClientRuntimeAtomicStyleRule(className: $0.className, body: $0.body)
+        }
         let commandBatch: BrowserDOMCommandBatch
         let hydrationIndex: BrowserHydrationIndex?
         let currentIndexForDOM: BrowserHydrationIndex
+        var nextMountedHydrationIndex = state.mountedHydrationIndex
+        var nextMountedNodeMap = state.mountedNodeMap
+        var nextMountedToLocalNodeMap = state.mountedToLocalNodeMap
         if let componentMount {
-            let mountedIndex = mountedHydrationIndex ?? update.hydrationIndex
+            let mountedIndex = state.mountedHydrationIndex ?? update.hydrationIndex
             currentIndexForDOM = mountedIndex
-            let previousNodeMap = mountedNodeMap
+            let previousNodeMap = state.mountedNodeMap
             let nextNodeMap = Self.structuralNodeMap(
                 localIndex: update.hydrationIndex,
                 mountedIndex: mountedIndex,
                 mount: componentMount,
-                documentNodeIDUpperBound: documentNodeIDUpperBound
+                documentNodeIDUpperBound: state.documentNodeIDUpperBound
             )
             let nextHydrationIndex = Self.rebased(
                 update.hydrationIndex,
@@ -390,20 +664,14 @@ public final class ClientRuntimeBridge<Root: HTML> {
                 nodeMap: nextNodeMap,
                 mount: componentMount
             )
-            let mountedComponentsByNodeID = Dictionary(uniqueKeysWithValues: mountedIndex.components.map {
-                ($0.nodeID, $0)
-            })
-            let mountedServerSlotsByNodeID = Dictionary(uniqueKeysWithValues: mountedIndex.serverSlots.map {
-                ($0.nodeID, $0)
-            })
             let nextComponentIDMap = Self.componentIDMap(
                 localIndex: update.hydrationIndex,
-                mountedComponentsByNodeID: mountedComponentsByNodeID,
+                mountedComponents: mountedIndex.components,
                 nodeMap: nextNodeMap
             )
             let nextServerSlotIDMap = Self.serverSlotIDMap(
                 localIndex: update.hydrationIndex,
-                mountedServerSlotsByNodeID: mountedServerSlotsByNodeID,
+                mountedServerSlots: mountedIndex.serverSlots,
                 nodeMap: nextNodeMap
             )
             commandBatch = Self.rebased(
@@ -414,8 +682,9 @@ public final class ClientRuntimeBridge<Root: HTML> {
                 serverSlotIDMap: nextServerSlotIDMap
             )
             hydrationIndex = nextHydrationIndex
-            mountedNodeMap = nextNodeMap
-            mountedHydrationIndex = nextHydrationIndex
+            nextMountedNodeMap = nextNodeMap
+            nextMountedToLocalNodeMap = nextNodeMap.inverted()
+            nextMountedHydrationIndex = nextHydrationIndex
         } else {
             commandBatch = update.commandBatch
             hydrationIndex = update.hydrationIndex
@@ -429,9 +698,16 @@ public final class ClientRuntimeBridge<Root: HTML> {
                 animation: transaction.animation
             )
         }
+        runtimeState.withLock { state in
+            state.session = session
+            state.mountedHydrationIndex = nextMountedHydrationIndex
+            state.mountedNodeMap = nextMountedNodeMap
+            state.mountedToLocalNodeMap = nextMountedToLocalNodeMap
+        }
         return ClientRuntimeResponse(
             commandBatch: commandBatch,
             hydrationIndex: hydrationIndex,
+            atomicStyleRules: atomicStyleRules,
             appliesDOMCommandsInRuntime: domHost != nil
         )
     }
@@ -474,35 +750,29 @@ public final class ClientRuntimeBridge<Root: HTML> {
 
     private func translatedHandlerID(
         _ mountedHandlerID: HandlerID,
-        in session: HydrationRuntimeSession<Root>
+        in session: HydrationRuntimeSession<Root>,
+        mountedHydrationIndex: BrowserHydrationIndex?,
+        mountedToLocalNodeMap: NodeMap
     ) -> HandlerID {
-        // The DOM's event attributes are normalized to the local id space at
-        // bootstrap and kept in sync by the attribute diff, so an id that
-        // resolves directly in the current artifact needs no translation.
         let localIndex = session.artifact.browserHydrationIndex()
-        if localIndex.handlers.contains(where: { $0.handlerID == mountedHandlerID }) {
-            return mountedHandlerID
-        }
-        guard componentMount != nil,
-              let mountedHydrationIndex,
-              let mountedBinding = mountedHydrationIndex.handlers.first(where: { binding in
-                  binding.handlerID == mountedHandlerID
-              })
-        else {
-            return mountedHandlerID
-        }
-
-        let mountedToLocalNodeMap = Dictionary(uniqueKeysWithValues: mountedNodeMap.map { localID, mountedID in
-            (mountedID, localID)
-        })
-        guard let localNodeID = mountedToLocalNodeMap[mountedBinding.nodeID] else {
-            return mountedHandlerID
+        if componentMount != nil,
+           let mountedHydrationIndex,
+           let mountedBinding = mountedHydrationIndex.handlers.first(where: { binding in
+               binding.handlerID == mountedHandlerID
+           }) {
+            if let localNodeID = mountedToLocalNodeMap[mountedBinding.nodeID],
+               let localBinding = localIndex.handlers.first(where: { binding in
+                   binding.nodeID == localNodeID
+                       && binding.eventName == mountedBinding.eventName
+               }) {
+                return localBinding.handlerID
+            }
         }
 
-        return localIndex.handlers.first { binding in
-            binding.nodeID == localNodeID
-                && binding.eventName == mountedBinding.eventName
-        }?.handlerID ?? mountedHandlerID
+        // The DOM's event attributes are normalized to the local id space at
+        // bootstrap and kept in sync by the attribute diff. IDs outside the
+        // mounted subtree therefore resolve directly in the local artifact.
+        return mountedHandlerID
     }
 
     private static func canRestore(
@@ -570,7 +840,7 @@ public final class ClientRuntimeBridge<Root: HTML> {
         localIndex: BrowserHydrationIndex,
         mountedIndex: BrowserHydrationIndex,
         mount: ClientComponentMount
-    ) throws -> [HTMLNodeID: HTMLNodeID] {
+    ) throws -> NodeMap {
         guard let localComponent = Self.component(in: localIndex, matching: mount) else {
             throw ClientRuntimeBridgeError.componentMountNotFound(mount.typeName)
         }
@@ -578,7 +848,7 @@ public final class ClientRuntimeBridge<Root: HTML> {
             throw ClientRuntimeBridgeError.componentMountNotFound(mount.typeName)
         }
 
-        var map: [HTMLNodeID: HTMLNodeID] = [:]
+        var map = NodeMap()
         buildNodeMap(
             localID: localComponent.nodeID,
             mountedID: mountedComponent.nodeID,
@@ -593,7 +863,7 @@ public final class ClientRuntimeBridge<Root: HTML> {
         localArtifact: RenderArtifact?,
         localIndex: BrowserHydrationIndex,
         mountedIndex: BrowserHydrationIndex,
-        nodeMap: [HTMLNodeID: HTMLNodeID],
+        nodeMap: NodeMap,
         mount: ClientComponentMount
     ) -> BrowserDOMCommandBatch {
         guard let localArtifact,
@@ -606,21 +876,15 @@ public final class ClientRuntimeBridge<Root: HTML> {
         }
 
         var commands: [BrowserDOMCommand] = []
-        let mountedToLocal = Dictionary(uniqueKeysWithValues: nodeMap.map { ($0.value, $0.key) })
-        let mountedComponentsByNodeID = Dictionary(uniqueKeysWithValues: mountedIndex.components.map {
-            ($0.nodeID, $0)
-        })
-        let mountedServerSlotsByNodeID = Dictionary(uniqueKeysWithValues: mountedIndex.serverSlots.map {
-            ($0.nodeID, $0)
-        })
+        let mountedToLocal = nodeMap.inverted()
         let componentIDMap = componentIDMap(
             localIndex: localIndex,
-            mountedComponentsByNodeID: mountedComponentsByNodeID,
+            mountedComponents: mountedIndex.components,
             nodeMap: nodeMap
         )
         let serverSlotIDMap = serverSlotIDMap(
             localIndex: localIndex,
-            mountedServerSlotsByNodeID: mountedServerSlotsByNodeID,
+            mountedServerSlots: mountedIndex.serverSlots,
             nodeMap: nodeMap
         )
         appendHotReloadCommands(
@@ -657,10 +921,10 @@ public final class ClientRuntimeBridge<Root: HTML> {
         localArtifact: RenderArtifact,
         localIndex: BrowserHydrationIndex,
         mountedIndex: BrowserHydrationIndex,
-        localToMounted: [HTMLNodeID: HTMLNodeID],
-        mountedToLocal: [HTMLNodeID: HTMLNodeID],
-        componentIDMap: [ComponentID: ComponentID],
-        serverSlotIDMap: [ServerSlotID: ServerSlotID],
+        localToMounted: NodeMap,
+        mountedToLocal: NodeMap,
+        componentIDMap: ComponentIDMap,
+        serverSlotIDMap: ServerSlotIDMap,
         commands: inout [BrowserDOMCommand]
     ) {
         guard let localNode = localIndex.node(localID),
@@ -728,12 +992,17 @@ public final class ClientRuntimeBridge<Root: HTML> {
         localArtifact: RenderArtifact,
         localIndex: BrowserHydrationIndex,
         mountedIndex: BrowserHydrationIndex,
-        localToMounted: [HTMLNodeID: HTMLNodeID],
-        mountedToLocal: [HTMLNodeID: HTMLNodeID],
-        componentIDMap: [ComponentID: ComponentID],
-        serverSlotIDMap: [ServerSlotID: ServerSlotID],
+        localToMounted: NodeMap,
+        mountedToLocal: NodeMap,
+        componentIDMap: ComponentIDMap,
+        serverSlotIDMap: ServerSlotIDMap,
         commands: inout [BrowserDOMCommand]
     ) {
+        var mountedPositions = NodePositionMap()
+        for (index, childID) in mountedNode.childIDs.enumerated() {
+            mountedPositions[childID] = index
+        }
+
         for (index, mountedChildID) in mountedNode.childIDs.enumerated().reversed() {
             if mountedToLocal[mountedChildID] == nil {
                 commands.append(.remove(parent: mountedNode.id, index: index, node: mountedChildID))
@@ -771,7 +1040,7 @@ public final class ClientRuntimeBridge<Root: HTML> {
                 commands: &commands
             )
 
-            guard let mountedIndex = mountedNode.childIDs.firstIndex(of: mountedChildID),
+            guard let mountedIndex = mountedPositions[mountedChildID],
                   mountedIndex != index
             else {
                 continue
@@ -812,7 +1081,7 @@ public final class ClientRuntimeBridge<Root: HTML> {
         mountedID: HTMLNodeID,
         localIndex: BrowserHydrationIndex,
         mountedIndex: BrowserHydrationIndex,
-        into map: inout [HTMLNodeID: HTMLNodeID]
+        into map: inout NodeMap
     ) {
         guard
             let localNode = localIndex.node(localID),
@@ -836,10 +1105,10 @@ public final class ClientRuntimeBridge<Root: HTML> {
 
     private static func rebased(
         _ batch: BrowserDOMCommandBatch,
-        previousNodeMap: [HTMLNodeID: HTMLNodeID],
-        nextNodeMap: [HTMLNodeID: HTMLNodeID],
-        componentIDMap: [ComponentID: ComponentID],
-        serverSlotIDMap: [ServerSlotID: ServerSlotID]
+        previousNodeMap: NodeMap,
+        nextNodeMap: NodeMap,
+        componentIDMap: ComponentIDMap,
+        serverSlotIDMap: ServerSlotIDMap
     ) -> BrowserDOMCommandBatch {
         BrowserDOMCommandBatch(commands: batch.commands.compactMap { command in
             rebased(
@@ -854,10 +1123,10 @@ public final class ClientRuntimeBridge<Root: HTML> {
 
     private static func rebased(
         _ command: BrowserDOMCommand,
-        previousNodeMap: [HTMLNodeID: HTMLNodeID],
-        nextNodeMap: [HTMLNodeID: HTMLNodeID],
-        componentIDMap: [ComponentID: ComponentID],
-        serverSlotIDMap: [ServerSlotID: ServerSlotID]
+        previousNodeMap: NodeMap,
+        nextNodeMap: NodeMap,
+        componentIDMap: ComponentIDMap,
+        serverSlotIDMap: ServerSlotIDMap
     ) -> BrowserDOMCommand? {
         func previousNode(_ id: HTMLNodeID) -> HTMLNodeID? {
             previousNodeMap[id]
@@ -948,14 +1217,14 @@ public final class ClientRuntimeBridge<Root: HTML> {
         mountedIndex: BrowserHydrationIndex,
         mount: ClientComponentMount,
         documentNodeIDUpperBound: Int?
-    ) -> [HTMLNodeID: HTMLNodeID] {
-        guard let localComponent = localIndex.components.first(where: { $0.typeName == mount.typeName }),
-              let mountedComponent = mountedIndex.components.first(where: { $0.typeName == mount.typeName }) else {
-            return [:]
+    ) -> NodeMap {
+        guard let localComponent = component(in: localIndex, matching: mount),
+              let mountedComponent = component(in: mountedIndex, matching: mount) else {
+            return NodeMap()
         }
 
-        var map: [HTMLNodeID: HTMLNodeID] = [:]
-        var allocatedMountedIDs = Set(mountedIndex.nodes.map(\.id))
+        var map = NodeMap()
+        var allocatedMountedIDs = NodeIDSet(mountedIndex.nodes.map(\.id))
         var nextNodeID = max(
             mountedIndex.nodes.map(\.id.rawValue).max() ?? -1,
             documentNodeIDUpperBound ?? -1
@@ -997,12 +1266,12 @@ public final class ClientRuntimeBridge<Root: HTML> {
     private static func boundaryNodeMap(
         mountedIndex: BrowserHydrationIndex,
         mount: ClientComponentMount
-    ) -> [HTMLNodeID: HTMLNodeID] {
-        guard let mountedComponent = mountedIndex.components.first(where: { $0.typeName == mount.typeName }) else {
-            return [:]
+    ) -> NodeMap {
+        guard let mountedComponent = component(in: mountedIndex, matching: mount) else {
+            return NodeMap()
         }
 
-        var map: [HTMLNodeID: HTMLNodeID] = [:]
+        var map = NodeMap()
         func walk(_ mountedID: HTMLNodeID) {
             map[mountedID] = mountedID
             guard let mountedNode = mountedIndex.node(mountedID) else {
@@ -1021,26 +1290,23 @@ public final class ClientRuntimeBridge<Root: HTML> {
         mountedChildren: [HTMLNodeID],
         localIndex: BrowserHydrationIndex,
         mountedIndex: BrowserHydrationIndex
-    ) -> [HTMLNodeID: HTMLNodeID] {
-        var matches: [HTMLNodeID: HTMLNodeID] = [:]
-        var usedMountedIDs = Set<HTMLNodeID>()
-        var mountedKeyed: [Key: HTMLNodeID] = [:]
-
-        for mountedID in mountedChildren {
-            guard let mountedNode = mountedIndex.node(mountedID), let key = mountedNode.key else {
-                continue
-            }
-            mountedKeyed[key] = mountedID
-        }
+    ) -> NodeMap {
+        var matches = NodeMap()
+        var usedMountedIDs = NodeIDSet()
+        let mountedKeyedChildren = MountedKeyedChildIndex(
+            childIDs: mountedChildren,
+            index: mountedIndex
+        )
 
         for localID in localChildren {
             guard let localNode = localIndex.node(localID), let key = localNode.key else {
                 continue
             }
-            if let mountedID = mountedKeyed[key],
-               !usedMountedIDs.contains(mountedID),
-               let mountedNode = mountedIndex.node(mountedID),
-               nodesAreCompatible(localNode, mountedNode) {
+            if let mountedID = mountedKeyedChildren.nodeID(
+                for: key,
+                compatibleWith: localNode,
+                excluding: usedMountedIDs
+            ) {
                 matches[localID] = mountedID
                 usedMountedIDs.insert(mountedID)
             }
@@ -1049,19 +1315,16 @@ public final class ClientRuntimeBridge<Root: HTML> {
         let localStableSignatures = stableDOMSignatures(
             for: localChildren,
             in: localIndex,
-            excluding: Set(matches.keys)
+            excluding: NodeIDSet(matches.keys)
         )
         let mountedStableSignatures = stableDOMSignatures(
             for: mountedChildren,
             in: mountedIndex,
             excluding: usedMountedIDs
         )
-        let mountedStableNodes = Dictionary(uniqueKeysWithValues: mountedStableSignatures.map { nodeID, signature in
-            (signature, nodeID)
-        })
         for localID in localChildren where matches[localID] == nil {
-            guard let signature = localStableSignatures[localID],
-                  let mountedID = mountedStableNodes[signature],
+            guard let signature = localStableSignatures.signature(for: localID),
+                  let mountedID = mountedStableSignatures.nodeID(for: signature),
                   !usedMountedIDs.contains(mountedID),
                   let localNode = localIndex.node(localID),
                   let mountedNode = mountedIndex.node(mountedID),
@@ -1127,10 +1390,9 @@ public final class ClientRuntimeBridge<Root: HTML> {
     private static func stableDOMSignatures(
         for childIDs: [HTMLNodeID],
         in index: BrowserHydrationIndex,
-        excluding excludedIDs: Set<HTMLNodeID>
-    ) -> [HTMLNodeID: String] {
-        var signatureByNode: [HTMLNodeID: String] = [:]
-        var counts: [String: Int] = [:]
+        excluding excludedIDs: NodeIDSet
+    ) -> StableDOMSignatureIndex {
+        var records: [StableDOMSignatureRecord] = []
 
         for childID in childIDs where !excludedIDs.contains(childID) {
             guard let node = index.node(childID),
@@ -1138,13 +1400,27 @@ public final class ClientRuntimeBridge<Root: HTML> {
             else {
                 continue
             }
-            signatureByNode[childID] = signature
-            counts[signature, default: 0] += 1
+            records.append(StableDOMSignatureRecord(nodeID: childID, signature: signature))
         }
 
-        return signatureByNode.filter { _, signature in
-            counts[signature] == 1
+        let sortedBySignature = records.sorted { left, right in
+            left.signature < right.signature
         }
+        var uniqueRecords: [StableDOMSignatureRecord] = []
+        var cursor = 0
+        while cursor < sortedBySignature.count {
+            let signature = sortedBySignature[cursor].signature
+            var next = cursor + 1
+            while next < sortedBySignature.count,
+                  sortedBySignature[next].signature == signature {
+                next += 1
+            }
+            if next == cursor + 1 {
+                uniqueRecords.append(sortedBySignature[cursor])
+            }
+            cursor = next
+        }
+        return StableDOMSignatureIndex(uniqueRecords)
     }
 
     private static func stableDOMSignature(for node: BrowserHydrationNodeRecord) -> String? {
@@ -1154,13 +1430,16 @@ public final class ClientRuntimeBridge<Root: HTML> {
             return nil
         }
 
-        let eventNames = node.eventBindings
-            .map(\.eventName)
-            .sorted()
-        let propertyNames = node.attributes
-            .filter { $0.kind == .propertyBinding }
-            .map(\.name)
-            .sorted()
+        var eventNames: [String] = []
+        for binding in node.eventBindings {
+            eventNames.append(binding.eventName)
+        }
+        eventNames.sort()
+        var propertyNames: [String] = []
+        for attribute in node.attributes where attribute.kind == .propertyBinding {
+            propertyNames.append(attribute.name)
+        }
+        propertyNames.sort()
         guard !eventNames.isEmpty || !propertyNames.isEmpty else {
             return nil
         }
@@ -1178,15 +1457,15 @@ public final class ClientRuntimeBridge<Root: HTML> {
     ) -> Bool {
         localNode.role == mountedNode.role
             && localNode.name == mountedNode.name
-            && localNode.componentID.map { _ in true } == mountedNode.componentID.map { _ in true }
-            && localNode.serverSlotID.map { _ in true } == mountedNode.serverSlotID.map { _ in true }
+            && (localNode.componentID != nil) == (mountedNode.componentID != nil)
+            && (localNode.serverSlotID != nil) == (mountedNode.serverSlotID != nil)
     }
 
     private static func rebased(
         _ localIndex: BrowserHydrationIndex,
         mountedIndex: BrowserHydrationIndex,
-        previousNodeMap: [HTMLNodeID: HTMLNodeID],
-        nodeMap: [HTMLNodeID: HTMLNodeID],
+        previousNodeMap: NodeMap,
+        nodeMap: NodeMap,
         mount: ClientComponentMount
     ) -> BrowserHydrationIndex {
         let previousMountedNodes = previousMountedSubtreeNodeIDs(
@@ -1195,15 +1474,13 @@ public final class ClientRuntimeBridge<Root: HTML> {
             previousNodeMap: previousNodeMap,
             mount: mount
         )
-        let mountedNodesByID = Dictionary(uniqueKeysWithValues: mountedIndex.nodes.map { ($0.id, $0) })
-        let mountedComponentsByNodeID = Dictionary(uniqueKeysWithValues: mountedIndex.components.map {
-            ($0.nodeID, $0)
-        })
         let componentIDMap = componentIDMap(
             localIndex: localIndex,
-            mountedComponentsByNodeID: mountedComponentsByNodeID,
+            mountedComponents: mountedIndex.components,
             nodeMap: nodeMap
         )
+        let mountedComponentIndex = MountedComponentByNodeIndex(mountedIndex.components)
+        let mountedHandlerIndex = MountedHandlerIndex(mountedIndex.handlers)
         let outsideNodes = mountedIndex.nodes.filter { node in
             !previousMountedNodes.contains(node.id)
         }
@@ -1212,8 +1489,8 @@ public final class ClientRuntimeBridge<Root: HTML> {
                 node,
                 nodeMap: nodeMap,
                 componentIDMap: componentIDMap,
-                mountedNodesByID: mountedNodesByID,
-                mountedIndex: mountedIndex
+                mountedIndex: mountedIndex,
+                mountedHandlerIndex: mountedHandlerIndex
             )
         }
         let outsideComponents = mountedIndex.components.filter { component in
@@ -1224,7 +1501,7 @@ public final class ClientRuntimeBridge<Root: HTML> {
                 component,
                 nodeMap: nodeMap,
                 componentIDMap: componentIDMap,
-                mountedComponentsByNodeID: mountedComponentsByNodeID
+                mountedComponentIndex: mountedComponentIndex
             )
         }
         let outsideServerSlots = mountedIndex.serverSlots.filter { slot in
@@ -1241,7 +1518,7 @@ public final class ClientRuntimeBridge<Root: HTML> {
                 binding,
                 nodeMap: nodeMap,
                 componentIDMap: componentIDMap,
-                mountedIndex: mountedIndex
+                mountedHandlerIndex: mountedHandlerIndex
             )
         }
 
@@ -1257,9 +1534,9 @@ public final class ClientRuntimeBridge<Root: HTML> {
     private static func previousMountedSubtreeNodeIDs(
         localIndex: BrowserHydrationIndex,
         mountedIndex: BrowserHydrationIndex,
-        previousNodeMap: [HTMLNodeID: HTMLNodeID],
+        previousNodeMap: NodeMap,
         mount: ClientComponentMount
-    ) -> Set<HTMLNodeID> {
+    ) -> NodeIDSet {
         // The subtree to replace must be located on the MOUNTED side (the
         // component's record in the previous full-page index). Looking up a
         // fresh local node ID in the previous node map is wrong: node IDs are
@@ -1269,12 +1546,12 @@ public final class ClientRuntimeBridge<Root: HTML> {
         // its rebased copy — duplicate node and component IDs that kill every
         // later `Dictionary(uniqueKeysWithValues:)` over the index.
         guard let mountedComponentNodeID = component(in: mountedIndex, matching: mount)?.nodeID else {
-            return Set(previousNodeMap.values)
+            return NodeIDSet(previousNodeMap.values)
         }
 
-        var ids = Set<HTMLNodeID>()
+        var ids = NodeIDSet()
         func walk(_ nodeID: HTMLNodeID) {
-            guard ids.insert(nodeID).inserted,
+            guard ids.insert(nodeID),
                   let node = mountedIndex.node(nodeID)
             else {
                 return
@@ -1289,44 +1566,48 @@ public final class ClientRuntimeBridge<Root: HTML> {
 
     private static func componentIDMap(
         localIndex: BrowserHydrationIndex,
-        mountedComponentsByNodeID: [HTMLNodeID: BrowserHydrationComponentRecord],
-        nodeMap: [HTMLNodeID: HTMLNodeID]
-    ) -> [ComponentID: ComponentID] {
-        var map: [ComponentID: ComponentID] = [:]
+        mountedComponents: [BrowserHydrationComponentRecord],
+        nodeMap: NodeMap
+    ) -> ComponentIDMap {
+        var map = ComponentIDMap()
+        let mountedIndex = MountedComponentByNodeIndex(mountedComponents)
         for component in localIndex.components {
             if let mountedNodeID = nodeMap[component.nodeID],
-               let mountedComponent = mountedComponentsByNodeID[mountedNodeID] {
-                map[component.id] = mountedComponent.id
+               let mountedComponent = mountedIndex.record(for: mountedNodeID) {
+                map.appendUnsorted(mountedComponent.id, for: component.id)
             } else {
-                map[component.id] = component.id
+                map.appendUnsorted(component.id, for: component.id)
             }
         }
+        map.prepareForLookup()
         return map
     }
 
     private static func serverSlotIDMap(
         localIndex: BrowserHydrationIndex,
-        mountedServerSlotsByNodeID: [HTMLNodeID: ServerSlotRecord],
-        nodeMap: [HTMLNodeID: HTMLNodeID]
-    ) -> [ServerSlotID: ServerSlotID] {
-        var map: [ServerSlotID: ServerSlotID] = [:]
+        mountedServerSlots: [ServerSlotRecord],
+        nodeMap: NodeMap
+    ) -> ServerSlotIDMap {
+        var map = ServerSlotIDMap()
+        let mountedIndex = MountedServerSlotByNodeIndex(mountedServerSlots)
         for slot in localIndex.serverSlots {
             if let mountedNodeID = nodeMap[slot.nodeID],
-               let mountedSlot = mountedServerSlotsByNodeID[mountedNodeID] {
-                map[slot.id] = mountedSlot.id
+               let mountedSlot = mountedIndex.record(for: mountedNodeID) {
+                map.appendUnsorted(mountedSlot.id, for: slot.id)
             } else {
-                map[slot.id] = slot.id
+                map.appendUnsorted(slot.id, for: slot.id)
             }
         }
+        map.prepareForLookup()
         return map
     }
 
     private static func renderRebasedSubtree(
         _ artifact: RenderArtifact,
         node: HTMLNodeID,
-        nodeMap: [HTMLNodeID: HTMLNodeID],
-        componentIDMap: [ComponentID: ComponentID],
-        serverSlotIDMap: [ServerSlotID: ServerSlotID]
+        nodeMap: NodeMap,
+        componentIDMap: ComponentIDMap,
+        serverSlotIDMap: ServerSlotIDMap
     ) -> String {
         rebaseHydrationMarkers(
             in: artifact.renderSubtree(node, options: .development.withBrowserHydrationMarkers()),
@@ -1338,37 +1619,69 @@ public final class ClientRuntimeBridge<Root: HTML> {
 
     private static func rebaseHydrationMarkers(
         in html: String,
-        nodeMap: [HTMLNodeID: HTMLNodeID],
-        componentIDMap: [ComponentID: ComponentID],
-        serverSlotIDMap: [ServerSlotID: ServerSlotID]
+        nodeMap: NodeMap,
+        componentIDMap: ComponentIDMap,
+        serverSlotIDMap: ServerSlotIDMap
     ) -> String {
-        var result = rebaseNodeMarkers(in: html, nodeMap: nodeMap)
-        for (source, target) in componentIDMap where source != target {
-            result = result.replacingOccurrences(
-                of: HTMLRuntimeMarkers.componentCommentValue(source, edge: .begin),
-                with: HTMLRuntimeMarkers.componentCommentValue(target, edge: .begin)
-            )
-            result = result.replacingOccurrences(
-                of: HTMLRuntimeMarkers.componentCommentValue(source, edge: .end),
-                with: HTMLRuntimeMarkers.componentCommentValue(target, edge: .end)
-            )
+        rebaseBoundaryCommentMarkers(
+            in: rebaseNodeMarkers(in: html, nodeMap: nodeMap),
+            componentIDMap: componentIDMap,
+            serverSlotIDMap: serverSlotIDMap
+        )
+    }
+
+    private static func rebaseBoundaryCommentMarkers(
+        in html: String,
+        componentIDMap: ComponentIDMap,
+        serverSlotIDMap: ServerSlotIDMap
+    ) -> String {
+        let openingMarker = "<!--"
+        let closingMarker = "-->"
+        var output = ""
+        output.reserveCapacity(html.utf8.count)
+        var cursor = html.startIndex
+
+        while let openingRange = html[cursor...].firstRange(of: openingMarker) {
+            output.append(contentsOf: html[cursor..<openingRange.lowerBound])
+            guard let closingRange = html[openingRange.upperBound...].firstRange(of: closingMarker) else {
+                output.append(contentsOf: html[openingRange.lowerBound...])
+                return output
+            }
+
+            let value = html[openingRange.upperBound..<closingRange.lowerBound]
+            let fields = value.split(separator: ":", omittingEmptySubsequences: false)
+            if fields.count == 3,
+               let edge = HTMLRuntimeMarkers.BoundaryEdge(rawValue: String(fields[2])) {
+                let rawID = String(fields[1])
+                switch fields[0] {
+                case Substring(HTMLRuntimeMarkers.componentCommentPrefix):
+                    let source = ComponentID(rawID)
+                    let target = componentIDMap[source] ?? source
+                    output.append("<!--")
+                    output.append(HTMLRuntimeMarkers.componentCommentValue(target, edge: edge))
+                    output.append("-->")
+                case Substring(HTMLRuntimeMarkers.serverSlotCommentPrefix):
+                    let source = ServerSlotID(rawID)
+                    let target = serverSlotIDMap[source] ?? source
+                    output.append("<!--")
+                    output.append(HTMLRuntimeMarkers.serverSlotCommentValue(target, edge: edge))
+                    output.append("-->")
+                default:
+                    output.append(contentsOf: html[openingRange.lowerBound..<closingRange.upperBound])
+                }
+            } else {
+                output.append(contentsOf: html[openingRange.lowerBound..<closingRange.upperBound])
+            }
+            cursor = closingRange.upperBound
         }
-        for (source, target) in serverSlotIDMap where source != target {
-            result = result.replacingOccurrences(
-                of: HTMLRuntimeMarkers.serverSlotCommentValue(source, edge: .begin),
-                with: HTMLRuntimeMarkers.serverSlotCommentValue(target, edge: .begin)
-            )
-            result = result.replacingOccurrences(
-                of: HTMLRuntimeMarkers.serverSlotCommentValue(source, edge: .end),
-                with: HTMLRuntimeMarkers.serverSlotCommentValue(target, edge: .end)
-            )
-        }
-        return result
+
+        output.append(contentsOf: html[cursor...])
+        return output
     }
 
     private static func rebaseNodeMarkers(
         in html: String,
-        nodeMap: [HTMLNodeID: HTMLNodeID]
+        nodeMap: NodeMap
     ) -> String {
         let marker = "\(HTMLRuntimeMarkers.nodeAttribute)=\""
         var output = ""
@@ -1399,15 +1712,15 @@ public final class ClientRuntimeBridge<Root: HTML> {
 
     private static func rebased(
         _ node: BrowserHydrationNodeRecord,
-        nodeMap: [HTMLNodeID: HTMLNodeID],
-        componentIDMap: [ComponentID: ComponentID],
-        mountedNodesByID: [HTMLNodeID: BrowserHydrationNodeRecord],
-        mountedIndex: BrowserHydrationIndex
+        nodeMap: NodeMap,
+        componentIDMap: ComponentIDMap,
+        mountedIndex: BrowserHydrationIndex,
+        mountedHandlerIndex: MountedHandlerIndex
     ) -> BrowserHydrationNodeRecord? {
         guard let mappedID = nodeMap[node.id] else {
             return nil
         }
-        let mountedNode = mountedNodesByID[mappedID]
+        let mountedNode = mountedIndex.node(mappedID)
         let parentID = node.parentID.flatMap { nodeMap[$0] } ?? mountedNode?.parentID
         return BrowserHydrationNodeRecord(
             id: mappedID,
@@ -1424,7 +1737,7 @@ public final class ClientRuntimeBridge<Root: HTML> {
                     $0,
                     nodeMap: nodeMap,
                     componentIDMap: componentIDMap,
-                    mountedIndex: mountedIndex
+                    mountedHandlerIndex: mountedHandlerIndex
                 )
             },
             key: node.key,
@@ -1434,14 +1747,14 @@ public final class ClientRuntimeBridge<Root: HTML> {
 
     private static func rebased(
         _ component: BrowserHydrationComponentRecord,
-        nodeMap: [HTMLNodeID: HTMLNodeID],
-        componentIDMap: [ComponentID: ComponentID],
-        mountedComponentsByNodeID: [HTMLNodeID: BrowserHydrationComponentRecord]
+        nodeMap: NodeMap,
+        componentIDMap: ComponentIDMap,
+        mountedComponentIndex: MountedComponentByNodeIndex
     ) -> BrowserHydrationComponentRecord? {
         guard let mappedNodeID = nodeMap[component.nodeID] else {
             return nil
         }
-        if let mountedComponent = mountedComponentsByNodeID[mappedNodeID] {
+        if let mountedComponent = mountedComponentIndex.record(for: mappedNodeID) {
             return BrowserHydrationComponentRecord(
                 id: mountedComponent.id,
                 typeName: mountedComponent.typeName,
@@ -1469,8 +1782,8 @@ public final class ClientRuntimeBridge<Root: HTML> {
 
     private static func rebased(
         _ slot: ServerSlotRecord,
-        nodeMap: [HTMLNodeID: HTMLNodeID],
-        componentIDMap: [ComponentID: ComponentID]
+        nodeMap: NodeMap,
+        componentIDMap: ComponentIDMap
     ) -> ServerSlotRecord? {
         guard let mappedNodeID = nodeMap[slot.nodeID] else {
             return nil
@@ -1486,22 +1799,25 @@ public final class ClientRuntimeBridge<Root: HTML> {
 
     private static func rebaseEventBinding(
         _ binding: BrowserHydrationEventBinding,
-        nodeMap: [HTMLNodeID: HTMLNodeID],
-        componentIDMap: [ComponentID: ComponentID],
-        mountedIndex: BrowserHydrationIndex
+        nodeMap: NodeMap,
+        componentIDMap: ComponentIDMap,
+        mountedHandlerIndex: MountedHandlerIndex
     ) -> BrowserHydrationEventBinding? {
         guard let mappedNodeID = nodeMap[binding.nodeID] else {
             return nil
         }
-        // Keep the LOCAL handler id: the DOM's `data-event-*` attributes are
-        // normalized to the local id space at bootstrap and kept in sync by
-        // the attribute diff, so the rebased index must describe the same id
-        // space the DOM carries. Preserving the mounted (server) id here would
-        // desynchronize `translatedHandlerID` from the attributes and route
-        // events to a neighboring handler.
+        let mountedHandlerID = mountedHandlerIndex.handlerID(
+            for: mappedNodeID,
+            eventName: binding.eventName
+        )
+
+        // Keep an existing mounted handler's stable public identity. The DOM
+        // carries local handler IDs after bootstrap normalization, while
+        // `translatedHandlerID` accepts either space by matching node and
+        // event name before considering a raw ID match.
         return BrowserHydrationEventBinding(
             nodeID: mappedNodeID,
-            handlerID: binding.handlerID,
+            handlerID: mountedHandlerID ?? binding.handlerID,
             eventName: binding.eventName,
             componentID: binding.componentID.flatMap { componentIDMap[$0] }
         )

@@ -57,57 +57,57 @@ public enum BlendMode: Sendable, Equatable {
     }
 }
 
-public extension HTML {
-    func clipped(antialiased: Bool = false) -> ModifiedContent<Self, HTMLAttributeModifier> {
+public extension Component {
+    func clipped(antialiased: Bool = false) -> ModifiedContent {
         modifier(HTMLAttributeModifier([styleAttribute(.overflow("hidden"))]))
     }
 
     func blur(
         radius: Length,
         opaque: Bool = false
-    ) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    ) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             styleAttribute(.filter("blur(\(radius.cssValue))"))
         ]))
     }
 
-    func brightness(_ amount: Double) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func brightness(_ amount: Double) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             styleAttribute(.filter("brightness(\(trimmedNumber(1 + amount)))"))
         ]))
     }
 
-    func contrast(_ amount: Double) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func contrast(_ amount: Double) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             styleAttribute(.filter("contrast(\(trimmedNumber(amount)))"))
         ]))
     }
 
-    func saturation(_ amount: Double) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func saturation(_ amount: Double) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             styleAttribute(.filter("saturate(\(trimmedNumber(amount)))"))
         ]))
     }
 
-    func grayscale(_ amount: Double) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func grayscale(_ amount: Double) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             styleAttribute(.filter("grayscale(\(trimmedNumber(amount)))"))
         ]))
     }
 
-    func hueRotation(_ angle: Angle) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func hueRotation(_ angle: Angle) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             styleAttribute(.filter("hue-rotate(\(angle.cssValue))"))
         ]))
     }
 
-    func colorInvert() -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func colorInvert() -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             styleAttribute(.filter("invert(1)"))
         ]))
     }
 
-    func colorMultiply(_ color: String) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func colorMultiply(_ color: String) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             styleAttribute(Style {
                 .backgroundColor(color)
@@ -116,7 +116,7 @@ public extension HTML {
         ]))
     }
 
-    func blendMode(_ blendMode: BlendMode) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func blendMode(_ blendMode: BlendMode) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             styleAttribute(.mixBlendMode(blendMode.cssValue))
         ]))
@@ -125,7 +125,7 @@ public extension HTML {
     func rotationEffect(
         _ angle: Angle,
         anchor: UnitPoint = .center
-    ) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    ) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             styleAttribute(Style {
                 .transform("rotate(\(angle.cssValue))")
@@ -137,7 +137,7 @@ public extension HTML {
     func scaleEffect(
         _ scale: Double,
         anchor: UnitPoint = .center
-    ) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    ) -> ModifiedContent {
         scaleEffect(x: scale, y: scale, anchor: anchor)
     }
 
@@ -145,7 +145,7 @@ public extension HTML {
         x: Double = 1,
         y: Double = 1,
         anchor: UnitPoint = .center
-    ) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    ) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             styleAttribute(Style {
                 .transform("scale(\(trimmedNumber(x)), \(trimmedNumber(y)))")
@@ -154,14 +154,14 @@ public extension HTML {
         ]))
     }
 
-    func allowsHitTesting(_ enabled: Bool) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func allowsHitTesting(_ enabled: Bool) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             styleAttribute(.pointerEvents(enabled ? "auto" : "none")),
             .aria("disabled", enabled ? "false" : "true"),
         ], role: .semantic))
     }
 
-    func compositingGroup() -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func compositingGroup() -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             styleAttribute(.isolation("isolate"))
         ]))
@@ -170,7 +170,7 @@ public extension HTML {
     func drawingGroup(
         opaque: Bool = false,
         colorMode: ColorRenderingMode = .nonLinear
-    ) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    ) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             .data("drawing-group", colorMode.cssName),
             styleAttribute(Style {

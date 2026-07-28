@@ -7,7 +7,7 @@ public struct ClientCounter: ClientComponent {
 
     public init() {}
 
-    public var body: some HTML {
+    public var content: some Component {
         GroupBox {
             VStack(spacing: .large) {
                 Text("Client Counter").as(.h2)

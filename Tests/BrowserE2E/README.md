@@ -28,8 +28,11 @@ npm run install-webkit
 npm run counter-wasm:webkit
 ```
 
-The test copies `Examples/CounterApp` into a temporary directory, rewrites its dependencies to the local `swift-web` and `swift-html` packages, starts `sweb dev`, and validates:
+The test copies `Examples/CounterApp` into a temporary directory, rewrites only `swift-web` to the local checkout, resolves the released `swift-html 0.13.0` package, starts `sweb dev`, and validates:
 
+- an edit during the initial build converges to the latest source fingerprint
+- a timestamp-only touch does not rebuild or replace the worker
+- a killed worker relaunches from the existing artifact without rebuilding
 - browser WASM runtime readiness
 - WASM asset fetch and instantiation metrics
 - ClientComponent `@State` updates through WASM event dispatch
@@ -72,8 +75,7 @@ Environment variables:
 | `SWIFTWEB_E2E_HEADFUL` | Set to `1` to show the browser. |
 | `SWIFTWEB_E2E_PORT` | Fixed port. If omitted, an available port is selected. |
 | `SWIFTWEB_E2E_TIMEOUT_MS` | Overall wait timeout for server, runtime, and HMR phases. |
-| `SWIFTWEB_E2E_HMR_TIMEOUT_MS` | Timeout for individual HMR phases. Increase this when local SwiftPM server rebuilds are slow. |
-| `SWIFTWEB_E2E_SWIFT_HTML_ROOT` | Override the local `swift-html` path. Defaults to `../swift-html` next to the repo. |
+| `SWIFTWEB_E2E_HMR_TIMEOUT_MS` | Timeout for individual HMR phases. Defaults to 300 seconds so cold Swift 6.4 snapshot builds can complete. |
 | `SWIFT_WEB_WASM_SDK` | Swift SDK used for WASM client runtime builds. Defaults to `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm`. |
 | `SWIFT_WEB_WASM_SWIFT` | Optional Swift executable override for WASM builds. |
 | `SWIFT_WEB_WASM_TOOLCHAIN_BIN` | Optional WASM toolchain bin directory override. |

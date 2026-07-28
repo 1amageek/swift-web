@@ -1,18 +1,19 @@
 import SwiftWebUITheme
 import SwiftHTML
 
-public struct StyleModifier<S: ShapeStyle>: ComponentModifier {
+public struct StyleModifier: ComponentModifier {
     private let property: StyleProperty
-    private let style: S
+    private let style: AnyShapeStyle
     private let ignoredSafeAreaEdges: Edge.Set?
 
-    init(
+    @usableFromInline
+    init<S: ShapeStyle>(
         property: StyleProperty,
         style: S,
         ignoredSafeAreaEdges: Edge.Set? = nil
     ) {
         self.property = property
-        self.style = style
+        self.style = AnyShapeStyle(style)
         self.ignoredSafeAreaEdges = ignoredSafeAreaEdges
     }
 
@@ -22,8 +23,8 @@ public struct StyleModifier<S: ShapeStyle>: ComponentModifier {
     @Environment({ $0.controlState }) private var controlState: ControlState
     @Environment({ $0.isEnabled }) private var isEnabled: Bool
 
-    @HTMLBuilder
-    public func body(content: ModifierContent) -> some HTML {
+    @ComponentBuilder
+    public func content(_ content: ModifierContent) -> some Component {
         Element(
             "div",
             attributes: mergedAttributes(

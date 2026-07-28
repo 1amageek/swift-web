@@ -53,7 +53,10 @@ struct SwiftWebCLI {
         case .packageManifestNotFound, .processFailed, .executableNotFound, .hostReadinessTimeout,
              .workerPortAllocationFailed, .workerReadinessTimeout, .hostSwiftToolchainNotFound,
              .wasmToolchainNotFound, .unsupportedWasmSDK, .initialWasmBuildFailed,
-             .workerBuildFailed, .workerExitedDuringStartup, .artifactSnapshotFailed:
+             .workerBuildFailed, .buildTimedOut, .clientRuntimeTransactionFailed,
+             .workerExitedDuringStartup, .artifactSnapshotFailed,
+             .signalHandlerInstallationFailed, .processGroupIsolationFailed,
+             .processGroupTerminationTimedOut:
             return false
         }
     }

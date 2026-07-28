@@ -159,6 +159,50 @@ flowchart LR
   F --> G["Hydrated client islands"]
 ```
 
+### Browser Runtime Wire Codec
+
+The pinned Swift 6.4 Standard WASM toolchain cannot safely execute synthesized
+`Codable` witnesses for hydration models declared in another Swift module. A
+same-module model succeeds, while a cross-module `JSONDecoder` or `JSONEncoder`
+call traps with an out-of-bounds WASM memory access.
+
+The browser ABI therefore uses a checked `JSONSerialization` codec inside
+`SwiftWebUIRuntime`. It reconstructs the public SwiftHTML hydration values and
+emits the existing `Codable` wire shape without invoking cross-module model
+witnesses. Native builds retain `JSONEncoder` and `JSONDecoder` as the reference
+wire implementation, and compatibility tests compare both paths.
+
+```mermaid
+flowchart LR
+  Server["Native JSONEncoder"] --> Wire["client runtime JSON"]
+  Wire --> Codec["WASI checked wire codec"]
+  Codec --> Models["SwiftHTML hydration models"]
+  Models --> Runtime["client runtime"]
+  Runtime --> Encoder["WASI checked wire encoder"]
+  Encoder --> Browser["browser host"]
+```
+
+| Boundary | Contract |
+|---|---|
+| Bootstrap, event, and state input | Reject missing, incorrectly typed, or unsupported values with `ClientRuntimeJSONCodecError`. |
+| Response and state output | Preserve the native `Codable` wire shape so the browser host remains unchanged. |
+| Copy boundary | Materialize `Data` only at the exported WASM memory boundary; JSON object materialization is the correctness workaround for the pinned toolchain. |
+| Removal condition | Replace the codec only after a newer pinned toolchain passes cross-module encode/decode compile, link, runtime, and full browser E2E checks. |
+
+### Runtime State Isolation
+
+Runtime state uses the same synchronization contract on Native and WASM.
+`ClientRuntimeAccessGate` claims operation ownership without holding a lock while
+component code or the DOM host executes. Stored state remains inside
+`Mutex<State>`, and state commits occur in short memory-only critical sections.
+
+| Logical state | Storage | Read entry | Mutation entry | External work |
+|---|---|---|---|---|
+| Component session and mounted node maps | `Mutex<RuntimeState>` | Snapshot under `withLock` | Commit under `withLock` | Rendering, handlers, CSS flush, and DOM application run outside the lock. |
+| Bundle runtime registry and handler index | `Mutex<RuntimeState>` | Copy the current registry/index under `withLock` | Replace the resolved state under `withLock` | Component bootstrap and dispatch run outside the lock. |
+| Exported response pointer and length | `Mutex<Storage>` | `responsePointer()` / `responseLength()` | `store(_:)` / `free()` | JSON encoding runs before entering the storage lock. |
+| Component values | SwiftHTML `StateStore` backed by `Mutex<Storage>` | State lookup and snapshot | State install, mutation, restore, and dirty tracking | Value encoding and decoding run outside the lock. |
+
 The resolver is intentionally smaller than a planner. It walks the rendered component graph, identifies outermost client islands, resolves their declared contracts, validates nested usage, and emits manifest records. It does not optimize across routes, estimate graph costs, or invent split points.
 
 ## Responsibility Boundaries
@@ -230,7 +274,7 @@ struct RichTextEditor: ClientComponent {
     static let loadPolicy: LoadPolicy = .visible
     static let bundle: BundlePolicy = .shared("editor")
 
-    var body: some HTML {
+    var content: some Component {
         EditorSurface()
     }
 }
@@ -448,7 +492,7 @@ sequenceDiagram
   R->>R: hydrate matching islands
 ```
 
-State preservation uses a two-step compatibility check. Exact schema matches are restored directly. If a hot reload changes only generated component IDs, SwiftWeb rebases snapshot slots by `@State` source location and value type before restoring.
+State preservation uses a two-step compatibility check. Exact schema matches are restored directly. If a hot reload changes only generated component IDs, SwiftWeb rebases snapshot slots by `@State` source location and value type before restoring. Component paths remain part of the identity throughout SSR, hydration, handler lookup, and rebasing, so sibling instances of the same component type never share state or dispatch ownership.
 
 | Check | Runtime behavior |
 |---|---|

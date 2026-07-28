@@ -1,6 +1,6 @@
 # Dev Server Reconciler Design
 
-Status: implemented through T7; T8 verification remains.
+Status: implemented through T8. See `DevServerReconcilerVerification.md` for the executable verification runbook.
 Baseline: swift-web `8e893b7`. All `file:line` references below are against this
 commit and may drift; treat them as anchors, not exact coordinates.
 
@@ -72,9 +72,21 @@ independently notices server-fingerprint drift and rebuilds in the background
 - No dylib / interpreter hot-swap of server code. Considered and rejected:
   Swift ABI, global state, and actor-runtime initialization make in-process
   code replacement fragile. The compiled binary + blue/green port swap stays.
-- No change to the WASM HMR build path (`SwiftWebDevBuildProcess`,
-  `SwiftWebDevWasmArtifactCache`) beyond how it is invoked.
-- No change to the SSE wire protocol or the injected client script in Phase 1.
+- The WASM compiler/cache path remains in place. Served artifacts are staged
+  in an immutable generation directory and published by atomically replacing
+  the `current` symlink; build outputs and stamps remain protected by a file
+  transaction until the generation-level update event succeeds. Every event
+  names its exact generation in the asset URL, workers lease the generation
+  they start with, and unleased history beyond the newest eight generations is
+  collected.
+- The host validates generation metadata, chooses the negotiated compressed
+  representation, and opens its descriptor before sending response headers.
+  The descriptor remains valid if collection removes the directory during a
+  response; a request that loses the race before opening receives typed
+  `410 Gone`. Large artifacts stream in bounded chunks without whole-file
+  materialization.
+- Existing SSE event kinds remain decodable; the browser also accepts the
+  generation-level `clientRuntimeBatchUpdate` event used for atomic HMR.
 
 ## 3. SourceFingerprint
 
@@ -138,6 +150,7 @@ state; `SwiftWebDevRuntime.run()` shrinks to bootstrap + `await reconciler.run()
 ```swift
 package actor SwiftWebDevReconciler {
   private var desired: SwiftWebDevSourceFingerprint
+  private var lastFastPathFingerprint: SwiftWebDevSourceFingerprint?
   private var worker: WorkerState                    // .none / .running(process, fingerprint)
   private var building: SwiftWebDevSourceFingerprint?
   private var lastFailure: BuildFailure?             // (fingerprint, summary, fullLogPath)
@@ -167,7 +180,9 @@ for await _ in wakes { await converge() }
 
 converge():
   desired = scanner.fingerprint()                  // stat-scan; hashes only changed files
-  emitFastPathEvents()                             // §4.6 — stylePatch / wasm HMR, best effort
+  if lastFastPathFingerprint != desired:
+    lastFastPathFingerprint = desired
+    emitFastPathEvents()                           // §4.6 — stylePatch / wasm HMR, best effort
   if building != nil            → return           // single-flight; completion wakes us
   if lastFailure?.fingerprint == desired
                                 → status(.failed)  // wait: only a source change can help
@@ -220,9 +235,15 @@ Properties that fall out (each maps to a Section 1 symptom, each gets a test):
 2. **Build failure** is a *state* (`lastFailure`), not an exception escaping
    the loop. `sweb dev` never exits because app code does not compile. The
    failure latch (`lastFailure.fingerprint == desired`) prevents hot-looping
-   on the same broken tree; any source change clears it by construction.
-3. **No cancellation of in-flight builds.** Finishing an incremental build and
-   immediately running the next is faster and simpler than cancel/restart.
+   on the same broken tree; any source change clears it by construction. If
+   the edit restores the exact fingerprint of the serving worker, the runtime
+   clears the error state and publishes a `connected` recovery event without
+   rebuilding or replacing that worker.
+3. **No cancellation merely because another edit arrives.** Finishing an
+   incremental build and immediately running the next is faster and simpler
+   than cancel/restart. Shutdown and explicit task cancellation terminate the
+   child, wait a bounded grace period, and then send `SIGKILL`. Every host and
+   Client WASM build also has a configured wall-clock timeout.
 4. **The initial build is not a special case.** Bootstrap starts the
    reconciler with `worker = .none`; the first converge builds. All
    initialization-window bugs (F1) are unrepresentable.
@@ -250,15 +271,20 @@ know which files to re-hash). From that diff:
 
 - `.css` changes → emit `stylePatch` SSE events exactly as today
   (`SwiftWebDevRuntime.swift:264-295` logic moves here unchanged).
-- Client-component `.swift` changes → schedule the WASM HMR build exactly as
-  today (`:297-336`), still serialized behind the reconciler (WASM builds and
-  server builds share the loop; keep it simple — one build at a time total).
+- Client-component `.swift` changes → schedule one transactional WASM HMR
+  generation, still serialized behind the reconciler. All runtime artifacts
+  must build before one `clientRuntimeBatchUpdate` event is published. Every
+  manifest entry points at the immutable generation that produced the event,
+  so a delayed event cannot fetch bytes from a newer `current` symlink.
 - Classification still uses `SwiftWebDevChangeClassifier` /
   `SwiftWebDevSwiftFileClassifier`, both unchanged.
 
 These paths are **best effort**: if any of them error, log + SSE error event
 and continue. The server fingerprint still covers the same files, so the slow
-loop guarantees the served binary eventually reflects them regardless.
+loop guarantees the served binary eventually reflects them regardless. Each
+source fingerprint is attempted once; timer wakes do not repeatedly rebuild a
+known-broken ClientComponent. A new source fingerprint releases both the
+fast-path attempt latch and the slow-loop build failure latch.
 
 The style patch is emitted before build preparation for immediate feedback.
 For every new source fingerprint, a desired-state coordinator then
@@ -401,6 +427,36 @@ payload. No SSE protocol change.
 env path), but make the host-side reader remember its byte offset per stream
 and only decode appended data. This is a contained change with its own test.
 
+Every writer must acquire the same operating-system advisory lock before
+seeking to the end and appending one complete JSONL record or logical event
+batch. Readers acquire the matching shared lock. Client and server build
+workers are separate processes, so an in-process `Mutex` cannot protect the
+record boundary. Concurrent append tests must verify that every record remains
+independently decodable. A multi-runtime Client WASM update publishes one
+generation event only after every artifact succeeds and the immutable
+generation is staged. Publication atomically replaces the `current` symlink;
+event failure restores the previous symlink together with all build artifacts
+and stamps from the pre-build snapshot. The event is the irreversible commit
+point: later snapshot-cleanup failure is reported and never rolls artifacts
+back beneath a generation already visible to readers. The persistent host
+serves generation-qualified WASM URLs and validates the event content hash
+against generation metadata. Workers pin the current generation in their
+environment and hold a PID lease until exit. Cleanup retains the newest eight
+generations plus any live leases; an older browser replay receives `410 Gone`
+and performs an explicit full reload.
+
+The SSE transport maps the typed `.error` payload to the wire event name
+`swiftWebError`. `error` is reserved by the browser `EventSource` API for
+transport failures; using it as an application event prevents Chromium from
+delivering the JSON payload to the normal event handler. The JSON payload
+continues to carry `"kind":"error"`.
+
+The event response is intentionally unbounded. The dev host disables the HTTP
+server's request-header timeout because that timer is re-armed after request
+body completion and otherwise closes an active HTTP/1.1 SSE response after 30
+seconds. Idle-connection and request-body timeouts remain enabled. Browser E2E
+must keep the stream open beyond 30 seconds and reject transport diagnostics.
+
 ## 9. Phase 2 — Stylesheet as a first-class resource
 
 The framework currently makes "CSS in a Swift string" the path of least
@@ -469,7 +525,7 @@ fallbacks, actors for I/O+ordering / `Mutex` for hot value state,
 | T5 | Status schema + host stale headers | touched: `SwiftWebDevHostStatus.swift`, `SwiftWebDevWorkerRegistry.swift`, `SwiftWebDevHostHTTPHandler.swift` | T3 | `/__dev/status` returns new fields; old fields unchanged (readiness probe still decodes); proxied responses carry `X-SwiftWeb-Dev-Source` + `X-SwiftWeb-Dev-Stale`; 503 body while `.failed` includes error summary |
 | T6 | Worker build header via development hooks | touched: `SwiftWebDevelopmentHooks` (where `SWIFT_WEB_DEV` env is read) | T2 | Every worker response in dev carries `X-SwiftWeb-Dev-Build`; absent in non-dev |
 | T7 | Event log offset reader | touched: `SwiftWebDevEventLog.swift`, host handler SSE loop | — | Appending N events costs O(new bytes) per poll (test with reader spy); SSE resume via `lastEventID` still works |
-| T8 | Scenario verification runbook | new: `docs/DevServerReconcilerVerification.md` | T4–T6 | Scripted manual scenarios: (a) edit during initial build → converges; (b) introduce syntax error → `failed` status, fix → recovers; (c) `kill -9` worker → auto relaunch; (d) `touch` → no rebuild; (e) `curl -I` shows matching build/source fingerprints after quiesce |
+| T8 | Scenario verification runbook | new: `docs/DevServerReconcilerVerification.md`; automated by `Tests/BrowserE2E/counter-wasm-runtime-e2e.mjs` | T4–T6 | Browser E2E proves: edit during initial build converges; syntax failure latches while the old worker remains usable and exact-source restoration recovers; `SIGKILL` relaunches the worker; timestamp-only touch does not rebuild; status and response fingerprints agree after quiescence; shutdown leaves no child process. |
 | T9 (P2) | `Stylesheet` resource + dev route + stylePatch wiring | per §9 | T4 | `.css` edit reflects in browser < 1 s without server rebuild; release build serves from bundle |
 | T10 (P3) | Discovery cache + materialize stamp | per §10 | T1, T4 | Rebuild after single-file edit re-parses exactly one file (spy test) |
 
@@ -482,8 +538,10 @@ fine-grained (per suite/case), always with a timeout.
 
 ## 13. Compatibility notes
 
-- `SwiftWebDevRuntimeConfiguration`, CLI flags, generated package layout,
-  SSE event kinds, and the injected client script are unchanged in Phase 1.
+- `SwiftWebDevRuntimeConfiguration`, CLI flags, and generated package layout
+  remain compatible. The SSE/browser path additively accepts
+  `clientRuntimeBatchUpdate`; the legacy `clientComponentUpdate` decoder path
+  remains available for older producers.
 - `/__swiftweb/dev/reload` (60 s long-poll fallback,
   `SwiftWebDevHostHTTPHandler.swift:193-237`) is untouched in Phase 1;
   fold into Phase 3 cleanup (align host behavior with the worker-side route

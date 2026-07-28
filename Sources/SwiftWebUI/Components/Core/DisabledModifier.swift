@@ -11,8 +11,8 @@ public struct DisabledModifier: ComponentModifier {
         self.isDisabled = isDisabled
     }
 
-    @HTMLBuilder
-    public func body(content: ModifierContent) -> some HTML {
+    @ComponentBuilder
+    public func content(_ content: ModifierContent) -> some Component {
         // SwiftUI composes `disabled(_:)` with AND semantics: a descendant
         // `.disabled(false)` cannot re-enable a subtree an ancestor disabled.
         let resolvedIsEnabled = isEnabled && !isDisabled

@@ -22,6 +22,7 @@ struct SwiftWebStoryboardEntrypointDispatchTests {
         )
         let artifact = StoryboardCatalog(initialSelection: "asyncimage").renderArtifact()
         var currentIndex = artifact.browserHydrationIndex()
+        try assertDuplicateFree(currentIndex, phase: "server render")
 
         let quickOpenRecord = try #require(currentIndex.components.first { component in
             component.typeName == String(reflecting: StoryboardQuickOpen.self)
@@ -53,12 +54,13 @@ struct SwiftWebStoryboardEntrypointDispatchTests {
             ClientRuntimeBootstrapRequest(hydrationIndex: currentIndex, location: location)
         )
         currentIndex = quickOpenResponse.hydrationIndex ?? currentIndex
+        try assertDuplicateFree(currentIndex, phase: "quick-open bootstrap")
         let islandResponse = try islandBridge.bootstrap(
             ClientRuntimeBootstrapRequest(hydrationIndex: currentIndex, location: location)
         )
         currentIndex = islandResponse.hydrationIndex ?? currentIndex
 
-        try assertDuplicateFree(currentIndex, phase: "bootstrap")
+        try assertDuplicateFree(currentIndex, phase: "detail-island bootstrap")
 
         let islandNodeIDs = descendantNodeIDs(of: islandRecord.nodeID, in: currentIndex)
         let islandHandlers = currentIndex.handlers.filter { binding in
@@ -79,21 +81,24 @@ struct SwiftWebStoryboardEntrypointDispatchTests {
     private func assertDuplicateFree(_ index: BrowserHydrationIndex, phase: String) throws {
         let componentIDs = index.components.map(\.id.rawValue)
         let duplicateComponentIDs = duplicates(in: componentIDs)
-        #expect(
+        let duplicateComponentRecords = index.components
+            .filter { duplicateComponentIDs.contains($0.id.rawValue) }
+            .map { "\($0.typeName)@\($0.path)#\($0.nodeID.rawValue)" }
+        try #require(
             duplicateComponentIDs.isEmpty,
-            "duplicate component IDs after \(phase): \(duplicateComponentIDs)"
+            "duplicate component IDs after \(phase): \(duplicateComponentRecords)"
         )
 
         let nodeIDs = index.nodes.map(\.id.rawValue)
         let duplicateNodeIDs = duplicates(in: nodeIDs)
-        #expect(
+        try #require(
             duplicateNodeIDs.isEmpty,
             "duplicate node IDs after \(phase): \(duplicateNodeIDs)"
         )
 
         let componentNodeIDs = index.components.map(\.nodeID.rawValue)
         let duplicateComponentNodes = duplicates(in: componentNodeIDs)
-        #expect(
+        try #require(
             duplicateComponentNodes.isEmpty,
             "multiple components share a node after \(phase): \(duplicateComponentNodes)"
         )

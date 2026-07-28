@@ -39,14 +39,14 @@ import SwiftHTML
 /// `DateFormatter` is used, so the component is safe in the WebAssembly
 /// runtime. Weekday header labels default to English abbreviations; pass
 /// `weekdaySymbols` (indexed by weekday `1...7`) for other languages.
-public struct CalendarView<Cell: HTML>: Component {
+public struct CalendarView: Component {
     private let year: Int
     private let month: Int
     private let firstWeekday: Int
     private let today: GregorianDay?
     private let weekdaySymbols: [String]?
     private let accessibilityLabel: String?
-    private let cell: @Sendable (CalendarDay) -> Cell
+    private let cell: @Sendable (CalendarDay) -> ComponentContent
 
     /// Profile-neutral month grid: pure Gregorian arithmetic, no Foundation.
     ///
@@ -59,14 +59,14 @@ public struct CalendarView<Cell: HTML>: Component {
     ///     (`1` = Sunday). Defaults to English abbreviations.
     ///   - accessibilityLabel: The grid's `aria-label` (e.g. a localized month).
     ///   - cell: Builds the content of one day cell from its ``CalendarDay``.
-    public init(
+    public init<Cell: Component>(
         year: Int,
         month: Int,
         firstWeekday: Int = 1,
         today: GregorianDay? = nil,
         weekdaySymbols: [String]? = nil,
         accessibilityLabel: String? = nil,
-        @HTMLBuilder cell: @escaping @Sendable (CalendarDay) -> Cell
+        @ComponentBuilder cell: @escaping @Sendable (CalendarDay) -> Cell
     ) {
         self.year = year
         self.month = month
@@ -74,7 +74,9 @@ public struct CalendarView<Cell: HTML>: Component {
         self.today = today
         self.weekdaySymbols = weekdaySymbols
         self.accessibilityLabel = accessibilityLabel
-        self.cell = cell
+        self.cell = { day in
+            HTMLBuilder.buildExpression(cell(day))
+        }
     }
 
     #if !hasFeature(Embedded)
@@ -85,12 +87,12 @@ public struct CalendarView<Cell: HTML>: Component {
     ///     (`1` = the calendar's Sunday). Defaults to English abbreviations.
     ///   - accessibilityLabel: The grid's `aria-label` (e.g. a localized month).
     ///   - cell: Builds the content of one day cell from its ``CalendarDay``.
-    public init(
+    public init<Cell: Component>(
         month: Date,
         calendar: Calendar = .current,
         weekdaySymbols: [String]? = nil,
         accessibilityLabel: String? = nil,
-        @HTMLBuilder cell: @escaping @Sendable (CalendarDay) -> Cell
+        @ComponentBuilder cell: @escaping @Sendable (CalendarDay) -> Cell
     ) {
         let components = calendar.dateComponents([.year, .month], from: month)
         let todayComponents = calendar.dateComponents([.year, .month, .day], from: Date())
@@ -110,7 +112,7 @@ public struct CalendarView<Cell: HTML>: Component {
     }
     #endif
 
-    public var body: some HTML {
+    public var content: some Component {
         let model = CalendarMonthModel(
             year: year,
             month: month,
@@ -196,7 +198,7 @@ public struct CalendarView<Cell: HTML>: Component {
     }
 }
 
-public extension CalendarView where Cell == CalendarCellContent<CalendarCellHeader<text>> {
+public extension CalendarView {
     /// A month grid with the default cell content: the day number rendered
     /// through ``CalendarCellContent`` and ``CalendarCellHeader``.
     init(
@@ -315,4 +317,3 @@ private struct CalendarMonthModel {
         self.isoMonth = "\(year)-\(month < 10 ? "0" : "")\(month)"
     }
 }
-

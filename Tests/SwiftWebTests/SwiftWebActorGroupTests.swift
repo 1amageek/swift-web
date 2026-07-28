@@ -472,9 +472,11 @@ private struct LockedActorGroupHostApp: App {
 
 @Page("/")
 private struct ActorGroupRootPage {
-    func body() -> some HTML {
-        main {
-            h1 { "Actor Group Host" }
+    var document: some HTMLDocument {
+        PageDocument(title: "Actor Group Host") {
+            main {
+                h1 { "Actor Group Host" }
+            }
         }
     }
 }

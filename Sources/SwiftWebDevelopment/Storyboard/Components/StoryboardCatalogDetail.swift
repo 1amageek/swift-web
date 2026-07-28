@@ -5,7 +5,7 @@ import SwiftWebUI
 struct CatalogDetail: Component {
     let selection: String
 
-    var body: some HTML {
+    var content: some Component {
         ScrollView(.vertical) {
             VStack(alignment: .leading, spacing: .large) {
                 if let item = catalogItem(for: selection) {
@@ -28,7 +28,7 @@ struct CatalogDetail: Component {
         .accessibilityRole("main")
     }
 
-    private func sectionTitle(_ title: String, anchor: String) -> some HTML {
+    private func sectionTitle(_ title: String, anchor: String) -> some Component {
         VStack(alignment: .leading, spacing: .xsmall) {
             div(.class("swui-storyboard-section-rule")) { EmptyHTML() }
             Text(title, .id(anchor)).as(.h2)
@@ -39,7 +39,7 @@ struct CatalogDetail: Component {
     }
 
     @HTMLBuilder
-    private func detailHeader(item: CatalogItem, spec: CatalogDetailSpec) -> some HTML {
+    private func detailHeader(item: CatalogItem, spec: CatalogDetailSpec) -> some Component {
         if let category = catalogCategory(for: item.id) {
             Text(category.title, .class("swui-storyboard-eyebrow")).as(.span)
         }
@@ -72,7 +72,7 @@ struct CatalogDetail: Component {
     }
 
     @HTMLBuilder
-    private func variantsSection(item: CatalogItem, spec: CatalogDetailSpec) -> some HTML {
+    private func variantsSection(item: CatalogItem, spec: CatalogDetailSpec) -> some Component {
         VStack(alignment: .leading, spacing: .small) {
             sectionTitle("Variants", anchor: "variants")
             Text("The component's range at a glance; open the playground below to drive it live.")
@@ -87,12 +87,12 @@ struct CatalogDetail: Component {
     }
 
     @HTMLBuilder
-    private func playgroundSection(item: CatalogItem) -> some HTML {
+    private func playgroundSection(item: CatalogItem) -> some Component {
         StoryboardDetailIsland(initialSelection: item.id)
     }
 
     @HTMLBuilder
-    private func propertiesSection(_ properties: [CatalogProperty]) -> some HTML {
+    private func propertiesSection(_ properties: [CatalogProperty]) -> some Component {
         VStack(alignment: .leading, spacing: .small) {
             sectionTitle("Properties", anchor: "properties")
             Text("The parameters and modifiers that configure this component.")
@@ -104,7 +104,7 @@ struct CatalogDetail: Component {
     }
 
     @HTMLBuilder
-    private func relatedSection(item: CatalogItem) -> some HTML {
+    private func relatedSection(item: CatalogItem) -> some Component {
         VStack(alignment: .leading, spacing: .small) {
             sectionTitle("Related", anchor: "related")
             CatalogRelatedPanel(selection: item.id)

@@ -7,11 +7,11 @@ import SwiftHTML
 /// Lowers to a native `<details>`/`<summary>` pair, so expansion works without
 /// any client runtime. The surface composes the shared `regularMaterial`
 /// recipe.
-public struct DisclosureGroup<Label: HTML, Content: HTML>: AttributeComponent {
+public struct DisclosureGroup<Label: Component, Content: Component>: AttributeComponent {
     private let label: Label
     private let isExpanded: Binding<Bool>?
     private let attributes: [HTMLAttribute]
-    private let content: Content
+    private let childContent: Content
 
     public init(
         @HTMLBuilder content: () -> Content,
@@ -20,7 +20,7 @@ public struct DisclosureGroup<Label: HTML, Content: HTML>: AttributeComponent {
         self.label = label()
         self.isExpanded = nil
         self.attributes = []
-        self.content = content()
+        self.childContent = content()
     }
 
     public init(
@@ -31,7 +31,7 @@ public struct DisclosureGroup<Label: HTML, Content: HTML>: AttributeComponent {
         self.label = label()
         self.isExpanded = isExpanded
         self.attributes = []
-        self.content = content()
+        self.childContent = content()
     }
 
     private init(
@@ -43,11 +43,11 @@ public struct DisclosureGroup<Label: HTML, Content: HTML>: AttributeComponent {
         self.label = label
         self.isExpanded = isExpanded
         self.attributes = attributes
-        self.content = content
+        self.childContent = content
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         Element(
             "details",
             attributes: mergedAttributes(
@@ -62,7 +62,7 @@ public struct DisclosureGroup<Label: HTML, Content: HTML>: AttributeComponent {
                 "div",
                 attributes: [.class("swui-disclosure-content")]
             ) {
-                content
+                childContent
             }
         }
     }
@@ -72,7 +72,7 @@ public struct DisclosureGroup<Label: HTML, Content: HTML>: AttributeComponent {
             label: label,
             isExpanded: isExpanded,
             attributes: self.attributes + attributes,
-            content: content
+            content: childContent
         )
     }
 
@@ -96,9 +96,12 @@ public struct DisclosureGroup<Label: HTML, Content: HTML>: AttributeComponent {
 
 public extension DisclosureGroup where Label == text {
     init(_ title: String, @HTMLBuilder content: () -> Content) {
-        self.init(content: content) {
-            title
-        }
+        self.init(
+            label: text(title),
+            isExpanded: nil,
+            attributes: [],
+            content: content()
+        )
     }
 
     init(
@@ -106,8 +109,11 @@ public extension DisclosureGroup where Label == text {
         isExpanded: Binding<Bool>,
         @HTMLBuilder content: () -> Content
     ) {
-        self.init(isExpanded: isExpanded, content: content) {
-            title
-        }
+        self.init(
+            label: text(title),
+            isExpanded: isExpanded,
+            attributes: [],
+            content: content()
+        )
     }
 }

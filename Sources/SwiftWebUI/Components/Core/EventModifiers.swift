@@ -54,8 +54,8 @@ public struct TapGestureModifier: ComponentModifier {
         self.action = action
     }
 
-    @HTMLBuilder
-    public func body(content: ModifierContent) -> some HTML {
+    @ComponentBuilder
+    public func content(_ content: ModifierContent) -> some Component {
         let requiredCount = count
         let runtimeState = self.runtimeState
         Element(
@@ -157,8 +157,8 @@ public struct LongPressGestureModifier: ComponentModifier {
         self.action = action
     }
 
-    @HTMLBuilder
-    public func body(content: ModifierContent) -> some HTML {
+    @ComponentBuilder
+    public func content(_ content: ModifierContent) -> some Component {
         let runtimeState = self.runtimeState
         #if !hasFeature(Embedded)
         let nanoseconds = UInt64(minimumDuration * 1_000_000_000)
@@ -319,15 +319,15 @@ public extension AttributeMutableHTML {
     }
 }
 
-public extension HTML {
-    func onAppear(perform action: (@Sendable () -> Void)? = nil) -> ModifiedContent<Self, HTMLAttributeModifier> {
+public extension Component {
+    func onAppear(perform action: (@Sendable () -> Void)? = nil) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             .data("lifecycle", "appear"),
             .event("appear") { _ in action?() },
         ], role: .semantic))
     }
 
-    func onDisappear(perform action: (@Sendable () -> Void)? = nil) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func onDisappear(perform action: (@Sendable () -> Void)? = nil) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             .data("lifecycle", "disappear"),
             .event("disappear") { _ in action?() },
@@ -337,7 +337,7 @@ public extension HTML {
     func task(
         priority: TaskPriority? = nil,
         _ action: @escaping @Sendable () async -> Void
-    ) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    ) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             .data("task", "true"),
             .data("task-priority", priority?.description ?? "default"),
@@ -353,7 +353,7 @@ public extension HTML {
         id value: ID,
         priority: TaskPriority? = nil,
         _ action: @escaping @Sendable () async -> Void
-    ) -> ModifiedContent<Self, HTMLAttributeModifier> where ID: Equatable & Sendable {
+    ) -> ModifiedContent where ID: Equatable & Sendable {
         modifier(HTMLAttributeModifier([
             .data("task", "true"),
             .data("task-id", "\(value)"),
@@ -369,7 +369,7 @@ public extension HTML {
     func onTapGesture(
         count: Int = 1,
         perform action: @escaping @Sendable () -> Void
-    ) -> ModifiedContent<Self, TapGestureModifier> {
+    ) -> ModifiedContent {
         modifier(TapGestureModifier(count: count, action: action))
     }
 
@@ -378,7 +378,7 @@ public extension HTML {
         maximumDistance: Length = 10,
         pressing: (@Sendable (Bool) -> Void)? = nil,
         perform action: @escaping @Sendable () -> Void
-    ) -> ModifiedContent<Self, LongPressGestureModifier> {
+    ) -> ModifiedContent {
         modifier(LongPressGestureModifier(
             minimumDuration: minimumDuration,
             maximumDistance: maximumDistance,
@@ -389,7 +389,7 @@ public extension HTML {
 
     func onHover(
         perform action: @escaping @Sendable (Bool) -> Void
-    ) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    ) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             .onMouseEnter { _ in action(true) },
             .onMouseLeave { _ in action(false) },
@@ -399,7 +399,7 @@ public extension HTML {
     func onContinuousHover(
         coordinateSpace: CoordinateSpace = .local,
         perform action: @escaping @Sendable (HoverPhase) -> Void
-    ) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    ) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             .data("hover-coordinate-space", coordinateSpace.cssName),
             .onMouseMove { event in
@@ -412,7 +412,7 @@ public extension HTML {
         ], role: .semantic))
     }
 
-    func help(_ text: String) -> ModifiedContent<Self, HTMLAttributeModifier> {
+    func help(_ text: String) -> ModifiedContent {
         modifier(HTMLAttributeModifier([
             .title(text),
             .aria("description", text),

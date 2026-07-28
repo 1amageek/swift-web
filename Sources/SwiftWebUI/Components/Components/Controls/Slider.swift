@@ -56,8 +56,8 @@ public struct Slider: AttributeComponent {
         self.attributes = attributes
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         // A transparent native range input on top owns all interaction (drag,
         // keyboard, step, focus, accessibility); the visible track, fill, and
         // Liquid Glass thumb are drawn beneath it and positioned from

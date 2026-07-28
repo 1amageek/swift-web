@@ -19,7 +19,7 @@ struct MediaDetail: Component {
     /// Shared control-panel state, keyed "componentID.knob".
     var state: [String: String] = [:]
 
-    var body: some HTML {
+    var content: some Component {
         switch selection {
         case "label":
             let title = state.control("label", "title")
@@ -42,7 +42,7 @@ struct MediaDetail: Component {
     }
 
     @HTMLBuilder
-    private func asyncImageDemo(url: URL?, scale: Double, placeholder: Bool) -> some HTML {
+    private func asyncImageDemo(url: URL?, scale: Double, placeholder: Bool) -> some Component {
         if placeholder {
             AsyncImage(url: url, scale: scale) { image in
                 image.clipShape(.rect(cornerRadius: 12))

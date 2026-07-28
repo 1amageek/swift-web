@@ -9,7 +9,7 @@ import SwiftWebUI
 struct CatalogPropertyPanel: Component {
     let properties: [CatalogProperty]
 
-    var body: some HTML {
+    var content: some Component {
         div(.class("swui-storyboard-props")) {
             ForEach(properties) { property in
                 div(.class("swui-storyboard-props-row")) {
@@ -32,7 +32,7 @@ struct CatalogPropertyPanel: Component {
 struct CatalogRelatedPanel: Component {
     let selection: String
 
-    var body: some HTML {
+    var content: some Component {
         HStack(alignment: .top, spacing: .medium) {
             ForEach(relatedItems) { item in
                 Link(destination: URL(string: item.path)!) {

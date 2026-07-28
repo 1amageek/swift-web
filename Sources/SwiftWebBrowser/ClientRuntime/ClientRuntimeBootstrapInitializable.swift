@@ -1,5 +1,5 @@
 import SwiftHTML
 
-public protocol ClientRuntimeBootstrapInitializable: HTML {
+public protocol ClientRuntimeBootstrapInitializable: Component {
     init(bootstrap request: ClientRuntimeBootstrapRequest) throws
 }

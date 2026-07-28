@@ -2,7 +2,7 @@ import SwiftWebUITheme
 import SwiftHTML
 import SwiftWebStyle
 
-public extension HTML {
+public extension Component {
     /// Attaches toolbar content to this view, mirroring SwiftUI's
     /// `.toolbar { ToolbarItem(placement:) { ... } }`.
     ///
@@ -11,22 +11,22 @@ public extension HTML {
     /// depend on the content layer. Items route into leading, principal,
     /// trailing, and bottom regions by their placement; empty bars and regions
     /// collapse.
-    func toolbar<Items: HTML>(@HTMLBuilder content: () -> Items) -> some HTML {
+    func toolbar<Items: Component>(@HTMLBuilder content: () -> Items) -> some Component {
         ToolbarLayout(content: self, items: content())
     }
 }
 
-struct ToolbarLayout<Content: HTML, Items: HTML>: Component {
-    private let content: Content
+struct ToolbarLayout<Content: Component, Items: Component>: Component {
+    private let childContent: Content
     private let items: Items
 
     init(content: Content, items: Items) {
-        self.content = content
+        self.childContent = content
         self.items = items
     }
 
-    @HTMLBuilder
-    var body: some HTML {
+    @ComponentBuilder
+    var content: some Component {
         Element(
             "div",
             attributes: mergedAttributes(
@@ -48,7 +48,7 @@ struct ToolbarLayout<Content: HTML, Items: HTML>: Component {
                         .transformEnvironment({ $0.toolbarRegion = ToolbarItemPlacement.Region.trailing })
                 }
             }
-            content
+            childContent
             Element("footer", attributes: [.class("\(Self.barClassName) swui-toolbar-bottom")]) {
                 items
                     .transformEnvironment({ $0.toolbarRegion = ToolbarItemPlacement.Region.bottom })

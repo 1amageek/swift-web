@@ -2,13 +2,13 @@ import SwiftWebUITheme
 import SwiftHTML
 import SwiftWebStyle
 
-public struct LazyVGrid<Content: HTML>: AttributeComponent {
+public struct LazyVGrid<Content: Component>: AttributeComponent {
     private let columns: [GridItem]
     private let alignment: HorizontalAlignment
     private let gap: StackGap
     private let pinnedViews: PinnedScrollableViews
     private let attributes: [HTMLAttribute]
-    private let content: Content
+    private let childContent: Content
 
     public init(
         columns: [GridItem],
@@ -22,7 +22,7 @@ public struct LazyVGrid<Content: HTML>: AttributeComponent {
         self.gap = stackGap(spacing)
         self.pinnedViews = pinnedViews
         self.attributes = []
-        self.content = content()
+        self.childContent = content()
     }
 
     /// Token-named spacing convenience over the theme spacing scale.
@@ -41,11 +41,11 @@ public struct LazyVGrid<Content: HTML>: AttributeComponent {
         self.gap = stackGap(spacing)
         self.pinnedViews = pinnedViews
         self.attributes = []
-        self.content = content()
+        self.childContent = content()
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         Element(
             "div",
             attributes: mergedAttributes(
@@ -71,7 +71,7 @@ public struct LazyVGrid<Content: HTML>: AttributeComponent {
                 extra: lazyAttributes(axis: "vertical-grid", pinnedViews: pinnedViews) + attributes
             )
         ) {
-            content
+            childContent
         }
     }
 
@@ -82,7 +82,7 @@ public struct LazyVGrid<Content: HTML>: AttributeComponent {
             gap: gap,
             pinnedViews: pinnedViews,
             attributes: self.attributes + attributes,
-            content: content
+            content: childContent
         )
     }
 
@@ -99,6 +99,6 @@ public struct LazyVGrid<Content: HTML>: AttributeComponent {
         self.gap = gap
         self.pinnedViews = pinnedViews
         self.attributes = attributes
-        self.content = content
+        self.childContent = content
     }
 }

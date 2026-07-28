@@ -3,17 +3,12 @@ import FoundationEssentials
 #elseif canImport(Foundation)
 import Foundation
 #endif
+import Synchronization
 import SwiftHTML
 import SwiftWebActors
 
-/// Single-threaded host contract: this type holds unguarded mutable state and is
-/// driven exclusively from the JavaScript host through `@_cdecl` exports, which
-/// the browser/WASI runtime invokes strictly serially on one thread. It is not
-/// `Sendable` and must never be entered re-entrantly (e.g. a microtask that calls
-/// back into `dispatchEvent` mid-mutation); doing so would corrupt the response
-/// buffer with no compiler guard. The single-threaded WASM environment is what
-/// makes the absence of locking sound.
-public final class ClientRuntimeEntrypoint<Root: HTML> {
+public final class ClientRuntimeEntrypoint<Root: Component>: Sendable {
+    private let accessGate = ClientRuntimeAccessGate()
     private let responseStorage = ClientRuntimeResponseStorage()
     private let bridge: ClientRuntimeBridge<Root>
 
@@ -56,73 +51,91 @@ public final class ClientRuntimeEntrypoint<Root: HTML> {
     }
 
     public func bootstrap(pointer: UInt32, length: UInt32) -> UInt32 {
-        do {
+        performOperation {
+            #if os(WASI)
+            let request = try ClientRuntimeJSONCodec.decodeBootstrapRequest(
+                from: inputData(pointer: pointer, length: length)
+            )
+            #else
             let request = try decode(
                 ClientRuntimeBootstrapRequest.self,
                 pointer: pointer,
                 length: length
             )
+            #endif
             let response = try bridge.bootstrap(request)
-            responseStorage.store(response)
-            return 0
-        } catch {
-            responseStorage.storeError(error)
-            return 1
+            try responseStorage.store(response)
         }
     }
 
     public func dispatchEvent(pointer: UInt32, length: UInt32) -> UInt32 {
-        do {
+        performOperation {
+            #if os(WASI)
+            let request = try ClientRuntimeJSONCodec.decodeEventRequest(
+                from: inputData(pointer: pointer, length: length)
+            )
+            #else
             let request = try decode(
                 ClientRuntimeEventRequest.self,
                 pointer: pointer,
                 length: length
             )
+            #endif
             let response = try bridge.dispatch(request)
-            responseStorage.store(response)
-            return 0
-        } catch {
-            responseStorage.storeError(error)
-            return 1
+            try responseStorage.store(response)
         }
     }
 
     public func snapshotState() -> UInt32 {
-        do {
-            responseStorage.store(try bridge.snapshotState())
-            return 0
-        } catch {
-            responseStorage.storeError(error)
-            return 1
+        performOperation {
+            try responseStorage.store(bridge.snapshotState())
         }
     }
 
     public func restoreState(pointer: UInt32, length: UInt32) -> UInt32 {
-        do {
+        performOperation {
+            #if os(WASI)
+            let snapshot = try ClientRuntimeJSONCodec.decodeStateSnapshot(
+                from: inputData(pointer: pointer, length: length)
+            )
+            #else
             let snapshot = try decode(
                 ClientRuntimeStateSnapshot.self,
                 pointer: pointer,
                 length: length
             )
-            bridge.restoreState(snapshot)
-            responseStorage.store(ClientRuntimeResponse())
-            return 0
-        } catch {
-            responseStorage.storeError(error)
-            return 1
+            #endif
+            try bridge.restoreState(snapshot)
+            try responseStorage.store(ClientRuntimeResponse())
         }
-    }
-
-    public func responsePointer() -> UInt32 {
-        responseStorage.responsePointer()
     }
 
     public func responseLength() -> UInt32 {
         responseStorage.responseLength()
     }
 
+    public func copyResponse(pointer: UInt32, capacity: UInt32) -> UInt32 {
+        responseStorage.copyResponse(pointer: pointer, capacity: capacity)
+    }
+
     public func freeResponse() {
         responseStorage.free()
+    }
+
+    private func performOperation(_ operation: () throws -> Void) -> UInt32 {
+        do {
+            return try accessGate.withExclusiveAccess {
+                do {
+                    try operation()
+                    return 0
+                } catch {
+                    responseStorage.storeError(error)
+                    return 1
+                }
+            }
+        } catch {
+            return 2
+        }
     }
 
     private func decode<Request: Decodable>(
@@ -136,64 +149,95 @@ public final class ClientRuntimeEntrypoint<Root: HTML> {
         let data = Data(bytes: rawPointer, count: Int(length))
         return try JSONDecoder().decode(Request.self, from: data)
     }
+
+    private func inputData(pointer: UInt32, length: UInt32) throws -> Data {
+        guard let rawPointer = UnsafeRawPointer(bitPattern: Int(pointer)) else {
+            throw ClientRuntimeEntrypointError.invalidInputPointer
+        }
+        return Data(bytes: rawPointer, count: Int(length))
+    }
 }
 
-final class ClientRuntimeResponseStorage {
-    private var pointer: UnsafeMutableRawPointer?
-    private var byteCount: Int = 0
+final class ClientRuntimeResponseStorage: Sendable {
+    private let storage = Mutex(Data())
+    private let responseEncoder: @Sendable (ClientRuntimeResponse) throws -> Data
+    private let snapshotEncoder: @Sendable (ClientRuntimeStateSnapshot) throws -> Data
 
-    func store(_ data: Data) {
-        free()
-        guard !data.isEmpty else {
-            return
-        }
-
-        let output = UnsafeMutableRawPointer.allocate(
-            byteCount: data.count,
-            alignment: MemoryLayout<UInt8>.alignment
-        )
-        data.withUnsafeBytes { buffer in
-            if let source = buffer.baseAddress {
-                output.copyMemory(from: source, byteCount: data.count)
-            }
-        }
-        pointer = output
-        byteCount = data.count
+    init() {
+        self.responseEncoder = Self.encodeResponse
+        self.snapshotEncoder = Self.encodeSnapshot
     }
 
-    func store<Response: Encodable>(_ response: Response) {
-        do {
-            let data = try JSONEncoder().encode(response)
-            store(data)
-        } catch {
-            storeError(error)
-        }
+    init(
+        responseEncoder: @escaping @Sendable (ClientRuntimeResponse) throws -> Data
+    ) {
+        self.responseEncoder = responseEncoder
+        self.snapshotEncoder = Self.encodeSnapshot
+    }
+
+    func store(_ data: Data) {
+        storage.withLock { $0 = data }
+    }
+
+    func store(_ response: ClientRuntimeResponse) throws {
+        store(try responseEncoder(response))
+    }
+
+    func store(_ snapshot: ClientRuntimeStateSnapshot) throws {
+        store(try snapshotEncoder(snapshot))
     }
 
     func storeError(_ error: any Error) {
         let response = ClientRuntimeResponse(error: String(describing: error))
         do {
-            let data = try JSONEncoder().encode(response)
-            store(data)
+            store(try responseEncoder(response))
         } catch {
             store(Data(#"{"error":"SwiftHTML WASM response encoding failed"}"#.utf8))
         }
     }
 
-    func responsePointer() -> UInt32 {
-        guard let pointer else {
-            return 0
-        }
-        return UInt32(UInt(bitPattern: pointer))
+    func responseLength() -> UInt32 {
+        storage.withLock { UInt32($0.count) }
     }
 
-    func responseLength() -> UInt32 {
-        UInt32(byteCount)
+    func copyResponse(pointer: UInt32, capacity: UInt32) -> UInt32 {
+        guard let destination = UnsafeMutableRawPointer(bitPattern: Int(pointer)) else {
+            return 0
+        }
+        return UInt32(copyResponse(to: destination, capacity: Int(capacity)))
+    }
+
+    func copyResponse(to destination: UnsafeMutableRawPointer, capacity: Int) -> Int {
+        return storage.withLock { data in
+            guard data.count <= capacity else {
+                return 0
+            }
+            data.withUnsafeBytes { source in
+                if let baseAddress = source.baseAddress, !data.isEmpty {
+                    destination.copyMemory(from: baseAddress, byteCount: data.count)
+                }
+            }
+            return data.count
+        }
     }
 
     func free() {
-        pointer?.deallocate()
-        pointer = nil
-        byteCount = 0
+        storage.withLock { $0 = Data() }
+    }
+
+    private static func encodeResponse(_ response: ClientRuntimeResponse) throws -> Data {
+        #if os(WASI)
+        try ClientRuntimeJSONCodec.encode(response)
+        #else
+        try JSONEncoder().encode(response)
+        #endif
+    }
+
+    private static func encodeSnapshot(_ snapshot: ClientRuntimeStateSnapshot) throws -> Data {
+        #if os(WASI)
+        try ClientRuntimeJSONCodec.encode(snapshot)
+        #else
+        try JSONEncoder().encode(snapshot)
+        #endif
     }
 }

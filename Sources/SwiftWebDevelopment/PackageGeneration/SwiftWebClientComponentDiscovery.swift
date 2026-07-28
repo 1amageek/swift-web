@@ -238,15 +238,15 @@ struct SwiftWebClientComponentDiscovery {
     }
 
     private static func actorServiceTypeName(from source: String) -> String? {
-        var value = source.trimmingCharacters(in: .whitespacesAndNewlines)
+        var value = source.trimmingCharacters(in: Foundation.CharacterSet.whitespacesAndNewlines)
         if value.hasPrefix("("), value.hasSuffix(")") {
             value.removeFirst()
             value.removeLast()
-            value = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            value = value.trimmingCharacters(in: Foundation.CharacterSet.whitespacesAndNewlines)
         }
         if value.hasPrefix("any ") {
             value.removeFirst("any ".count)
-            value = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            value = value.trimmingCharacters(in: Foundation.CharacterSet.whitespacesAndNewlines)
         }
         guard !value.isEmpty,
               !value.hasSuffix("?"),
@@ -310,7 +310,7 @@ struct SwiftWebClientComponentDiscovery {
     }
 
     private static func canonicalTypeName(_ source: String) -> String? {
-        var value = source.trimmingCharacters(in: .whitespacesAndNewlines)
+        var value = source.trimmingCharacters(in: Foundation.CharacterSet.whitespacesAndNewlines)
         guard !value.isEmpty, !value.hasPrefix(".") else {
             return nil
         }

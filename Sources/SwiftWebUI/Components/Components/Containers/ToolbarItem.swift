@@ -17,28 +17,28 @@ extension EnvironmentValues {
 /// The enclosing `.toolbar { ... }` renders its content once per bar region and
 /// each item emits only in the region its placement selects, so declaration
 /// order inside the builder does not constrain the visual layout.
-public struct ToolbarItem<Content: HTML>: Component {
+public struct ToolbarItem<Content: Component>: Component {
     @Environment({ $0.toolbarRegion }) private var region: ToolbarItemPlacement.Region?
 
     private let placement: ToolbarItemPlacement
-    private let content: Content
+    private let childContent: Content
 
     public init(
         placement: ToolbarItemPlacement = .automatic,
         @HTMLBuilder content: () -> Content
     ) {
         self.placement = placement
-        self.content = content()
+        self.childContent = content()
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         if region == nil || region == placement.region {
             Element(
                 "div",
                 attributes: mergedAttributes(class: "swui-toolbar-item", extra: [])
             ) {
-                content
+                childContent
             }
         }
     }
@@ -46,28 +46,28 @@ public struct ToolbarItem<Content: HTML>: Component {
 
 /// A group of toolbar content sharing one placement, mirroring SwiftUI's
 /// `ToolbarItemGroup`.
-public struct ToolbarItemGroup<Content: HTML>: Component {
+public struct ToolbarItemGroup<Content: Component>: Component {
     @Environment({ $0.toolbarRegion }) private var region: ToolbarItemPlacement.Region?
 
     private let placement: ToolbarItemPlacement
-    private let content: Content
+    private let childContent: Content
 
     public init(
         placement: ToolbarItemPlacement = .automatic,
         @HTMLBuilder content: () -> Content
     ) {
         self.placement = placement
-        self.content = content()
+        self.childContent = content()
     }
 
-    @HTMLBuilder
-    public var body: some HTML {
+    @ComponentBuilder
+    public var content: some Component {
         if region == nil || region == placement.region {
             Element(
                 "div",
                 attributes: mergedAttributes(class: "swui-toolbar-item swui-toolbar-item-group", extra: [])
             ) {
-                content
+                childContent
             }
         }
     }

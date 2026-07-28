@@ -18,7 +18,7 @@ public enum ActionResult: Sendable {
     case invalidate(InvalidationScope, status: HTTPStatus = .ok)
     case empty(status: HTTPStatus = .noContent)
 
-    public static func html(_ content: some HTML, status: HTTPStatus = .ok) -> ActionResult {
+    public static func html(_ content: some Component, status: HTTPStatus = .ok) -> ActionResult {
         let environment = EnvironmentValues.swiftWebCurrent
         let styleRegistry = StyleRegistry()
         let artifact = StyleRegistry.withCurrent(styleRegistry) {

@@ -18,7 +18,7 @@ private struct RuntimeStatefulComponent: ClientComponent {
     @Environment(\.runtimeTestValue) private var environmentValue: String
     @State private var value = 0
 
-    var body: some HTML {
+    var content: some Component {
         button(.type(ButtonType.button), .onClick {
             value += 1
         }) {
@@ -30,7 +30,7 @@ private struct RuntimeStatefulComponent: ClientComponent {
 private struct RuntimeChartComponent: ClientComponent {
     static let loadPolicy: LoadPolicy = .visible
 
-    var body: some HTML {
+    var content: some Component {
         button(.type(ButtonType.button)) {
             "Chart"
         }
@@ -41,7 +41,7 @@ private struct RuntimeEditorComponent: ClientComponent {
     static let loadPolicy: LoadPolicy = .interaction
     static let bundle: BundlePolicy = .shared("workspace")
 
-    var body: some HTML {
+    var content: some Component {
         button(.type(ButtonType.button)) {
             "Editor"
         }
@@ -49,7 +49,7 @@ private struct RuntimeEditorComponent: ClientComponent {
 }
 
 private struct RuntimeSplitShell: Component {
-    var body: some HTML {
+    var content: some Component {
         div {
             RuntimeChartComponent()
             RuntimeEditorComponent()
@@ -58,7 +58,7 @@ private struct RuntimeSplitShell: Component {
 }
 
 private struct RuntimeStaticPage: Component {
-    var body: some HTML {
+    var content: some Component {
         div {
             span { "Static heading" }
             div {
@@ -70,7 +70,7 @@ private struct RuntimeStaticPage: Component {
 }
 
 private struct RuntimeServerOnlyPage: Component {
-    var body: some HTML {
+    var content: some Component {
         div {
             span { "Static only" }
         }

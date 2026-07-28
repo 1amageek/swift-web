@@ -674,14 +674,14 @@ func contentLayoutVariants(for id: String) -> [CatalogVariant]? {
 // MARK: - Shared variant helpers
 
 /// A small rounded swatch that paints the given color, used by the Color page.
-private func colorSwatch(_ color: Color) -> some HTML {
+private func colorSwatch(_ color: Color) -> some Component {
     VStack {}
         .frame(width: 24, height: 24)
         .background(color, in: .rect(cornerRadius: 6))
 }
 
 /// A compact numbered cell that makes lazy grid tracks visible.
-private func lazyCell(_ label: String) -> some HTML {
+private func lazyCell(_ label: String) -> some Component {
     Text(label)
         .font(.caption)
         .frame(maxWidth: .infinity)

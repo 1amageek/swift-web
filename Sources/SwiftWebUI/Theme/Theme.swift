@@ -960,7 +960,151 @@ public extension Theme {
 }
 
 #if !hasFeature(Embedded)
-extension Theme: Codable {}
+extension Theme: Codable {
+    public init(from decoder: any Decoder) throws {
+        var container = try decoder.unkeyedContainer()
+        self.init(
+            id: try container.decode(String.self),
+            root: Root(
+                pageInlinePadding: try container.decode(String.self),
+                stackSpacing: try container.decode(String.self)
+            ),
+            layout: Layout(
+                lazyIntrinsicSize: try container.decode(String.self)
+            ),
+            surface: Surface(
+                containerBorder: try container.decode(String.self),
+                containerRadius: try container.decode(String.self),
+                containerShadow: try container.decode(String.self)
+            ),
+            typography: Typography(
+                pageHeadingSize: try container.decode(String.self),
+                pageHeadingLineHeight: try container.decode(String.self),
+                sectionHeadingSize: try container.decode(String.self),
+                subsectionHeadingSize: try container.decode(String.self)
+            ),
+            control: Control(
+                miniHeight: try container.decode(String.self),
+                smallHeight: try container.decode(String.self),
+                regularHeight: try container.decode(String.self),
+                largeHeight: try container.decode(String.self),
+                extraLargeHeight: try container.decode(String.self),
+                disabledOpacity: try container.decode(String.self)
+            ),
+            button: Button(
+                radius: try container.decode(String.self),
+                primaryBackground: try container.decode(String.self),
+                primaryForeground: try container.decode(String.self),
+                secondaryBackground: try container.decode(String.self),
+                secondaryForeground: try container.decode(String.self),
+                secondaryBorder: try container.decode(String.self),
+                secondaryHoverBackground: try container.decode(String.self),
+                plainForeground: try container.decode(String.self)
+            ),
+            field: Field(
+                background: try container.decode(String.self),
+                border: try container.decode(String.self),
+                radius: try container.decode(String.self),
+                padding: try container.decode(String.self),
+                labelSize: try container.decode(String.self)
+            ),
+            badge: Badge(
+                background: try container.decode(String.self),
+                border: try container.decode(String.self),
+                foreground: try container.decode(String.self),
+                radius: try container.decode(String.self),
+                padding: try container.decode(String.self)
+            ),
+            navigation: Navigation(
+                gap: try container.decode(String.self),
+                linkForeground: try container.decode(String.self),
+                linkDecoration: try container.decode(String.self),
+                linkHoverDecoration: try container.decode(String.self)
+            ),
+            toggle: Toggle(
+                width: try container.decode(String.self),
+                height: try container.decode(String.self),
+                thumbSize: try container.decode(String.self),
+                thumbOffset: try container.decode(String.self),
+                checkedThumbOffset: try container.decode(String.self)
+            ),
+            motion: Motion(
+                quick: try container.decode(String.self),
+                standard: try container.decode(String.self)
+            ),
+            material: Material(
+                tint: try container.decode(String.self),
+                opacity: try container.decode(String.self),
+                opacityStep: try container.decode(String.self),
+                blur: try container.decode(String.self),
+                saturate: try container.decode(String.self),
+                brightness: try container.decode(String.self),
+                rim: try container.decode(String.self),
+                refraction: try container.decode(String.self),
+                solidFill: try container.decode(String.self)
+            )
+        )
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.unkeyedContainer()
+        try container.encode(id)
+        try container.encode(root.pageInlinePadding)
+        try container.encode(root.stackSpacing)
+        try container.encode(layout.lazyIntrinsicSize)
+        try container.encode(surface.containerBorder)
+        try container.encode(surface.containerRadius)
+        try container.encode(surface.containerShadow)
+        try container.encode(typography.pageHeadingSize)
+        try container.encode(typography.pageHeadingLineHeight)
+        try container.encode(typography.sectionHeadingSize)
+        try container.encode(typography.subsectionHeadingSize)
+        try container.encode(control.miniHeight)
+        try container.encode(control.smallHeight)
+        try container.encode(control.regularHeight)
+        try container.encode(control.largeHeight)
+        try container.encode(control.extraLargeHeight)
+        try container.encode(control.disabledOpacity)
+        try container.encode(button.radius)
+        try container.encode(button.primaryBackground)
+        try container.encode(button.primaryForeground)
+        try container.encode(button.secondaryBackground)
+        try container.encode(button.secondaryForeground)
+        try container.encode(button.secondaryBorder)
+        try container.encode(button.secondaryHoverBackground)
+        try container.encode(button.plainForeground)
+        try container.encode(field.background)
+        try container.encode(field.border)
+        try container.encode(field.radius)
+        try container.encode(field.padding)
+        try container.encode(field.labelSize)
+        try container.encode(badge.background)
+        try container.encode(badge.border)
+        try container.encode(badge.foreground)
+        try container.encode(badge.radius)
+        try container.encode(badge.padding)
+        try container.encode(navigation.gap)
+        try container.encode(navigation.linkForeground)
+        try container.encode(navigation.linkDecoration)
+        try container.encode(navigation.linkHoverDecoration)
+        try container.encode(toggle.width)
+        try container.encode(toggle.height)
+        try container.encode(toggle.thumbSize)
+        try container.encode(toggle.thumbOffset)
+        try container.encode(toggle.checkedThumbOffset)
+        try container.encode(motion.quick)
+        try container.encode(motion.standard)
+        try container.encode(material.tint)
+        try container.encode(material.opacity)
+        try container.encode(material.opacityStep)
+        try container.encode(material.blur)
+        try container.encode(material.saturate)
+        try container.encode(material.brightness)
+        try container.encode(material.rim)
+        try container.encode(material.refraction)
+        try container.encode(material.solidFill)
+    }
+}
 #endif
 
 #if !hasFeature(Embedded)
@@ -1062,4 +1206,3 @@ extension Theme.Material: Codable {}
 #if !hasFeature(Embedded)
 extension Theme.Material.Override: Codable {}
 #endif
-

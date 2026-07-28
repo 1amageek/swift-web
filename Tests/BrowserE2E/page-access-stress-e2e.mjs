@@ -27,8 +27,7 @@ try {
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const swiftWebRoot = path.resolve(scriptDirectory, "../..");
-const defaultSwiftHTMLRoot = path.resolve(swiftWebRoot, "../swift-html");
-const swiftHTMLRoot = path.resolve(process.env.SWIFTWEB_E2E_SWIFT_HTML_ROOT || defaultSwiftHTMLRoot);
+const expectedSwiftHTMLVersion = "0.13.0";
 const exampleAppRoot = path.join(swiftWebRoot, "Examples", "HelloWorld");
 const testPath = "/";
 const expectedPageText = "Hello, World!";
@@ -152,12 +151,9 @@ async function prepareAppCopy(root) {
     /\.package\((?:path:\s*"[^"]+"|url:\s*"https:\/\/github\.com\/1amageek\/swift-web\.git"[^)]*)\)/,
     `.package(path: "${swiftStringLiteral(swiftWebRoot)}")`
   );
-  manifest = manifest.replace(
-    /\.package\(url:\s*"https:\/\/github\.com\/1amageek\/swift-html\.git"[^)]*\)/,
-    `.package(path: "${swiftStringLiteral(swiftHTMLRoot)}")`
-  );
-  if (!manifest.includes(swiftStringLiteral(swiftWebRoot)) || !manifest.includes(swiftStringLiteral(swiftHTMLRoot))) {
-    throw new Error("Failed to rewrite HelloWorld package dependencies to local swift-web and swift-html paths.");
+  const expectedSwiftHTMLDependency = `.package(url: "https://github.com/1amageek/swift-html.git", from: "${expectedSwiftHTMLVersion}")`;
+  if (!manifest.includes(swiftStringLiteral(swiftWebRoot)) || !manifest.includes(expectedSwiftHTMLDependency)) {
+    throw new Error("Failed to use local swift-web with the released swift-html dependency.");
   }
   await writeFile(packageFile, manifest);
   return appRoot;
@@ -720,9 +716,6 @@ let temporaryRoot;
 try {
   if (!existsSync(exampleAppRoot)) {
     throw new Error(`HelloWorld example package was not found: ${exampleAppRoot}`);
-  }
-  if (!existsSync(swiftHTMLRoot)) {
-    throw new Error(`Local swift-html package was not found: ${swiftHTMLRoot}`);
   }
   const temporaryParent = path.join(swiftWebRoot, ".swiftweb", "browser-e2e");
   await mkdir(temporaryParent, { recursive: true });

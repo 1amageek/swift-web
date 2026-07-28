@@ -112,6 +112,7 @@ package enum SwiftWebWasmRuntimeHostScript {
         this.primaryBundleID = null;
         this.swiftRuntimes = new Map();
         this.bootstrappedBundleIDs = new Set();
+        this.hotUpdateContentHashes = new Map();
         this.currentDocumentURL = window.location.href;
         this.metrics = this.createMetrics();
         this.recordMetric("runtime.created");
@@ -631,7 +632,7 @@ package enum SwiftWebWasmRuntimeHostScript {
         const response = await fetch(bundle.asset.path, { credentials: "same-origin" });
         bundleMetrics.fetchStatus = response.status;
         if (!response.ok) {
-          throw new Error(`SwiftWeb WASM bundle request failed with ${response.status}: ${bundle.asset.path}`);
+          throw this.wasmBundleRequestError(response, bundle.asset.path);
         }
         const bytes = await response.arrayBuffer();
         bundleMetrics.byteLength = bytes.byteLength;
@@ -656,11 +657,17 @@ package enum SwiftWebWasmRuntimeHostScript {
           bundleMetrics.byteLength = contentLength;
         }
         if (!response.ok) {
-          throw new Error(`SwiftWeb WASM bundle request failed with ${response.status}: ${bundle.asset.path}`);
+          throw this.wasmBundleRequestError(response, bundle.asset.path);
         }
         const result = await WebAssembly.instantiateStreaming(Promise.resolve(response), imports);
         bundleMetrics.streamingInstantiateMs = this.durationSince(instantiateStartedAt);
         return result.instance || result;
+      }
+
+      wasmBundleRequestError(response, assetPath) {
+        const error = new Error(`SwiftWeb WASM bundle request failed with ${response.status}: ${assetPath}`);
+        error.swiftWebRequiresFullReload = response.status === 409 || response.status === 410;
+        return error;
       }
 
       selectPrimaryBundleID() {
@@ -707,6 +714,7 @@ package enum SwiftWebWasmRuntimeHostScript {
           mode: options.mode || undefined,
           actorBindings: this.descriptor.actorBindings || []
         }, instance);
+        applyAtomicStyleRules(response && response.atomicStyleRules);
         if (response && response.commandBatch && response.appliesDOMCommandsInRuntime !== true) {
           applyCommandBatch(response.commandBatch, this);
         }
@@ -1026,16 +1034,17 @@ package enum SwiftWebWasmRuntimeHostScript {
         const method = (form.getAttribute("method") || "post").toUpperCase();
         const action = form.getAttribute("action") || window.location.href;
         const url = new URL(action, window.location.href);
-        const body = new FormData(form);
+        const formData = new FormData(form);
         if (event.submitter && event.submitter.name) {
-          body.set(event.submitter.name, event.submitter.value || "");
+          formData.set(event.submitter.name, event.submitter.value || "");
         }
         if (method === "GET") {
-          appendFormDataToURL(body, url);
+          appendFormDataToURL(formData, url);
         }
+        const body = method === "GET" ? null : urlEncodedFormBody(formData);
         const response = await fetch(url.href, {
           method,
-          body: method === "GET" ? null : body,
+          body,
           credentials: "same-origin",
           headers: {
             "Accept": "application/json, text/html;q=0.9",
@@ -1408,6 +1417,7 @@ package enum SwiftWebWasmRuntimeHostScript {
           componentID: componentID ? { rawValue: componentID } : null
         };
         const response = this.callRuntime("swiftweb_dispatch_event", runtimePayload, targetInstance);
+        applyAtomicStyleRules(response && response.atomicStyleRules);
         if (response && response.commandBatch && response.appliesDOMCommandsInRuntime !== true) {
           applyCommandBatch(response.commandBatch, this);
         }
@@ -1454,33 +1464,29 @@ package enum SwiftWebWasmRuntimeHostScript {
         if (!(target instanceof Element)) {
           return null;
         }
-        const boundary = target.closest("[data-component-type][data-bundle]");
-        if (boundary) {
-          const typeName = boundary.getAttribute("data-component-type") || "";
-          const bundleID = boundary.getAttribute("data-bundle") || "";
-          const component = (this.manifest.components || []).find((record) =>
-            record.typeName === typeName && rawValue(record.bundleID) === bundleID
+        let boundary = target.closest("[data-component]");
+        let primaryComponent = null;
+        while (boundary) {
+          const componentID = boundary.getAttribute("data-component");
+          const component = (this.manifest.components || []).find(
+            (record) => rawValue(record.componentID) === componentID
           );
           if (component) {
-            return {
+            const resolved = {
               componentID: rawValue(component.componentID),
               bundleID: rawValue(component.bundleID),
               typeName: component.typeName
             };
+            if (resolved.bundleID !== this.primaryBundleID) {
+              return resolved;
+            }
+            primaryComponent = primaryComponent || resolved;
           }
+          boundary = boundary.parentElement
+            ? boundary.parentElement.closest("[data-component]")
+            : null;
         }
-
-        const componentElement = target.closest("[data-component]");
-        const componentID = componentElement ? componentElement.getAttribute("data-component") : null;
-        const component = (this.manifest.components || []).find((record) => rawValue(record.componentID) === componentID);
-        if (!component) {
-          return null;
-        }
-        return {
-          componentID: rawValue(component.componentID),
-          bundleID: rawValue(component.bundleID),
-          typeName: component.typeName
-        };
+        return primaryComponent;
       }
 
       cacheBustedAssetPath(assetPath, contentHash) {
@@ -1493,121 +1499,204 @@ package enum SwiftWebWasmRuntimeHostScript {
       }
 
       async applyHotUpdate(update) {
-        if (!update || !update.bundleID || !update.assetPath) {
-          throw new Error("SwiftWeb HMR client component update is missing bundle metadata");
-        }
+        return this.applyHotUpdateBatch([update]);
+      }
 
+      async applyHotUpdateBatch(updates) {
+        const operation = this.eventQueue
+          .catch(() => {})
+          .then(async () => {
+            await this.dispatchPendingCoalescedInputEvents();
+            return this.applyHotUpdateBatchNow(updates);
+          });
+        this.eventQueue = operation.catch(() => {});
+        return operation;
+      }
+
+      async applyHotUpdateBatchNow(updates) {
+        if (!Array.isArray(updates) || updates.length === 0) {
+          return [];
+        }
+        const previousState = this.captureHotUpdateState();
+        const previousDOMState = this.captureHotUpdateDOMState();
+        const staged = [];
+        let stagedHydrationIndex = this.hydrationIndex;
+        try {
+          for (const update of updates) {
+            if (!update || !update.bundleID || !update.assetPath) {
+              throw new Error("SwiftWeb HMR client runtime batch is missing bundle metadata");
+            }
+            const bundleID = rawValue(update.bundleID);
+            if (update.contentHash && this.hotUpdateContentHashes.get(bundleID) === update.contentHash) {
+              this.recordMetric("hmr.clientComponent.cacheHit", {
+                bundleID,
+                componentTypeName: update.componentTypeName || null,
+                contentHash: update.contentHash
+              });
+              continue;
+            }
+            const result = await this.stageHotUpdate(update, stagedHydrationIndex);
+            staged.push(result);
+            if (result.response && result.response.hydrationIndex) {
+              stagedHydrationIndex = result.response.hydrationIndex;
+            }
+          }
+          for (const result of staged) {
+            applyAtomicStyleRules(
+              result.response && result.response.atomicStyleRules,
+              { strict: true }
+            );
+            if (result.response && result.response.commandBatch
+                && result.response.appliesDOMCommandsInRuntime !== true) {
+              applyCommandBatch(result.response.commandBatch, this, { strict: true });
+            }
+            if (result.response && result.response.hydrationIndex) {
+              this.updateComponentSchemasFromHydrationIndex(
+                result.response.hydrationIndex,
+                result.bundleID,
+                result.update
+              );
+            }
+            this.bootstrappedBundleIDs.add(result.bundleID);
+            if (result.update.contentHash) {
+              this.hotUpdateContentHashes.set(result.bundleID, result.update.contentHash);
+            }
+            this.recordMetric("hmr.clientComponent.complete", {
+              bundleID: result.bundleID,
+              commandCount: result.response && result.response.commandBatch
+                && Array.isArray(result.response.commandBatch.commands)
+                ? result.response.commandBatch.commands.length
+                : 0
+            });
+          }
+          this.hydrationIndex = stagedHydrationIndex;
+          this.primaryInstance = this.instances.get(this.primaryBundleID) || this.primaryInstance;
+          this.recordMetric("hmr.clientRuntimeBatch.complete", { runtimeCount: staged.length });
+          this.publishMetrics();
+          return staged.map((result) => result.response);
+        } catch (error) {
+          this.restoreHotUpdateDOMState(previousDOMState);
+          this.restoreHotUpdateState(previousState);
+          this.recordMetric("hmr.clientRuntimeBatch.failed", {
+            runtimeCount: updates.length,
+            error: String(error && error.message ? error.message : error)
+          });
+          if (error && error.swiftWebRequiresFullReload === true) {
+            window.location.reload();
+            return [];
+          }
+          throw error;
+        }
+      }
+
+      async stageHotUpdate(update, hydrationIndex) {
         const bundleID = rawValue(update.bundleID);
         const assetPath = this.cacheBustedAssetPath(update.assetPath, update.contentHash);
         let bundle = this.bundle(bundleID);
-        const previousBundles = Array.isArray(this.manifest.bundles) ? [...this.manifest.bundles] : [];
-        const hadBundle = !!bundle;
-        const previousAsset = bundle && bundle.asset ? { ...bundle.asset } : null;
+        if (!bundle) {
+          bundle = {
+            id: { rawValue: bundleID },
+            kind: "component",
+            asset: { path: assetPath },
+            symbols: [],
+            dependencies: [],
+            components: [],
+            loadPolicy: "eager",
+            estimatedByteSize: 0
+          };
+          this.manifest.bundles = [...(this.manifest.bundles || []), bundle];
+        } else {
+          bundle.asset = { ...(bundle.asset || {}), path: assetPath };
+        }
         const previousInstance = this.instances.get(bundleID) || null;
-        const previousSwiftRuntime = this.swiftRuntimes.get(bundleID) || null;
-        const previousLoaded = this.loadedBundleIDs.has(bundleID);
-        const previousBootstrapped = this.bootstrappedBundleIDs.has(bundleID);
-        const previousLoading = this.loading.get(bundleID) || null;
-        const hadLoading = this.loading.has(bundleID);
+        const stateSnapshot = previousInstance ? this.snapshotState(previousInstance) : null;
+        this.instances.delete(bundleID);
+        this.swiftRuntimes.delete(bundleID);
+        this.loadedBundleIDs.delete(bundleID);
+        this.bootstrappedBundleIDs.delete(bundleID);
+        this.loading.delete(bundleID);
+        this.recordMetric("hmr.clientComponent.start", {
+          bundleID,
+          componentTypeName: update.componentTypeName || null,
+          contentHash: update.contentHash || null
+        });
+        const instance = await this.loadBundle(bundleID);
+        const response = this.callRuntime("swiftweb_bootstrap", {
+          hydrationIndex,
+          documentNodeIDUpperBound: this.descriptor.documentNodeIDUpperBound ?? null,
+          location: {
+            href: window.location.href,
+            search: window.location.search
+          },
+          mode: "hotReload",
+          stateSnapshot,
+          actorBindings: this.descriptor.actorBindings || []
+        }, instance);
+        return { bundleID, update, response };
+      }
 
-        try {
-          if (!bundle) {
-            bundle = {
-              id: { rawValue: bundleID },
-              kind: "component",
-              asset: { path: assetPath },
-              symbols: [],
-              dependencies: [],
-              components: [],
-              loadPolicy: "eager",
-              estimatedByteSize: 0
-            };
-            this.manifest.bundles = [...(this.manifest.bundles || []), bundle];
-          } else {
-            bundle.asset = { ...(bundle.asset || {}), path: assetPath };
-          }
+      captureHotUpdateState() {
+        return {
+          bundles: Array.isArray(this.manifest.bundles)
+            ? this.manifest.bundles.map((bundle) => ({
+                ...bundle,
+                asset: bundle && bundle.asset ? { ...bundle.asset } : bundle.asset
+              }))
+            : [],
+          components: Array.isArray(this.manifest.components)
+            ? this.manifest.components.map((component) => ({ ...component }))
+            : [],
+          hydrationIndex: this.hydrationIndex,
+          instances: new Map(this.instances),
+          swiftRuntimes: new Map(this.swiftRuntimes),
+          loading: new Map(this.loading),
+          loadedBundleIDs: new Set(this.loadedBundleIDs),
+          bootstrappedBundleIDs: new Set(this.bootstrappedBundleIDs),
+          contentHashes: new Map(this.hotUpdateContentHashes),
+          primaryInstance: this.primaryInstance
+        };
+      }
 
-          const stateSnapshot = previousInstance ? this.snapshotState(previousInstance) : null;
+      restoreHotUpdateState(state) {
+        this.manifest.bundles = state.bundles;
+        this.manifest.components = state.components;
+        this.hydrationIndex = state.hydrationIndex;
+        this.instances = state.instances;
+        this.swiftRuntimes = state.swiftRuntimes;
+        this.loading = state.loading;
+        this.loadedBundleIDs = state.loadedBundleIDs;
+        this.bootstrappedBundleIDs = state.bootstrappedBundleIDs;
+        this.hotUpdateContentHashes = state.contentHashes;
+        this.primaryInstance = state.primaryInstance;
+      }
 
-          this.instances.delete(bundleID);
-          this.swiftRuntimes.delete(bundleID);
-          this.loadedBundleIDs.delete(bundleID);
-          this.bootstrappedBundleIDs.delete(bundleID);
-          this.loading.delete(bundleID);
+      captureHotUpdateDOMState() {
+        return {
+          documentElement: document.documentElement
+            ? document.documentElement.cloneNode(false)
+            : null,
+          head: document.head ? document.head.cloneNode(true) : null,
+          body: document.body ? document.body.cloneNode(true) : null
+        };
+      }
 
-          this.recordMetric("hmr.clientComponent.start", {
-            bundleID,
-            componentTypeName: update.componentTypeName || null,
-            contentHash: update.contentHash || null
-          });
-          const instance = await this.loadBundle(bundleID);
-          const response = this.callRuntime("swiftweb_bootstrap", {
-            hydrationIndex: this.hydrationIndex,
-            documentNodeIDUpperBound: this.descriptor.documentNodeIDUpperBound ?? null,
-            location: {
-              href: window.location.href,
-              search: window.location.search
-            },
-            mode: "hotReload",
-            stateSnapshot,
-            actorBindings: this.descriptor.actorBindings || []
-          }, instance);
-          if (response && response.hydrationIndex) {
-            this.updateComponentSchemasFromHydrationIndex(response.hydrationIndex, bundleID, update);
+      restoreHotUpdateDOMState(state) {
+        if (state.documentElement && document.documentElement) {
+          copyElementAttributes(document.documentElement, state.documentElement);
+        }
+        if (state.head) {
+          if (document.head) {
+            document.head.replaceWith(state.head);
+          } else if (document.documentElement) {
+            document.documentElement.insertBefore(state.head, document.body || null);
           }
-          if (response && response.commandBatch && response.appliesDOMCommandsInRuntime !== true) {
-            applyCommandBatch(response.commandBatch, this);
-          }
-          if (response && response.hydrationIndex) {
-            this.hydrationIndex = response.hydrationIndex;
-          }
-          this.bootstrappedBundleIDs.add(bundleID);
-          this.recordMetric("hmr.clientComponent.complete", {
-            bundleID,
-            commandCount: response && response.commandBatch && Array.isArray(response.commandBatch.commands)
-              ? response.commandBatch.commands.length
-              : 0
-          });
-          this.publishMetrics();
-          return response;
-        } catch (error) {
-          this.manifest.bundles = previousBundles;
-          if (hadBundle) {
-            const restoredBundle = this.bundle(bundleID);
-            if (restoredBundle) {
-              restoredBundle.asset = previousAsset ? { ...previousAsset } : previousAsset;
-            }
-          }
-          if (previousInstance) {
-            this.instances.set(bundleID, previousInstance);
+        }
+        if (state.body) {
+          if (document.body) {
+            document.body.replaceWith(state.body);
           } else {
-            this.instances.delete(bundleID);
+            document.documentElement.appendChild(state.body);
           }
-          if (previousSwiftRuntime) {
-            this.swiftRuntimes.set(bundleID, previousSwiftRuntime);
-          } else {
-            this.swiftRuntimes.delete(bundleID);
-          }
-          if (previousLoaded) {
-            this.loadedBundleIDs.add(bundleID);
-          } else {
-            this.loadedBundleIDs.delete(bundleID);
-          }
-          if (previousBootstrapped) {
-            this.bootstrappedBundleIDs.add(bundleID);
-          } else {
-            this.bootstrappedBundleIDs.delete(bundleID);
-          }
-          if (hadLoading) {
-            this.loading.set(bundleID, previousLoading);
-          } else {
-            this.loading.delete(bundleID);
-          }
-          this.recordMetric("hmr.clientComponent.failed", {
-            bundleID,
-            error: String(error && error.message ? error.message : error)
-          });
-          throw error;
         }
       }
 
@@ -1663,6 +1752,9 @@ package enum SwiftWebWasmRuntimeHostScript {
         new Uint8Array(exports.memory.buffer, pointer, bytes.length).set(bytes);
         const status = fn(pointer, bytes.length);
         exports.swiftweb_dealloc(pointer, bytes.length);
+        if (status === 2) {
+          throw new Error(`SwiftWeb WASM runtime rejected concurrent or re-entrant access: ${exportName}`);
+        }
         const response = this.readResponse(exports);
         if (status !== 0) {
           throw new Error(response && response.error ? response.error : `SwiftWeb WASM call failed: ${exportName}`);
@@ -1678,6 +1770,9 @@ package enum SwiftWebWasmRuntimeHostScript {
         }
 
         const status = fn();
+        if (status === 2) {
+          throw new Error(`SwiftWeb WASM runtime rejected concurrent or re-entrant access: ${exportName}`);
+        }
         const response = this.readResponse(exports);
         if (status !== 0) {
           throw new Error(response && response.error ? response.error : `SwiftWeb WASM call failed: ${exportName}`);
@@ -1686,15 +1781,22 @@ package enum SwiftWebWasmRuntimeHostScript {
       }
 
       readResponse(exports) {
-        const pointer = exports.swiftweb_response_ptr();
         const length = exports.swiftweb_response_len();
-        if (!pointer || !length) {
+        if (!length) {
           return null;
         }
-        const bytes = new Uint8Array(exports.memory.buffer, pointer, length);
-        const text = new TextDecoder().decode(bytes);
-        exports.swiftweb_response_free();
-        return JSON.parse(text);
+        const pointer = exports.swiftweb_alloc(length);
+        try {
+          const copied = exports.swiftweb_response_copy(pointer, length);
+          if (copied !== length) {
+            throw new Error(`SwiftWeb WASM response copy failed: expected ${length} bytes, copied ${copied}`);
+          }
+          const bytes = new Uint8Array(exports.memory.buffer, pointer, length);
+          return JSON.parse(new TextDecoder().decode(bytes));
+        } finally {
+          exports.swiftweb_dealloc(pointer, length);
+          exports.swiftweb_response_free();
+        }
       }
 
       createMetrics() {
@@ -2199,12 +2301,44 @@ package enum SwiftWebWasmRuntimeHostScript {
       };
     }
 
-    function applyCommandBatch(batch, runtime) {
+    function applyCommandBatch(batch, runtime, options = {}) {
       if (!batch || !Array.isArray(batch.commands)) {
+        if (options.strict) {
+          throw new Error("SwiftWeb DOM command batch is invalid");
+        }
         return;
       }
       for (const command of orderedCommandsForDOMApplication(batch.commands)) {
-        applyCommand(command, runtime);
+        applyCommand(command, runtime, options);
+      }
+    }
+
+    function applyAtomicStyleRules(rules, options = {}) {
+      if (!Array.isArray(rules) || rules.length === 0) {
+        return;
+      }
+      let element = document.getElementById("swui-atomic");
+      if (!element) {
+        element = document.createElement("style");
+        element.id = "swui-atomic";
+        document.head.appendChild(element);
+      }
+      const existing = element.textContent || "";
+      let addition = "";
+      for (const rule of rules) {
+        if (!rule || !rule.className || !rule.body) {
+          if (options.strict) {
+            throw new Error("SwiftWeb atomic style rule is invalid");
+          }
+          continue;
+        }
+        const prefix = `.${rule.className} `;
+        if (!existing.includes(prefix) && !addition.includes(prefix)) {
+          addition += `.${rule.className} { ${rule.body} }`;
+        }
+      }
+      if (addition) {
+        element.textContent = existing + addition;
       }
     }
 
@@ -2263,46 +2397,53 @@ package enum SwiftWebWasmRuntimeHostScript {
       return null;
     }
 
-    function applyCommand(command, runtime) {
+    function applyCommand(command, runtime, options = {}) {
+      if (!command || typeof command !== "object") {
+        throw new Error("SwiftWeb DOM command is invalid");
+      }
       const name = Object.keys(command)[0];
       const payload = command[name];
+      let applied = false;
 
       switch (name) {
         case "replaceNode":
-          replaceNode(payload.node, payload.replacement, runtime);
+          applied = replaceNode(payload.node, payload.replacement, runtime);
           break;
         case "replaceSubtree":
-          replaceSubtree(payload.node, payload.html, runtime);
+          applied = replaceSubtree(payload.node, payload.html, runtime);
           break;
         case "updateText":
-          updateText(payload.node, payload.value, runtime);
+          applied = updateText(payload.node, payload.value, runtime);
           break;
         case "updateComment":
-          updateComment(payload.node, payload.value, runtime);
+          applied = updateComment(payload.node, payload.value, runtime);
           break;
         case "updateAttributes":
-          updateAttributes(payload.node, payload.attributes || [], runtime);
+          applied = updateAttributes(payload.node, payload.attributes || [], runtime);
           break;
         case "setProperty":
-          setProperty(payload.node, payload.name, payload.value, runtime);
+          applied = setProperty(payload.node, payload.name, payload.value, runtime);
           break;
         case "insertNode":
-          insertNode(payload.parent, payload.index, payload.node, runtime);
+          applied = insertNode(payload.parent, payload.index, payload.node, runtime);
           break;
         case "insertHTML":
-          insertHTML(payload.parent, payload.index, payload.html, runtime);
+          applied = insertHTML(payload.parent, payload.index, payload.html, runtime);
           break;
         case "remove":
-          removeNode(payload.parent, payload.index, payload.node, runtime);
+          applied = removeNode(payload.parent, payload.index, payload.node, runtime);
           break;
         case "move":
-          moveNode(payload.parent, payload.from, payload.to, runtime);
+          applied = moveNode(payload.parent, payload.from, payload.to, runtime);
           break;
         case "moveKeyed":
-          moveKeyedNode(payload.parent, payload.key, payload.to, runtime);
+          applied = moveKeyedNode(payload.parent, payload.key, payload.to, runtime);
           break;
         default:
-          console.warn(`Unknown SwiftWeb DOM command: ${name}`);
+          throw new Error(`Unknown SwiftWeb DOM command: ${name}`);
+      }
+      if (options.strict && !applied) {
+        throw new Error(`SwiftWeb DOM command could not be applied: ${name}`);
       }
     }
 
@@ -2310,9 +2451,10 @@ package enum SwiftWebWasmRuntimeHostScript {
       const node = resolveDOMNode(nodeID, runtime);
       const replacement = resolveDOMNode(replacementID, runtime);
       if (!node || !replacement || !node.parentNode) {
-        return;
+        return false;
       }
       node.parentNode.replaceChild(replacement.cloneNode(true), node);
+      return true;
     }
 
     function replaceSubtree(nodeID, html, runtime) {
@@ -2324,19 +2466,20 @@ package enum SwiftWebWasmRuntimeHostScript {
         || record.role === "document"
       )) {
         if (replaceRenderedRange(record, html, runtime)) {
-          return;
+          return true;
         }
       }
       const node = resolveDOMNode(nodeID, runtime);
       if (!node || !node.parentNode) {
-        return;
+        return false;
       }
       const nodes = parseHTML(html);
       if (nodes.length === 0) {
         node.remove();
-        return;
+        return true;
       }
       node.replaceWith(...nodes);
+      return true;
     }
 
     function replaceRenderedRange(record, html, runtime) {
@@ -2422,20 +2565,24 @@ package enum SwiftWebWasmRuntimeHostScript {
       const node = resolveDOMNode(nodeID, runtime);
       if (node) {
         node.textContent = value || "";
+        return true;
       }
+      return false;
     }
 
     function updateComment(nodeID, value, runtime) {
       const node = resolveDOMNode(nodeID, runtime);
       if (node) {
         node.textContent = value || "";
+        return true;
       }
+      return false;
     }
 
     function updateAttributes(nodeID, attributes, runtime) {
       const node = resolveElement(nodeID, runtime);
       if (!node) {
-        return;
+        return false;
       }
       const internalNode = node.getAttribute(swiftWebRuntimeMarkers.nodeAttribute);
       const internalKey = node.getAttribute(swiftWebRuntimeMarkers.keyAttribute);
@@ -2461,12 +2608,13 @@ package enum SwiftWebWasmRuntimeHostScript {
       if (internalKey !== null) {
         node.setAttribute(swiftWebRuntimeMarkers.keyAttribute, internalKey);
       }
+      return true;
     }
 
     function setProperty(nodeID, name, value, runtime) {
       const node = resolveElement(nodeID, runtime);
       if (!node) {
-        return;
+        return false;
       }
       if (name === "checked" || name === "disabled" || name === "selected") {
         node[name] = value === "true";
@@ -2475,7 +2623,7 @@ package enum SwiftWebWasmRuntimeHostScript {
         } else {
           node.removeAttribute(name);
         }
-        return;
+        return true;
       }
       node[name] = value === null || value === undefined ? "" : value;
       if (value === null || value === undefined) {
@@ -2483,38 +2631,43 @@ package enum SwiftWebWasmRuntimeHostScript {
       } else {
         node.setAttribute(name, value);
       }
+      return true;
     }
 
     function insertNode(parentID, index, nodeID, runtime) {
       const context = mutationContext(parentID, index, runtime);
       const node = resolveDOMNode(nodeID, runtime);
       if (!context || !node) {
-        return;
+        return false;
       }
       context.parent.insertBefore(node, context.reference || null);
+      return true;
     }
 
     function insertHTML(parentID, index, html, runtime) {
       const context = mutationContext(parentID, index, runtime);
       if (!context) {
-        return;
+        return false;
       }
       const nodes = parseHTML(html);
       for (const node of nodes) {
         context.parent.insertBefore(node, context.reference || null);
       }
+      return true;
     }
 
     function removeNode(parentID, index, nodeID, runtime) {
       const record = nodeRecord(rawValue(nodeID), runtime);
       if (record && removeRenderedNode(record, runtime)) {
-        return;
+        return true;
       }
       const context = mutationContext(parentID, index, runtime);
       const node = resolveDOMNode(nodeID, runtime) || (context ? context.parent.childNodes[index] : null);
       if (context && node && node.parentNode === context.parent) {
         context.parent.removeChild(node);
+        return true;
       }
+      return false;
     }
 
     function moveNode(parentID, from, to, runtime) {
@@ -2523,19 +2676,21 @@ package enum SwiftWebWasmRuntimeHostScript {
         const childID = (parentRecord.childIDs || [])[from];
         const childRecord = childID === undefined ? null : nodeRecord(rawValue(childID), runtime);
         if (childRecord && moveRenderedNode(parentRecord, childRecord, to, runtime)) {
-          return;
+          return true;
         }
       }
       const context = mutationContext(parentID, from, runtime);
       if (!context) {
-        return;
+        return false;
       }
       const node = context.parent.childNodes[from];
       if (node) {
         const destination = mutationContext(parentID, to, runtime);
         context.parent.removeChild(node);
         context.parent.insertBefore(node, destination ? destination.reference || null : null);
+        return true;
       }
+      return false;
     }
 
     function moveKeyedNode(parentID, key, to, runtime) {
@@ -2546,17 +2701,19 @@ package enum SwiftWebWasmRuntimeHostScript {
           .map((childID) => nodeRecord(rawValue(childID), runtime))
           .find((record) => record && record.key && domKeyIdentity(record.key) === identity);
         if (childRecord && moveRenderedNode(parentRecord, childRecord, to, runtime)) {
-          return;
+          return true;
         }
       }
       const context = mutationContext(parentID, to, runtime);
       if (!context || !identity) {
-        return;
+        return false;
       }
       const node = Array.from(context.parent.children).find((child) => child.getAttribute(swiftWebRuntimeMarkers.keyAttribute) === identity);
       if (node) {
         context.parent.insertBefore(node, context.reference || null);
+        return true;
       }
+      return false;
     }
 
     function parseHTML(html) {
@@ -2918,6 +3075,17 @@ package enum SwiftWebWasmRuntimeHostScript {
           url.searchParams.append(name, value.name || "");
         }
       }
+    }
+
+    function urlEncodedFormBody(formData) {
+      const body = new URLSearchParams();
+      for (const [name, value] of formData.entries()) {
+        if (typeof value !== "string") {
+          throw new Error(`SwiftWeb server actions do not support file field '${name}'`);
+        }
+        body.append(name, value);
+      }
+      return body;
     }
 
     function eventPath(event) {

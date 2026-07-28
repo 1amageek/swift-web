@@ -3,12 +3,12 @@ import SwiftWebWasmBuild
 import Foundation
 
 public enum SwiftWebGeneratedPackageMaterializerError: Error, Sendable, CustomStringConvertible {
+    case unsupportedWasmRuntimeProfile(SwiftWebWasmRuntimeProfile)
     case packageManifestNotFound(URL)
     case packageNameNotFound(URL)
     case localDependencyNotFound(package: String, in: URL)
     case clientSourceDirectoryNotFound(URL)
     case swiftHTMLRuntimeSourcesNotFound([URL])
-    case swiftHTMLClientRuntimeSourcesNotFound([URL])
     case javaScriptKitRuntimeSourcesNotFound([URL])
     case invalidPackageResolved(URL)
     case packageResolveFailed(package: URL, status: Int32, output: String)
@@ -17,6 +17,8 @@ public enum SwiftWebGeneratedPackageMaterializerError: Error, Sendable, CustomSt
 
     public var description: String {
         switch self {
+        case .unsupportedWasmRuntimeProfile(let profile):
+            return "unsupported WASM runtime profile: \(profile.rawValue). SwiftWeb supports the standard WASM profile only."
         case .packageManifestNotFound(let directory):
             return "Package.swift was not found in \(directory.path)"
         case .packageNameNotFound(let packageFile):
@@ -28,9 +30,6 @@ public enum SwiftWebGeneratedPackageMaterializerError: Error, Sendable, CustomSt
         case .swiftHTMLRuntimeSourcesNotFound(let candidates):
             let paths = candidates.map(\.path).joined(separator: ", ")
             return "SwiftHTML runtime sources were not found. Checked: \(paths)"
-        case .swiftHTMLClientRuntimeSourcesNotFound(let candidates):
-            let paths = candidates.map(\.path).joined(separator: ", ")
-            return "SwiftHTMLClientRuntime runtime sources were not found. Checked: \(paths)"
         case .javaScriptKitRuntimeSourcesNotFound(let candidates):
             let paths = candidates.map(\.path).joined(separator: ", ")
             return "JavaScriptKit runtime sources were not found. Checked: \(paths)"
