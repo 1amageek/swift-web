@@ -64,8 +64,23 @@ SWIFTWEB_DO=1 "$SWIFT_WEB_HOST_SWIFT" package dump-package
 Build the CLI:
 
 ```bash
-"$SWIFT_WEB_HOST_SWIFT" build --product sweb
+"$SWIFT_WEB_HOST_SWIFT" build --product sweb --jobs 2
 ```
+
+Validate the Embedded capability surface without the browser-only or external
+actor runtime graph:
+
+```bash
+SWIFTWEB_CORE_ONLY=1 "$SWIFT_WEB_HOST_SWIFT" build \
+  --swift-sdk swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm-embedded \
+  --product SwiftWebCore \
+  --disable-default-traits \
+  --jobs 2
+```
+
+The public browser runtime remains Standard WASM. The Embedded command checks
+the shared core capability contract; disabling default traits intentionally
+keeps the Foundation-dependent external actor runtime outside that graph.
 
 Build and process a real browser runtime:
 

@@ -4,11 +4,11 @@ import SwiftWebUI
 
 /// The Storyboard's preview stage: the demo centered on a curated gradient
 /// scene, so glass and materials always have depth to refract.
-struct PreviewCanvas<Content: Component>: Component {
+struct PreviewCanvas: Component {
     var scene: StoryboardScene
-    var childContent: Content
+    private let childContent: ComponentContent
 
-    init(scene: StoryboardScene = .mist, @HTMLBuilder content: () -> Content) {
+    init(scene: StoryboardScene = .mist, @HTMLBuilder content: () -> ComponentContent) {
         self.scene = scene
         self.childContent = content()
     }

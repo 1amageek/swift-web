@@ -2,7 +2,7 @@ import SwiftWebUITheme
 import SwiftHTML
 
 public struct Toggle<Label: Component>: AttributeComponent {
-    private let label: Label
+    private let label: ComponentContent
     private let isOn: Binding<Bool>?
     private let initialValue: Bool
     private let attributes: [HTMLAttribute]
@@ -15,7 +15,7 @@ public struct Toggle<Label: Component>: AttributeComponent {
         _ attributes: HTMLAttribute...,
         @HTMLBuilder label: () -> Label
     ) {
-        self.label = label()
+        self.label = HTMLBuilder.buildExpression(label())
         self.isOn = isOn
         self.initialValue = isOn.wrappedValue
         self.attributes = attributes
@@ -56,7 +56,7 @@ public struct Toggle<Label: Component>: AttributeComponent {
     }
 
     private init(
-        label: Label,
+        label: ComponentContent,
         isOn: Binding<Bool>?,
         initialValue: Bool,
         attributes: [HTMLAttribute]
@@ -95,6 +95,11 @@ public extension Toggle where Label == text {
         isOn: Binding<Bool>,
         _ attributes: HTMLAttribute...
     ) {
-        self.init(label: text(title), isOn: isOn, initialValue: isOn.wrappedValue, attributes: attributes)
+        self.init(
+            label: HTMLBuilder.buildExpression(text(title)),
+            isOn: isOn,
+            initialValue: isOn.wrappedValue,
+            attributes: attributes
+        )
     }
 }

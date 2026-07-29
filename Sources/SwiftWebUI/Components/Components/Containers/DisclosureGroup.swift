@@ -8,19 +8,19 @@ import SwiftHTML
 /// any client runtime. The surface composes the shared `regularMaterial`
 /// recipe.
 public struct DisclosureGroup<Label: Component, Content: Component>: AttributeComponent {
-    private let label: Label
+    private let label: ComponentContent
     private let isExpanded: Binding<Bool>?
     private let attributes: [HTMLAttribute]
-    private let childContent: Content
+    private let childContent: ComponentContent
 
     public init(
         @HTMLBuilder content: () -> Content,
         @HTMLBuilder label: () -> Label
     ) {
-        self.label = label()
+        self.label = HTMLBuilder.buildExpression(label())
         self.isExpanded = nil
         self.attributes = []
-        self.childContent = content()
+        self.childContent = HTMLBuilder.buildExpression(content())
     }
 
     public init(
@@ -28,17 +28,17 @@ public struct DisclosureGroup<Label: Component, Content: Component>: AttributeCo
         @HTMLBuilder content: () -> Content,
         @HTMLBuilder label: () -> Label
     ) {
-        self.label = label()
+        self.label = HTMLBuilder.buildExpression(label())
         self.isExpanded = isExpanded
         self.attributes = []
-        self.childContent = content()
+        self.childContent = HTMLBuilder.buildExpression(content())
     }
 
     private init(
-        label: Label,
+        label: ComponentContent,
         isExpanded: Binding<Bool>?,
         attributes: [HTMLAttribute],
-        content: Content
+        content: ComponentContent
     ) {
         self.label = label
         self.isExpanded = isExpanded
@@ -97,10 +97,10 @@ public struct DisclosureGroup<Label: Component, Content: Component>: AttributeCo
 public extension DisclosureGroup where Label == text {
     init(_ title: String, @HTMLBuilder content: () -> Content) {
         self.init(
-            label: text(title),
+            label: HTMLBuilder.buildExpression(text(title)),
             isExpanded: nil,
             attributes: [],
-            content: content()
+            content: HTMLBuilder.buildExpression(content())
         )
     }
 
@@ -110,10 +110,10 @@ public extension DisclosureGroup where Label == text {
         @HTMLBuilder content: () -> Content
     ) {
         self.init(
-            label: text(title),
+            label: HTMLBuilder.buildExpression(text(title)),
             isExpanded: isExpanded,
             attributes: [],
-            content: content()
+            content: HTMLBuilder.buildExpression(content())
         )
     }
 }

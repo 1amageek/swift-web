@@ -1,6 +1,6 @@
 import SwiftWebActors
 
-public protocol App {
+public protocol App: SendableMetatype {
     associatedtype Body: Scene
     associatedtype Services: AppServices = EmptyAppServices
 

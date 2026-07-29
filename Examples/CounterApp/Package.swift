@@ -11,8 +11,8 @@ let package = Package(
         .library(name: "CounterApp", targets: ["CounterApp"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/1amageek/swift-web.git", from: "0.7.0"),
-        .package(url: "https://github.com/1amageek/swift-html.git", from: "0.13.0"),
+        .package(url: "https://github.com/1amageek/swift-web.git", from: "0.8.0"),
+        .package(url: "https://github.com/1amageek/swift-html.git", from: "0.14.0"),
     ],
     targets: [
         .target(

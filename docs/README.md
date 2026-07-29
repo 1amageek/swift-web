@@ -10,6 +10,7 @@ the archive for those records.
 | Document | Audience | Purpose |
 |---|---|---|
 | [Project README](../README.md) | Application developers | Installation, first app, authoring, CLI, and production builds |
+| [Changelog](../CHANGELOG.md) | All users | Tagged release changes and compatibility notes |
 | [Toolchain](Toolchain.md) | All contributors | Exact Swift 6.4 host and WASM build contract |
 | [HTML Authoring Model](HTMLAuthoringModel.md) | Application and framework developers | `Component`, `HTMLDocument`, and `Page` boundaries |
 | [Development Reconciler Verification](DevServerReconcilerVerification.md) | Maintainers | Real `sweb dev` and Chromium release gate |
@@ -36,7 +37,7 @@ the archive for those records.
 
 | Document | Scope |
 |---|---|
-| [Production Review](ProductionReview.md) | SwiftWeb 0.7.0 P0/P1 sign-off and measured release gates |
+| [Production Review](ProductionReview.md) | SwiftWeb 0.8.0 P0/P1 sign-off and measured release gates |
 
 ## Documentation Rules
 

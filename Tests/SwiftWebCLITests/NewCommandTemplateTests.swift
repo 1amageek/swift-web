@@ -65,12 +65,12 @@ struct NewCommandTemplateTests {
         #expect(files["Package.swift"]?.contains(".product(name: \"SwiftWebUI\", package: \"swift-web\")") == true)
         #expect(
             files["Package.swift"]?.contains(
-                #".package(url: "https://github.com/1amageek/swift-html.git", from: "0.13.0")"#
+                #".package(url: "https://github.com/1amageek/swift-html.git", from: "0.14.0")"#
             ) == true
         )
         #expect(
             files["Package.swift"]?.contains(
-                #".package(url: "https://github.com/1amageek/swift-web.git", from: "0.7.0")"#
+                #".package(url: "https://github.com/1amageek/swift-web.git", from: "0.8.0")"#
             ) == true
         )
         #expect(files["Sources/Chat/App.swift"]?.contains("ChatPage()") == true)
@@ -125,12 +125,12 @@ struct NewCommandTemplateTests {
         #expect(!package.contains(".product(name: \"SwiftWebUI\", package: \"swift-web\")"))
         #expect(
             package.contains(
-                #".package(url: "https://github.com/1amageek/swift-html.git", from: "0.13.0")"#
+                #".package(url: "https://github.com/1amageek/swift-html.git", from: "0.14.0")"#
             )
         )
         #expect(
             package.contains(
-                #".package(url: "https://github.com/1amageek/swift-web.git", from: "0.7.0")"#
+                #".package(url: "https://github.com/1amageek/swift-web.git", from: "0.8.0")"#
             )
         )
     }

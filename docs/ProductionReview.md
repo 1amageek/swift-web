@@ -1,9 +1,18 @@
 # Production Review
 
-This record captures the P0/P1 release gate for the SwiftHTML 0.13 migration,
+This record captures the P0/P1 release gate for the SwiftHTML 0.14 migration,
 Client WASM runtime, and development reconciler. Declarations and compilation
 are supporting evidence only; the release gate also requires native behavior
 tests, a production Standard WASM build, and the Chromium end-to-end path.
+
+## 0.8.0 release delta
+
+| Area | Release change |
+|---|---|
+| Generic component storage | Storyboard containers, `Toggle`, and `DisclosureGroup` preserve their typed public builder APIs while storing executable content through SwiftHTML `ComponentContent`. |
+| Released dependency | SwiftHTML `0.14.0` supplies the matching fixed runtime storage for modifiers and `ForEach`; the root lock resolves its published tag commit. |
+| Concurrency | Application, service, and scene protocol metatypes satisfy the sendable-metatype contract used by Swift 6.4. |
+| Release tooling | README, examples, CLI templates, Storyboard scaffolding, and browser E2E fixtures consistently target SwiftWeb `0.8.0` and SwiftHTML `0.14.0`. |
 
 ## Shared-state review matrix
 
@@ -39,18 +48,20 @@ No target branch replaces a `Mutex` or actor with raw mutable state. No
 | Hung, cancelled, or normally completed builds | Timeout and task-cancellation tests prove that a child and descendant ignoring `SIGTERM` both reach `SIGKILL` before operation ownership is released. Normal leader exit also drains descendants, and cancellation arriving during that drain remains observable by the caller. |
 | Large DOM mapping | 20,000-entry insert, lookup, inversion, and removal behavior test plus a 2,000-row real hydration rebase completes; child-position and boundary-marker remapping use single-pass/open-addressed indexes. |
 | Generated template behavior | The reusable template gate runs real minimal and AI `sweb new` commands, resolves each generated package, and builds both with Xcode and the pinned Swift 6.4 toolchain. |
-| Released dependency | Root lock, example manifests, generated scaffold fallback, and template output resolve SwiftHTML `0.13.0`; no implicit sibling fallback remains. Example lock files are intentionally omitted because they cannot pin the release commit before its tag exists. |
+| Released dependency | Root lock, example manifests, generated scaffold fallback, and template output resolve SwiftHTML `0.14.0`; no implicit sibling fallback remains. Example lock files are intentionally omitted because they cannot pin the release commit before its tag exists. |
 
 ## Verification record
 
-Verified on 2026-07-28 with
+Verified on 2026-07-30 with
 `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a` and the matching
 `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm` SDK.
 
 | Gate | Result |
 |---|---|
-| Native package tests | `xcodebuild test` passed: 509 tests, 0 failures, 0 skips, and 0 runtime warnings in the final xcresult summary. |
-| Production Standard WASM | Build, link, optimization, and compression passed. Raw: 75,368,489 bytes; optimized: 48,591,209 bytes; gzip: 19,050,545 bytes; Brotli: 12,647,753 bytes. |
+| Native package tests | The complete `swift-web-Package` scheme passed with `xcodebuild test`, two build jobs, a bounded timeout, and no stale test helper. The directly changed SwiftWebUI, Storyboard scaffold, and CLI template suites also passed three guarded runs. |
+| Standard WASM | Five release-configuration CounterApp runtimes built and linked from the released SwiftHTML `0.14.0` dependency. Chromium loaded the 58,194,616-byte eager runtime and every staged runtime. |
+| Embedded capability | `SwiftWebCore` built with the matching Embedded WASM SDK, `SWIFTWEB_CORE_ONLY=1`, and default traits disabled so the unsupported external actor runtime remains outside the graph. |
+| Storyboard Standard WASM | The generated Button Storyboard built, linked, and reached `data-wasm-ready="true"` with phase `ready` in the in-app browser; browser warnings and errors were empty. |
 | Chromium end to end | Passed initial-build edit convergence, no-op touch, worker `SIGKILL` recovery, five runtime load policies, event dispatch, state-preserving HMR, injected transaction rollback, failed-build rollback/latching, exact-source recovery, server-page HMR, and an injected expired-generation `410` followed by an explicit full reload onto the latest runtime. |
 | Browser diagnostics | Zero console errors, browser errors, HTTP failures, unexpected server log noise, and post-shutdown child processes. |
 | Generated minimal and AI templates | `scripts/verify-new-command-templates.sh` passed real generation, dependency resolution, and Xcode builds for both templates. |

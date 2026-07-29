@@ -149,7 +149,7 @@ struct SwiftWebStoryboardScaffoldTests {
             encoding: .utf8
         )
 
-        #expect(packageSwift.contains(#".package(url: "https://github.com/1amageek/swift-html.git", from: "0.13.0")"#))
+        #expect(packageSwift.contains(#".package(url: "https://github.com/1amageek/swift-html.git", from: "0.14.0")"#))
     }
 
     private func write(_ contents: String, to url: URL) throws {

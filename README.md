@@ -5,7 +5,7 @@ optional Swift WASM browser runtime. Applications describe routes and complete
 HTML documents in Swift, use SwiftWebUI for higher-level components, and opt
 individual client components into hydration, local state, and browser events.
 
-> SwiftWeb 0.7 is a developer preview. It requires the pinned Swift 6.4
+> SwiftWeb 0.8 is a developer preview. It requires the pinned Swift 6.4
 > development snapshot because its HTTP host uses the current lifetime-aware
 > Swift server APIs.
 
@@ -58,12 +58,12 @@ See [Toolchain](docs/Toolchain.md) for the complete host and WASM setup.
 
 ## Quick Start
 
-Install the `sweb` executable from the 0.7.0 release with
+Install the `sweb` executable from the 0.8.0 release with
 [Mint](https://github.com/yonaskolb/Mint):
 
 ```bash
 export PATH="$SWIFT_WEB_TOOLCHAIN_BIN:$PATH"
-mint install 1amageek/swift-web@0.7.0 sweb
+mint install 1amageek/swift-web@0.8.0 sweb
 sweb --help
 ```
 
@@ -92,8 +92,8 @@ let package = Package(
         .library(name: "MyApp", targets: ["MyApp"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/1amageek/swift-web.git", from: "0.7.0"),
-        .package(url: "https://github.com/1amageek/swift-html.git", from: "0.13.0"),
+        .package(url: "https://github.com/1amageek/swift-web.git", from: "0.8.0"),
+        .package(url: "https://github.com/1amageek/swift-html.git", from: "0.14.0"),
     ],
     targets: [
         .target(
@@ -378,8 +378,9 @@ sweb dev
 
 ## Documentation
 
-Start with the [documentation index](docs/README.md). It separates current
-public contracts, architecture decisions, and verification runbooks.
+Read the [changelog](CHANGELOG.md) for release-level changes, then use the
+[documentation index](docs/README.md) for current public contracts,
+architecture decisions, and verification runbooks.
 
 ## Contributing
 
@@ -395,6 +396,7 @@ scripts/swift-test-hang-guard.sh \
   -- xcodebuild test \
     -scheme swift-web-Package \
     -destination platform=macOS \
+    -jobs 2 \
     -parallel-testing-enabled NO
 ```
 

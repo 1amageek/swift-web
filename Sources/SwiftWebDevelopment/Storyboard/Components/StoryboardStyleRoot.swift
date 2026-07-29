@@ -1,10 +1,10 @@
 import SwiftHTML
 import SwiftWebStyle
 
-struct StoryboardStyleRoot<Content: Component>: Component {
-    private let childContent: Content
+struct StoryboardStyleRoot: Component {
+    private let childContent: ComponentContent
 
-    init(@HTMLBuilder content: () -> Content) {
+    init(@HTMLBuilder content: () -> ComponentContent) {
         self.childContent = content()
     }
 

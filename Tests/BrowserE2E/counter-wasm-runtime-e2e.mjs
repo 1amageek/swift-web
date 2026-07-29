@@ -27,7 +27,8 @@ try {
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const swiftWebRoot = path.resolve(scriptDirectory, "../..");
-const expectedSwiftHTMLVersion = "0.13.0";
+const expectedSwiftWebVersion = "0.8.0";
+const expectedSwiftHTMLVersion = "0.14.0";
 const exampleAppRoot = path.join(swiftWebRoot, "Examples", "CounterApp");
 const timeoutMs = Number(process.env.SWIFTWEB_E2E_TIMEOUT_MS || 600_000);
 const hmrTimeoutMs = Number(process.env.SWIFTWEB_E2E_HMR_TIMEOUT_MS || 300_000);
@@ -293,7 +294,9 @@ async function prepareAppCopy(root) {
   const packageFile = path.join(appRoot, "Package.swift");
   let manifest = await readFile(packageFile, "utf8");
   manifest = manifest.replace(
-    /\.package\(url:\s*"https:\/\/github\.com\/1amageek\/swift-web\.git",\s*from:\s*"0\.7\.0"\),/,
+    new RegExp(
+      `\\.package\\(url:\\s*"https:\\/\\/github\\.com\\/1amageek\\/swift-web\\.git",\\s*from:\\s*"${expectedSwiftWebVersion.replaceAll(".", "\\.")}"\\),`
+    ),
     `.package(path: "${swiftStringLiteral(swiftWebRoot)}"),`
   );
   const expectedSwiftHTMLDependency = `.package(url: "https://github.com/1amageek/swift-html.git", from: "${expectedSwiftHTMLVersion}")`;
@@ -1623,8 +1626,8 @@ public let swiftWebE2EInjectedCompilerError =
     const counterPageFile = path.join(appRoot, "Sources", "CounterApp", "Routes", "CounterPage.swift");
     const originalPageSource = await readFile(counterPageFile, "utf8");
     const updatedPageSource = originalPageSource.replace(
-      "Each button posts a delta to Vapor. The value is read from server state on the next render.",
-      "Server worker restart HMR applied. The value is read from the new Vapor worker."
+      "Each button posts a delta to the SwiftWeb host. The value is read from server state on the next render.",
+      "Server worker restart HMR applied. The value is read from the new SwiftWeb worker."
     );
     if (updatedPageSource === originalPageSource) {
       throw new Error("Server HMR source marker was not found in CounterPage.swift.");

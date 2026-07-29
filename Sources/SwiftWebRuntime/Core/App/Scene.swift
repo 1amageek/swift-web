@@ -1,7 +1,7 @@
 import SwiftHTML
 import SwiftWebActors
 
-public protocol Scene {
+public protocol Scene: SendableMetatype {
     associatedtype Body: Scene
 
     @SceneBuilder

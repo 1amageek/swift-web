@@ -27,7 +27,7 @@ try {
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const swiftWebRoot = path.resolve(scriptDirectory, "../..");
-const expectedSwiftHTMLVersion = "0.13.0";
+const expectedSwiftHTMLVersion = "0.14.0";
 const exampleAppRoot = path.join(swiftWebRoot, "Examples", "HelloWorld");
 const testPath = "/";
 const expectedPageText = "Hello, World!";
