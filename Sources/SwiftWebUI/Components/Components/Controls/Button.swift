@@ -142,7 +142,7 @@ public struct Button: AttributeComponent {
                 hiddenInput(field)
             }
             if action.method == .post {
-                ButtonActionHiddenFields(excluding: action.fields.map(\.name))
+                ButtonActionHiddenFields(excluding: action.fields.map { $0.name })
             }
             actionButton(action)
         }

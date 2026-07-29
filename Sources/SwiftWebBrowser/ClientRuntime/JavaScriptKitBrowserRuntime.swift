@@ -55,7 +55,7 @@ public enum JavaScriptKitBrowserRuntime {
                     }
                     return left.offset < right.offset
                 }
-                .map(\.command))
+                .map { $0.command })
             insertRun.removeAll()
             insertRunParent = nil
         }
@@ -97,10 +97,9 @@ public enum JavaScriptKitBrowserRuntime {
         }
     }
 
-    // Monotonic token so only the most recent withAnimation's cleanup tears down the
-    // document scope. Without it, an earlier event's timer would strip the scope a
-    // later, still-running withAnimation depends on. Single-threaded (WASI), but
-    // Mutex keeps it Sendable-correct.
+    // The mutex serializes the monotonic token across event and timer callbacks.
+    // Only the most recent animation cleanup may tear down the document scope;
+    // otherwise an earlier timer could strip the scope a later animation needs.
     private static let animationScopeGeneration = Mutex(0)
 
     /// Applies a batch whose changes an explicit `withAnimation` transaction asked
@@ -410,7 +409,7 @@ public enum JavaScriptKitBrowserRuntime {
 
         let internalNode = nodeValue.getAttribute(HTMLRuntimeMarkers.nodeAttribute).string
         let internalKey = nodeValue.getAttribute(HTMLRuntimeMarkers.keyAttribute).string
-        let names = Set(attributes.map(\.name))
+        let names = Set(attributes.map { $0.name })
         let existing = object.attributes
         let count = Int(existing.length.number ?? 0)
         var removable: [String] = []

@@ -673,7 +673,7 @@ enum ClientRuntimeJSONCodec {
             "path": component.path,
             "nodeID": nodeObject(component.nodeID),
             "loadPolicy": component.loadPolicy.rawValue,
-            "serverSlotIDs": component.serverSlotIDs.map(\.rawValue),
+            "serverSlotIDs": component.serverSlotIDs.map { $0.rawValue },
             "stateSlots": component.stateSlots.map(stateSlotObject),
             "environmentSnapshot": environmentSnapshotObject(component.environmentSnapshot),
         ]

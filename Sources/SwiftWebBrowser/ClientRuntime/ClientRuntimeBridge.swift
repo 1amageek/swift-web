@@ -1224,9 +1224,9 @@ public final class ClientRuntimeBridge<Root: Component>: Sendable {
         }
 
         var map = NodeMap()
-        var allocatedMountedIDs = NodeIDSet(mountedIndex.nodes.map(\.id))
+        var allocatedMountedIDs = NodeIDSet(mountedIndex.nodes.map { $0.id })
         var nextNodeID = max(
-            mountedIndex.nodes.map(\.id.rawValue).max() ?? -1,
+            mountedIndex.nodes.map { $0.id.rawValue }.max() ?? -1,
             documentNodeIDUpperBound ?? -1
         ) + 1
 
