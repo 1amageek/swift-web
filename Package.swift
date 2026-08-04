@@ -111,13 +111,13 @@ let package = Package(
         .trait(name: "Actors"),
     ],
     dependencies: [
-        .package(url: "https://github.com/1amageek/swift-html.git", from: "0.14.0"),
+        .package(path: "../swift-html"),
         .package(url: "https://github.com/1amageek/JavaScriptKit.git", from: "0.57.0"),
         .package(url: "https://github.com/1amageek/swift-actor-runtime.git", exact: "0.6.0"),
         .package(url: "https://github.com/apple/swift-http-types", from: "1.0.0"),
         .package(url: "https://github.com/apple/swift-log.git", from: "1.6.0"),
     ] + (swiftWebDO ? [
-        .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "602.0.0"),
+        .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "603.0.2"),
     ] : []) + (swiftWebCoreOnly ? [] : [
         .package(url: "https://github.com/swift-server/async-http-client.git", from: "1.35.0"),
         .package(url: "https://github.com/swift-server/swift-http-server", from: "0.1.0"),
@@ -126,7 +126,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.6.0"),
         .package(url: "https://github.com/apple/swift-crypto.git", from: "4.0.0"),
         .package(url: "https://github.com/apple/swift-service-context.git", from: "1.3.0"),
-        .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "602.0.0"),
+        .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "603.0.2"),
     ]),
     targets: swiftWebCoreOnly ? [
         .target(
