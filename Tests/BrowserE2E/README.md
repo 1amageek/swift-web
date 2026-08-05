@@ -28,7 +28,7 @@ npm run install-webkit
 npm run counter-wasm:webkit
 ```
 
-The test copies `Examples/CounterApp` into a temporary directory, rewrites only `swift-web` to the local checkout, resolves the released `swift-html 0.14.0` package, starts `sweb dev`, and validates:
+The test copies `Examples/CounterApp` into a temporary directory, rewrites only `swift-web` to the local checkout, resolves the released `swift-html 0.15.0` package, starts `sweb dev`, and validates:
 
 - an edit during the initial build converges to the latest source fingerprint
 - a timestamp-only touch does not rebuild or replace the worker

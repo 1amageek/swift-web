@@ -12,7 +12,7 @@ Unit-test success alone does not satisfy T8.
 |---|---|
 | Swift toolchain | `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a` |
 | Standard WASM SDK | `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm` |
-| `swift-html` | released package `0.14.0` |
+| `swift-html` | released package `0.15.0` |
 | Browser | Playwright Chromium; WebKit is an optional additional smoke |
 
 The E2E rewrites only the `swift-web` dependency to the local checkout. It

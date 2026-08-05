@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.9.0 - 2026-08-06
 
 | Area | Change |
 |---|---|
@@ -9,6 +9,8 @@
 | Breaking cleanup | Removes `ApplicationProtocol`, the `Application` alias, app service containers, route-installer callbacks, `HTTPServerAppRunner`, and the obsolete HTTP application wrapper without compatibility shims. |
 | Requests | Replaces the application reference on `Request` with the rendered app's framework-owned `RequestRuntimeContext`. |
 | Actions | Registers form and page-owned actions through scenes and rendering context rather than an application container. |
+| Dependencies | Resolves the released SwiftHTML `0.15.0` dependency and its SwiftSyntax `603.0.2` macro toolchain. |
+| Validation | Verifies the Native package suite and Standard and Embedded WASM host builds with the pinned Swift 6.4 snapshot. |
 | Documentation | Defines host rendering, request translation, ownership, failure, and lifecycle contracts for native and external platform adapters. |
 
 ## 0.8.0 - 2026-07-30

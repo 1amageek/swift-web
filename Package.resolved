@@ -1,5 +1,5 @@
 {
-  "originHash" : "e5dc9eafd50b6eb0b8e41d2c2ae37b9ba60c04f15ad71359266c0f74a0c4dd6c",
+  "originHash" : "48d6acf3cfecdc6046d85c8af69ead35f7dfb7113e41aef2e1330dca4e39cb70",
   "pins" : [
     {
       "identity" : "async-http-client",
@@ -114,8 +114,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/1amageek/swift-html.git",
       "state" : {
-        "branch" : "main",
-        "revision" : "c9941333e19dde5e4a4e13e1b55d7249b108580e"
+        "revision" : "4f997a208a6d2dbf5e1ced5761c4c6aa692ac028",
+        "version" : "0.15.0"
       }
     },
     {

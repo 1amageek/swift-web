@@ -31,8 +31,8 @@ sweb storyboard [--package-path <directory>] [--output <directory>] [--host <hos
 ## Project Creation
 
 `sweb new` writes an app library package, source files, and generated launch
-packages. The default template uses the released SwiftWeb 0.8.0 and SwiftHTML
-0.14.0 dependencies.
+packages. The default template uses the released SwiftWeb 0.9.0 and SwiftHTML
+0.15.0 dependencies.
 
 ```mermaid
 flowchart LR
