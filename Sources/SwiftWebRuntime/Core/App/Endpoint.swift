@@ -60,7 +60,7 @@ public struct Endpoint: Scene, Sendable, _PrimitiveScene {
         self.handler = handler
     }
 
-    func _makeScene(in context: _SceneContext) async throws {
+    func _renderScene(in context: SceneRenderingContext) async throws {
         let handler = self.handler
         context.routes.get(path.webComponents) { request in
             try await handler(request)

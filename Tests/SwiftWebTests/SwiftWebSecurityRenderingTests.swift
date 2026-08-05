@@ -37,8 +37,8 @@ struct SecurityRenderingTests {
 
     @Test
     func actionMetadataFieldsRenderCSRFTokenFromRequestContext() async throws {
-        try await withTestApplication { application in
-            let request = Request(application: application)
+        try await withTestRuntime { runtime in
+            let request = Request(runtime: runtime)
             let context = RequestSecurityContext(csrfToken: "token", csrfFieldName: "_csrf")
             let values = RequestValues(
                 request: request,
@@ -61,9 +61,9 @@ struct SecurityRenderingTests {
         }
     }
 
-    private func withTestApplication(
-        _ body: (TestWebApplication) async throws -> Void
+    private func withTestRuntime(
+        _ body: (TestWebRuntime) async throws -> Void
     ) async throws {
-        try await body(TestWebApplication())
+        try await body(TestWebRuntime())
     }
 }

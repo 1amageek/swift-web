@@ -24,8 +24,9 @@ and activation live in `SwiftWebActors`. Visual components live in
 
 ```mermaid
 flowchart LR
-  App["App and Scene"] --> Core["SwiftWebCore descriptors"]
-  Core --> Host["SwiftWebHost contracts"]
+  App["App and Scene"] --> Renderer["AppRenderer"]
+  Renderer --> Rendered["RenderedApp"]
+  Rendered --> Host["SwiftWebHost contracts"]
   Host --> HTTP["SwiftWebHTTPServerHost"]
   Core --> Browser["SwiftWebBrowserRuntime"]
   Core --> Actors["SwiftWebActors"]
@@ -72,10 +73,15 @@ framework or perform process-level development orchestration.
 The host is responsible for:
 
 - listening and connection lifecycle;
-- lowering `RoutesBuilder` registrations;
+- supplying `AppRenderingContext` and consuming `RenderedApp`;
 - request and response body transport;
-- sessions and server-side application storage;
+- sessions, logging, and native server state;
 - WebSocket and streaming I/O.
 
-SwiftWebCore is responsible for the semantics that must remain identical when
-the host implementation changes.
+SwiftWebCore owns `AppRenderer`, which renders scenes, registers routes,
+assembles middleware, and creates the framework-owned request runtime context.
+The app definition never receives the host, router, logger, or runtime storage.
+Every host-created `Request` reuses the exact context returned in `RenderedApp`.
+
+The complete adapter contract is documented in
+[Host Rendering Contract](../../../docs/HostRenderingContract.md).

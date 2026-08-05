@@ -8,7 +8,7 @@ import SwiftWebHTTPServerHost
 import Testing
 
 @testable import SwiftWebActors
-@testable import SwiftWebCore
+@_spi(Hosting) @testable import SwiftWebCore
 
 @Suite
 struct SwiftWebActorGroupTests {
@@ -64,14 +64,13 @@ struct SwiftWebActorGroupTests {
 
     @Test
     func sceneLoweringRegistersActivatorAndInvocationEndpoint() async throws {
-        let application = TestWebApplication()
         let system = WebActorSystem()
-        try await _SceneRenderer.make(
-            ActorGroupFixtureScenes(system: system).scenes,
-            in: _SceneContext(application: application, routes: application.routes, actorSystem: system)
+        let renderedApp = try await AppRenderer.render(
+            ActorGroupFixtureApp(system: system),
+            in: AppRenderingContext()
         )
 
-        let invokeRoute = application.collectedRoutes.first { route in
+        let invokeRoute = renderedApp.routes.first { route in
             route.method == .post && route.path.map(String.init(describing:)) == ["_swiftweb", "actors", "invoke"]
         }
         #expect(invokeRoute != nil)
@@ -191,11 +190,10 @@ struct SwiftWebActorGroupTests {
 
     @Test
     func sceneEnvironmentResolvesInsideActorGroupActors() async throws {
-        let application = TestWebApplication()
         let system = WebActorSystem()
-        try await _SceneRenderer.make(
-            ActorGroupEnvironmentFixture(system: system).scenes,
-            in: _SceneContext(application: application, routes: application.routes, actorSystem: system)
+        _ = try await AppRenderer.render(
+            ActorGroupEnvironmentFixtureApp(system: system),
+            in: AppRenderingContext()
         )
 
         let id = WebActorSystem.actorID(for: ActorGroupGreeter.self, named: "env-1")
@@ -285,8 +283,11 @@ struct SwiftWebActorGroupTests {
     ) async throws {
         for _ in 0..<5 {
             let port = Int.random(in: 20_000..<60_000)
-            let runner = HTTPServerAppRunner(app, hostname: "127.0.0.1", port: port)
-            let installation = try await runner.configure(logger: Logger(label: "swiftweb.tests.actor-group"))
+            let host = HTTPServerHost(hostname: "127.0.0.1", port: port)
+            let installation = try await host.render(
+                app,
+                logger: Logger(label: "swiftweb.tests.actor-group")
+            )
             let serveTask = Task {
                 try await installation.serve()
             }
@@ -357,10 +358,22 @@ private distributed actor ActorGroupCounter: ActorGroupCounterProtocol {
     }
 }
 
-private struct ActorGroupFixtureScenes {
+private struct ActorGroupFixtureApp: App {
     let system: WebActorSystem
 
-    var scenes: some Scene {
+    init() {
+        self.system = .shared
+    }
+
+    init(system: WebActorSystem) {
+        self.system = system
+    }
+
+    var actorSystem: WebActorSystem {
+        system
+    }
+
+    var body: some Scene {
         ActorGroup {
             ActorGroupCounter(actorSystem: system)
         }
@@ -414,10 +427,22 @@ private enum EnvironmentContextReader {
     }
 }
 
-private struct ActorGroupEnvironmentFixture {
+private struct ActorGroupEnvironmentFixtureApp: App {
     let system: WebActorSystem
 
-    var scenes: some Scene {
+    init() {
+        self.system = .shared
+    }
+
+    init(system: WebActorSystem) {
+        self.system = system
+    }
+
+    var actorSystem: WebActorSystem {
+        system
+    }
+
+    var body: some Scene {
         ActorGroup {
             ActorGroupGreeter(actorSystem: system)
         }

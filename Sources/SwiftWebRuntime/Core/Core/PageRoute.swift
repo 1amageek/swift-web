@@ -2,16 +2,11 @@
 public protocol PageRoute: Sendable {
     static func register(on routes: any RoutesBuilder)
     func register(on routes: any RoutesBuilder)
-    func registerPageOwnedServices(on application: Application) async throws
-    func registerPageOwnedServices(on application: Application, routes: any RoutesBuilder) async throws
+    func _registerPageActions(in context: PageActionRegistrationContext) async throws
 }
 
 public extension PageRoute {
-    func registerPageOwnedServices(on application: Application) async throws {}
-
-    func registerPageOwnedServices(on application: Application, routes: any RoutesBuilder) async throws {
-        try await registerPageOwnedServices(on: application)
-    }
+    func _registerPageActions(in context: PageActionRegistrationContext) async throws {}
 }
 
 public struct NoParams: Sendable {

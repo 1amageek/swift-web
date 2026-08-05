@@ -7,8 +7,9 @@ public protocol Scene: SendableMetatype {
     @SceneBuilder
     var body: Self.Body { get }
 
-    /// Witness-based lowering hook; see the `Scene` extension default.
-    static func _lowerScene(_ scene: Self, in context: _SceneContext) async throws
+    /// Witness-based rendering hook used by the framework renderer.
+    @_spi(Rendering)
+    static func _renderScene(_ scene: Self, in context: SceneRenderingContext) async throws
 }
 
 extension Never: Scene {
@@ -22,7 +23,7 @@ public extension Scene where Body == Never {
 }
 
 protocol _PrimitiveScene: Scene where Body == Never {
-    func _makeScene(in context: _SceneContext) async throws
+    func _renderScene(in context: SceneRenderingContext) async throws
 }
 
 extension Scene {
@@ -30,64 +31,67 @@ extension Scene {
     /// requirement dispatches on the concrete type at compile time, replacing
     /// the existential downcast Embedded Swift cannot perform. Composite
     /// scenes recurse into `body`.
-    public static func _lowerScene(_ scene: Self, in context: _SceneContext) async throws {
-        try await _SceneRenderer.make(scene.body, in: context)
+    @_spi(Rendering)
+    public static func _renderScene(_ scene: Self, in context: SceneRenderingContext) async throws {
+        try await SceneRenderer.render(scene.body, in: context)
     }
 }
 
 extension _PrimitiveScene {
-    public static func _lowerScene(_ scene: Self, in context: _SceneContext) async throws {
-        try await scene._makeScene(in: context)
+    @_spi(Rendering)
+    public static func _renderScene(_ scene: Self, in context: SceneRenderingContext) async throws {
+        try await scene._renderScene(in: context)
     }
 }
 
-public enum _SceneRenderer {
-    public static func make<Content: Scene>(
+package enum SceneRenderer {
+    package static func render<Content: Scene>(
         _ scene: Content,
-        in context: _SceneContext
+        in context: SceneRenderingContext
     ) async throws {
-        try await Content._lowerScene(scene, in: context)
+        try await Content._renderScene(scene, in: context)
     }
 }
 
-public struct _SceneContext {
-    public let application: Application
-    public let routes: any RoutesBuilder
-    public let actorSystem: WebActorSystem
-    public let environment: EnvironmentValues
+@_spi(Rendering)
+public struct SceneRenderingContext {
+    package let runtime: AppRuntime
+    package let routes: any RoutesBuilder
+    package let actorSystem: WebActorSystem
+    package let environment: EnvironmentValues
     package let actorBindings: SwiftWebActorBindingScope
 
-    public init(
-        application: Application,
+    package init(
+        runtime: AppRuntime,
         routes: any RoutesBuilder,
         actorSystem: WebActorSystem = .shared,
         environment: EnvironmentValues = EnvironmentValues(),
         actorBindings: SwiftWebActorBindingScope = .empty
     ) {
-        self.application = application
+        self.runtime = runtime
         self.routes = routes
         self.actorSystem = actorSystem
         self.environment = environment
         self.actorBindings = actorBindings
     }
 
-    public static func root(
-        _ application: Application,
+    package static func root(
+        _ runtime: AppRuntime,
         actorSystem: WebActorSystem = .shared
-    ) -> _SceneContext {
-        _SceneContext(application: application, routes: application.routes, actorSystem: actorSystem)
+    ) -> SceneRenderingContext {
+        SceneRenderingContext(runtime: runtime, routes: runtime.routes, actorSystem: actorSystem)
     }
 
-    package func grouped(_ path: String) -> _SceneContext {
+    package func grouped(_ path: String) -> SceneRenderingContext {
         grouped(RoutePath(path))
     }
 
-    package func grouped(_ path: RoutePath) -> _SceneContext {
+    package func grouped(_ path: RoutePath) -> SceneRenderingContext {
         guard !path.components.isEmpty else {
             return self
         }
-        return _SceneContext(
-            application: application,
+        return SceneRenderingContext(
+            runtime: runtime,
             routes: routes.grouped(path.webComponents),
             actorSystem: actorSystem,
             environment: environment,
@@ -96,9 +100,9 @@ public struct _SceneContext {
     }
 
     #if SWIFTWEB_ACTORS
-    package func adding<ActorType: SwiftWebActorExporting>(_ actor: ActorType) -> _SceneContext {
-        _SceneContext(
-            application: application,
+    package func adding<ActorType: SwiftWebActorExporting>(_ actor: ActorType) -> SceneRenderingContext {
+        SceneRenderingContext(
+            runtime: runtime,
             routes: routes,
             actorSystem: actorSystem,
             environment: environment,
@@ -107,9 +111,9 @@ public struct _SceneContext {
     }
     #endif
 
-    package func withEnvironment(_ environment: EnvironmentValues) -> _SceneContext {
-        _SceneContext(
-            application: application,
+    package func withEnvironment(_ environment: EnvironmentValues) -> SceneRenderingContext {
+        SceneRenderingContext(
+            runtime: runtime,
             routes: routes,
             actorSystem: actorSystem,
             environment: environment,

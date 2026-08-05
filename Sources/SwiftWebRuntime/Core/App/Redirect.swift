@@ -11,7 +11,7 @@ public struct Redirect: Scene, Sendable, _PrimitiveScene {
         self.destination = destination
     }
 
-    func _makeScene(in context: _SceneContext) async throws {
+    func _renderScene(in context: SceneRenderingContext) async throws {
         let destination = self.destination
         context.routes.get(source.webComponents) { request in
             request.redirect(to: destination)

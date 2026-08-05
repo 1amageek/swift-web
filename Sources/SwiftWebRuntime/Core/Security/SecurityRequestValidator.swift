@@ -10,7 +10,7 @@ public enum SecurityRequestValidator {
     }
 
     static func validateOrigin(_ request: Request) throws {
-        let security = request.application.securityConfiguration
+        let security = request.securityConfiguration
         guard security.csrf.protects(request.method) else {
             return
         }
@@ -40,7 +40,7 @@ public enum SecurityRequestValidator {
         _ request: Request,
         suppliedCSRFToken: String? = nil
     ) throws {
-        let security = request.application.securityConfiguration
+        let security = request.securityConfiguration
         guard security.csrf.protects(request.method) else {
             return
         }
@@ -59,7 +59,7 @@ public enum SecurityRequestValidator {
     }
 
     static func csrfToken(from request: Request, source: CSRFTokenSource) async throws -> String? {
-        let security = request.application.securityConfiguration
+        let security = request.securityConfiguration
         guard security.csrf.isEnabled, security.csrf.protects(request.method) else {
             return nil
         }

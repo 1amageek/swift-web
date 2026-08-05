@@ -137,6 +137,10 @@ these values when it materializes an adapter template.
 | User app package | Host-neutral SwiftWeb app source and `.swiftweb/platform.json`. |
 | `SwiftWeb` product | Public app API. It does not import deployment adapter packages. |
 
+This document governs template discovery and materialization. Runtime adapters
+implement the separate [Host Rendering Contract](HostRenderingContract.md) and
+keep platform lifecycle outside the declarative `App`.
+
 ## Non-Goals
 
 | Non-goal | Reason |

@@ -38,7 +38,7 @@ public enum WebSocketRouteBuilder {
         return routes.webSocket(
             path.webComponents,
             shouldUpgrade: { req async throws -> HTTPFields? in
-                let security = req.application.securityConfiguration
+                let security = req.securityConfiguration
                 guard security.origin.allowsRequestOrigin(req, forwardedHeaders: security.forwardedHeaders) else {
                     return nil
                 }

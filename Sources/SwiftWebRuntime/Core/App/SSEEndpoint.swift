@@ -8,7 +8,7 @@ public struct SSEEndpoint<RouteType: SSERoute>: Scene, _PrimitiveScene {
         self.path = path
     }
 
-    func _makeScene(in context: _SceneContext) async throws {
+    func _renderScene(in context: SceneRenderingContext) async throws {
         SSERouteBuilder.register(RouteType.self, on: context.routes, path: path)
     }
 }

@@ -64,19 +64,19 @@ struct _EnvironmentScene<Content: Scene>: Scene, _PrimitiveScene {
     let content: Content
     let transform: @Sendable (inout EnvironmentValues) -> Void
 
-    func _makeScene(in context: _SceneContext) async throws {
+    func _renderScene(in context: SceneRenderingContext) async throws {
         var environment = context.environment
         transform(&environment)
         // Carry the environment down the scene graph (ActorGroup, nested
         // modifiers) and establish it around every route handler registered
         // below, so page/action/stream rendering sees the same values.
-        let modified = _SceneContext(
-            application: context.application,
+        let modified = SceneRenderingContext(
+            runtime: context.runtime,
             routes: EnvironmentRoutesBuilder(base: context.routes, environment: environment),
             actorSystem: context.actorSystem,
             environment: environment,
             actorBindings: context.actorBindings
         )
-        try await _SceneRenderer.make(content, in: modified)
+        try await SceneRenderer.render(content, in: modified)
     }
 }

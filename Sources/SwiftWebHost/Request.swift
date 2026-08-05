@@ -4,7 +4,7 @@ import Logging
 #endif
 import Synchronization
 
-/// The host-neutral request the SwiftWeb core programs against, replacing `Vapor.Request`.
+/// The host-neutral request the SwiftWeb core programs against.
 /// A host adapter constructs one per request from its native request and shares the same
 /// instance across middleware and the route handler, so request-scoped state
 /// (security context, path parameters) is visible everywhere. Core never sees a host type.
@@ -16,15 +16,17 @@ public final class Request: Sendable {
     public let session: RequestSession
     public let hasSession: Bool
     public let logger: Logger
-    public let application: any ApplicationProtocol
     /// The client IP address, if the host knows it.
     public let remoteAddress: String?
+
+    package let runtimeContext: RequestRuntimeContext
 
     private let headersBox: Mutex<HTTPFields>
     private let securityContextBox: Mutex<RequestSecurityContext?>
     private let parametersBox: Mutex<PathParameters>
     private let bodyCollector: @Sendable () async throws -> [UInt8]?
 
+    @_spi(Hosting)
     public init(
         method: HTTPRequest.Method,
         url: RequestURL,
@@ -35,7 +37,7 @@ public final class Request: Sendable {
         session: RequestSession,
         hasSession: Bool,
         logger: Logger,
-        application: any ApplicationProtocol,
+        runtimeContext: RequestRuntimeContext,
         remoteAddress: String? = nil,
         parameters: PathParameters = PathParameters(),
         securityContext: RequestSecurityContext? = nil
@@ -48,7 +50,7 @@ public final class Request: Sendable {
         self.session = session
         self.hasSession = hasSession
         self.logger = logger
-        self.application = application
+        self.runtimeContext = runtimeContext
         self.remoteAddress = remoteAddress
         self.securityContextBox = Mutex(securityContext)
         self.parametersBox = Mutex(parameters)

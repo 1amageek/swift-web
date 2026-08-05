@@ -13,6 +13,7 @@ the archive for those records.
 | [Changelog](../CHANGELOG.md) | All users | Tagged release changes and compatibility notes |
 | [Toolchain](Toolchain.md) | All contributors | Exact Swift 6.4 host and WASM build contract |
 | [HTML Authoring Model](HTMLAuthoringModel.md) | Application and framework developers | `Component`, `HTMLDocument`, and `Page` boundaries |
+| [Host Rendering Contract](HostRenderingContract.md) | Host adapter and framework developers | `AppRenderer`, `RenderedApp`, request translation, and lifecycle ownership |
 | [Development Reconciler Verification](DevServerReconcilerVerification.md) | Maintainers | Real `sweb dev` and Chromium release gate |
 
 ## Public Runtime Contracts
@@ -32,6 +33,7 @@ the archive for those records.
 |---|---|
 | [Browser Runtime JavaScriptKit](BrowserRuntimeJavaScriptKitDecision.md) | JavaScriptKit is the internal browser adapter; SwiftWebUI remains the public UI API |
 | [Platform Adapter Template Contract](PlatformAdapterTemplateContract.md) | Deployment adapters are external templates selected by `sweb new` |
+| [Host Rendering Contract](HostRenderingContract.md) | Hosts own platform lifecycle and consume one common SwiftWeb rendering result |
 
 ## Release Evidence
 

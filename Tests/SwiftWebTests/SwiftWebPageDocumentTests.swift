@@ -34,8 +34,8 @@ private struct PageDocumentRuntimeStaticPage: Component {
 struct SwiftWebPageDocumentTests {
     @Test
     func pageResponseAppliesDocumentStyleRootToBody() async throws {
-        try await withApplication { application in
-            let request = Request(application: application)
+        try await withRuntime { runtime in
+            let request = Request(runtime: runtime)
             let response = try await PageDocument(title: "Styled") {
                 VStack { Text("Styled") }
                     .preferredColorScheme(.dark)
@@ -54,8 +54,8 @@ struct SwiftWebPageDocumentTests {
 
     @Test
     func pageResponseWithoutSchemeFollowsUserAgent() async throws {
-        try await withApplication { application in
-            let request = Request(application: application)
+        try await withRuntime { runtime in
+            let request = Request(runtime: runtime)
             let response = try await PageDocument(title: "Styled") {
                 Text("Styled")
             }
@@ -69,8 +69,8 @@ struct SwiftWebPageDocumentTests {
 
     @Test
     func rawHTMLPageResponseSkipsDocumentStyleRoot() async throws {
-        try await withApplication { application in
-            let request = Request(application: application)
+        try await withRuntime { runtime in
+            let request = Request(runtime: runtime)
             let response = try await PageDocument(title: "Plain") {
                 main { h1 { "Plain" } }
             }
@@ -118,8 +118,8 @@ struct SwiftWebPageDocumentTests {
 
     @Test
     func pageResponseEmitsAtomicCSSInHeadWithoutInlineStyle() async throws {
-        try await withApplication { application in
-            let request = Request(application: application)
+        try await withRuntime { runtime in
+            let request = Request(runtime: runtime)
             let response = try await PageDocument(title: "Atomic") {
                 Spacer(minLength: 12)
             }
@@ -136,8 +136,8 @@ struct SwiftWebPageDocumentTests {
 
     @Test
     func pageResponseAtomizesTypedSwiftHTMLStyleAttributes() async throws {
-        try await withApplication { application in
-            let request = Request(application: application)
+        try await withRuntime { runtime in
+            let request = Request(runtime: runtime)
             let response = try await PageDocument(title: "Raw Atomic") {
                 div(.class("raw-element"), .style(.minWidth("14px"))) {
                     "Raw"
@@ -154,14 +154,14 @@ struct SwiftWebPageDocumentTests {
 
     @Test
     func wasmPageResponsePrunesServerOnlyDOMFromClientRuntimeDescriptor() async throws {
-        try await withApplication { application in
-            application.swiftWebClientRuntime = .wasm(
+        try await withRuntime { runtime in
+            runtime.swiftWebClientRuntime = .wasm(
                 SwiftWebWasmClientRuntime(
                     manifestPath: "/assets/client.json",
                     runtimeAssetPath: "/assets/client.wasm"
                 )
             )
-            let request = Request(application: application)
+            let request = Request(runtime: runtime)
             let response = try await PageDocument(title: "Runtime") {
                 PageDocumentRuntimeStaticPage()
             }
@@ -183,8 +183,8 @@ struct SwiftWebPageDocumentTests {
 
     @Test
     func wasmPageResponseIncludesActorBindingsFromSceneScope() async throws {
-        try await withApplication { application in
-            application.swiftWebClientRuntime = .wasm(
+        try await withRuntime { runtime in
+            runtime.swiftWebClientRuntime = .wasm(
                 SwiftWebWasmClientRuntime(
                     manifestPath: "/assets/client.json",
                     runtimeAssetPath: "/assets/client.wasm"
@@ -195,7 +195,7 @@ struct SwiftWebPageDocumentTests {
                 actorID: "counter-1"
             )
             let scope = SwiftWebActorBindingScope(records: [binding])
-            let request = Request(application: application)
+            let request = Request(runtime: runtime)
             let response = try await SwiftWebActorRenderContext.withValue(scope) {
                 try await PageDocument(title: "Runtime") {
                     PageDocumentRuntimeStaticPage()
@@ -228,10 +228,10 @@ struct SwiftWebPageDocumentTests {
         ))
     }
 
-    private func withApplication(
-        _ body: (TestWebApplication) async throws -> Void
+    private func withRuntime(
+        _ body: (TestWebRuntime) async throws -> Void
     ) async throws {
-        try await body(TestWebApplication())
+        try await body(TestWebRuntime())
     }
 
     private func containsInOrder(_ haystack: String, _ needles: [String]) -> Bool {

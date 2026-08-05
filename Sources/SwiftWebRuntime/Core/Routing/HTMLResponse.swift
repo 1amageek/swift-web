@@ -6,7 +6,7 @@ extension HTMLDocument {
     public func encodeResponse(for request: Request) async throws -> Response {
         let stateStore = StateStore()
         let baseOptions = SwiftWebRenderOptions.current
-        let runtime = request.application.swiftWebClientRuntime
+        let runtime = request.swiftWebClientRuntime
         let securityContext = request.securityContext
         let developmentHooks = await SwiftWebDevelopmentSupport.shared.currentHooks()
 

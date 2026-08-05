@@ -15,8 +15,8 @@ public struct ActorScene<Content: Scene, ActorType: SwiftWebActorExporting>: Sce
         self.actor = actor
     }
 
-    func _makeScene(in context: _SceneContext) async throws {
-        try await _SceneRenderer.make(content, in: context.adding(actor))
+    func _renderScene(in context: SceneRenderingContext) async throws {
+        try await SceneRenderer.render(content, in: context.adding(actor))
     }
 }
 

@@ -33,7 +33,7 @@ public enum UploadRoute {
             try SecurityRequestValidator.validateOrigin(req)
             let csrfToken = try await SecurityRequestValidator.csrfToken(
                 from: req,
-                source: req.application.securityConfiguration.csrf.uploadTokenSource
+                source: req.securityConfiguration.csrf.uploadTokenSource
             )
             try SecurityRequestValidator.validateCSRF(
                 req,

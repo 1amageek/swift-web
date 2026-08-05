@@ -161,12 +161,7 @@ struct SwiftWebHTTPServerHostTests {
 
     @Test
     func formActionRequiresCSRFAndDecodesFormBody() async throws {
-        let installers: [(Application) async throws -> Void] = [
-            { application in
-                RouteAction.post(HostEchoFormAction.self, on: application.routes, path: "/submit")
-            },
-        ]
-        try await withHost(HostFixtureApp(), routeInstallers: installers) { client, base in
+        try await withHost(HostFixtureApp()) { client, base in
             let (_, pageResponse) = try await client.data(from: URL(string: "\(base)/")!)
             let pageHTTP = try #require(pageResponse as? HTTPURLResponse)
             let setCookie = try #require(pageHTTP.value(forHTTPHeaderField: "Set-Cookie"))
@@ -212,18 +207,15 @@ struct SwiftWebHTTPServerHostTests {
 
     private func withHost<Definition: App>(
         _ app: Definition,
-        routeInstallers: [(Application) async throws -> Void] = [],
         _ body: (URLSession, String) async throws -> Void
     ) async throws {
         for _ in 0..<5 {
             let port = Int.random(in: 20_000..<60_000)
-            let runner = HTTPServerAppRunner(
+            let host = HTTPServerHost(hostname: "127.0.0.1", port: port)
+            let installation = try await host.render(
                 app,
-                hostname: "127.0.0.1",
-                port: port,
-                routeInstallers: routeInstallers
+                logger: Logger(label: "swiftweb.tests.host")
             )
-            let installation = try await runner.configure(logger: Logger(label: "swiftweb.tests.host"))
             let serveTask = Task {
                 try await installation.serve()
             }
@@ -292,6 +284,7 @@ private struct HostFixtureApp: App {
         HostSearchPage()
         HostSessionReadPage()
         HostSessionLoginPage()
+        FormActionEndpoint(HostEchoFormAction.self, path: "/submit")
         SSEEndpoint(HostTickerRoute.self, path: "/events")
         Endpoint("/plain.txt", contentType: "text/plain; charset=utf-8") { _ in
             "plain fixture"

@@ -2,20 +2,19 @@ import SwiftHTML
 import SwiftWeb
 import Testing
 
-@testable import SwiftWebCore
+@_spi(Hosting) @testable import SwiftWebCore
 
 @Suite
 struct SceneEnvironmentTests {
     @Test
     func sceneEnvironmentReachesPageRendering() async throws {
-        let application = TestWebApplication()
-        try await _SceneRenderer.make(
-            SceneEnvironmentFixture().scenes,
-            in: _SceneContext(application: application, routes: application.routes)
+        let renderedApp = try await AppRenderer.render(
+            SceneEnvironmentFixture(),
+            in: AppRenderingContext()
         )
 
         let route = try #require(
-            application.collectedRoutes.first { route in
+            renderedApp.routes.first { route in
                 route.method == .get && route.path.map(String.init(describing:)) == ["env"]
             }
         )
@@ -24,21 +23,20 @@ struct SceneEnvironmentTests {
             return
         }
 
-        let response = try await handler(Request(application: application, path: "/env"))
+        let response = try await handler(Request(renderedApp: renderedApp, path: "/env"))
         let html = try #require(response.body.string)
         #expect(html.contains("scene-injected"))
     }
 
     @Test
     func pagesOutsideTheModifierSeeTheDefault() async throws {
-        let application = TestWebApplication()
-        try await _SceneRenderer.make(
-            SceneEnvironmentDefaultFixture().scenes,
-            in: _SceneContext(application: application, routes: application.routes)
+        let renderedApp = try await AppRenderer.render(
+            SceneEnvironmentDefaultFixture(),
+            in: AppRenderingContext()
         )
 
         let route = try #require(
-            application.collectedRoutes.first { route in
+            renderedApp.routes.first { route in
                 route.method == .get && route.path.map(String.init(describing:)) == ["env"]
             }
         )
@@ -47,7 +45,7 @@ struct SceneEnvironmentTests {
             return
         }
 
-        let response = try await handler(Request(application: application, path: "/env"))
+        let response = try await handler(Request(renderedApp: renderedApp, path: "/env"))
         let html = try #require(response.body.string)
         #expect(html.contains("unset-greeting"))
     }
@@ -79,15 +77,15 @@ private struct SceneEnvironmentPage {
     }
 }
 
-private struct SceneEnvironmentFixture {
-    var scenes: some Scene {
+private struct SceneEnvironmentFixture: App {
+    var body: some Scene {
         SceneEnvironmentPage()
             .environment(\.sceneGreeting, "scene-injected")
     }
 }
 
-private struct SceneEnvironmentDefaultFixture {
-    @SceneBuilder var scenes: some Scene {
+private struct SceneEnvironmentDefaultFixture: App {
+    @SceneBuilder var body: some Scene {
         SceneEnvironmentPage()
     }
 }

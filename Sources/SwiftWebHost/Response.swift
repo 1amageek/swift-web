@@ -6,8 +6,7 @@ import Foundation
 import HTTPTypes
 
 /// The host-neutral HTTP response the SwiftWeb core produces.
-/// Host adapters (Vapor, swift-http-server, Cloudflare) lower it onto their
-/// native response type.
+/// Host adapters lower it onto their native response type.
 public struct Response: Sendable {
     public struct Body: Sendable {
         enum Storage: Sendable {

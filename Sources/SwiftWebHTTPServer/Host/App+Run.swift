@@ -3,14 +3,12 @@ import FoundationEssentials
 #else
 import Foundation
 #endif
-// Importing the host module must provide the core vocabulary app launchers
-// use (App.run, ClientRuntime, SwiftPMWasmArtifact, ...), matching the
-// contract SwiftWebVaporHost established.
+// Importing the host module also provides the core vocabulary app launchers
+// use, including App.run and client runtime configuration.
 @_exported import SwiftWebCore
 
-/// The bind address for `App.run()`, resolved the same way the Vapor host
-/// did: `--hostname`/`--port` arguments (how `sweb` launches app workers),
-/// falling back to 127.0.0.1:8080.
+/// The bind address for `App.run()`, resolved from `--hostname` and `--port`
+/// arguments before falling back to 127.0.0.1:8080.
 enum HTTPServerAddressResolution {
     static let defaultHostname = "127.0.0.1"
     static let defaultPort = 8080
@@ -42,21 +40,19 @@ enum HTTPServerAddressResolution {
 public extension App {
     static func run() async throws {
         let address = HTTPServerAddressResolution.resolve()
-        try await HTTPServerAppRunner(
-            Self(),
+        try await HTTPServerHost(
             hostname: address.hostname,
             port: address.port
-        ).run()
+        ).run(Self())
     }
 
     static func run(clientRuntime: ClientRuntimeConfiguration) async throws {
         let address = HTTPServerAddressResolution.resolve()
-        try await HTTPServerAppRunner(
-            Self(),
+        try await HTTPServerHost(
             hostname: address.hostname,
             port: address.port,
             clientRuntime: clientRuntime
-        ).run()
+        ).run(Self())
     }
 
     static func main() async throws {

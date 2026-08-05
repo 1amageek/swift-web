@@ -54,10 +54,10 @@ public enum ForwardedHeadersPolicy: Sendable {
     }
 
     private func configuredHost(for request: Request) -> String? {
-        guard let hostname = request.application.serverConfiguration.hostname else {
+        guard let hostname = request.serverConfiguration.hostname else {
             return nil
         }
-        guard let port = request.application.serverConfiguration.port else {
+        guard let port = request.serverConfiguration.port else {
             return hostname
         }
         return "\(hostname):\(port)"

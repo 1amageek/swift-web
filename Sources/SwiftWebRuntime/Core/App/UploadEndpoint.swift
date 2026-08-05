@@ -14,7 +14,7 @@ public struct UploadEndpoint<Action: UploadAction>: Scene, _PrimitiveScene {
         self.bodyStrategy = body
     }
 
-    func _makeScene(in context: _SceneContext) async throws {
+    func _renderScene(in context: SceneRenderingContext) async throws {
         UploadRoute.post(Action.self, on: context.routes, path: path, body: bodyStrategy)
     }
 }

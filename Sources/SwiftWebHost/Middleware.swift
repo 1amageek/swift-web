@@ -1,5 +1,4 @@
-/// Host-neutral middleware placed between the host server and the routed handler,
-/// replacing `Vapor.Middleware` for the SwiftWeb core.
+/// Host-neutral middleware placed between the host server and the routed handler.
 /// Class-bound so `any Middleware` remains available on Embedded
 /// Swift, whose existentials are limited to class-constrained protocols.
 public protocol Middleware: AnyObject, Sendable {
@@ -44,7 +43,7 @@ extension Middleware {
     }
 }
 
-/// An ordered middleware collection, replacing `Vapor.Middlewares` for the core.
+/// An ordered middleware collection for the core runtime.
 public struct Middlewares: Sendable {
     public private(set) var all: [any Middleware]
 

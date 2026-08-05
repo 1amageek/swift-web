@@ -1,8 +1,7 @@
 import HTTPTypes
 import SwiftWebHost
 
-/// Host-neutral CORS middleware with the same header semantics as Vapor's
-/// `CORSMiddleware`, driven by SwiftWeb's `OriginPolicy`.
+/// Host-neutral CORS middleware driven by SwiftWeb's `OriginPolicy`.
 final class CORSMiddleware: Middleware {
     let originPolicy: OriginPolicy
     let forwardedHeaders: ForwardedHeadersPolicy

@@ -6,7 +6,7 @@ public struct WebSocketEndpoint<RouteType: WebSocketRoute>: Scene, _PrimitiveSce
         self.path = path
     }
 
-    func _makeScene(in context: _SceneContext) async throws {
+    func _renderScene(in context: SceneRenderingContext) async throws {
         WebSocketRouteBuilder.register(RouteType.self, on: context.routes, path: path)
     }
 }

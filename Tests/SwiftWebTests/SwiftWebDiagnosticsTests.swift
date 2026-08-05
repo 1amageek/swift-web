@@ -14,7 +14,7 @@ struct SwiftWebDiagnosticsTests {
     let middleware = SwiftWebDevBuildFingerprintMiddleware(
       environment: ["SWIFT_WEB_DEV_BUILD_FINGERPRINT": String(repeating: "a", count: 64)]
     )
-    let request = Request(application: TestWebApplication())
+    let request = Request(runtime: TestWebRuntime())
     let next = ClosureResponder { _ in Response() }
 
     let response = try await #require(middleware).respond(to: request, chainingTo: next)

@@ -1,7 +1,6 @@
 import HTTPTypes
 
-/// The registration surface the SwiftWeb core lowers routes onto,
-/// replacing `Vapor.RoutesBuilder`.
+/// The registration surface the SwiftWeb core lowers routes onto.
 /// Class-bound so `any RoutesBuilder` (used by macro-generated route
 /// registration) remains available on Embedded Swift.
 public protocol RoutesBuilder: AnyObject, Sendable {

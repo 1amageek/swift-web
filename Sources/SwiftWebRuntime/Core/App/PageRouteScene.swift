@@ -6,8 +6,13 @@ public struct PageRouteScene<Route: PageRoute>: Scene, _PrimitiveScene {
         self.route = route
     }
 
-    func _makeScene(in context: _SceneContext) async throws {
-        try await route.registerPageOwnedServices(on: context.application, routes: context.routes)
+    func _renderScene(in context: SceneRenderingContext) async throws {
+        try await route._registerPageActions(
+            in: PageActionRegistrationContext(
+                runtime: context.runtime,
+                routes: context.routes
+            )
+        )
         SwiftWebActorRenderContext.withValue(context.actorBindings) {
             route.register(on: context.routes)
         }

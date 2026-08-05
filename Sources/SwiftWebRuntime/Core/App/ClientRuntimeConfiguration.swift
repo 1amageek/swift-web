@@ -6,7 +6,7 @@ import FoundationEssentials
 import Foundation
 #endif
 
-public enum ClientRuntimeConfiguration {
+public enum ClientRuntimeConfiguration: Sendable {
     case disabled
     case wasm(ClientRuntimeAssetConfiguration)
 
@@ -46,19 +46,21 @@ public enum ClientRuntimeConfiguration {
         ))
     }
 
-    public func install(on application: Application) async throws {
+    package func install(in runtime: AppRuntime) async throws {
         switch self {
         case .disabled:
-            application.swiftWebClientRuntime = .disabled
+            runtime.requestContext.swiftWebClientRuntime = .disabled
         case .wasm(let configuration):
-            try configuration.install(on: application)
+            try configuration.install(in: runtime)
         }
     }
 }
 #else
 /// Embedded profile: the client runtime is always disabled (client bundles
 /// are served as static assets and built with the full toolchain).
-public enum ClientRuntimeConfiguration {
+public enum ClientRuntimeConfiguration: Sendable {
     case disabled
+
+    package func install(in runtime: AppRuntime) async throws {}
 }
 #endif

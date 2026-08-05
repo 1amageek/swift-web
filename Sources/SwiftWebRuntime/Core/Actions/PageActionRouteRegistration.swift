@@ -7,24 +7,17 @@ import FoundationEssentials
 import Foundation
 #endif
 
-public enum ActionGateway {
+package enum PageActionRouteRegistration {
     @discardableResult
-    public static func register(on application: Application) -> Route {
-        application.routes.post("_swiftweb", "actions") { _ async throws -> Response in
-            throw Abort(.gone, reason: "Global server action gateway has been replaced by page-local HTTP action routes")
-        }
-    }
-
-    @discardableResult
-    public static func register<Handler>(
+    package static func register<Handler>(
         handler: Handler,
         descriptor: ServerActionDescriptor,
         path: RoutePath,
         on routes: any RoutesBuilder,
-        application: Application
+        runtime: AppRuntime
     ) throws -> Route where Handler: Sendable {
         let publicPath = path.string
-        try application.swiftWebServerActions.register(
+        try runtime.requestContext.swiftWebServerActions.register(
             handler: handler,
             descriptor: descriptor,
             path: publicPath
@@ -95,7 +88,7 @@ public enum ActionGateway {
         }
         return try await SecurityRequestValidator.csrfToken(
             from: request,
-            source: request.application.securityConfiguration.csrf.formTokenSource
+            source: request.securityConfiguration.csrf.formTokenSource
         )
     }
 }

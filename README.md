@@ -130,6 +130,22 @@ public struct MyApp: SwiftWeb.App {
 }
 ```
 
+`App` owns only the declarative application definition. The host owns its
+server configuration and lifecycle, then renders the app through SwiftWeb's
+common rendering boundary:
+
+```swift
+import SwiftWebHTTPServerHost
+
+let host = HTTPServerHost(hostname: "127.0.0.1", port: 8080)
+let installation = try await host.render(MyApp())
+defer { installation.shutdown() }
+try await installation.serve()
+```
+
+`App.run()` is the command-line convenience over this same path. Host adapter
+authors should follow the [Host Rendering Contract](docs/HostRenderingContract.md).
+
 A static page returns a complete `HTMLDocument`:
 
 ```swift

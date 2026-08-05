@@ -118,7 +118,7 @@ extension ActionResult: ResponseEncodable {
                 body: .init(string: body)
             )
         case .redirect(let location, let status):
-            let security = request.application.securityConfiguration
+            let security = request.securityConfiguration
             let validatedLocation = try security.redirects.validatedLocation(
                 location,
                 for: request,
@@ -149,7 +149,7 @@ extension ActionResult: ResponseEncodable {
     }
 
     private func fallbackLocation(for scope: InvalidationScope, request: Request) -> String {
-        let security = request.application.securityConfiguration
+        let security = request.securityConfiguration
         return security.redirects.fallbackLocation(
             candidates: [
                 scope.path,

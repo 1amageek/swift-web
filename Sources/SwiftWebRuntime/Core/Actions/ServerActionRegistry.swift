@@ -7,6 +7,7 @@ import FoundationEssentials
 import Foundation
 #endif
 import Synchronization
+@_spi(Hosting) import SwiftWebHost
 
 public final class ServerActionRegistry: Sendable {
     private struct State: Sendable {
@@ -64,12 +65,12 @@ struct ServerActionKey: Hashable, Sendable {
     let path: String
 }
 
-private struct ServerActionRegistryStorageKey: StorageKey {
+private struct ServerActionRegistryStorageKey: RuntimeStorageKey {
     typealias Value = ServerActionRegistry
 }
 
-public extension ApplicationProtocol {
-    var swiftWebServerActions: ServerActionRegistry {
+extension RequestRuntimeContext {
+    package var swiftWebServerActions: ServerActionRegistry {
         if let registry = storage[ServerActionRegistryStorageKey.self] {
             return registry
         }

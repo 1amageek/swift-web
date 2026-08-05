@@ -7,6 +7,7 @@ import Foundation
 #endif
 import HTTPTypes
 import SwiftWebActors
+@_spi(Hosting) import SwiftWebHost
 
 /// The host-neutral actor invocation endpoint. Registered once per app when
 /// the first `ActorGroup` is lowered; decodes `InvocationEnvelope`s from the
@@ -15,24 +16,24 @@ import SwiftWebActors
 enum ActorInvocationEndpoint {
     static let path = "/_swiftweb/actors/invoke"
 
-    private struct RegisteredKey: StorageKey {
+    private struct RegisteredKey: RuntimeStorageKey {
         typealias Value = Bool
     }
 
-    static func registerIfNeeded(on application: Application, actorSystem: WebActorSystem) {
-        guard application.storage[RegisteredKey.self] != true else {
+    static func registerIfNeeded(in runtime: AppRuntime, actorSystem: WebActorSystem) {
+        guard runtime.requestContext.storage[RegisteredKey.self] != true else {
             return
         }
-        application.storage[RegisteredKey.self] = true
+        runtime.requestContext.storage[RegisteredKey.self] = true
 
-        application.routes.post("_swiftweb", "actors", "invoke") { request async throws -> Response in
+        runtime.routes.post("_swiftweb", "actors", "invoke") { request async throws -> Response in
             try SecurityRequestValidator.validateStateChangingRequest(request)
 
             guard let body = try await request.collectedBody() else {
                 throw Abort(.badRequest, reason: "Actor invocation body is missing")
             }
             let envelope = try JSONDecoder().decode(InvocationEnvelope.self, from: Data(body))
-            let actorSecurity = request.application.securityConfiguration.actors
+            let actorSecurity = request.securityConfiguration.actors
             let context = WebActorInvocationContext(
                 transport: .http,
                 principalID: request.session.userID,

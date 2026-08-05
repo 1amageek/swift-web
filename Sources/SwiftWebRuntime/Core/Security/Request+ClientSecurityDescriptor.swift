@@ -2,7 +2,7 @@ import SwiftWebBrowserRuntime
 
 extension Request {
     var clientSecurityDescriptor: ClientSecurityDescriptor? {
-        let security = application.securityConfiguration
+        let security = securityConfiguration
         guard security.csrf.isEnabled else {
             return nil
         }

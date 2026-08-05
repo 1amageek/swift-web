@@ -8,7 +8,7 @@ public struct StreamingPageEndpoint<Page: StreamingPage>: Scene, _PrimitiveScene
         self.path = path
     }
 
-    func _makeScene(in context: _SceneContext) async throws {
+    func _renderScene(in context: SceneRenderingContext) async throws {
         StreamingPageRoute.register(Page.self, on: context.routes, path: path)
     }
 }

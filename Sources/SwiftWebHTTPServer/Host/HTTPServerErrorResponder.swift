@@ -7,8 +7,7 @@ import HTTPTypes
 import Logging
 import SwiftWebCore
 
-/// Converts errors thrown by routed handlers into responses, mirroring
-/// Vapor's `ErrorMiddleware` wire shape (`{"error":true,"reason":...}`).
+/// Converts errors thrown by routed handlers into SwiftWeb JSON error responses.
 /// Sits inside the SwiftWeb middleware chain so security/CORS headers still
 /// decorate error responses.
 final class HTTPServerErrorResponder: Responder {

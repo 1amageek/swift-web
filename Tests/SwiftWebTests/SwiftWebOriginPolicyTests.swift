@@ -7,8 +7,8 @@ import Testing
 struct OriginPolicyTests {
     @Test
     func requestOriginUsesHostHeader() async throws {
-        try await withApplication { application in
-            let request = Request(application: application)
+        try await withRuntime { runtime in
+            let request = Request(runtime: runtime)
             request.headers[HTTPField.Name("Host")!] = "127.0.0.1:3000"
 
             #expect(OriginPolicy.requestOrigin(for: request) == "http://127.0.0.1:3000")
@@ -17,20 +17,22 @@ struct OriginPolicyTests {
 
     @Test
     func requestOriginFallsBackToServerConfigurationWhenHostHeaderIsMissing() async throws {
-        try await withApplication { application in
-            application.serverConfiguration.hostname = "127.0.0.1"
-            application.serverConfiguration.port = 3000
-            let request = Request(application: application)
+        let runtime = TestWebRuntime(
+            serverConfiguration: ServerConfiguration(
+                hostname: "127.0.0.1",
+                port: 3000
+            )
+        )
+        let request = Request(runtime: runtime)
 
-            #expect(OriginPolicy.requestOrigin(for: request) == "http://127.0.0.1:3000")
-            #expect(OriginPolicy.sameOrigin.allows(origin: "http://127.0.0.1:3000", for: request))
-        }
+        #expect(OriginPolicy.requestOrigin(for: request) == "http://127.0.0.1:3000")
+        #expect(OriginPolicy.sameOrigin.allows(origin: "http://127.0.0.1:3000", for: request))
     }
 
     @Test
     func requestOriginIgnoresForwardedHeadersByDefault() async throws {
-        try await withApplication { application in
-            let request = Request(application: application)
+        try await withRuntime { runtime in
+            let request = Request(runtime: runtime)
             request.headers[HTTPField.Name("Host")!] = "127.0.0.1:3000"
             request.headers[HTTPField.Name("X-Forwarded-Proto")!] = "https"
             request.headers[HTTPField.Name("X-Forwarded-Host")!] = "example.com"
@@ -41,8 +43,8 @@ struct OriginPolicyTests {
 
     @Test
     func requestOriginUsesForwardedHeadersWhenTrusted() async throws {
-        try await withApplication { application in
-            let request = Request(application: application)
+        try await withRuntime { runtime in
+            let request = Request(runtime: runtime)
             request.headers[HTTPField.Name("Host")!] = "127.0.0.1:3000"
             request.headers[HTTPField.Name("X-Forwarded-Proto")!] = "https"
             request.headers[HTTPField.Name("X-Forwarded-Host")!] = "example.com"
@@ -53,13 +55,13 @@ struct OriginPolicyTests {
 
     @Test
     func requestOriginUsesForwardedHeadersOnlyForTrustedProxy() async throws {
-        try await withApplication { application in
-            let trustedRequest = Request(application: application, remoteAddress: "10.0.0.1")
+        try await withRuntime { runtime in
+            let trustedRequest = Request(runtime: runtime, remoteAddress: "10.0.0.1")
             trustedRequest.headers[HTTPField.Name("Host")!] = "127.0.0.1:3000"
             trustedRequest.headers[HTTPField.Name("X-Forwarded-Proto")!] = "https"
             trustedRequest.headers[HTTPField.Name("X-Forwarded-Host")!] = "example.com"
 
-            let untrustedRequest = Request(application: application, remoteAddress: "10.0.0.2")
+            let untrustedRequest = Request(runtime: runtime, remoteAddress: "10.0.0.2")
             untrustedRequest.headers[HTTPField.Name("Host")!] = "127.0.0.1:3000"
             untrustedRequest.headers[HTTPField.Name("X-Forwarded-Proto")!] = "https"
             untrustedRequest.headers[HTTPField.Name("X-Forwarded-Host")!] = "example.com"
@@ -70,9 +72,9 @@ struct OriginPolicyTests {
         }
     }
 
-    private func withApplication(
-        _ body: (TestWebApplication) async throws -> Void
+    private func withRuntime(
+        _ body: (TestWebRuntime) async throws -> Void
     ) async throws {
-        try await body(TestWebApplication())
+        try await body(TestWebRuntime())
     }
 }

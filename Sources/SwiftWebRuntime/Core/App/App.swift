@@ -2,7 +2,6 @@ import SwiftWebActors
 
 public protocol App: SendableMetatype {
     associatedtype Body: Scene
-    associatedtype Services: AppServices = EmptyAppServices
 
     init()
 
@@ -20,9 +19,6 @@ public protocol App: SendableMetatype {
     /// Must return the same instance for the app's lifetime.
     var actorSystem: WebActorSystem { get }
 
-    @AppServiceBuilder
-    var services: Services { get }
-
     @SceneBuilder
     var body: Body { get }
 }
@@ -38,11 +34,5 @@ public extension App {
 
     var actorSystem: WebActorSystem {
         .shared
-    }
-}
-
-public extension App where Services == EmptyAppServices {
-    var services: EmptyAppServices {
-        EmptyAppServices()
     }
 }

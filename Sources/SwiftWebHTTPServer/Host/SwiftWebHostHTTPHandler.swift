@@ -4,7 +4,7 @@ import HTTPTypes
 import Logging
 import NIOCore
 import NIOHTTPServer
-import SwiftWebCore
+@_spi(Hosting) import SwiftWebCore
 
 /// Serves the app's collected routes on `NIOHTTPServer`:
 /// match → session → middleware chain → handler → write (buffered or streamed).
@@ -16,11 +16,23 @@ struct SwiftWebHostHTTPHandler: HTTPServerRequestHandler {
     /// Applied when a route uses `.collect(maxSize: nil)`.
     static let defaultMaxBodySize = 16 * 1024 * 1024
 
-    let application: HTTPServerApplication
+    let runtimeContext: RequestRuntimeContext
     let matcher: RouteMatcher
     let chain: Middlewares
     let sessionStorage: any HTTPServerSessionStorage
     let logger: Logger
+
+    init(
+        renderedApp: RenderedApp,
+        sessionStorage: any HTTPServerSessionStorage,
+        logger: Logger
+    ) {
+        self.runtimeContext = renderedApp.requestContext
+        self.matcher = RouteMatcher(routes: renderedApp.routes)
+        self.chain = renderedApp.middlewares
+        self.sessionStorage = sessionStorage
+        self.logger = logger
+    }
 
     func handle(
         request: HTTPRequest,
@@ -64,7 +76,7 @@ struct SwiftWebHostHTTPHandler: HTTPServerRequestHandler {
             bodyBytes: bodyBytes,
             parameters: match?.parameters ?? PathParameters(),
             session: session,
-            application: application,
+            runtimeContext: runtimeContext,
             logger: logger
         )
 

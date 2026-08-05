@@ -1,5 +1,6 @@
 import SwiftHTML
 import SwiftWebActors
+@_spi(Hosting) import SwiftWebHost
 #if canImport(FoundationEssentials)
 import FoundationEssentials
 #elseif canImport(Foundation)
@@ -105,17 +106,27 @@ public struct SecurityConfiguration: Sendable {
     }
 }
 
-private struct SecurityConfigurationStorageKey: StorageKey {
+private struct SecurityConfigurationStorageKey: RuntimeStorageKey {
     typealias Value = SecurityConfiguration
 }
 
-extension ApplicationProtocol {
-    public var securityConfiguration: SecurityConfiguration {
+extension RequestRuntimeContext {
+    package var securityConfiguration: SecurityConfiguration {
         get {
             storage[SecurityConfigurationStorageKey.self] ?? .defaults
         }
         set {
             storage[SecurityConfigurationStorageKey.self] = newValue
         }
+    }
+}
+
+extension Request {
+    package var securityConfiguration: SecurityConfiguration {
+        runtimeContext.securityConfiguration
+    }
+
+    package var serverConfiguration: ServerConfiguration {
+        runtimeContext.serverConfiguration
     }
 }

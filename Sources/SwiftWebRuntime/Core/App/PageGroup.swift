@@ -11,7 +11,7 @@ public struct PageGroup<Content: Scene>: Scene, _PrimitiveScene {
         self.content = content()
     }
 
-    func _makeScene(in context: _SceneContext) async throws {
-        try await _SceneRenderer.make(content, in: context.grouped(path))
+    func _renderScene(in context: SceneRenderingContext) async throws {
+        try await SceneRenderer.render(content, in: context.grouped(path))
     }
 }

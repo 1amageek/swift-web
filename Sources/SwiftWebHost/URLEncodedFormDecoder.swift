@@ -1,7 +1,6 @@
 #if !hasFeature(Embedded)
 /// Decodes `application/x-www-form-urlencoded` payloads and URL query strings
-/// into `Decodable` values, replacing Vapor's URL-encoded form support for
-/// hosts without it.
+/// into `Decodable` values for hosts without a native decoder.
 ///
 /// Supported shape: flat keys with scalar values; repeated keys decode as
 /// arrays. This matches what SwiftWeb forms and search params emit.

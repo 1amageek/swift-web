@@ -63,35 +63,21 @@ public struct PageMacro: MemberMacro, ExtensionMacro {
               }
               """
         let basePathLiteral = model.path.map { #""\#($0)""# } ?? #""/""#
-        let pageServiceRegistrations = model.pageStoredProperties
-            .map { "                try await SwiftWeb.PageOwnedServices.registerService(routePage.\($0), on: application, routes: routes, basePath: basePath)" }
+        let pageActionRegistrations = model.pageStoredProperties
+            .map { "                try await SwiftWeb.PageOwnedActions.registerActions(from: routePage.\($0), in: context, basePath: basePath)" }
             .joined(separator: "\n")
-        let pageServiceRegistrationBody =
-            pageServiceRegistrations.isEmpty
+        let pageActionRegistrationBody =
+            pageActionRegistrations.isEmpty
             ? """
                   let routePage = self
                   let basePath = SwiftWeb.RoutePath(\(basePathLiteral))
-                  try await SwiftWeb.PageOwnedServices.register(routePage, on: application, routes: routes, basePath: basePath)
+                  try await SwiftWeb.PageOwnedActions.register(routePage, in: context, basePath: basePath)
           """
             : """
                   let routePage = self
                   let basePath = SwiftWeb.RoutePath(\(basePathLiteral))
-                  try await SwiftWeb.PageOwnedServices.register(routePage, on: application, routes: routes, basePath: basePath)
-          \(pageServiceRegistrations)
-          """
-        let legacyPageServiceRegistrations = model.pageStoredProperties
-            .map { "                try await SwiftWeb.PageOwnedServices.registerService(routePage.\($0), on: application)" }
-            .joined(separator: "\n")
-        let legacyPageServiceRegistrationBody =
-            legacyPageServiceRegistrations.isEmpty
-            ? """
-                  let routePage = self
-                  try await SwiftWeb.PageOwnedServices.register(routePage, on: application)
-          """
-            : """
-                  let routePage = self
-                  try await SwiftWeb.PageOwnedServices.register(routePage, on: application)
-          \(legacyPageServiceRegistrations)
+                  try await SwiftWeb.PageOwnedActions.register(routePage, in: context, basePath: basePath)
+          \(pageActionRegistrations)
           """
 
         let extensionDecl = DeclSyntax(stringLiteral: """
@@ -120,12 +106,8 @@ public struct PageMacro: MemberMacro, ExtensionMacro {
                 }
             }
 
-            func registerPageOwnedServices(on application: SwiftWeb.Application) async throws {
-        \(legacyPageServiceRegistrationBody)
-            }
-
-            func registerPageOwnedServices(on application: SwiftWeb.Application, routes: any SwiftWeb.RoutesBuilder) async throws {
-        \(pageServiceRegistrationBody)
+            func _registerPageActions(in context: SwiftWeb.PageActionRegistrationContext) async throws {
+        \(pageActionRegistrationBody)
             }
         }
         """)

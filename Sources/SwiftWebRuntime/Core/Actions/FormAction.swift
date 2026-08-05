@@ -11,9 +11,9 @@ public protocol FormAction: SendableMetatype {
     func call(_ context: ActionContext<Params, Input>) async throws -> ActionResult
 }
 
-public enum RouteAction {
+package enum FormActionRoute {
     @discardableResult
-    public static func post<Action: FormAction>(
+    package static func post<Action: FormAction>(
         _ action: Action.Type,
         on routes: any RoutesBuilder,
         path: String,
@@ -23,7 +23,7 @@ public enum RouteAction {
     }
 
     @discardableResult
-    public static func post<Action: FormAction>(
+    package static func post<Action: FormAction>(
         _ action: Action.Type,
         on routes: any RoutesBuilder,
         path: RoutePath,
@@ -33,7 +33,7 @@ public enum RouteAction {
             try SecurityRequestValidator.validateOrigin(req)
             let csrfToken = try await SecurityRequestValidator.csrfToken(
                 from: req,
-                source: req.application.securityConfiguration.csrf.formTokenSource
+                source: req.securityConfiguration.csrf.formTokenSource
             )
             try SecurityRequestValidator.validateCSRF(
                 req,

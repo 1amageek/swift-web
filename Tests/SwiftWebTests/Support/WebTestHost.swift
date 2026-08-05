@@ -1,33 +1,54 @@
 import HTTPTypes
 import Logging
-import SwiftWebCore
+import SwiftWebBrowserRuntime
+@_spi(Hosting) @testable import SwiftWebCore
 import Synchronization
 
-/// In-memory host application for core tests. No server, no Vapor: routes are
-/// collected and requests are constructed directly.
-final class TestWebApplication: ApplicationProtocol {
+/// In-memory rendering and request runtime for focused core tests.
+final class TestWebRuntime {
     let logger = Logger(label: "swiftweb.tests")
-    let storage = ApplicationStorage()
-    private let webRoutes = Routes()
-    private let serverConfigurationBox = Mutex(ServerConfiguration())
+    let runtime: AppRuntime
 
-    init() {}
+    init(serverConfiguration: ServerConfiguration = ServerConfiguration()) {
+        self.runtime = AppRuntime(serverConfiguration: serverConfiguration)
+    }
 
     var routes: any RoutesBuilder {
-        webRoutes
+        runtime.routes
     }
 
     var collectedRoutes: [Route] {
-        webRoutes.all
+        runtime.routes.all
     }
 
-    var serverConfiguration: ServerConfiguration {
+    var requestContext: RequestRuntimeContext {
+        runtime.requestContext
+    }
+
+    var pageActionContext: PageActionRegistrationContext {
+        PageActionRegistrationContext(runtime: runtime, routes: runtime.routes)
+    }
+
+    var securityConfiguration: SecurityConfiguration {
         get {
-            serverConfigurationBox.withLock { $0 }
+            runtime.requestContext.securityConfiguration
         }
         set {
-            serverConfigurationBox.withLock { $0 = newValue }
+            runtime.requestContext.securityConfiguration = newValue
         }
+    }
+
+    var swiftWebClientRuntime: SwiftWebClientRuntime {
+        get {
+            runtime.requestContext.swiftWebClientRuntime
+        }
+        set {
+            runtime.requestContext.swiftWebClientRuntime = newValue
+        }
+    }
+
+    var swiftWebServerActions: ServerActionRegistry {
+        runtime.requestContext.swiftWebServerActions
     }
 }
 
@@ -51,9 +72,9 @@ final class TestSessionStore: Sendable {
 }
 
 extension Request {
-    /// A test request with the same defaults `Vapor.Request(application:)` had.
+    /// A focused request fixture backed by the same runtime context as routes.
     convenience init(
-        application: any ApplicationProtocol,
+        runtime: TestWebRuntime,
         method: HTTPRequest.Method = .get,
         path: String = "/",
         headers: HTTPFields = [:],
@@ -82,7 +103,44 @@ extension Request {
             session: TestSessionStore().webSession,
             hasSession: false,
             logger: Logger(label: "swiftweb.tests.request"),
-            application: application,
+            runtimeContext: runtime.requestContext,
+            remoteAddress: remoteAddress,
+            securityContext: securityContext
+        )
+    }
+
+    /// A request fixture using the runtime context returned by app rendering.
+    convenience init(
+        renderedApp: RenderedApp,
+        method: HTTPRequest.Method = .get,
+        path: String = "/",
+        headers: HTTPFields = [:],
+        cookies: [String: String] = [:],
+        remoteAddress: String? = nil,
+        securityContext: RequestSecurityContext? = nil
+    ) {
+        self.init(
+            method: method,
+            url: {
+                let parts = path.split(separator: "?", maxSplits: 1, omittingEmptySubsequences: false)
+                let query = parts.count > 1 ? String(parts[1]) : nil
+                return RequestURL(string: path, path: String(parts[0]), query: query)
+            }(),
+            headers: headers,
+            cookies: cookies,
+            content: ContentContainer(
+                decoder: { _ in
+                    throw TestRequestError.unsupported("content decoding")
+                },
+                fieldDecoder: { _, _ in
+                    throw TestRequestError.unsupported("content field decoding")
+                }
+            ),
+            collectBody: { nil },
+            session: TestSessionStore().webSession,
+            hasSession: false,
+            logger: Logger(label: "swiftweb.tests.request"),
+            runtimeContext: renderedApp.requestContext,
             remoteAddress: remoteAddress,
             securityContext: securityContext
         )

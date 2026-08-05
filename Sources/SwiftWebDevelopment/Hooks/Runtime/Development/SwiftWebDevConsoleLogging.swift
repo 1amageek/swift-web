@@ -142,17 +142,9 @@ private struct SwiftWebDevConsoleLogHandler: LogHandler {
         message: String,
         metadata: Logger.Metadata
     ) {
-        let normalizedMessage = message.replacingOccurrences(of: "[Vapor] ", with: "")
-        if label == "codes.vapor.application",
-           ProcessInfo.processInfo.environment["SWIFT_WEB_DEV"] == "1",
-           normalizedMessage.hasPrefix("Server started on")
-        {
-            return
-        }
-
         let levelText = levelName(level)
         let color = levelColor(level)
-        var line = "\(color(levelText)) \(normalizedMessage)"
+        var line = "\(color(levelText)) \(message)"
 
         if let error = stringValue(metadata["error"]) {
             line += " \(colors.dim(error))"

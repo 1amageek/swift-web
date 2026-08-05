@@ -9,7 +9,7 @@ import Foundation
 #endif
 import SwiftHTML
 
-public struct ClientRuntimeAssetConfiguration {
+public struct ClientRuntimeAssetConfiguration: Sendable {
     private let runtime: SwiftWebWasmClientRuntime
     private let assets: @Sendable () throws -> [ClientRuntimeAsset]
 
@@ -77,12 +77,12 @@ public struct ClientRuntimeAssetConfiguration {
         }
     }
 
-    func install(on application: Application) throws {
-        application.swiftWebClientRuntime = .wasm(runtime)
-        SwiftWebWasmRuntimeRoutes.registerHost(on: application.routes)
+    func install(in appRuntime: AppRuntime) throws {
+        appRuntime.requestContext.swiftWebClientRuntime = .wasm(runtime)
+        SwiftWebWasmRuntimeRoutes.registerHost(on: appRuntime.routes)
         for asset in try assets() {
             SwiftWebWasmRuntimeRoutes.registerWasmAsset(
-                on: application.routes,
+                on: appRuntime.routes,
                 path: asset.path,
                 fileURL: asset.fileURL
             )

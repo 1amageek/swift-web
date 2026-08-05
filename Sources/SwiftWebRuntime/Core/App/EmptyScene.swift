@@ -2,5 +2,5 @@
 public struct EmptyScene: Scene, _PrimitiveScene {
     public init() {}
 
-    func _makeScene(in context: _SceneContext) async throws {}
+    func _renderScene(in context: SceneRenderingContext) async throws {}
 }

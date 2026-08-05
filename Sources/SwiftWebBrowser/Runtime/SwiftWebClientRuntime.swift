@@ -88,21 +88,6 @@ public struct SwiftWebWasmClientBundle: Sendable, Equatable {
     }
 }
 
-private struct SwiftWebClientRuntimeStorageKey: StorageKey {
-    typealias Value = SwiftWebClientRuntime
-}
-
-public extension ApplicationProtocol {
-    var swiftWebClientRuntime: SwiftWebClientRuntime {
-        get {
-            storage[SwiftWebClientRuntimeStorageKey.self] ?? .disabled
-        }
-        set {
-            storage[SwiftWebClientRuntimeStorageKey.self] = newValue
-        }
-    }
-}
-
 #if !hasFeature(Embedded)
 extension SwiftWebWasmClientRuntime: Codable {}
 #endif

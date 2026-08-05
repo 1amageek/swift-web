@@ -56,7 +56,7 @@ where ActorType.ActorSystem == WebActorSystem {
         ActorGroup(factory: factory, scope: scope, passivation: policy)
     }
 
-    func _makeScene(in context: _SceneContext) async throws {
+    func _renderScene(in context: SceneRenderingContext) async throws {
         if let scope, scope.isTransient, passivation != nil {
             throw ActorSceneConfigurationError.transientScopeCannotPassivate(
                 contract: WebActorSystem.contract(for: ActorType.self)
@@ -71,7 +71,7 @@ where ActorType.ActorSystem == WebActorSystem {
             _ = factory(actorSystem)
         }
         ActorInvocationEndpoint.registerIfNeeded(
-            on: context.application,
+            in: context.runtime,
             actorSystem: context.actorSystem
         )
         if let scope {

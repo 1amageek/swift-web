@@ -5,7 +5,7 @@ import Foundation
 #endif
 import HTTPTypes
 import Logging
-import SwiftWebCore
+@_spi(Hosting) import SwiftWebCore
 
 /// Builds the host-neutral request from an `HTTPAPIs` request and its
 /// collected body for the `swift-http-server` host.
@@ -15,7 +15,7 @@ enum HTTPServerRequestFactory {
         bodyBytes: [UInt8]?,
         parameters: PathParameters,
         session: HTTPServerSessionBox,
-        application: HTTPServerApplication,
+        runtimeContext: RequestRuntimeContext,
         logger: Logger
     ) -> Request {
         let rawPath = request.path ?? "/"
@@ -56,7 +56,7 @@ enum HTTPServerRequestFactory {
             session: session.webSession,
             hasSession: session.hasExistingSession,
             logger: logger,
-            application: application,
+            runtimeContext: runtimeContext,
             remoteAddress: nil,
             parameters: parameters
         )

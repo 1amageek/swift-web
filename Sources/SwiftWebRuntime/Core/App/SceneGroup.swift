@@ -1,14 +1,14 @@
 
 struct _AnyScene {
-    private let makeScene: (_SceneContext) async throws -> Void
+    private let makeScene: (SceneRenderingContext) async throws -> Void
 
     init<Content: Scene>(_ scene: Content) {
         self.makeScene = { context in
-            try await _SceneRenderer.make(scene, in: context)
+            try await SceneRenderer.render(scene, in: context)
         }
     }
 
-    func _makeScene(in context: _SceneContext) async throws {
+    func _renderScene(in context: SceneRenderingContext) async throws {
         try await makeScene(context)
     }
 }
@@ -32,9 +32,9 @@ public struct SceneGroup: Scene, _PrimitiveScene {
         self.init(groups)
     }
 
-    func _makeScene(in context: _SceneContext) async throws {
+    func _renderScene(in context: SceneRenderingContext) async throws {
         for scene in scenes {
-            try await scene._makeScene(in: context)
+            try await scene._renderScene(in: context)
         }
     }
 }

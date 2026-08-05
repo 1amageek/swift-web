@@ -8,12 +8,15 @@ import Testing
 struct SwiftWebServerActionTests {
     @Test
     func serverActionDescriptorInvokesTypedActorHandler() async throws {
-        try await withApplication { application in
-            let service = RuntimeCounterService()
-            try await PageOwnedServices.register(service, on: application)
-            let action = try application.swiftWebServerActions.action(
+        try await withRuntime { runtime in
+            let handler = RuntimeCounterHandler()
+            try await PageOwnedActions.register(
+                handler,
+                in: runtime.pageActionContext
+            )
+            let action = try runtime.swiftWebServerActions.action(
                 method: .post,
-                path: "increment"
+                path: "/increment"
             )
             let context = ActionInvocationContext(
                 requestPath: "/counter/increment",
@@ -31,22 +34,25 @@ struct SwiftWebServerActionTests {
                 return
             }
 
-            #expect(action.path == "increment")
+            #expect(action.path == "/increment")
             #expect(action.method == .post)
             #expect(scope == .page)
             #expect(status == .ok)
-            #expect(await service.currentValue() == 1)
+            #expect(await handler.currentValue() == 1)
         }
     }
 
     @Test
     func serverActionDescriptorInvokesTypedClassHandler() async throws {
-        try await withApplication { application in
+        try await withRuntime { runtime in
             let handler = RuntimeClassActionHandler()
-            try await PageOwnedServices.register(handler, on: application)
-            let action = try application.swiftWebServerActions.action(
+            try await PageOwnedActions.register(
+                handler,
+                in: runtime.pageActionContext
+            )
+            let action = try runtime.swiftWebServerActions.action(
                 method: .put,
-                path: "submit"
+                path: "/submit"
             )
             let context = ActionInvocationContext(
                 requestPath: "/class/submit",
@@ -64,7 +70,7 @@ struct SwiftWebServerActionTests {
                 return
             }
 
-            #expect(action.path == "submit")
+            #expect(action.path == "/submit")
             #expect(action.method == .put)
             #expect(location == "/class/saved")
             #expect(status == .seeOther)
@@ -153,14 +159,14 @@ struct SwiftWebServerActionTests {
         #expect(rendered.contains("<input type=\"hidden\" name=\"__swiftweb_method\" value=\"PUT\">"))
     }
 
-    private func withApplication(
-        _ body: (TestWebApplication) async throws -> Void
+    private func withRuntime(
+        _ body: (TestWebRuntime) async throws -> Void
     ) async throws {
-        try await body(TestWebApplication())
+        try await body(TestWebRuntime())
     }
 }
 
-private actor RuntimeCounterService {
+private actor RuntimeCounterHandler {
     private var value = 0
 
     func currentValue() -> Int {

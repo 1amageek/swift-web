@@ -11,7 +11,7 @@ tests, a production Standard WASM build, and the Chromium end-to-end path.
 |---|---|
 | Generic component storage | Storyboard containers, `Toggle`, and `DisclosureGroup` preserve their typed public builder APIs while storing executable content through SwiftHTML `ComponentContent`. |
 | Released dependency | SwiftHTML `0.14.0` supplies the matching fixed runtime storage for modifiers and `ForEach`; the root lock resolves its published tag commit. |
-| Concurrency | Application, service, and scene protocol metatypes satisfy the sendable-metatype contract used by Swift 6.4. |
+| Concurrency | App and scene protocol metatypes satisfy the sendable-metatype contract used by Swift 6.4. |
 | Release tooling | README, examples, CLI templates, Storyboard scaffolding, and browser E2E fixtures consistently target SwiftWeb `0.8.0` and SwiftHTML `0.14.0`. |
 
 ## Shared-state review matrix
