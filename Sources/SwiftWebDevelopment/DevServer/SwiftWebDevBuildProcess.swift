@@ -340,10 +340,12 @@ struct SwiftWebDevBuildProcess: Sendable {
       process,
       timeout: configuration.buildTimeout,
       terminationGracePeriod: configuration.processTerminationGracePeriod,
-      timeoutError: SwiftWebDevRuntimeError.buildTimedOut(
-        command: command,
-        timeout: configuration.buildTimeout
-      )
+      timeoutError: { timeout in
+        SwiftWebDevRuntimeError.buildTimedOut(
+          command: command,
+          timeout: timeout
+        )
+      }
     )
     outputLog.close()
     guard status == 0 else {

@@ -86,7 +86,7 @@ Build optimized browser runtimes and compression sidecars:
 sweb build \
   --wasm \
   --runtime standard \
-  --swift-sdk swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm \
+  --swift-sdk swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-23-a_wasm \
   -c release
 ```
 

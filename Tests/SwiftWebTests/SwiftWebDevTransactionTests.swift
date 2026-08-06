@@ -303,10 +303,12 @@ struct SwiftWebDevTransactionTests {
         process,
         timeout: 0.2,
         terminationGracePeriod: 0.05,
-        timeoutError: SwiftWebDevRuntimeError.buildTimedOut(
-          command: "termination-resistant fixture",
-          timeout: 0.2
-        )
+        timeoutError: { timeout in
+          SwiftWebDevRuntimeError.buildTimedOut(
+            command: "termination-resistant fixture",
+            timeout: timeout
+          )
+        }
       )
       Issue.record("Expected the process to time out")
     } catch let error as SwiftWebDevRuntimeError {
@@ -353,12 +355,14 @@ struct SwiftWebDevTransactionTests {
 
     let status = try await SwiftWebDevBoundedProcess.run(
       process,
-      timeout: 5,
+      timeout: nil,
       terminationGracePeriod: 0.05,
-      timeoutError: SwiftWebDevRuntimeError.buildTimedOut(
-        command: "successful descendant fixture",
-        timeout: 5
-      )
+      timeoutError: { timeout in
+        SwiftWebDevRuntimeError.buildTimedOut(
+          command: "successful descendant fixture",
+          timeout: timeout
+        )
+      }
     )
 
     #expect(status == 0)
@@ -395,10 +399,12 @@ struct SwiftWebDevTransactionTests {
         process,
         timeout: 5,
         terminationGracePeriod: 0.5,
-        timeoutError: SwiftWebDevRuntimeError.buildTimedOut(
-          command: "drain cancellation fixture",
-          timeout: 5
-        )
+        timeoutError: { timeout in
+          SwiftWebDevRuntimeError.buildTimedOut(
+            command: "drain cancellation fixture",
+            timeout: timeout
+          )
+        }
       )
     }
     defer { task.cancel() }
@@ -455,10 +461,12 @@ struct SwiftWebDevTransactionTests {
         process,
         timeout: 60,
         terminationGracePeriod: 0.05,
-        timeoutError: SwiftWebDevRuntimeError.buildTimedOut(
-          command: "cancelled termination-resistant fixture",
-          timeout: 60
-        )
+        timeoutError: { timeout in
+          SwiftWebDevRuntimeError.buildTimedOut(
+            command: "cancelled termination-resistant fixture",
+            timeout: timeout
+          )
+        }
       )
     }
     defer {
@@ -487,6 +495,80 @@ struct SwiftWebDevTransactionTests {
     let childPIDText = try #require(String(data: childPIDData, encoding: .utf8))
       .trimmingCharacters(in: .whitespacesAndNewlines)
     let childPID = try #require(Int32(childPIDText))
+    #expect(kill(childPID, 0) != 0)
+  }
+
+  @Test
+  func ownerExitTerminatesDescendantsInIndependentProcessGroups() async throws {
+    let childPIDURL = FileManager.default.temporaryDirectory
+      .appendingPathComponent("swiftweb-owned-tree-pid-\(UUID().uuidString)")
+    let owner = Process()
+    owner.executableURL = URL(fileURLWithPath: "/bin/sleep")
+    owner.arguments = ["30"]
+    try owner.run()
+    defer {
+      if owner.isRunning {
+        owner.terminate()
+      }
+      if FileManager.default.fileExists(atPath: childPIDURL.path) {
+        do {
+          try FileManager.default.removeItem(at: childPIDURL)
+        } catch {
+          Issue.record("Failed to clean owned-tree PID fixture: \(error)")
+        }
+      }
+    }
+
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: "/bin/sh")
+    process.arguments = [
+      "-c",
+      "set -m; (trap '' TERM; while :; do sleep 1; done) & echo $! > \"$1\"; wait",
+      "swiftweb-owned-tree-fixture",
+      childPIDURL.path,
+    ]
+    let command = Task {
+      try await SwiftWebDevBoundedProcess.run(
+        process,
+        timeout: 5,
+        terminationGracePeriod: 0.05,
+        ownerProcessIdentifier: owner.processIdentifier,
+        timeoutError: { timeout in
+          SwiftWebDevRuntimeError.buildTimedOut(
+            command: "owned process tree fixture",
+            timeout: timeout
+          )
+        }
+      )
+    }
+    defer { command.cancel() }
+
+    let clock = ContinuousClock()
+    let startupDeadline = clock.now.advanced(by: .seconds(1))
+    var childPIDData = Data()
+    while childPIDData.isEmpty, clock.now < startupDeadline {
+      if FileManager.default.fileExists(atPath: childPIDURL.path) {
+        childPIDData = try Data(contentsOf: childPIDURL)
+      }
+      guard childPIDData.isEmpty else {
+        break
+      }
+      try await Task.sleep(for: .milliseconds(10))
+    }
+    let childPIDText = try #require(String(data: childPIDData, encoding: .utf8))
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+    let childPID = try #require(Int32(childPIDText))
+    #expect(getpgid(childPID) != process.processIdentifier)
+
+    try await Task.sleep(for: .milliseconds(100))
+    owner.terminate()
+    let status = try await command.value
+    #expect(status != 0)
+
+    let terminationDeadline = clock.now.advanced(by: .seconds(1))
+    while kill(childPID, 0) == 0, clock.now < terminationDeadline {
+      try await Task.sleep(for: .milliseconds(10))
+    }
     #expect(kill(childPID, 0) != 0)
   }
 

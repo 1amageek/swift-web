@@ -144,7 +144,7 @@ struct StoryboardCommand {
             swiftSDK: swiftSDK,
             wasmRuntimeProfile: wasmRuntimeProfile
         )
-        try productionServer.run()
+        try await productionServer.run()
     }
 }
 

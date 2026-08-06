@@ -36,16 +36,16 @@ SwiftWeb pins the host toolchain and WASM SDK to the same snapshot.
 | Item | Required value |
 |---|---|
 | Swift tools version | `6.4` |
-| Swiftly selector | `6.4-snapshot-2026-07-17` |
-| Swift toolchain | `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a` |
-| Browser SDK | `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm` |
+| Swiftly selector | `6.4-snapshot-2026-07-23` |
+| Swift toolchain | `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-23-a` |
+| Browser SDK | `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-23-a_wasm` |
 | Package platform | macOS 26.2 or newer |
 
 For WASM commands, point SwiftWeb at the real toolchain directory. A `swiftly`
 shim does not contain the matching `wasm-ld` executable.
 
 ```bash
-export SWIFT_WEB_TOOLCHAIN_BIN="$HOME/Library/Developer/Toolchains/swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a.xctoolchain/usr/bin"
+export SWIFT_WEB_TOOLCHAIN_BIN="$HOME/Library/Developer/Toolchains/swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-23-a.xctoolchain/usr/bin"
 export SWIFT_WEB_HOST_SWIFT="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
 export SWIFT_WEB_WASM_SWIFT="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
 export SWIFT_WEB_WASM_TOOLCHAIN_BIN="$SWIFT_WEB_TOOLCHAIN_BIN"
@@ -58,12 +58,12 @@ See [Toolchain](docs/Toolchain.md) for the complete host and WASM setup.
 
 ## Quick Start
 
-Install the `sweb` executable from the 0.9.0 release with
+Install the `sweb` executable from the 0.10.0 release with
 [Mint](https://github.com/yonaskolb/Mint):
 
 ```bash
 export PATH="$SWIFT_WEB_TOOLCHAIN_BIN:$PATH"
-mint install 1amageek/swift-web@0.9.0 sweb
+mint install 1amageek/swift-web@0.10.0 sweb
 sweb --help
 ```
 
@@ -92,7 +92,7 @@ let package = Package(
         .library(name: "MyApp", targets: ["MyApp"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/1amageek/swift-web.git", from: "0.9.0"),
+        .package(url: "https://github.com/1amageek/swift-web.git", from: "0.10.0"),
         .package(url: "https://github.com/1amageek/swift-html.git", from: "0.15.0"),
     ],
     targets: [
@@ -292,17 +292,17 @@ and `Sources`; do not edit `.swiftweb/generated` directly.
 |---|---|
 | `sweb new <Name> [--output <directory>]` | Create a minimal application |
 | `sweb new <Name> --ai` | Create a chat-oriented SwiftWebUI application |
-| `sweb new <Name> --platform <preset-or-owner/repo>` | Apply a deployment adapter template |
-| `sweb prepare` | Refresh generated dev, server, and WASM packages |
+| `sweb new <Name> --adapter <owner/repository>` | Add an adapter package and configured production environment |
+| `sweb prepare [--environment <name>]` | Resolve adapters and materialize configured environments |
 | `sweb xcode` | Refresh and open `.swiftweb/generated/dev` |
-| `sweb dev [--host <host>] [--port <port>]` | Run the development reconciler and HMR server |
+| `sweb dev [--environment <name>] [--host <host>] [--port <port>]` | Build and run the selected environment locally |
 | `sweb storyboard` | Generate and run the SwiftWebUI component Storyboard |
-| `sweb build` | Build the generated production server |
-| `sweb build --wasm` | Build and process browser WASM artifacts |
+| `sweb build [--environment <name>]` | Build and verify the selected environment |
+| `sweb deploy [--environment <name>]` | Build, verify, and deploy the selected environment |
 | `sweb clean [--storyboard] [--swiftpm] [--all]` | Remove selected generated output |
 
-All package commands accept `--package-path <directory>`. Build, dev, and
-Storyboard commands also accept `--scratch-path <directory>`.
+All package commands accept `--package-path <directory>`. Lifecycle commands
+select their default environment from the source-controlled `sweb.json`.
 
 Run `sweb xcode` to use the generated `<AppName>-dev` scheme in Xcode:
 
@@ -311,37 +311,25 @@ cd MyApp
 sweb xcode
 ```
 
-## Production Builds
+## Production Builds and Deployment
 
-Build the generated server package:
+Build the complete selected environment. The Host adapter owns compilation and
+the Deployment adapter owns platform validation:
 
 ```bash
 cd MyApp
-sweb build
+sweb build --environment production
 ```
 
-Build the standard browser WASM runtime with the matching SDK:
+Deploy only after the same environment has passed prepare and build:
 
 ```bash
-sweb build \
-  --wasm \
-  --runtime standard \
-  --swift-sdk swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm \
-  -c release
+sweb deploy --environment production
 ```
 
-The production artifact processor strips non-runtime sections, runs
-`wasm-opt -Oz` when available, records a size report, and writes cached gzip
-and Brotli sidecars:
-
-```text
-.swiftweb/generated/.build/wasm/out/Products/Release-webassembly-wasm32/
-  <product>.wasm
-  <product>.wasm.size.json
-  <product>.wasm.compression.json
-  <product>.wasm.gz
-  <product>.wasm.br
-```
+`sweb deploy` reruns prepare and build before the deployment operation. Remote
+state changes remain isolated to the selected Deployment adapter's deploy
+tasks.
 
 The public browser profile is standard Swift WASM. Embedded Swift WASM is not
 a supported SwiftWeb browser runtime.
@@ -351,34 +339,36 @@ a supported SwiftWeb browser runtime.
 ```text
 MyApp/
 ├─ Package.swift
+├─ sweb.json                  source-controlled environments
 ├─ Sources/MyApp/
 │  ├─ App.swift
 │  ├─ Routes/
 │  └─ Components/
 └─ .swiftweb/                 generated; do not edit
-   ├─ generated/dev/
-   ├─ generated/server/
-   └─ generated/wasm/
+   └─ generated/
+      ├─ environments/<name>/workspace/
+      ├─ dev/
+      ├─ server/
+      └─ wasm/
 ```
 
 SwiftWeb itself is split into runtime, browser, UI, development, and host
 targets. The [documentation index](docs/README.md) maps each current contract
 to its owning area.
 
-## Platform Adapters
+## Host and Deployment Adapters
 
-Deployment integrations live outside the core package. `sweb new` can apply a
-preset or GitHub-backed adapter template and records its source in
-`.swiftweb/platform.json`:
+Deployment integrations live outside the core package. `sweb new` adds the
+selected adapter as a SwiftPM dependency and writes its environment selection
+to `sweb.json`:
 
 ```bash
-sweb new Chat --ai --platform cloudflare --output .
-sweb new App --platform owner/repository --output .
-sweb new App --platform owner/repository/template --output .
+sweb new Chat --ai --adapter owner/repository --output .
+sweb new App --adapter owner/repository --output .
 ```
 
 The adapter repository contract is documented in
-[Platform Adapter Template Contract](docs/PlatformAdapterTemplateContract.md).
+[Host and Deployment Adapter Contract](docs/AdapterContract.md).
 
 ## Examples
 

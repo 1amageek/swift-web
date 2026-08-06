@@ -6,7 +6,7 @@ struct NewCommand {
     let outputDirectory: URL
     let force: Bool
     let template: TemplateKind
-    let platform: PlatformAdapterReference?
+    let adapter: AdapterPackageReference?
 
     static func parse(_ parser: ArgumentParser) throws -> NewCommand {
         var parser = parser
@@ -17,7 +17,7 @@ struct NewCommand {
         var outputDirectory = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
         var force = false
         var template = TemplateKind.minimal
-        var platform: PlatformAdapterReference?
+        var adapter: AdapterPackageReference?
 
         while let option = parser.next() {
             switch option {
@@ -27,8 +27,8 @@ struct NewCommand {
                 force = true
             case "--ai":
                 template = .aiChat
-            case "--platform":
-                platform = try PlatformAdapterReference.parse(try parser.requireValue(after: option))
+            case "--adapter":
+                adapter = try AdapterPackageReference.parse(try parser.requireValue(after: option))
             default:
                 throw CLIError(message: "unknown option: \(option)", exitCode: 64)
             }
@@ -39,11 +39,11 @@ struct NewCommand {
             outputDirectory: outputDirectory,
             force: force,
             template: template,
-            platform: platform
+            adapter: adapter
         )
     }
 
-    func run() throws {
+    func run() async throws {
         let projectDirectory = outputDirectory
             .appendingPathComponent(appName, isDirectory: true)
             .standardizedFileURL
@@ -51,7 +51,7 @@ struct NewCommand {
             appName: appName,
             projectDirectory: projectDirectory,
             template: template,
-            platform: platform
+            adapter: adapter
         )
 
         progress("Scaffolding \(appName) at \(projectDirectory.path)")
@@ -59,15 +59,15 @@ struct NewCommand {
         for file in project.files {
             try write(file, to: projectDirectory)
         }
-        try PlatformAdapterTemplateMaterializer().materialize(project: project)
 
-        progress("Resolving dependencies and generating packages (first run downloads dependencies, this can take a minute)")
-        try PrepareCommand(
+        progress("Resolving dependencies and materializing environments (first run downloads dependencies, this can take a minute)")
+        try await SwiftWebProjectLifecycle(
             packageDirectory: projectDirectory,
-            product: "app-server",
-            printsSummary: false
+            environmentOverride: nil,
+            hostOverride: nil,
+            portOverride: nil
         )
-        .run()
+        .run(.prepare)
 
         print("Created \(project.directoryName) at \(projectDirectory.path)")
     }
@@ -104,96 +104,44 @@ struct NewCommand {
 enum TemplateKind: Equatable {
     case minimal
     case aiChat
-
-    var manifestValue: String {
-        switch self {
-        case .minimal:
-            "minimal"
-        case .aiChat:
-            "ai-chat"
-        }
-    }
-
-    var platformTemplateName: String? {
-        switch self {
-        case .minimal:
-            nil
-        case .aiChat:
-            "chat"
-        }
-    }
 }
 
-struct PlatformAdapterReference: Equatable {
+struct AdapterPackageReference: Equatable {
     let input: String
     let repositorySlug: String
-    let preset: String?
-    let templatePath: String?
 
     var repositoryURL: String {
         "https://github.com/\(repositorySlug).git"
     }
 
-    static func parse(_ value: String) throws -> PlatformAdapterReference {
+    var adapterID: String {
+        repositorySlug.split(separator: "/").last.map(String.init) ?? repositorySlug
+    }
+
+    var packageDependencyDeclaration: String {
+        return #".package(url: "\#(repositoryURL)", branch: "main")"#
+    }
+
+    static func parse(_ value: String) throws -> AdapterPackageReference {
         let normalized = value.trimmingCharacters(in: Foundation.CharacterSet.whitespacesAndNewlines)
         guard !normalized.isEmpty else {
-            throw CLIError(message: "missing value for --platform", exitCode: 64)
-        }
-
-        if let preset = Self.presets[normalized] {
-            return PlatformAdapterReference(
-                input: normalized,
-                repositorySlug: preset,
-                preset: normalized,
-                templatePath: nil
-            )
-        }
-
-        if let presetReference = presetReference(from: normalized) {
-            return presetReference
+            throw CLIError(message: "missing value for --adapter", exitCode: 64)
         }
 
         if let repositorySlug = githubSlug(from: normalized) {
-            return PlatformAdapterReference(
+            return AdapterPackageReference(
                 input: normalized,
-                repositorySlug: repositorySlug.slug,
-                preset: nil,
-                templatePath: repositorySlug.templatePath
+                repositorySlug: repositorySlug
             )
         }
 
         throw CLIError(
-            message: "invalid value for --platform: \(value) (expected preset or GitHub owner/repo[/template])",
+            message: "invalid value for --adapter: \(value) (expected GitHub owner/repository)",
             exitCode: 64
         )
     }
 
-    private static let presets: [String: String] = [
-        "cloudflare": "1amageek/swift-web-cloudflare",
-        "cloud-run": "1amageek/swift-web-cloud-run",
-        "cloudrun": "1amageek/swift-web-cloud-run",
-    ]
-
-    private static func presetReference(from value: String) -> PlatformAdapterReference? {
-        let parts = value.split(separator: "/", omittingEmptySubsequences: true).map(String.init)
-        guard parts.count > 1, let repositorySlug = presets[parts[0]] else {
-            return nil
-        }
-
-        let templateParts = parts.dropFirst()
-        guard Self.isValidPathParts(templateParts) else {
-            return nil
-        }
-
-        return PlatformAdapterReference(
-            input: value,
-            repositorySlug: repositorySlug,
-            preset: parts[0],
-            templatePath: templateParts.joined(separator: "/")
-        )
-    }
-
-    private static func githubSlug(from value: String) -> (slug: String, templatePath: String?)? {
+    private static func githubSlug(from value: String) -> String? {
         var candidate = value
 
         if candidate.hasPrefix("github:") {
@@ -209,17 +157,14 @@ struct PlatformAdapterReference: Equatable {
         }
 
         let parts = candidate.split(separator: "/", omittingEmptySubsequences: true).map(String.init)
-        guard parts.count >= 2 else {
+        guard parts.count == 2 else {
             return nil
         }
         guard Self.isValidPathParts(parts) else {
             return nil
         }
 
-        let slug = parts.prefix(2).joined(separator: "/")
-        let templateParts = parts.dropFirst(2)
-        let templatePath = templateParts.isEmpty ? nil : templateParts.joined(separator: "/")
-        return (slug, templatePath)
+        return (parts.joined(separator: "/"))
     }
 
     private static func isValidPathParts<Parts: Collection>(_ parts: Parts) -> Bool
@@ -248,18 +193,18 @@ struct TemplateProject {
     let appName: String
     let projectDirectory: URL
     let template: TemplateKind
-    let platform: PlatformAdapterReference?
+    let adapter: AdapterPackageReference?
 
     init(
         appName: String,
         projectDirectory: URL,
         template: TemplateKind,
-        platform: PlatformAdapterReference? = nil
+        adapter: AdapterPackageReference? = nil
     ) {
         self.appName = appName
         self.projectDirectory = projectDirectory
         self.template = template
-        self.platform = platform
+        self.adapter = adapter
     }
 
     var directoryName: String {
@@ -273,9 +218,7 @@ struct TemplateProject {
             TemplateFile(path: "Sources/\(appTypeName)/App.swift", contents: appSwift),
             TemplateFile(path: "Sources/\(appTypeName)/Routes/\(pageFileName)", contents: pageSwift),
         ]
-        if let platform {
-            files.append(TemplateFile(path: ".swiftweb/platform.json", contents: platformManifest(platform)))
-        }
+        files.append(TemplateFile(path: "sweb.json", contents: projectManifest))
         if template == .aiChat {
             files.append(
                 TemplateFile(
@@ -335,6 +278,7 @@ struct TemplateProject {
             dependencies: [
                 \(SwiftWebPackageReference.packageDependencyDeclaration),
                 .package(url: "https://github.com/1amageek/swift-html.git", from: "0.15.0"),
+        \(adapterPackageDependencyLine)
             ],
             targets: [
                 .target(
@@ -378,12 +322,12 @@ struct TemplateProject {
 
         \(templateSummary)
 
-        \(platformSummary)
+        \(adapterSummary)
 
-        Platform adapters are resolved by `sweb` through `.swiftweb/platform.json`.
-        The app package itself does not depend on deployment adapter repositories.
+        Host and deployment adapters are resolved from `Package.swift` dependencies
+        through the source-controlled `sweb.json` environment configuration.
 
-        \(platformUsage)
+        \(adapterUsage)
 
 
         Run from Xcode:
@@ -398,7 +342,8 @@ struct TemplateProject {
         sweb build
         ```
 
-        `Package.swift` declares only the app library. `sweb new` has already generated `.swiftweb/generated/server`, `.swiftweb/generated/dev`, and `.swiftweb/generated/wasm` for launchers, server execution, and WASM runtime builds. Run `sweb prepare` only when you want to refresh generated packages without starting the server.
+        `Package.swift` declares the app library and adapter package sources. Generated
+        launchers and deployment workspaces remain under `.swiftweb/generated`.
         """
     }
 
@@ -414,68 +359,90 @@ struct TemplateProject {
         }
     }
 
-    private var platformSummary: String {
-        guard let platform else {
-            return "No deployment platform adapter is applied yet."
+    private var adapterSummary: String {
+        guard let adapter else {
+            return "No additional Host or Deployment adapter is applied yet."
         }
 
         return """
-        Deployment platform adapter:
+        Adapter package:
 
         | Field | Value |
         |---|---|
-        | Reference | `\(platform.input)` |
-        | Repository | `\(platform.repositorySlug)` |
-        | URL | `\(platform.repositoryURL)` |
-        | Template | `\(platform.templatePath ?? template.platformTemplateName ?? "new")` |
+        | Reference | `\(adapter.input)` |
+        | Repository | `\(adapter.repositorySlug)` |
+        | URL | `\(adapter.repositoryURL)` |
+        | Adapter | `\(adapter.adapterID)` |
         """
     }
 
-    private var platformUsage: String {
-        guard platform != nil else {
+    private var adapterUsage: String {
+        guard adapter != nil else {
             return """
-            Pass `--platform <preset-or-github-repo>` to apply a deployment adapter when creating a project.
+            Pass `--adapter <github-owner/repository>` to add a Host or Deployment adapter package when creating a project.
             """
         }
 
         return """
-        `sweb` resolves this adapter as a GitHub-backed platform template, copies the selected deployment files into this package, and records the source in `.swiftweb/platform.json`.
+        `sweb` resolves the adapter from the SwiftPM package graph. No adapter checkout
+        or adapter-specific installer command is required.
         """
     }
 
-    private func platformManifest(_ platform: PlatformAdapterReference) -> String {
-        """
+    private var projectManifest: String {
+        let productionEnvironment: String
+        let defaults: String
+        if let adapter {
+            productionEnvironment = """
+                ,
+                    "production": {
+                      "host": "\(adapter.adapterID.jsonEscaped)",
+                      "deployment": "\(adapter.adapterID.jsonEscaped)",
+                      "overlays": [],
+                      "operations": {}
+                    }
+            """
+            defaults = """
+                "build": "production",
+                    "dev": "local",
+                    "deploy": "production"
+            """
+        } else {
+            productionEnvironment = ""
+            defaults = """
+                "build": "local",
+                    "dev": "local",
+                    "deploy": null
+            """
+        }
+        return """
         {
-          "schemaVersion": 1,
-          "adapter": {
-        \(platformAdapterManifestFields(platform))
+          "schemaVersion": 2,
+          "application": {
+            "product": "\(appTypeName.jsonEscaped)",
+            "module": "\(appTypeName.jsonEscaped)",
+            "type": "\(appTypeName.jsonEscaped)"
           },
-          "appTemplate": "\(template.manifestValue)",
-          "app": {
-            "name": "\(appName.jsonEscaped)",
-            "moduleName": "\(appTypeName.jsonEscaped)",
-            "kebabName": "\(kebabName.jsonEscaped)"
+          "environments": {
+            "local": {
+              "host": "swift-web/http-server",
+              "deployment": "swift-web/local",
+              "overlays": [],
+              "operations": {}
+            }\(productionEnvironment)
+          },
+          "defaults": {
+            \(defaults)
           }
         }
         """
     }
 
-    private func platformAdapterManifestFields(_ platform: PlatformAdapterReference) -> String {
-        var fields = [
-            #""input": "\#(platform.input.jsonEscaped)""#,
-            #""source": "github""#,
-            #""repository": "\#(platform.repositorySlug.jsonEscaped)""#,
-            #""url": "\#(platform.repositoryURL.jsonEscaped)""#,
-        ]
-        if let preset = platform.preset {
-            fields.append(#""preset": "\#(preset.jsonEscaped)""#)
+    private var adapterPackageDependencyLine: String {
+        guard let adapter else {
+            return ""
         }
-        if let templatePath = platform.templatePath {
-            fields.append(#""templatePath": "\#(templatePath.jsonEscaped)""#)
-        }
-        return fields
-            .map { "    \($0)" }
-            .joined(separator: ",\n")
+        return "            \(adapter.packageDependencyDeclaration),"
     }
 
     private var appSwift: String {

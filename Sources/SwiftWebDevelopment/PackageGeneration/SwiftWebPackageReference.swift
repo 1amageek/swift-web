@@ -7,7 +7,7 @@ public enum SwiftWebPackageReference {
   public static let packageName = "swift-web"
   public static let repositoryURL = "https://github.com/1amageek/swift-web.git"
   public static let branch = "main"
-  public static let minimumVersion = "0.9.0"
+  public static let minimumVersion = "0.10.0"
 
   public static var packageDependencyDeclaration: String {
     if let localPath = ProcessInfo.processInfo.environment[localPathEnvironmentKey],

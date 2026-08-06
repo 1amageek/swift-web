@@ -49,10 +49,12 @@ package struct SwiftWebDevSwiftCommandRunner: SwiftWebDevBuildCommandRunning {
             process,
             timeout: configuration.buildTimeout,
             terminationGracePeriod: configuration.processTerminationGracePeriod,
-            timeoutError: SwiftWebDevRuntimeError.buildTimedOut(
-                command: command,
-                timeout: configuration.buildTimeout
-            )
+            timeoutError: { timeout in
+                SwiftWebDevRuntimeError.buildTimedOut(
+                    command: command,
+                    timeout: timeout
+                )
+            }
         )
         try Task.checkCancellation()
         guard status == 0 else {
@@ -97,10 +99,12 @@ package struct SwiftWebDevSwiftCommandRunner: SwiftWebDevBuildCommandRunning {
             process,
             timeout: configuration.buildTimeout,
             terminationGracePeriod: configuration.processTerminationGracePeriod,
-            timeoutError: SwiftWebDevRuntimeError.buildTimedOut(
-                command: command,
-                timeout: configuration.buildTimeout
-            )
+            timeoutError: { timeout in
+                SwiftWebDevRuntimeError.buildTimedOut(
+                    command: command,
+                    timeout: timeout
+                )
+            }
         )
         let data = try await outputTask.value
         try Task.checkCancellation()

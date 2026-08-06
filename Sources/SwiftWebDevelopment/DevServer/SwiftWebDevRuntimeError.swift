@@ -22,6 +22,8 @@ public enum SwiftWebDevRuntimeError: Error, Sendable, CustomStringConvertible {
     case artifactSnapshotFailed(source: String, destination: String, reason: String)
     case signalHandlerInstallationFailed(code: Int32)
     case processGroupIsolationFailed(processIdentifier: Int32, actualProcessGroup: Int32)
+    case childProcessLifetimeMonitorLaunchFailed(processIdentifier: Int32, reason: String)
+    case processTreeTerminationTimedOut(processIdentifier: Int32)
     case processGroupTerminationTimedOut(processGroupIdentifier: Int32)
 
     public var description: String {
@@ -89,6 +91,10 @@ public enum SwiftWebDevRuntimeError: Error, Sendable, CustomStringConvertible {
             return "dev termination signal handler installation failed with errno \(code)"
         case .processGroupIsolationFailed(let processIdentifier, let actualProcessGroup):
             return "dev process \(processIdentifier) was not isolated as its own process group (actual pgid \(actualProcessGroup))"
+        case .childProcessLifetimeMonitorLaunchFailed(let processIdentifier, let reason):
+            return "dev process \(processIdentifier) lifetime monitor failed to start: \(reason)"
+        case .processTreeTerminationTimedOut(let processIdentifier):
+            return "dev process tree rooted at \(processIdentifier) did not terminate after SIGKILL"
         case .processGroupTerminationTimedOut(let processGroupIdentifier):
             return "dev process group \(processGroupIdentifier) did not terminate after SIGKILL"
         }
@@ -106,6 +112,7 @@ public enum SwiftWebDevRuntimeError: Error, Sendable, CustomStringConvertible {
              .buildTimedOut, .clientRuntimeTransactionFailed,
              .workerExitedDuringStartup, .artifactSnapshotFailed,
              .signalHandlerInstallationFailed, .processGroupIsolationFailed,
+             .childProcessLifetimeMonitorLaunchFailed, .processTreeTerminationTimedOut,
              .processGroupTerminationTimedOut:
             return 70
         }

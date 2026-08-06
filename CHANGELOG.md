@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.10.0 - 2026-08-06
+
+| Area | Change |
+|---|---|
+| Lifecycle | Makes `sweb prepare`, `build`, `dev`, and `deploy` operate on source-controlled environments. |
+| Adapters | Discovers Host and Deployment components from direct SwiftPM dependencies through `Adapter/sweb.json`. |
+| Artifacts | Validates Host output and Deployment input compatibility before materialization or execution. |
+| Execution | Composes adapter and application tasks into a dependency-checked lifecycle plan. |
+| Hosted builds | Replaces the Durable-Object-specific manifest switch with `SWIFTWEB_HOSTED_APPLICATION` and excludes host-only logging dependencies from Embedded graphs. |
+| Project creation | Replaces provider presets with generic `--adapter <owner/repository>` package selection. |
+| Toolchain | Aligns CLI, tests, E2E defaults, and documentation on the 2026-07-23 Swift 6.4 snapshot and matching SDKs. |
+| Breaking cleanup | Removes template cloning, `.swiftweb/platform.json`, platform subcommands, and the old standalone build/dev parsers. |
+
 ## 0.9.0 - 2026-08-06
 
 | Area | Change |

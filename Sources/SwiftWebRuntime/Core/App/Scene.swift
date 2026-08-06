@@ -7,8 +7,8 @@ public protocol Scene: SendableMetatype {
     @SceneBuilder
     var body: Self.Body { get }
 
-    /// Witness-based rendering hook used by the framework renderer.
-    @_spi(Rendering)
+    /// Framework rendering witness. Application scenes receive the default
+    /// implementation and only declare their composed ``body``.
     static func _renderScene(_ scene: Self, in context: SceneRenderingContext) async throws
 }
 
@@ -31,14 +31,12 @@ extension Scene {
     /// requirement dispatches on the concrete type at compile time, replacing
     /// the existential downcast Embedded Swift cannot perform. Composite
     /// scenes recurse into `body`.
-    @_spi(Rendering)
     public static func _renderScene(_ scene: Self, in context: SceneRenderingContext) async throws {
         try await SceneRenderer.render(scene.body, in: context)
     }
 }
 
 extension _PrimitiveScene {
-    @_spi(Rendering)
     public static func _renderScene(_ scene: Self, in context: SceneRenderingContext) async throws {
         try await scene._renderScene(in: context)
     }
@@ -53,7 +51,6 @@ package enum SceneRenderer {
     }
 }
 
-@_spi(Rendering)
 public struct SceneRenderingContext {
     package let runtime: AppRuntime
     package let routes: any RoutesBuilder

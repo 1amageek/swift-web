@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 2,
+  "application": {
+    "product": "CounterApp",
+    "module": "CounterApp",
+    "type": "CounterApp"
+  },
+  "environments": {
+    "local": {
+      "host": "swift-web/http-server",
+      "deployment": "swift-web/local"
+    }
+  },
+  "defaults": {
+    "build": "local",
+    "dev": "local",
+    "deploy": null
+  }
+}

@@ -11,7 +11,7 @@ struct StoryboardProductionServer {
     let swiftSDK: String?
     let wasmRuntimeProfile: SwiftWebWasmRuntimeProfile
 
-    func run() throws {
+    func run() async throws {
         let scratchRoot = resolvedScratchRoot
         let wasmScratchDirectory = scratchRoot
             .appendingPathComponent("wasm", isDirectory: true)
@@ -29,7 +29,7 @@ struct StoryboardProductionServer {
             """
         )
 
-        try BuildCommand(
+        try await SwiftWebGeneratedPackageBuilder(
             packageDirectory: packageDirectory,
             scratchDirectory: wasmScratchDirectory,
             product: nil,
@@ -40,7 +40,7 @@ struct StoryboardProductionServer {
         )
         .run()
 
-        try BuildCommand(
+        try await SwiftWebGeneratedPackageBuilder(
             packageDirectory: packageDirectory,
             scratchDirectory: serverScratchDirectory,
             product: nil,
@@ -56,9 +56,9 @@ struct StoryboardProductionServer {
             return
         }
 
-        let executableURL = try serverExecutableURL(scratchDirectory: serverScratchDirectory)
+        let executableURL = try await serverExecutableURL(scratchDirectory: serverScratchDirectory)
         print("SwiftWeb storyboard production starting at http://\(host):\(port)")
-        try runServer(executableURL: executableURL, wasmScratchDirectory: wasmScratchDirectory)
+        try await runServer(executableURL: executableURL, wasmScratchDirectory: wasmScratchDirectory)
     }
 
     private var resolvedScratchRoot: URL {
@@ -85,7 +85,7 @@ struct StoryboardProductionServer {
             .standardizedFileURL
     }
 
-    private func serverExecutableURL(scratchDirectory: URL) throws -> URL {
+    private func serverExecutableURL(scratchDirectory: URL) async throws -> URL {
         let arguments = [
             "build",
             "--package-path",
@@ -98,7 +98,7 @@ struct StoryboardProductionServer {
             configuration,
             "--show-bin-path",
         ]
-        let binPath = try capturedProcessOutput(arguments: arguments)
+        let binPath = try await capturedProcessOutput(arguments: arguments)
             .trimmingCharacters(in: Foundation.CharacterSet.whitespacesAndNewlines)
         guard !binPath.isEmpty else {
             throw CLIError(message: "swift build --show-bin-path returned an empty path", exitCode: 70)
@@ -115,7 +115,7 @@ struct StoryboardProductionServer {
         return executableURL
     }
 
-    private func capturedProcessOutput(arguments: [String]) throws -> String {
+    private func capturedProcessOutput(arguments: [String]) async throws -> String {
         let invocation = SwiftBuildInvocation.host()
         let launchedArguments = invocation.arguments(for: arguments)
         let process = Process()
@@ -128,25 +128,29 @@ struct StoryboardProductionServer {
         process.standardOutput = outputPipe
         process.standardError = errorPipe
 
-        try process.run()
-        process.waitUntilExit()
-
-        let output = outputPipe.fileHandleForReading.readDataToEndOfFile()
-        let errorOutput = errorPipe.fileHandleForReading.readDataToEndOfFile()
-        guard process.terminationStatus == 0 else {
+        let outputTask = Task.detached {
+            try outputPipe.fileHandleForReading.readToEnd() ?? Data()
+        }
+        let errorTask = Task.detached {
+            try errorPipe.fileHandleForReading.readToEnd() ?? Data()
+        }
+        let status = try await SwiftWebLifecycleCommandRunner().run(process)
+        let output = try await outputTask.value
+        let errorOutput = try await errorTask.value
+        guard status == 0 else {
             let stderr = String(decoding: errorOutput, as: UTF8.self)
             if !stderr.isEmpty {
                 FileHandle.standardError.write(Data(stderr.utf8))
             }
             throw CLIError(
-                message: "process failed with status \(process.terminationStatus): \(([process.executableURL?.path ?? "env"] + launchedArguments).joined(separator: " "))",
+                message: "process failed with status \(status): \(([process.executableURL?.path ?? "env"] + launchedArguments).joined(separator: " "))",
                 exitCode: 70
             )
         }
         return String(decoding: output, as: UTF8.self)
     }
 
-    private func runServer(executableURL: URL, wasmScratchDirectory: URL) throws {
+    private func runServer(executableURL: URL, wasmScratchDirectory: URL) async throws {
         let process = Process()
         process.executableURL = executableURL
         process.arguments = [
@@ -164,11 +168,10 @@ struct StoryboardProductionServer {
         process.standardOutput = FileHandle.standardOutput
         process.standardError = FileHandle.standardError
 
-        try process.run()
-        process.waitUntilExit()
-        guard process.terminationStatus == 0 else {
+        let status = try await SwiftWebLifecycleCommandRunner().run(process)
+        guard status == 0 else {
             throw CLIError(
-                message: "production storyboard server exited with status \(process.terminationStatus)",
+                message: "production storyboard server exited with status \(status)",
                 exitCode: 70
             )
         }

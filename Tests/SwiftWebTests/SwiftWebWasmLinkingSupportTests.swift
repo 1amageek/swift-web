@@ -6,7 +6,7 @@ struct SwiftWebWasmLinkingSupportTests {
     @Test
     func recommendsCoalescedFallbackForCurrentWasmSDK() {
         let support = SwiftWebWasmLinkingSupport.evaluate(
-            sdkName: "swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm",
+            sdkName: "swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-23-a_wasm",
             environment: [:]
         )
 
@@ -17,7 +17,7 @@ struct SwiftWebWasmLinkingSupportTests {
     @Test
     func allowsExplicitThinModuleOverride() {
         let support = SwiftWebWasmLinkingSupport.evaluate(
-            sdkName: "swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm",
+            sdkName: "swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-23-a_wasm",
             environment: ["SWIFTWEB_WASM_THIN_COMPONENT_MODULES": "1"]
         )
 

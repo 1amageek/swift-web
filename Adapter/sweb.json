@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 2,
+  "kind": "adapter",
+  "id": "swift-web",
+  "defaults": {
+    "host": "http-server",
+    "deployment": "local"
+  },
+  "hosts": {
+    "http-server": {
+      "produces": [
+        "swiftweb.server-executable"
+      ],
+      "templates": [],
+      "variables": {},
+      "operations": {
+        "prepare": [
+          {
+            "id": "swift-web.prepare-application",
+            "kind": "prepareApplication",
+            "stage": null,
+            "executable": null,
+            "arguments": [],
+            "workingDirectory": null,
+            "environment": {},
+            "dependsOn": [],
+            "inputs": [],
+            "outputs": []
+          }
+        ],
+        "build": [
+          {
+            "id": "swift-web.build-server",
+            "kind": "buildServer"
+          },
+          {
+            "id": "swift-web.build-browser-runtime",
+            "kind": "buildBrowserRuntime",
+            "dependsOn": ["swift-web.build-server"]
+          }
+        ],
+        "dev": [
+          {
+            "id": "swift-web.run-development-server",
+            "kind": "runDevelopmentServer",
+            "stage": null,
+            "executable": null,
+            "arguments": [],
+            "workingDirectory": null,
+            "environment": {},
+            "dependsOn": [],
+            "inputs": [],
+            "outputs": []
+          }
+        ]
+      }
+    }
+  },
+  "deployments": {
+    "local": {
+      "accepts": [
+        "swiftweb.server-executable"
+      ],
+      "produces": [
+        "swiftweb.local-runtime"
+      ],
+      "templates": [],
+      "variables": {},
+      "operations": {}
+    }
+  }
+}

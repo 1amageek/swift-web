@@ -18,7 +18,7 @@ Use the pinned Swift 6.4 snapshot from the
 [toolchain contract](../../docs/Toolchain.md):
 
 ```bash
-export SWIFT_WEB_TOOLCHAIN_BIN="$HOME/Library/Developer/Toolchains/swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a.xctoolchain/usr/bin"
+export SWIFT_WEB_TOOLCHAIN_BIN="$HOME/Library/Developer/Toolchains/swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-23-a.xctoolchain/usr/bin"
 export SWIFT_WEB_HOST_SWIFT="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
 ```
 
@@ -40,5 +40,5 @@ http://127.0.0.1:3000/
 "$SWIFT_WEB_HOST_SWIFT" build
 ```
 
-HelloWorld has no client island, so `sweb build --wasm` correctly reports that
-no generated WASM runtime product exists.
+HelloWorld has no client island, so its lifecycle builds the server and skips
+the optional browser WASM runtime.

@@ -2,7 +2,7 @@ import Foundation
 
 public struct SwiftWebWasmToolchain: Sendable {
     public static let defaultSwiftSDKName =
-        "swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm"
+        "swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-23-a_wasm"
 
     public let sdkName: String
     public let swiftExecutableURL: URL

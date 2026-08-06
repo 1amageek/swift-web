@@ -3,7 +3,7 @@ set -euo pipefail
 
 script_directory="$(cd "$(dirname "$0")" && pwd)"
 package_root="$(cd "$script_directory/.." && pwd)"
-swift_executable="${SWIFT_WEB_HOST_SWIFT:-/Users/1amageek/Library/Developer/Toolchains/swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a.xctoolchain/usr/bin/swift}"
+swift_executable="${SWIFT_WEB_HOST_SWIFT:-/Users/1amageek/Library/Developer/Toolchains/swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-23-a.xctoolchain/usr/bin/swift}"
 toolchain_identifier="${SWIFT_WEB_XCODE_TOOLCHAIN:-org.swift.64202607171a}"
 xcode_jobs="${SWIFT_WEB_XCODE_JOBS:-2}"
 swiftpm_jobs="${SWIFTPM_MAX_CONCURRENT_OPERATIONS:-2}"

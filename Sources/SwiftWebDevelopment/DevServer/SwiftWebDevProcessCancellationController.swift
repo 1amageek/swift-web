@@ -1,43 +1,80 @@
 import Foundation
 import Synchronization
 
-/// Bridges structured task cancellation to a Foundation child process.
+/// Bridges structured task cancellation to a complete Foundation child tree.
 package final class SwiftWebDevProcessCancellationController: Sendable {
     private struct State {
         var process: Process?
         var processGroupIdentifier: Int32?
+        var childProcessLifetime: SwiftWebChildProcessLifetime?
+        var isCancellationRequested = false
     }
 
     private let state = Mutex(State())
 
     package init() {}
 
-    package func install(_ process: Process, processGroupIdentifier: Int32) {
-        state.withLock { state in
+    package func install(
+        _ process: Process,
+        processGroupIdentifier: Int32,
+        childProcessLifetime: SwiftWebChildProcessLifetime
+    ) {
+        let shouldTerminate = state.withLock { state in
             state.process = process
             state.processGroupIdentifier = processGroupIdentifier
+            state.childProcessLifetime = childProcessLifetime
+            return state.isCancellationRequested
+        }
+        if shouldTerminate {
+            childProcessLifetime.requestTermination()
         }
     }
 
     package func clear() {
-        state.withLock { state in
+        let childProcessLifetime = state.withLock { state in
+            let lifetime = state.childProcessLifetime
             state.process = nil
             state.processGroupIdentifier = nil
+            state.childProcessLifetime = nil
+            return lifetime
         }
+        childProcessLifetime?.clear()
     }
 
     package func cancel() {
-        guard let processGroupIdentifier = state.withLock({ $0.processGroupIdentifier }) else {
-            return
+        let snapshot = state.withLock { state in
+            state.isCancellationRequested = true
+            return (state.processGroupIdentifier, state.childProcessLifetime)
         }
-        signalProcessGroup(processGroupIdentifier, signal: SIGTERM)
+        if let childProcessLifetime = snapshot.1 {
+            childProcessLifetime.requestTermination()
+        } else if let processGroupIdentifier = snapshot.0 {
+            signalProcessGroup(processGroupIdentifier, signal: SIGTERM)
+        }
     }
 
     package func cancelAndWait(gracePeriod: TimeInterval) async throws {
-        guard let processGroupIdentifier = state.withLock({ $0.processGroupIdentifier }) else {
+        let snapshot = state.withLock {
+            ($0.processGroupIdentifier, $0.childProcessLifetime)
+        }
+        guard let processGroupIdentifier = snapshot.0 else {
             return
         }
-        signalProcessGroup(processGroupIdentifier, signal: SIGTERM)
+
+        if let childProcessLifetime = snapshot.1 {
+            childProcessLifetime.requestTermination()
+            guard await childProcessLifetime.waitUntilTerminated(
+                timeout: max(1, gracePeriod + 1)
+            ) else {
+                signalProcessGroup(processGroupIdentifier, signal: SIGKILL)
+                throw SwiftWebDevRuntimeError.processTreeTerminationTimedOut(
+                    processIdentifier: processGroupIdentifier
+                )
+            }
+        } else {
+            signalProcessGroup(processGroupIdentifier, signal: SIGTERM)
+        }
+
         if await Self.waitForProcessGroupExit(
             processGroupIdentifier,
             timeout: gracePeriod

@@ -3,11 +3,12 @@ import Foundation
 package enum SwiftWebDevBoundedProcess {
     package static func run(
         _ process: Process,
-        timeout: TimeInterval,
+        timeout: TimeInterval?,
         terminationGracePeriod: TimeInterval,
-        timeoutError: @autoclosure @escaping @Sendable () -> any Error
+        ownerProcessIdentifier: Int32 = ProcessInfo.processInfo.processIdentifier,
+        timeoutError: @escaping @Sendable (TimeInterval) -> any Error
     ) async throws -> Int32 {
-        try configureIsolatedProcessGroup(for: process)
+        try isolateProcessGroup(for: process)
         let cancellationController = SwiftWebDevProcessCancellationController()
         defer {
             cancellationController.clear()
@@ -29,9 +30,24 @@ package enum SwiftWebDevBoundedProcess {
                 actualProcessGroup: actualProcessGroup
             )
         }
+        let childProcessLifetime: SwiftWebChildProcessLifetime
+        do {
+            childProcessLifetime = try SwiftWebChildProcessLifetime(
+                commandProcessIdentifier: processIdentifier,
+                ownerProcessIdentifier: ownerProcessIdentifier,
+                terminationGracePeriod: terminationGracePeriod
+            )
+        } catch {
+            process.terminate()
+            throw SwiftWebDevRuntimeError.childProcessLifetimeMonitorLaunchFailed(
+                processIdentifier: processIdentifier,
+                reason: String(describing: error)
+            )
+        }
         cancellationController.install(
             process,
-            processGroupIdentifier: processIdentifier
+            processGroupIdentifier: processIdentifier,
+            childProcessLifetime: childProcessLifetime
         )
 
         return try await withTaskCancellationHandler {
@@ -43,10 +59,12 @@ package enum SwiftWebDevBoundedProcess {
                         }
                         return -1
                     }
-                    group.addTask {
-                        let milliseconds = Int64(max(0, timeout) * 1_000)
-                        try await Task.sleep(for: .milliseconds(milliseconds))
-                        throw timeoutError()
+                    if let timeout {
+                        group.addTask {
+                            let milliseconds = Int64(max(0, timeout) * 1_000)
+                            try await Task.sleep(for: .milliseconds(milliseconds))
+                            throw timeoutError(timeout)
+                        }
                     }
                     guard let status = try await group.next() else {
                         return -1
@@ -79,7 +97,7 @@ package enum SwiftWebDevBoundedProcess {
         }
     }
 
-    private static func configureIsolatedProcessGroup(for process: Process) throws {
+    package static func isolateProcessGroup(for process: Process) throws {
         guard let executableURL = process.executableURL else {
             throw CocoaError(.executableNotLoadable)
         }

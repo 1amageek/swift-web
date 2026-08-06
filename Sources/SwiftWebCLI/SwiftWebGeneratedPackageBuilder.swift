@@ -2,7 +2,7 @@ import Foundation
 import SwiftWebCore
 import SwiftWebDevelopment
 
-struct BuildCommand {
+struct SwiftWebGeneratedPackageBuilder {
   let packageDirectory: URL
   let scratchDirectory: URL?
   let product: String?
@@ -11,57 +11,7 @@ struct BuildCommand {
   let configuration: String?
   let wasmRuntimeProfile: SwiftWebWasmRuntimeProfile
 
-  static func parse(_ parser: ArgumentParser) throws -> BuildCommand {
-    var parser = parser
-    var packageDirectory = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-    var scratchDirectory: URL?
-    var product: String?
-    var buildsWasmRuntime = false
-    var swiftSDK: String?
-    var configuration: String?
-    var wasmRuntimeProfile = SwiftWebWasmRuntimeProfile.defaultValue()
-
-    while let option = parser.next() {
-      switch option {
-      case "--package-path":
-        packageDirectory = URL(fileURLWithPath: try parser.requireValue(after: option))
-      case "--scratch-path":
-        scratchDirectory = URL(fileURLWithPath: try parser.requireValue(after: option))
-      case "--product":
-        product = try parser.requireValue(after: option)
-      case "--wasm":
-        buildsWasmRuntime = true
-      case "--runtime", "--wasm-runtime":
-        let rawValue = try parser.requireValue(after: option)
-        guard rawValue == SwiftWebWasmRuntimeProfile.standard.rawValue else {
-          throw CLIError(
-            message:
-              "unsupported WASM runtime profile: \(rawValue). SwiftWeb supports the standard WASM profile only.",
-            exitCode: 64
-          )
-        }
-        wasmRuntimeProfile = .standard
-      case "--swift-sdk":
-        swiftSDK = try parser.requireValue(after: option)
-      case "-c", "--configuration":
-        configuration = try parser.requireValue(after: option)
-      default:
-        throw CLIError(message: "unknown option: \(option)", exitCode: 64)
-      }
-    }
-
-    return BuildCommand(
-      packageDirectory: packageDirectory.standardizedFileURL,
-      scratchDirectory: scratchDirectory?.standardizedFileURL,
-      product: product,
-      buildsWasmRuntime: buildsWasmRuntime,
-      swiftSDK: swiftSDK,
-      configuration: configuration,
-      wasmRuntimeProfile: wasmRuntimeProfile
-    )
-  }
-
-  func run() throws {
+  func run() async throws {
     try validateSupportedWasmRuntimeProfile()
     let resolvedSwiftSDK = try resolvedSwiftSDKName()
     let wasmToolchain = try resolvedWasmToolchain(swiftSDK: resolvedSwiftSDK)
@@ -71,7 +21,10 @@ struct BuildCommand {
       wasmRuntimeProfile: wasmRuntimeProfile
     )
     .materialize()
-    let productName = try resolvedProductName(from: generatedPackage)
+    guard let productName = try resolvedProductName(from: generatedPackage) else {
+      print("SwiftWeb browser runtime is not required by this application")
+      return
+    }
     let wasmRuntime = try resolvedWasmRuntime(productName: productName, from: generatedPackage)
     let buildPackageDirectory =
       buildsWasmRuntime
@@ -112,7 +65,7 @@ struct BuildCommand {
     }
 
     let invocation = wasmToolchain.map(SwiftBuildInvocation.wasm(toolchain:)) ?? .host()
-    try runProcess(
+    try await runProcess(
       arguments: invocation.arguments(for: arguments),
       executableURL: invocation.executableURL,
       environment: environment
@@ -136,16 +89,15 @@ struct BuildCommand {
     }
   }
 
-  private func resolvedProductName(from generatedPackage: SwiftWebGeneratedPackage) throws -> String
+  private func resolvedProductName(
+    from generatedPackage: SwiftWebGeneratedPackage
+  ) throws -> String?
   {
     if let product {
       return product
     }
     if buildsWasmRuntime {
-      guard let wasmProduct = generatedPackage.wasmProductNames.first else {
-        throw CLIError(message: "no generated WASM runtime product was found", exitCode: 66)
-      }
-      return wasmProduct
+      return generatedPackage.wasmProductNames.first
     }
     return generatedPackage.serverProductName
   }
@@ -205,7 +157,7 @@ struct BuildCommand {
     arguments: [String],
     executableURL: URL,
     environment: [String: String]
-  ) throws {
+  ) async throws {
     let process = Process()
     process.executableURL = executableURL
     process.arguments = arguments
@@ -215,12 +167,11 @@ struct BuildCommand {
     process.standardOutput = FileHandle.standardOutput
     process.standardError = FileHandle.standardError
 
-    try process.run()
-    process.waitUntilExit()
-    guard process.terminationStatus == 0 else {
+    let status = try await SwiftWebLifecycleCommandRunner().run(process)
+    guard status == 0 else {
       throw CLIError(
         message:
-          "build failed with status \(process.terminationStatus): \(commandDescription(arguments, executableURL: executableURL))",
+          "build failed with status \(status): \(commandDescription(arguments, executableURL: executableURL))",
         exitCode: 70
       )
     }

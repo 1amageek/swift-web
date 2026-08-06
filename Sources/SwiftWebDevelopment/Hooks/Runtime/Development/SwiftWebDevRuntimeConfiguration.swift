@@ -7,7 +7,7 @@ public struct SwiftWebDevRuntimeConfiguration: Sendable {
     public var host: String
     public var port: Int
     public var readinessTimeout: TimeInterval
-    public var buildTimeout: TimeInterval
+    public var buildTimeout: TimeInterval?
     public var processTerminationGracePeriod: TimeInterval
     public var hostSwiftExecutableURL: URL?
 
@@ -18,7 +18,7 @@ public struct SwiftWebDevRuntimeConfiguration: Sendable {
         host: String = "127.0.0.1",
         port: Int = 3000,
         readinessTimeout: TimeInterval = 30,
-        buildTimeout: TimeInterval = 900,
+        buildTimeout: TimeInterval? = nil,
         processTerminationGracePeriod: TimeInterval = 2,
         hostSwiftExecutableURL: URL? = nil
     ) {

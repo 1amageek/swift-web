@@ -10,8 +10,8 @@ Unit-test success alone does not satisfy T8.
 
 | Input | Required value |
 |---|---|
-| Swift toolchain | `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a` |
-| Standard WASM SDK | `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm` |
+| Swift toolchain | `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-23-a` |
+| Standard WASM SDK | `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-23-a_wasm` |
 | `swift-html` | released package `0.15.0` |
 | Browser | Playwright Chromium; WebKit is an optional additional smoke |
 
@@ -24,7 +24,7 @@ repository changes cannot make the verification pass.
 Run from the repository root:
 
 ```bash
-export SWIFT_WEB_TOOLCHAIN_BIN="$HOME/Library/Developer/Toolchains/swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a.xctoolchain/usr/bin"
+export SWIFT_WEB_TOOLCHAIN_BIN="$HOME/Library/Developer/Toolchains/swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-23-a.xctoolchain/usr/bin"
 export SWIFTWEB_E2E_HOST_SWIFT_EXECUTABLE="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
 export SWIFT_WEB_WASM_SWIFT="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
 export SWIFT_WEB_WASM_TOOLCHAIN_BIN="$SWIFT_WEB_TOOLCHAIN_BIN"
@@ -51,7 +51,8 @@ The command must exit with status zero and report every phase below.
 The native transaction suite additionally executes a termination-resistant
 process tree and verifies `timeout -> SIGTERM -> SIGKILL`,
 `task cancellation -> SIGTERM -> SIGKILL`, normal leader-exit descendant
-drain, and cancellation arriving during that drain across the process group, restores a
+drain, owner exit while a descendant is in an independent process group, and
+cancellation arriving during that drain, restores a
 mixed set of existing/new build files, atomically switches an immutable WASM
 generation through the `current` symlink, proves delayed events resolve their
 own generation rather than the latest bytes, proves an open artifact descriptor

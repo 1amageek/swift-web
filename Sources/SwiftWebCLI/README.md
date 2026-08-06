@@ -9,29 +9,31 @@ and WASM processing to the corresponding development targets.
 | Command | Owner after parsing |
 |---|---|
 | `new` | CLI template writer plus `SwiftWebPackageGeneration` |
-| `prepare` | `SwiftWebPackageGeneration` |
+| `prepare` | Adapter resolver, environment materializer, and lifecycle executor |
 | `xcode` | `SwiftWebPackageGeneration`, then the macOS `open` command |
-| `dev` | `SwiftWebDevServer` |
+| `dev` | Selected Host and Deployment tasks; the native Host delegates to `SwiftWebDevServer` |
 | `storyboard` | `SwiftWebStoryboardTooling` and, in development mode, `SwiftWebDevServer` |
-| `build` | `SwiftWebPackageGeneration` and `SwiftWebWasmBuild` |
+| `build` | Selected Host and Deployment build tasks |
+| `deploy` | Selected Deployment tasks after successful prepare and build |
 | `clean` | `SwiftWebDevBuildArtifactCleaner` |
 
 The command grammar is defined by `CommandLineInterface` in `App.swift`:
 
 ```text
-sweb new <AppName> [--output <directory>] [--force] [--ai] [--platform <preset|owner/repo[/template]>]
-sweb prepare [--package-path <directory>] [--product <name>]
+sweb new <AppName> [--output <directory>] [--force] [--ai] [--adapter <owner/repository>]
+sweb prepare [--package-path <directory>] [--environment <name>]
 sweb xcode [--package-path <directory>] [--product <name>] [--no-open]
-sweb build [--package-path <directory>] [--product <name>] [--wasm] [--runtime standard] [--swift-sdk <sdk>] [-c debug|release]
+sweb build [--package-path <directory>] [--environment <name>]
 sweb clean [--package-path <directory>] [--storyboard] [--swiftpm] [--all]
-sweb dev [--package-path <directory>] [--product <name>] [--host <host>] [--port <port>]
+sweb dev [--package-path <directory>] [--environment <name>] [--host <host>] [--port <port>]
+sweb deploy [--package-path <directory>] [--environment <name>]
 sweb storyboard [--package-path <directory>] [--output <directory>] [--host <host>] [--port <port>] [--no-run] [--force] [--production] [--runtime standard] [--swift-sdk <sdk>] [-c debug|release]
 ```
 
 ## Project Creation
 
-`sweb new` writes an app library package, source files, and generated launch
-packages. The default template uses the released SwiftWeb 0.9.0 and SwiftHTML
+`sweb new` writes an app library package, source files, `sweb.json`, and
+generated launch packages. The default template uses SwiftWeb 0.10.0 and SwiftHTML
 0.15.0 dependencies.
 
 ```mermaid
@@ -39,18 +41,19 @@ flowchart LR
   New["sweb new MyApp"] --> Manifest["Package.swift"]
   New --> App["Sources/MyApp/App.swift"]
   New --> Page["Sources/MyApp/Routes/HomePage.swift"]
-  New --> Generated[".swiftweb/generated"]
+  New --> Project["sweb.json"]
+  Project --> Generated[".swiftweb/generated/environments"]
   AI["--ai"] --> Chat["ChatPage + ChatPanel + ChatTheme"]
-  Platform["--platform"] --> Adapter["adapter files + platform.json"]
+  Selection["--adapter"] --> Adapter["package dependency + production environment"]
 ```
 
 The generated user package remains a library. Concrete server, development,
 and WASM launch products live below `.swiftweb/generated`.
 
-Deployment adapters are external GitHub templates. The CLI validates their
-`sweb.json`, renders `{{app.*}}` placeholders, copies the selected template,
-and records its origin in `.swiftweb/platform.json`. See
-[Platform Adapter Template Contract](../../docs/PlatformAdapterTemplateContract.md).
+Deployment adapters are SwiftPM packages. The CLI reads `Adapter/sweb.json`
+from direct resolved dependencies, validates Host/Deployment artifact
+compatibility, materializes their templates, and executes their lifecycle task
+graph. See [Host and Deployment Adapter Contract](../../docs/AdapterContract.md).
 
 ## Generated Packages
 
@@ -59,10 +62,12 @@ and records its origin in `.swiftweb/platform.json`. See
 | `.swiftweb/generated/server` | Production `app-server` package and launcher |
 | `.swiftweb/generated/dev` | Xcode/CLI development launchers and `<AppName>-dev` scheme |
 | `.swiftweb/generated/wasm` | Client-only source copies and browser runtime products |
+| `.swiftweb/generated/environments/<name>/workspace` | Materialized Host and Deployment workspace |
 
-`sweb prepare`, `sweb xcode`, `sweb dev`, and `sweb build` use the same
-materializer. Generated output is replaceable build state and is not an
-application authoring location.
+`sweb prepare`, `sweb dev`, `sweb build`, and `sweb deploy` use the same adapter
+resolver and environment materializer. The native Host continues to use the
+existing generated package materializer. Generated output is replaceable build
+state and is not an application authoring location.
 
 Production and development server launchers import `SwiftWebHTTPServerHost`.
 Development workers also import `SwiftWebDevelopmentHooks`; they do not import
@@ -104,8 +109,11 @@ worker remains available, and a later source change can recover without
 restarting `sweb dev`. Worker crashes trigger relaunch against the serving
 fingerprint.
 
-Child builds run in isolated process groups. Timeout, task cancellation, and
-normal leader exit drain descendants before operation ownership is released.
+Child builds run in isolated process groups and are paired with an owner-lifetime
+monitor. The monitor tracks descendants even when SwiftPM or SwiftBuild moves a
+compiler into another process group. Timeout, task cancellation, normal leader
+exit, and abrupt `sweb` termination drain the complete tracked process tree
+before operation ownership is released.
 
 ## Browser Generations
 
@@ -118,23 +126,20 @@ already-open descriptor in bounded chunks. Collected generations return
 `410 Gone`; the browser performs an explicit full reload instead of accepting
 bytes from another generation.
 
-## Build Command
+## Build and Deploy Commands
 
-Server builds use the generated server package. `sweb build --wasm` uses the
-standard Swift WASM profile and defaults to release configuration.
+`sweb build` runs the selected Host build before the selected Deployment
+verification. For `swift-web/http-server`, this builds both the server and the
+browser runtime. Platform adapters own their compiler and artifact rules.
 
 ```bash
-sweb build --wasm \
-  --runtime standard \
-  --swift-sdk swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm \
-  -c release
+sweb build --environment production
+sweb deploy --environment production
 ```
 
-The artifact processor strips non-runtime custom sections, runs
-`wasm-opt -Oz` when available, writes a size report, and generates cached gzip
-and Brotli sidecars. `SWIFTWEB_WASM_SPLIT_BUILD_STRATEGY=resolved-bundles`
-forces one physical product per resolved split for diagnostics; the default
-coalesces non-eager products by load policy.
+`deploy` always runs prepare and build first. Only Deployment deploy tasks may
+change remote state. Task IDs and dependencies are validated as a DAG before
+execution.
 
 The exact compiler and linker environment is documented in
 [Toolchain](../../docs/Toolchain.md).
@@ -143,7 +148,7 @@ The exact compiler and linker environment is documented in
 
 `sweb storyboard` generates a managed package under `.swiftweb/storyboard` and
 runs the component catalog without editing application source. Production mode
-uses the same WASM artifact processor as `sweb build --wasm`:
+uses the same WASM artifact processor as the native Host build:
 
 ```bash
 sweb storyboard --production --runtime standard -c release

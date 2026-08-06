@@ -27,7 +27,7 @@ try {
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const swiftWebRoot = path.resolve(scriptDirectory, "../..");
-const expectedSwiftWebVersion = "0.9.0";
+const expectedSwiftWebVersion = "0.10.0";
 const expectedSwiftHTMLVersion = "0.15.0";
 const exampleAppRoot = path.join(swiftWebRoot, "Examples", "CounterApp");
 const timeoutMs = Number(process.env.SWIFTWEB_E2E_TIMEOUT_MS || 600_000);
@@ -624,7 +624,7 @@ struct CounterPageE2EComponents: Component {
 
 async function launchDevServer(appRoot, scratchRoot, port, host) {
   const swiftWebExecutable = await resolveSwiftWebExecutable();
-  const wasmSwiftSDK = process.env.SWIFT_WEB_WASM_SDK || "swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm";
+  const wasmSwiftSDK = process.env.SWIFT_WEB_WASM_SDK || "swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-23-a_wasm";
   const hostSwiftExecutable = process.env.SWIFT_WEB_HOST_SWIFT
     || process.env.SWIFTWEB_E2E_HOST_SWIFT_EXECUTABLE
     || process.env.SWIFTWEB_E2E_SWIFT_EXECUTABLE;

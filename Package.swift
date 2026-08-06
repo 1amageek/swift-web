@@ -15,12 +15,14 @@ let swiftWebSwiftSettings: [SwiftSetting] = [
 // cannot provide the same graph isolation. Package generation sets these
 // environment variables; ordinary consumers evaluate the full manifest.
 
-// SWIFTWEB_DO resolves the core chain PLUS the macro toolchain and the
-// SwiftWeb umbrella, for Durable Object wasm packages whose app sources use
-// @Page/@ServerAction/@Actor. swift-syntax builds for the host only, so it
-// does not affect the wasm binary.
-let swiftWebDO = Context.environment["SWIFTWEB_DO"] == "1"
-let swiftWebCoreOnly = Context.environment["SWIFTWEB_CORE_ONLY"] == "1" || swiftWebDO
+// SWIFTWEB_HOSTED_APPLICATION resolves the core chain plus the macro toolchain
+// and SwiftWeb umbrella for generated Host packages whose app sources use
+// @Page, @ServerAction, or @Actor. swift-syntax builds for the host only, so it
+// does not affect the wasm artifact.
+let swiftWebHostedApplication =
+    Context.environment["SWIFTWEB_HOSTED_APPLICATION"] == "1"
+let swiftWebCoreOnly =
+    Context.environment["SWIFTWEB_CORE_ONLY"] == "1" || swiftWebHostedApplication
 
 let swiftHTMLDependency: Target.Dependency = .product(name: "SwiftHTML", package: "swift-html")
 
@@ -43,7 +45,7 @@ let swiftWebUIRuntimeDependencies: [Target.Dependency] = [
     "SwiftWebStyle",
 ]
 
-let swiftWebUsesMacros = !swiftWebCoreOnly || swiftWebDO
+let swiftWebUsesMacros = !swiftWebCoreOnly || swiftWebHostedApplication
 
 let actorRuntimeDependency: Target.Dependency = .product(
     name: "ActorRuntime",
@@ -78,7 +80,7 @@ let package = Package(
         .library(name: "SwiftWebHost", targets: ["SwiftWebHost"]),
         .library(name: "SwiftWebBrowserRuntime", targets: ["SwiftWebBrowserRuntime"]),
         .library(name: "SwiftWebCore", targets: ["SwiftWebCore"]),
-    ] + (swiftWebDO ? [
+    ] + (swiftWebHostedApplication ? [
         .library(name: "SwiftWeb", targets: ["SwiftWeb"]),
     ] : []) : [
         .library(name: "SwiftWebActors", targets: ["SwiftWebActors"]),
@@ -115,10 +117,10 @@ let package = Package(
         .package(url: "https://github.com/1amageek/JavaScriptKit.git", from: "0.57.0"),
         .package(url: "https://github.com/1amageek/swift-actor-runtime.git", exact: "0.6.0"),
         .package(url: "https://github.com/apple/swift-http-types", from: "1.0.0"),
-        .package(url: "https://github.com/apple/swift-log.git", from: "1.6.0"),
-    ] + (swiftWebDO ? [
+    ] + (swiftWebHostedApplication ? [
         .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "603.0.2"),
     ] : []) + (swiftWebCoreOnly ? [] : [
+        .package(url: "https://github.com/apple/swift-log.git", from: "1.6.0"),
         .package(url: "https://github.com/swift-server/async-http-client.git", from: "1.35.0"),
         .package(url: "https://github.com/swift-server/swift-http-server", from: "0.1.0"),
         .package(url: "https://github.com/apple/swift-http-api-proposal.git", from: "0.2.0"),
@@ -195,7 +197,7 @@ let package = Package(
             exclude: ["README.md"],
             swiftSettings: swiftWebSwiftSettings
         ),
-    ] + (swiftWebDO ? [
+    ] + (swiftWebHostedApplication ? [
         .macro(
             name: "SwiftWebMacros",
             dependencies: [

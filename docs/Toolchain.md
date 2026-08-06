@@ -9,11 +9,12 @@ versioned contract.
 | Item | Required value |
 |---|---|
 | `Package.swift` tools version | `6.4` |
-| `.swift-version` selector | `6.4-snapshot-2026-07-17` |
-| Toolchain tag | `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a` |
-| Xcode toolchain identifier | `org.swift.64202607171a` |
-| Standard WASM SDK | `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm` |
-| Embedded WASM SDK | `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm-embedded` |
+| `.swift-version` selector | `6.4-snapshot-2026-07-23` |
+| Toolchain tag | `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-23-a` |
+| Xcode toolchain identifier | `org.swift.64202607231a` |
+| Swift compiler commit | `ef761e567dc94ee` |
+| Standard WASM SDK | `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-23-a_wasm` |
+| Embedded WASM SDK | `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-23-a_wasm-embedded` |
 
 Embedded WASM is installed for capability validation. SwiftWeb's public browser
 runtime uses the standard WASM SDK only.
@@ -35,11 +36,11 @@ Use the actual snapshot toolchain directory for WASM builds. Do not set
 contain `wasm-ld`.
 
 ```bash
-export SWIFT_WEB_TOOLCHAIN_BIN="$HOME/Library/Developer/Toolchains/swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a.xctoolchain/usr/bin"
+export SWIFT_WEB_TOOLCHAIN_BIN="$HOME/Library/Developer/Toolchains/swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-23-a.xctoolchain/usr/bin"
 export SWIFT_WEB_HOST_SWIFT="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
 export SWIFT_WEB_WASM_SWIFT="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
 export SWIFT_WEB_WASM_TOOLCHAIN_BIN="$SWIFT_WEB_TOOLCHAIN_BIN"
-export SWIFT_WEB_WASM_SDK="swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm"
+export SWIFT_WEB_WASM_SDK="swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-23-a_wasm"
 ```
 
 Verify the complete contract before building:
@@ -48,7 +49,7 @@ Verify the complete contract before building:
 "$SWIFT_WEB_HOST_SWIFT" --version
 test -x "$SWIFT_WEB_WASM_TOOLCHAIN_BIN/wasm-ld"
 "$SWIFT_WEB_WASM_SWIFT" sdk list | \
-  rg 'swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm(-embedded)?'
+  rg 'swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-23-a_wasm(-embedded)?'
 ```
 
 ## Validation
@@ -58,7 +59,7 @@ Validate every supported manifest mode:
 ```bash
 "$SWIFT_WEB_HOST_SWIFT" package dump-package
 SWIFTWEB_CORE_ONLY=1 "$SWIFT_WEB_HOST_SWIFT" package dump-package
-SWIFTWEB_DO=1 "$SWIFT_WEB_HOST_SWIFT" package dump-package
+SWIFTWEB_HOSTED_APPLICATION=1 "$SWIFT_WEB_HOST_SWIFT" package dump-package
 ```
 
 Build the CLI:
@@ -72,7 +73,7 @@ actor runtime graph:
 
 ```bash
 SWIFTWEB_CORE_ONLY=1 "$SWIFT_WEB_HOST_SWIFT" build \
-  --swift-sdk swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-17-a_wasm-embedded \
+  --swift-sdk swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-23-a_wasm-embedded \
   --product SwiftWebCore \
   --disable-default-traits \
   --jobs 2
@@ -87,10 +88,7 @@ Build and process a real browser runtime:
 ```bash
 "$SWIFT_WEB_HOST_SWIFT" run sweb build \
   --package-path Examples/CounterApp \
-  --wasm \
-  --runtime standard \
-  --swift-sdk "$SWIFT_WEB_WASM_SDK" \
-  -c release
+  --environment local
 ```
 
 SwiftPM 6.4 writes release WASM products under:

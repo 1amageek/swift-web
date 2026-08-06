@@ -15,6 +15,7 @@ the archive for those records.
 | [HTML Authoring Model](HTMLAuthoringModel.md) | Application and framework developers | `Component`, `HTMLDocument`, and `Page` boundaries |
 | [Host Rendering Contract](HostRenderingContract.md) | Host adapter and framework developers | `AppRenderer`, `RenderedApp`, request translation, and lifecycle ownership |
 | [Development Reconciler Verification](DevServerReconcilerVerification.md) | Maintainers | Real `sweb dev` and Chromium release gate |
+| [Host and Deployment Adapter Contract](AdapterContract.md) | Application and adapter developers | SwiftPM discovery, environments, artifacts, templates, and lifecycle tasks |
 
 ## Public Runtime Contracts
 
@@ -32,7 +33,7 @@ the archive for those records.
 | Document | Decision |
 |---|---|
 | [Browser Runtime JavaScriptKit](BrowserRuntimeJavaScriptKitDecision.md) | JavaScriptKit is the internal browser adapter; SwiftWebUI remains the public UI API |
-| [Platform Adapter Template Contract](PlatformAdapterTemplateContract.md) | Deployment adapters are external templates selected by `sweb new` |
+| [Host and Deployment Adapter Contract](AdapterContract.md) | Hosts and deployments are separate adapter components discovered through SwiftPM |
 | [Host Rendering Contract](HostRenderingContract.md) | Hosts own platform lifecycle and consume one common SwiftWeb rendering result |
 
 ## Release Evidence

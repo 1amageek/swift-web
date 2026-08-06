@@ -21,6 +21,9 @@ struct SwiftWebCLI {
                 FileHandle.standardError.write(Data((error.description + "\n").utf8))
             }
             Foundation.exit(Int32(error.exitCode))
+        } catch let error as SwiftWebLifecycleError {
+            FileHandle.standardError.write(Data((error.description + "\n").utf8))
+            Foundation.exit(Int32(error.exitCode))
         } catch {
             FileHandle.standardError.write(Data(("error: \(error)\n").utf8))
             Foundation.exit(1)
@@ -56,6 +59,7 @@ struct SwiftWebCLI {
              .workerBuildFailed, .buildTimedOut, .clientRuntimeTransactionFailed,
              .workerExitedDuringStartup, .artifactSnapshotFailed,
              .signalHandlerInstallationFailed, .processGroupIsolationFailed,
+             .childProcessLifetimeMonitorLaunchFailed, .processTreeTerminationTimedOut,
              .processGroupTerminationTimedOut:
             return false
         }
@@ -74,17 +78,19 @@ struct CommandLineInterface {
 
         switch command {
         case "new":
-            try NewCommand.parse(parser).run()
+            try await NewCommand.parse(parser).run()
         case "prepare":
-            try PrepareCommand.parse(parser).run()
+            try await LifecycleCommand.parse(parser, operation: .prepare).run()
         case "xcode":
             try XcodeCommand.parse(parser).run()
         case "build":
-            try BuildCommand.parse(parser).run()
+            try await LifecycleCommand.parse(parser, operation: .build).run()
         case "clean":
             try CleanCommand.parse(parser).run()
         case "dev":
-            try await DevCommand.parse(parser).run()
+            try await LifecycleCommand.parse(parser, operation: .dev).run()
+        case "deploy":
+            try await LifecycleCommand.parse(parser, operation: .deploy).run()
         case "storyboard":
             try await StoryboardCommand.parse(parser).run()
         case "help", "--help", "-h":
@@ -98,21 +104,23 @@ struct CommandLineInterface {
         print(
             """
             Usage:
-              sweb new <AppName> [--output <directory>] [--force] [--ai] [--platform <preset|owner/repo[/template]>]
-              sweb prepare [--package-path <directory>] [--product <name>]
+              sweb new <AppName> [--output <directory>] [--force] [--ai] [--adapter <owner/repository>]
+              sweb prepare [--package-path <directory>] [--environment <name>]
               sweb xcode [--package-path <directory>] [--product <name>] [--no-open]
-              sweb build [--package-path <directory>] [--product <name>] [--wasm] [--runtime standard] [--swift-sdk <sdk>] [-c debug|release]
+              sweb build [--package-path <directory>] [--environment <name>]
               sweb clean [--package-path <directory>] [--storyboard] [--swiftpm] [--all]
-              sweb dev [--package-path <directory>] [--product <name>] [--host <host>] [--port <port>]
+              sweb dev [--package-path <directory>] [--environment <name>] [--host <host>] [--port <port>]
+              sweb deploy [--package-path <directory>] [--environment <name>]
               sweb storyboard [--package-path <directory>] [--output <directory>] [--host <host>] [--port <port>] [--no-run] [--force] [--production] [--runtime standard] [--swift-sdk <sdk>] [-c debug|release]
 
             Commands:
-              new         Create a SwiftWeb app skeleton. Pass --ai for a chat-first template, and --platform to apply a deployment adapter.
-              prepare     Materialize generated dev, server, and WASM packages for an existing app.
+              new         Create a SwiftWeb app skeleton. Pass --ai for a chat-first template, and --adapter to add an adapter package.
+              prepare     Resolve and materialize every configured application environment.
               xcode       Materialize generated packages and open the dev package in Xcode.
-              build       Build the generated server or WASM runtime package.
+              build       Build the selected environment without changing remote state.
               clean       Remove SwiftWeb generated build artifacts. Pass --swiftpm to remove the package .build too.
               dev         Run a SwiftWeb app with rebuild, server restart, and dev browser updates on changes.
+              deploy      Verify and deploy the selected environment.
               storyboard  Generate and run a SwiftWebUI component style storyboard.
 
             Package commands default to the current directory. Run them from the directory
