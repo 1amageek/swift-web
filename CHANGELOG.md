@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.11.0 - 2026-08-15
+
+| Area | Change |
+|---|---|
+| Endpoints | Adds `method:` and `security:` parameters to the `Endpoint` response form, registering routes for any HTTP method; the string form and defaulted call sites keep the existing GET contract unchanged. |
+| Security | Adds `EndpointSecurity`: `.session` (default) validates request origin and CSRF token for methods the app's `CSRFPolicy` protects; `.external` runs no framework validation so the handler authenticates callers itself, typically by a signature over `Request.collectedBody()`. |
+| Errors | Documents and E2E-tests that a thrown `Abort` becomes its status on POST endpoints, so webhook retry semantics can rely on non-2xx responses. |
+| Validation | Native package suite passes; `SwiftWebCore` builds with the pinned Swift 6.4 snapshot on the Standard WASM SDK and, with default traits disabled, on the Embedded WASM SDK. |
+
 ## 0.10.0 - 2026-08-06
 
 | Area | Change |

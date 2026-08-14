@@ -59,7 +59,7 @@ final class NewCommandTemplateTests: XCTestCase {
             #".package(url: "https://github.com/1amageek/swift-html.git", from: "0.15.0")"#
         ) == true)
         XCTAssertTrue(files["Package.swift"]?.contains(
-            #".package(url: "https://github.com/1amageek/swift-web.git", from: "0.10.0")"#
+            #".package(url: "https://github.com/1amageek/swift-web.git", from: "0.11.0")"#
         ) == true)
         XCTAssertTrue(files["Sources/Chat/App.swift"]?.contains("ChatPage()") == true)
         XCTAssertTrue(files["Sources/Chat/Components/ChatPanel.swift"]?.contains(
@@ -105,7 +105,7 @@ final class NewCommandTemplateTests: XCTestCase {
         let package = try XCTUnwrap(files["Package.swift"])
         let manifest = try XCTUnwrap(files["sweb.json"])
 
-        XCTAssertTrue(package.contains(#".package(url: "https://github.com/1amageek/swift-web.git", from: "0.10.0")"#))
+        XCTAssertTrue(package.contains(#".package(url: "https://github.com/1amageek/swift-web.git", from: "0.11.0")"#))
         XCTAssertTrue(package.contains(#".package(url: "https://github.com/1amageek/swift-web-cloudflare.git", branch: "main")"#))
         XCTAssertTrue(package.contains("swift-web-cloudflare"))
         XCTAssertFalse(files.keys.contains(".swiftweb/platform.json"))
@@ -145,7 +145,7 @@ final class NewCommandTemplateTests: XCTestCase {
             #".package(url: "https://github.com/1amageek/swift-html.git", from: "0.15.0")"#
         ))
         XCTAssertTrue(package.contains(
-            #".package(url: "https://github.com/1amageek/swift-web.git", from: "0.10.0")"#
+            #".package(url: "https://github.com/1amageek/swift-web.git", from: "0.11.0")"#
         ))
         XCTAssertEqual(project.moduleName, "MyChat")
         XCTAssertEqual(project.kebabName, "my-chat")

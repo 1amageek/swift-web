@@ -58,12 +58,12 @@ See [Toolchain](docs/Toolchain.md) for the complete host and WASM setup.
 
 ## Quick Start
 
-Install the `sweb` executable from the 0.10.0 release with
+Install the `sweb` executable from the 0.11.0 release with
 [Mint](https://github.com/yonaskolb/Mint):
 
 ```bash
 export PATH="$SWIFT_WEB_TOOLCHAIN_BIN:$PATH"
-mint install 1amageek/swift-web@0.10.0 sweb
+mint install 1amageek/swift-web@0.11.0 sweb
 sweb --help
 ```
 
@@ -92,7 +92,7 @@ let package = Package(
         .library(name: "MyApp", targets: ["MyApp"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/1amageek/swift-web.git", from: "0.10.0"),
+        .package(url: "https://github.com/1amageek/swift-web.git", from: "0.11.0"),
         .package(url: "https://github.com/1amageek/swift-html.git", from: "0.15.0"),
     ],
     targets: [

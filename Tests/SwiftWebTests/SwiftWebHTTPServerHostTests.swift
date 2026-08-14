@@ -188,6 +188,61 @@ struct SwiftWebHTTPServerHostTests {
     }
 
     @Test
+    func postEndpointExternalReceivesRawBodyWithoutCSRF() async throws {
+        try await withHost(HostFixtureApp()) { client, base in
+            var request = URLRequest(url: URL(string: "\(base)/hooks/echo")!)
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = Data(#"{"event":"payment.succeeded"}"#.utf8)
+            let (data, response) = try await client.data(for: request)
+            let http = try #require(response as? HTTPURLResponse)
+            #expect(http.statusCode == 200)
+            #expect(String(decoding: data, as: UTF8.self) == #"{"event":"payment.succeeded"}"#)
+        }
+    }
+
+    @Test
+    func postEndpointExternalPropagatesThrownAbort() async throws {
+        try await withHost(HostFixtureApp()) { client, base in
+            var request = URLRequest(url: URL(string: "\(base)/hooks/rejecting")!)
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = Data(#"{"event":"tampered"}"#.utf8)
+            let (_, response) = try await client.data(for: request)
+            #expect((response as? HTTPURLResponse)?.statusCode == 400)
+        }
+    }
+
+    @Test
+    func postEndpointSessionModeEnforcesCSRF() async throws {
+        try await withHost(HostFixtureApp()) { client, base in
+            let (_, pageResponse) = try await client.data(from: URL(string: "\(base)/")!)
+            let pageHTTP = try #require(pageResponse as? HTTPURLResponse)
+            let setCookie = try #require(pageHTTP.value(forHTTPHeaderField: "Set-Cookie"))
+            let csrfCookie = try #require(setCookie.split(separator: ";").first.map(String.init))
+            let token = try #require(csrfCookie.split(separator: "=", maxSplits: 1).last.map(String.init))
+
+            var missingToken = URLRequest(url: URL(string: "\(base)/api/echo")!)
+            missingToken.httpMethod = "POST"
+            missingToken.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            missingToken.setValue(csrfCookie, forHTTPHeaderField: "Cookie")
+            missingToken.httpBody = Data(#"{"note":"hi"}"#.utf8)
+            let (_, forbidden) = try await client.data(for: missingToken)
+            #expect((forbidden as? HTTPURLResponse)?.statusCode == 403)
+
+            var valid = URLRequest(url: URL(string: "\(base)/api/echo")!)
+            valid.httpMethod = "POST"
+            valid.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            valid.setValue(csrfCookie, forHTTPHeaderField: "Cookie")
+            valid.setValue(token, forHTTPHeaderField: "X-CSRF-Token")
+            valid.httpBody = Data(#"{"note":"hi"}"#.utf8)
+            let (data, ok) = try await client.data(for: valid)
+            #expect((ok as? HTTPURLResponse)?.statusCode == 200)
+            #expect(String(decoding: data, as: UTF8.self) == #"{"note":"hi"}"#)
+        }
+    }
+
+    @Test
     func servesSSEEndpoint() async throws {
         try await withHost(HostFixtureApp()) { client, base in
             let (data, response) = try await client.data(from: URL(string: "\(base)/events")!)
@@ -304,6 +359,25 @@ private struct HostFixtureApp: App {
         }
         Endpoint("/missing-resource") { _ in
             Response(status: .notFound, headers: HTTPFields(), body: .init(string: "missing"))
+        }
+        Endpoint("/hooks/echo", method: .post, security: .external) { request in
+            guard let body = try await request.collectedBody() else {
+                throw Abort(.badRequest, reason: "Webhook body is missing")
+            }
+            var headers = HTTPFields()
+            headers[.contentType] = "application/octet-stream"
+            return Response(status: .ok, headers: headers, body: .init(bytes: body))
+        }
+        Endpoint("/hooks/rejecting", method: .post, security: .external) { _ in
+            throw Abort(.badRequest, reason: "signature verification failed")
+        }
+        Endpoint("/api/echo", method: .post) { request in
+            guard let body = try await request.collectedBody() else {
+                throw Abort(.badRequest, reason: "API body is missing")
+            }
+            var headers = HTTPFields()
+            headers[.contentType] = "application/octet-stream"
+            return Response(status: .ok, headers: headers, body: .init(bytes: body))
         }
         PageGroup("/cached-group") {
             HostGroupInheritCachePage()

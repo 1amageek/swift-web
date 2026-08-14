@@ -29,6 +29,21 @@ struct SwiftWebAppRendererTests {
     }
 
     @Test
+    func renderingRegistersEndpointMethod() async throws {
+        let renderedApp = try await AppRenderer.render(
+            PostRendererFixtureApp(),
+            in: AppRenderingContext()
+        )
+
+        #expect(
+            renderedApp.routes.contains { route in
+                route.method == .post
+                    && route.path.map(String.init(describing:)) == ["hooks", "stripe"]
+            }
+        )
+    }
+
+    @Test
     func renderingPropagatesSceneFailure() async {
         await #expect(throws: RendererFixtureError.self) {
             _ = try await AppRenderer.render(
@@ -42,6 +57,14 @@ struct SwiftWebAppRendererTests {
 private struct RendererFixtureApp: App {
     var body: some Scene {
         Endpoint("/health") { _ in
+            Response(status: .ok)
+        }
+    }
+}
+
+private struct PostRendererFixtureApp: App {
+    var body: some Scene {
+        Endpoint("/hooks/stripe", method: .post, security: .external) { _ in
             Response(status: .ok)
         }
     }
