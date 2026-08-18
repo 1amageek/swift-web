@@ -1,4 +1,5 @@
 import Foundation
+import ActorSystemCore
 import SwiftHTML
 import SwiftWebStyle
 import SwiftWebUI
@@ -192,7 +193,10 @@ struct SwiftWebPageDocumentTests {
             )
             let binding = SwiftWebActorBindingRecord(
                 contractKey: "Tests.CounterServiceProtocol",
-                actorID: "counter-1"
+                actorID: ActorAddress(
+                    type: ActorTypeID(high: 1, low: 2),
+                    identity: "counter-1"
+                )
             )
             let scope = SwiftWebActorBindingScope(records: [binding])
             let request = Request(runtime: runtime)

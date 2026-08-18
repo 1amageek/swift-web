@@ -19,6 +19,13 @@ public protocol App: SendableMetatype {
     /// Must return the same instance for the app's lifetime.
     var actorSystem: WebActorSystem { get }
 
+    #if SWIFTWEB_LEGACY_ACTORS
+    /// Compatibility system for applications still using `@Resolvable` and
+    /// the legacy JSON actor endpoint.
+    @available(*, deprecated, message: "Migrate actors to WebActorSystem")
+    var legacyActorSystem: LegacyWebActorSystem { get }
+    #endif
+
     @SceneBuilder
     var body: Body { get }
 }
@@ -35,4 +42,8 @@ public extension App {
     var actorSystem: WebActorSystem {
         .shared
     }
+
+    #if SWIFTWEB_LEGACY_ACTORS
+    var legacyActorSystem: LegacyWebActorSystem { .shared }
+    #endif
 }

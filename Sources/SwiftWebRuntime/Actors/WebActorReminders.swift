@@ -1,4 +1,4 @@
-#if SWIFTWEB_ACTORS
+#if SWIFTWEB_LEGACY_ACTORS
 import Distributed
 #if canImport(FoundationEssentials)
 import FoundationEssentials
@@ -19,10 +19,10 @@ import Foundation
 /// Scheduling requires an installed `WebActorReminderStore`; without one,
 /// `set` throws — durability is a host configuration, not a silent no-op.
 public struct WebActorReminders: Sendable {
-    private let actorID: WebActorSystem.ActorID
+    private let actorID: LegacyWebActorSystem.ActorID
     private let store: (any WebActorReminderStore)?
 
-    init(actorID: WebActorSystem.ActorID, store: (any WebActorReminderStore)?) {
+    init(actorID: LegacyWebActorSystem.ActorID, store: (any WebActorReminderStore)?) {
         self.actorID = actorID
         self.store = store
     }
@@ -60,12 +60,12 @@ public struct WebActorReminders: Sendable {
 /// Errors raised by the reminder machinery.
 public enum WebActorReminderError: Error, Sendable, Equatable {
     /// No `WebActorReminderStore` is installed on the actor system.
-    case storeNotInstalled(actorID: WebActorSystem.ActorID)
+    case storeNotInstalled(actorID: LegacyWebActorSystem.ActorID)
     /// A reminder fired for an actor that does not adopt `WebActorRemindable`.
-    case actorNotRemindable(actorID: WebActorSystem.ActorID, name: String)
+    case actorNotRemindable(actorID: LegacyWebActorSystem.ActorID, name: String)
 }
 
-public extension DistributedActor where ActorSystem == WebActorSystem, ID == WebActorSystem.ActorID {
+public extension DistributedActor where ActorSystem == LegacyWebActorSystem, ID == LegacyWebActorSystem.ActorID {
     /// The durable reminder handle for this actor's identity.
     var reminders: WebActorReminders {
         actorSystem.reminders(for: id)

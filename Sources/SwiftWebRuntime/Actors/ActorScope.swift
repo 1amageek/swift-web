@@ -1,4 +1,8 @@
 #if SWIFTWEB_ACTORS
+import ActorSystemCore
+#if SWIFTWEB_LEGACY_ACTORS
+@preconcurrency import ActorSystemCompatibility
+#endif
 /// Declares where a virtual actor's identity key comes from, and which
 /// authorization rule guards invocations addressed to it.
 ///
@@ -11,7 +15,7 @@
 /// - ``addressed(authorization:)``: the caller names the key (an entity ID
 ///   such as a room or document). An authorization policy is required by
 ///   the type system; an open endpoint must be declared explicitly with
-///   ``WebActorAuthorization/allowAll``.
+///   ``SwiftWebActorAuthorization/allowAll``.
 /// - ``transient``: the actor has no durable identity and lives only for
 ///   the addressing connection.
 ///
@@ -24,10 +28,16 @@ public struct ActorScope: Sendable {
         /// Key derived on the server from the invocation context.
         /// `label` names the segment inside the identity string;
         /// `extract` fails when the context cannot supply the key.
-        case derived(label: String, extract: @Sendable (WebActorInvocationContext) throws -> String)
+        case derived(
+            label: String,
+            extract: @Sendable (SwiftWebActorInvocationContext) throws -> String
+        )
 
         /// Key supplied by the caller, guarded by an explicit policy.
-        case addressed(authorization: WebActorAuthorization)
+        case addressed(authorization: SwiftWebActorAuthorization)
+        #if SWIFTWEB_LEGACY_ACTORS
+        case legacyAddressed(authorization: WebActorAuthorization)
+        #endif
     }
 
     let segments: [Segment]
@@ -44,15 +54,29 @@ public struct ActorScope: Sendable {
     /// invocation context, never from the request payload.
     public static func derived(
         _ label: String,
-        _ extract: @escaping @Sendable (WebActorInvocationContext) throws -> String
+        _ extract: @escaping @Sendable (SwiftWebActorInvocationContext) throws -> String
     ) -> ActorScope {
         ActorScope(segments: [.derived(label: label, extract: extract)], isTransient: false)
     }
 
     /// A caller-addressed identity segment guarded by an explicit policy.
-    public static func addressed(authorization: WebActorAuthorization) -> ActorScope {
+    public static func addressed(
+        authorization: SwiftWebActorAuthorization
+    ) -> ActorScope {
         ActorScope(segments: [.addressed(authorization: authorization)], isTransient: false)
     }
+
+    #if SWIFTWEB_LEGACY_ACTORS
+    @available(*, deprecated, message: "Use addressed(authorization:) with SwiftWebActorAuthorization")
+    public static func legacyAddressed(
+        authorization: WebActorAuthorization
+    ) -> ActorScope {
+        ActorScope(
+            segments: [.legacyAddressed(authorization: authorization)],
+            isTransient: false
+        )
+    }
+    #endif
 
     /// No durable identity: the actor lives and dies with the connection.
     public static let transient = ActorScope(segments: [], isTransient: true)
@@ -104,7 +128,9 @@ public struct ActorScope: Sendable {
     /// Derives the identity name for the derived segments of this scope.
     /// Addressed segments contribute the caller-supplied remainder and are
     /// validated by ``authorization()``.
-    func derivedNamePrefix(context: WebActorInvocationContext) throws -> [String] {
+    func derivedNamePrefix(
+        context: SwiftWebActorInvocationContext
+    ) throws -> [String] {
         var components: [String] = []
         for segment in segments {
             switch segment {
@@ -113,23 +139,34 @@ public struct ActorScope: Sendable {
                 components.append(try extract(context))
             case .addressed:
                 return components
+            #if SWIFTWEB_LEGACY_ACTORS
+            case .legacyAddressed:
+                return components
+            #endif
             }
         }
         return components
     }
 
-    /// The invocation authorization implied by this scope: derived segments
-    /// require the recipient name to start with the context-derived prefix,
-    /// and addressed segments apply their explicit policy.
+    #if SWIFTWEB_LEGACY_ACTORS
+    /// The compatibility authorization used by the legacy JSON actor path.
+    @available(*, deprecated, message: "Use swiftWebAuthorization()")
     public func authorization() -> WebActorAuthorization {
         let scope = self
         return WebActorAuthorization { request in
             guard request.context.isExternal else {
                 return .allow
             }
+            let context = SwiftWebActorInvocationContext(
+                principalID: request.context.principalID,
+                sessionID: request.context.sessionID,
+                tenantID: request.context.tenantID,
+                remoteAddress: request.context.remoteAddress,
+                peerID: request.context.peerID
+            )
             let prefix: [String]
             do {
-                prefix = try scope.derivedNamePrefix(context: request.context)
+                prefix = try scope.derivedNamePrefix(context: context)
             } catch {
                 return .deny("Actor scope derivation failed: \(error)")
             }
@@ -143,14 +180,96 @@ public struct ActorScope: Sendable {
                 }
             }
             for segment in scope.segments {
-                if case .addressed(let authorization) = segment {
+                switch segment {
+                case .addressed(let authorization):
+                    let invocation = ActorInvocation(
+                        recipient: ActorAddress(
+                            type: ActorTypeID(high: 0, low: 0),
+                            identity: request.recipient.name ?? request.recipient.actorID
+                        ),
+                        method: ActorMethodID(0),
+                        schemaFingerprint: ActorSchemaFingerprint(high: 0, low: 0),
+                        payload: ActorByteBuffer()
+                    )
+                    do {
+                        try await authorization.authorize(
+                            SwiftWebActorAuthorizationRequest(
+                                invocation: invocation,
+                                context: context,
+                                origin: .remote(
+                                    transport: .swiftWebHTTP,
+                                    endpoint: ActorEndpoint("swiftweb.legacy")
+                                ),
+                                isActive: request.isRegistered
+                            )
+                        )
+                    } catch {
+                        return .deny("Actor authorization failed: \(error)")
+                    }
+                case .legacyAddressed(let authorization):
                     let decision = await authorization.authorize(request)
                     guard case .allow = decision else {
                         return decision
                     }
+                case .derived:
+                    break
                 }
             }
             return .allow
+        }
+    }
+    #endif
+
+    /// The equivalent authorization used by the concrete binary actor path.
+    public func swiftWebAuthorization() -> SwiftWebActorAuthorization {
+        let scope = self
+        return SwiftWebActorAuthorization { request in
+            guard case .remote = request.origin else {
+                return
+            }
+            let prefix = try scope.derivedNamePrefix(context: request.context)
+            let expectedPrefix = prefix.joined(separator: ":")
+            let identity = request.invocation.recipient.identity
+            if !expectedPrefix.isEmpty,
+               identity != expectedPrefix,
+               !identity.hasPrefix(expectedPrefix + ":") {
+                throw ActorSystemError.unauthorized
+            }
+            for segment in scope.segments {
+                switch segment {
+                case .addressed(let authorization):
+                    try await authorization.authorize(request)
+                #if SWIFTWEB_LEGACY_ACTORS
+                case .legacyAddressed(let authorization):
+                    let legacyContext = WebActorInvocationContext(
+                        transport: .http,
+                        principalID: request.context.principalID,
+                        sessionID: request.context.sessionID,
+                        tenantID: request.context.tenantID,
+                        remoteAddress: request.context.remoteAddress,
+                        peerID: request.context.peerID
+                    )
+                    let envelope = InvocationEnvelope(
+                        recipientID: "actor:\(identity)",
+                        target: String(request.invocation.method.rawValue),
+                        arguments: []
+                    )
+                    let legacyRequest = WebActorAuthorizationRequest(
+                        envelope: envelope,
+                        recipient: WebActorRecipient(actorID: envelope.recipientID),
+                        targetIdentifier: envelope.target,
+                        context: legacyContext,
+                        isRegistered: request.isActive,
+                        isVirtualActor: true
+                    )
+                    guard case .allow = await authorization.authorize(legacyRequest) else {
+                        throw ActorSystemError.unauthorized
+                    }
+                #endif
+                case .derived:
+                    break
+                }
+            }
         }
     }
 }

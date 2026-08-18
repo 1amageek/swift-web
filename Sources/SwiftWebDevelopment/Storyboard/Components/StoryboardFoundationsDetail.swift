@@ -1,4 +1,6 @@
+#if !hasFeature(Embedded)
 import Foundation
+#endif
 import SwiftHTML
 import SwiftWebUI
 
@@ -104,7 +106,7 @@ struct FoundationsDetail: Component {
                 VStack {}
                     .frame(width: 150, height: 88)
                     .background(Color(cssValue: paletteHex(name)).opacity(opacity), in: .rect(cornerRadius: 12))
-                Text("Color.\(name) · opacity \(String(format: "%.2f", opacity))").as(.small)
+                Text("Color.\(name) · opacity \(storyboardFixedDecimal(opacity, fractionDigits: 2))").as(.small)
                     .font(Font(size: .px(12), design: .monospaced))
                     .foregroundStyle(.secondary)
             }
@@ -158,7 +160,7 @@ struct FoundationsDetail: Component {
                 colorChip(Color(cssValue: paletteHex(name)).opacity(opacity), label: ".\(name)")
                 colorChip(custom, label: ".css")
             }
-            Text("Color.\(name).opacity(\(String(format: "%.2f", opacity)))").as(.small)
+            Text("Color.\(name).opacity(\(storyboardFixedDecimal(opacity, fractionDigits: 2)))").as(.small)
                 .font(Font(size: .px(12), design: .monospaced))
                 .foregroundStyle(.secondary)
         }

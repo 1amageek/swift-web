@@ -1,4 +1,5 @@
 #if canImport(Foundation)
+import ActorSystemCore
 import Foundation
 import SwiftHTML
 import SwiftWebActors
@@ -483,14 +484,38 @@ enum ClientRuntimeJSONCodec {
         try array(value ?? [], path: path).enumerated().map { index, value in
             let itemPath = "\(path)[\(index)]"
             let value = try object(value, path: itemPath)
+            let contractKey = try string(
+                try required(value, "contractKey", path: itemPath),
+                path: "\(itemPath).contractKey"
+            )
+            #if SWIFTWEB_LEGACY_ACTORS
+            if let legacyActorID = try optionalString(
+                value["actorID"],
+                path: "\(itemPath).actorID"
+            ) {
+                return SwiftWebActorBindingRecord(
+                    contractKey: contractKey,
+                    actorID: legacyActorID
+                )
+            }
+            #endif
             return SwiftWebActorBindingRecord(
-                contractKey: try string(
-                    try required(value, "contractKey", path: itemPath),
-                    path: "\(itemPath).contractKey"
-                ),
-                actorID: try string(
-                    try required(value, "actorID", path: itemPath),
-                    path: "\(itemPath).actorID"
+                contractKey: contractKey,
+                actorID: ActorAddress(
+                    type: ActorTypeID(
+                        high: try uint64(
+                            try required(value, "actorTypeHigh", path: itemPath),
+                            path: "\(itemPath).actorTypeHigh"
+                        ),
+                        low: try uint64(
+                            try required(value, "actorTypeLow", path: itemPath),
+                            path: "\(itemPath).actorTypeLow"
+                        )
+                    ),
+                    identity: try string(
+                        try required(value, "actorIdentity", path: itemPath),
+                        path: "\(itemPath).actorIdentity"
+                    )
                 )
             )
         }

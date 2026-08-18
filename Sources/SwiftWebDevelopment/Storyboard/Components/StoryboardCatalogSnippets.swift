@@ -1,4 +1,6 @@
+#if !hasFeature(Embedded)
 import Foundation
+#endif
 import SwiftHTML
 import SwiftWebUI
 
@@ -34,7 +36,7 @@ private func tintStyle(_ value: String) -> String { ".\(value)" }
 /// shared by the animation and withAnimation snippets.
 private func animationExpr(_ state: [String: String], _ prefix: String) -> String {
   let curve = state.control(prefix, "curve")
-  let duration = String(format: "%.1f", state.controlNumber(prefix, "duration"))
+  let duration = storyboardFixedDecimal(state.controlNumber(prefix, "duration"), fractionDigits: 1)
   if curve == "spring" {
     return state.controlFlag(prefix, "bounce")
       ? ".spring(duration: \(duration), bounce: 0.3)"
@@ -44,7 +46,9 @@ private func animationExpr(_ state: [String: String], _ prefix: String) -> Strin
 }
 
 /// Format a 0...1 value with two decimals, matching the design's readouts.
-private func f2(_ value: Double) -> String { String(format: "%.2f", value) }
+private func f2(_ value: Double) -> String {
+    storyboardFixedDecimal(value, fractionDigits: 2)
+}
 
 /// Format a value as an integer.
 private func iStr(_ value: Double) -> String { String(Int(value)) }
@@ -52,7 +56,7 @@ private func iStr(_ value: Double) -> String { String(Int(value)) }
 /// Trim a number to its shortest exact decimal (0.6, not 0.60).
 private func trimNum(_ value: Double) -> String {
     if value == value.rounded() { return String(Int(value)) }
-    return String(format: "%g", value)
+    return storyboardShortestDecimal(value)
 }
 
 private func codeBody(language: String) -> String {

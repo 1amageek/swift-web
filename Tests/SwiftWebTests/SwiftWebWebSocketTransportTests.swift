@@ -1,3 +1,4 @@
+#if SWIFTWEB_LEGACY_ACTORS
 import Distributed
 import Foundation
 import Synchronization
@@ -12,7 +13,7 @@ struct WebSocketActorTransportTests {
     @Test
     func clientCallsAgentAndAgentPushesToObserverOverOneDuplexChannel() async throws {
         // Server side: agent family + session router for pushes.
-        let serverSystem = WebActorSystem()
+        let serverSystem = LegacyWebActorSystem()
         let router = WebSocketSessionRouter()
         serverSystem.setTransport(router)
         serverSystem.registerActivator(for: WSAgent.self) {
@@ -20,7 +21,7 @@ struct WebSocketActorTransportTests {
         }
 
         // Client side: local observer.
-        let clientSystem = WebActorSystem()
+        let clientSystem = LegacyWebActorSystem()
         let observer = WSObserver(actorSystem: clientSystem)
 
         // One in-memory duplex "socket": each side's frames feed the other.
@@ -44,7 +45,7 @@ struct WebSocketActorTransportTests {
 
         // Client → agent (unary), agent → observer (typed pushes), both over
         // the same channel, correlated by callID.
-        let agentID = WebActorSystem.actorID(for: WSAgent.self, named: "session-1")
+        let agentID = LegacyWebActorSystem.actorID(for: WSAgent.self, named: "session-1")
         let agent = try $WSAgentProtocol.resolve(id: agentID, using: clientSystem)
         let pushed = try await agent.start(observerID: observer.id, count: 3)
 
@@ -57,9 +58,9 @@ struct WebSocketActorTransportTests {
         let transport = WebSocketActorTransport { _ in
             // Never delivered: the peer is gone.
         }
-        let clientSystem = WebActorSystem(transport: transport)
+        let clientSystem = LegacyWebActorSystem(transport: transport)
         let agent = try $WSAgentProtocol.resolve(
-            id: WebActorSystem.actorID(for: WSAgent.self, named: "gone"),
+            id: LegacyWebActorSystem.actorID(for: WSAgent.self, named: "gone"),
             using: clientSystem
         )
 
@@ -142,19 +143,19 @@ private final class SentFrameStore: Sendable {
 
 @Resolvable
 protocol WSAgentProtocol: DistributedActor
-where ActorSystem == WebActorSystem {
+where ActorSystem == LegacyWebActorSystem {
     distributed func start(observerID: String, count: Int) async throws -> Int
 }
 
 @Resolvable
 protocol WSObserverProtocol: DistributedActor
-where ActorSystem == WebActorSystem {
+where ActorSystem == LegacyWebActorSystem {
     distributed func token(_ text: String) async throws
 }
 
 @ResolvableActor(WSAgentProtocol.self)
 private distributed actor WSAgent: WSAgentProtocol {
-    typealias ActorSystem = WebActorSystem
+    typealias ActorSystem = LegacyWebActorSystem
 
     distributed func start(observerID: String, count: Int) async throws -> Int {
         let observer = try $WSObserverProtocol.resolve(id: observerID, using: actorSystem)
@@ -167,7 +168,7 @@ private distributed actor WSAgent: WSAgentProtocol {
 
 @ResolvableActor(WSObserverProtocol.self)
 private distributed actor WSObserver: WSObserverProtocol {
-    typealias ActorSystem = WebActorSystem
+    typealias ActorSystem = LegacyWebActorSystem
 
     private var tokens: [String] = []
 
@@ -179,3 +180,4 @@ private distributed actor WSObserver: WSObserverProtocol {
         tokens
     }
 }
+#endif

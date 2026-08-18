@@ -1,59 +1,43 @@
 import Foundation
 
 struct PackageResolvedSynchronizer: Sendable {
+  struct Snapshot: Sendable {
+    let sourceURL: URL
+    let data: Data
+  }
+
   let appPackageDirectory: URL
   let fileWriter: GeneratedPackageFileWriter
 
+  func snapshot(fallbackPackageDirectory: URL? = nil) throws -> Snapshot? {
+    guard let sourceURL = packageResolvedSourceURL(
+      fallbackPackageDirectory: fallbackPackageDirectory
+    ) else {
+      return nil
+    }
+    return Snapshot(sourceURL: sourceURL, data: try Data(contentsOf: sourceURL))
+  }
+
   func sync(
+    _ snapshot: Snapshot?,
     to packageDirectory: URL,
-    fallbackPackageDirectory: URL? = nil,
     keepingIdentities identities: Set<String>? = nil
   ) throws {
     let destinationURL = packageDirectory.appendingPathComponent("Package.resolved")
 
-    if let sourceURL = packageResolvedSourceURL(fallbackPackageDirectory: fallbackPackageDirectory)
-    {
+    if let snapshot {
       if let identities {
-        let data = try filteredPackageResolvedData(from: sourceURL, keepingIdentities: identities)
+        let data = try filteredPackageResolvedData(
+          snapshot,
+          keepingIdentities: identities
+        )
         try fileWriter.writeDataIfChanged(data, to: destinationURL)
       } else {
-        let data = try Data(contentsOf: sourceURL)
-        try fileWriter.writeDataIfChanged(data, to: destinationURL)
+        try fileWriter.writeDataIfChanged(snapshot.data, to: destinationURL)
       }
     } else if FileManager.default.fileExists(atPath: destinationURL.path) {
       try FileManager.default.removeItem(at: destinationURL)
     }
-  }
-
-  func actorRuntimeDependencyDeclaration(
-    fallbackPackageDirectory: URL? = nil
-  ) throws -> String {
-    guard
-      let sourceURL = packageResolvedSourceURL(fallbackPackageDirectory: fallbackPackageDirectory)
-    else {
-      return fallbackActorRuntimeDependencyDeclaration
-    }
-
-    let data = try Data(contentsOf: sourceURL)
-    let packageResolved = try JSONDecoder().decode(PackageResolvedFile.self, from: data)
-    guard
-      let pin = packageResolved.pins.first(where: {
-        $0.identity.lowercased() == "swift-actor-runtime"
-      })
-    else {
-      return fallbackActorRuntimeDependencyDeclaration
-    }
-
-    let location = pin.location ?? "https://github.com/1amageek/swift-actor-runtime.git"
-    if let version = pin.state.version {
-      return
-        #".package(url: "\#(GeneratedPackageNameFormatter.swiftStringLiteral(location))", exact: "\#(GeneratedPackageNameFormatter.swiftStringLiteral(version))")"#
-    }
-    if let revision = pin.state.revision {
-      return
-        #".package(url: "\#(GeneratedPackageNameFormatter.swiftStringLiteral(location))", revision: "\#(GeneratedPackageNameFormatter.swiftStringLiteral(revision))")"#
-    }
-    return fallbackActorRuntimeDependencyDeclaration
   }
 
   private func packageResolvedSourceURL(fallbackPackageDirectory: URL?) -> URL? {
@@ -76,20 +60,21 @@ struct PackageResolvedSynchronizer: Sendable {
     return nil
   }
 
-  private var fallbackActorRuntimeDependencyDeclaration: String {
-    #".package(url: "https://github.com/1amageek/swift-actor-runtime.git", from: "0.6.0")"#
-  }
-
   private func filteredPackageResolvedData(
-    from sourceURL: URL,
+    _ snapshot: Snapshot,
     keepingIdentities identities: Set<String>
   ) throws -> Data {
-    let data = try Data(contentsOf: sourceURL)
-    guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-      throw SwiftWebGeneratedPackageMaterializerError.invalidPackageResolved(sourceURL)
+    guard let object = try JSONSerialization.jsonObject(with: snapshot.data)
+      as? [String: Any]
+    else {
+      throw SwiftWebGeneratedPackageMaterializerError.invalidPackageResolved(
+        snapshot.sourceURL
+      )
     }
     guard let pins = object["pins"] as? [[String: Any]] else {
-      throw SwiftWebGeneratedPackageMaterializerError.invalidPackageResolved(sourceURL)
+      throw SwiftWebGeneratedPackageMaterializerError.invalidPackageResolved(
+        snapshot.sourceURL
+      )
     }
 
     let filteredPins = pins.filter { pin in
@@ -107,19 +92,4 @@ struct PackageResolvedSynchronizer: Sendable {
       options: [.prettyPrinted, .sortedKeys]
     )
   }
-}
-
-private struct PackageResolvedFile: Decodable {
-  let pins: [PackageResolvedPin]
-}
-
-private struct PackageResolvedPin: Decodable {
-  let identity: String
-  let location: String?
-  let state: PackageResolvedPinState
-}
-
-private struct PackageResolvedPinState: Decodable {
-  let version: String?
-  let revision: String?
 }

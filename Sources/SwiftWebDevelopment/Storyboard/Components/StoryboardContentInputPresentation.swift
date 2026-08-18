@@ -1,4 +1,6 @@
+#if !hasFeature(Embedded)
 import Foundation
+#endif
 import SwiftHTML
 import SwiftWebUI
 
@@ -15,7 +17,9 @@ private func constant<Value: Sendable>(_ value: Value) -> Binding<Value> {
 
 /// A fixed instant (2026-06-15 09:30 UTC) so the DatePicker variants render
 /// the same value on every visit.
+#if !hasFeature(Embedded)
 private let variantDate = Date(timeIntervalSince1970: 1_781_515_800)
+#endif
 
 /// A small rounded swatch that paints one `Color`.
 private func colorSwatch(_ color: Color) -> some Component {
@@ -420,6 +424,18 @@ private func pickerVariants() -> [CatalogVariant] {
 }
 
 private func datePickerVariants() -> [CatalogVariant] {
+    #if hasFeature(Embedded)
+    [
+        CatalogVariant(
+            "Foundation capability",
+            detail: "DatePicker is unavailable when Foundation Date and Calendar are absent."
+        ) {
+            Text("DatePicker requires the standard runtime's Date and Calendar capability.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        },
+    ]
+    #else
     [
         CatalogVariant("Date only", detail: "[.date] lowers to input[type=date] with the browser's calendar.") {
             DatePicker("Due date", selection: constant(variantDate), displayedComponents: [.date])
@@ -435,18 +451,11 @@ private func datePickerVariants() -> [CatalogVariant] {
                 .disabled(true)
         },
     ]
+    #endif
 }
 
 /// Days that carry an event marker in the custom-cell calendar variant.
 private let calendarVariantEventDays: Set<Int> = [3, 8, 14, 21, 27]
-
-/// A fixed gregorian, Sunday-first calendar so variant cards render the same
-/// column order on every host, independent of the runtime locale.
-private var calendarVariantCalendar: Calendar {
-    var calendar = Calendar(identifier: .gregorian)
-    calendar.firstWeekday = 1
-    return calendar
-}
 
 /// A small accent dot standing in for per-day content such as events.
 private func calendarVariantEventDot() -> some Component {
@@ -458,11 +467,16 @@ private func calendarVariantEventDot() -> some Component {
 private func calendarVariants() -> [CatalogVariant] {
     [
         CatalogVariant("Default cells", detail: "Without a cell closure each day renders CalendarCellContent { CalendarCellHeader(day) }; today fills with the accent.") {
-            CalendarView(month: variantDate, calendar: calendarVariantCalendar)
+            CalendarView(
+                year: 2026,
+                month: 6,
+                firstWeekday: 1,
+                today: GregorianDay(year: 2026, month: 6, day: 15)
+            )
                 .frame(maxWidth: 280)
         },
         CatalogVariant("Custom cells", detail: "CalendarCellBody stacks per-day content — here an event dot — under the day number.") {
-            CalendarView(month: variantDate, calendar: calendarVariantCalendar) { day in
+            CalendarView(year: 2026, month: 6, firstWeekday: 1) { day in
                 CalendarCellContent {
                     CalendarCellHeader(day)
                     CalendarCellBody {
@@ -475,7 +489,7 @@ private func calendarVariants() -> [CatalogVariant] {
             .frame(maxWidth: 280)
         },
         CatalogVariant("Selected day", detail: "Selection lives in caller state and flows back through CalendarCellHeader(day, isSelected:), which fills the day with the accent.") {
-            CalendarView(month: variantDate, calendar: calendarVariantCalendar) { day in
+            CalendarView(year: 2026, month: 6, firstWeekday: 1) { day in
                 CalendarCellContent {
                     CalendarCellHeader(day, isSelected: !day.isOutsideMonth && day.day == 15)
                 }
@@ -483,7 +497,12 @@ private func calendarVariants() -> [CatalogVariant] {
             .frame(maxWidth: 280)
         },
         CatalogVariant("Narrow weekdays", detail: "weekdaySymbols swaps the header labels, indexed by weekday 1...7.") {
-            CalendarView(month: variantDate, calendar: calendarVariantCalendar, weekdaySymbols: ["S", "M", "T", "W", "T", "F", "S"])
+            CalendarView(
+                year: 2026,
+                month: 6,
+                firstWeekday: 1,
+                weekdaySymbols: ["S", "M", "T", "W", "T", "F", "S"]
+            )
                 .frame(maxWidth: 280)
         },
     ]

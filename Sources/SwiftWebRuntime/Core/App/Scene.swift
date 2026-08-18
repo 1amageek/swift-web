@@ -1,3 +1,4 @@
+import ActorSystemCore
 import SwiftHTML
 import SwiftWebActors
 
@@ -55,9 +56,29 @@ public struct SceneRenderingContext {
     package let runtime: AppRuntime
     package let routes: any RoutesBuilder
     package let actorSystem: WebActorSystem
+    #if SWIFTWEB_LEGACY_ACTORS
+    package let legacyActorSystem: LegacyWebActorSystem
+    #endif
     package let environment: EnvironmentValues
     package let actorBindings: SwiftWebActorBindingScope
 
+    #if SWIFTWEB_LEGACY_ACTORS
+    package init(
+        runtime: AppRuntime,
+        routes: any RoutesBuilder,
+        actorSystem: WebActorSystem = .shared,
+        legacyActorSystem: LegacyWebActorSystem = .shared,
+        environment: EnvironmentValues = EnvironmentValues(),
+        actorBindings: SwiftWebActorBindingScope = .empty
+    ) {
+        self.runtime = runtime
+        self.routes = routes
+        self.actorSystem = actorSystem
+        self.legacyActorSystem = legacyActorSystem
+        self.environment = environment
+        self.actorBindings = actorBindings
+    }
+    #else
     package init(
         runtime: AppRuntime,
         routes: any RoutesBuilder,
@@ -71,13 +92,33 @@ public struct SceneRenderingContext {
         self.environment = environment
         self.actorBindings = actorBindings
     }
+    #endif
 
+    #if SWIFTWEB_LEGACY_ACTORS
+    package static func root(
+        _ runtime: AppRuntime,
+        actorSystem: WebActorSystem = .shared,
+        legacyActorSystem: LegacyWebActorSystem = .shared
+    ) -> SceneRenderingContext {
+        SceneRenderingContext(
+            runtime: runtime,
+            routes: runtime.routes,
+            actorSystem: actorSystem,
+            legacyActorSystem: legacyActorSystem
+        )
+    }
+    #else
     package static func root(
         _ runtime: AppRuntime,
         actorSystem: WebActorSystem = .shared
     ) -> SceneRenderingContext {
-        SceneRenderingContext(runtime: runtime, routes: runtime.routes, actorSystem: actorSystem)
+        SceneRenderingContext(
+            runtime: runtime,
+            routes: runtime.routes,
+            actorSystem: actorSystem
+        )
     }
+    #endif
 
     package func grouped(_ path: String) -> SceneRenderingContext {
         grouped(RoutePath(path))
@@ -87,21 +128,30 @@ public struct SceneRenderingContext {
         guard !path.components.isEmpty else {
             return self
         }
-        return SceneRenderingContext(
-            runtime: runtime,
+        return replacing(
             routes: routes.grouped(path.webComponents),
-            actorSystem: actorSystem,
             environment: environment,
             actorBindings: actorBindings
         )
     }
 
-    #if SWIFTWEB_ACTORS
-    package func adding<ActorType: SwiftWebActorExporting>(_ actor: ActorType) -> SceneRenderingContext {
-        SceneRenderingContext(
-            runtime: runtime,
+    package func adding<ActorType: ActorSystemReference>(
+        _ actor: ActorType
+    ) -> SceneRenderingContext where ActorType.ActorSystem == WebActorSystem {
+        replacing(
             routes: routes,
-            actorSystem: actorSystem,
+            environment: environment,
+            actorBindings: actorBindings.adding(actor)
+        )
+    }
+
+    #if SWIFTWEB_LEGACY_ACTORS
+    @available(*, deprecated, message: "Use a concrete actor conforming to ActorSystemReference")
+    package func adding<ActorType: LegacySwiftWebActorExporting>(
+        _ actor: ActorType
+    ) -> SceneRenderingContext {
+        replacing(
+            routes: routes,
             environment: environment,
             actorBindings: actorBindings.adding(actor)
         )
@@ -109,13 +159,36 @@ public struct SceneRenderingContext {
     #endif
 
     package func withEnvironment(_ environment: EnvironmentValues) -> SceneRenderingContext {
-        SceneRenderingContext(
+        replacing(
+            routes: routes,
+            environment: environment,
+            actorBindings: actorBindings
+        )
+    }
+
+    package func replacing(
+        routes: any RoutesBuilder,
+        environment: EnvironmentValues,
+        actorBindings: SwiftWebActorBindingScope
+    ) -> SceneRenderingContext {
+        #if SWIFTWEB_LEGACY_ACTORS
+        return SceneRenderingContext(
+            runtime: runtime,
+            routes: routes,
+            actorSystem: actorSystem,
+            legacyActorSystem: legacyActorSystem,
+            environment: environment,
+            actorBindings: actorBindings
+        )
+        #else
+        return SceneRenderingContext(
             runtime: runtime,
             routes: routes,
             actorSystem: actorSystem,
             environment: environment,
             actorBindings: actorBindings
         )
+        #endif
     }
 }
 

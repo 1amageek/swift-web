@@ -1,4 +1,6 @@
+#if !hasFeature(Embedded)
 import Foundation
+#endif
 
 // The per-page editorial content (discussion, SwiftUI parity, variants) is
 // split by category group so each group can grow independently. Pages without

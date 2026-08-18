@@ -43,4 +43,19 @@ struct RouteMatcherTests {
         #expect(matcher.match(method: .get, path: "/")?.route === root)
         #expect(matcher.match(method: .head, path: "/")?.route === root)
     }
+
+    @Test
+    func separatesHTTPAndWebSocketRoutesAtTheSamePath() throws {
+        let routes = Routes()
+        let http = routes.get(["shared"]) { _ in Response() }
+        let webSocket = routes.webSocket(
+            ["shared"],
+            shouldUpgrade: { _ in [:] },
+            onUpgrade: { _, _ in }
+        )
+        let matcher = RouteMatcher(routes: routes.all)
+
+        #expect(matcher.matchHTTP(method: .get, path: "/shared")?.route === http)
+        #expect(matcher.matchWebSocket(path: "/shared")?.route === webSocket)
+    }
 }

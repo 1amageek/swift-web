@@ -38,21 +38,29 @@ enum HTTPServerAddressResolution {
 }
 
 public extension App {
-    static func run() async throws {
+    func run() async throws {
         let address = HTTPServerAddressResolution.resolve()
         try await HTTPServerHost(
             hostname: address.hostname,
             port: address.port
-        ).run(Self())
+        ).run(self)
     }
 
-    static func run(clientRuntime: ClientRuntimeConfiguration) async throws {
+    func run(clientRuntime: ClientRuntimeConfiguration) async throws {
         let address = HTTPServerAddressResolution.resolve()
         try await HTTPServerHost(
             hostname: address.hostname,
             port: address.port,
             clientRuntime: clientRuntime
-        ).run(Self())
+        ).run(self)
+    }
+
+    static func run() async throws {
+        try await Self().run()
+    }
+
+    static func run(clientRuntime: ClientRuntimeConfiguration) async throws {
+        try await Self().run(clientRuntime: clientRuntime)
     }
 
     static func main() async throws {

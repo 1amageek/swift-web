@@ -1,4 +1,4 @@
-#if os(WASI)
+#if os(WASI) && !hasFeature(Embedded) && SWIFTWEB_LEGACY_ACTORS
 import JavaScriptKit
 import Synchronization
 import SwiftWebActors

@@ -254,6 +254,29 @@ struct SwiftWebHTTPServerHostTests {
         }
     }
 
+    @Test
+    func upgradesAndEchoesBinaryWebSocketMessages() async throws {
+        try await withHost(HostFixtureApp()) { client, base in
+            let webSocketURL = try #require(
+                URL(string: base.replacingOccurrences(of: "http://", with: "ws://") + "/binary-socket")
+            )
+            let socket = client.webSocketTask(with: webSocketURL)
+            socket.resume()
+            defer {
+                socket.cancel(with: .normalClosure, reason: nil)
+            }
+
+            let expected = Data([0x00, 0x01, 0x7F, 0x80, 0xFF])
+            try await socket.send(.data(expected))
+            let message = try await socket.receive()
+            guard case .data(let received) = message else {
+                Issue.record("Expected a binary WebSocket response")
+                return
+            }
+            #expect(received == expected)
+        }
+    }
+
     // MARK: - Harness
 
     private enum HostTestError: Error {
@@ -276,15 +299,15 @@ struct SwiftWebHTTPServerHostTests {
             }
             let client = Self.makeClient()
             guard await Self.waitUntilReady(client: client, port: port, serveTask: serveTask) else {
-                await Self.stop(serveTask, installation)
+                try await Self.stop(serveTask, installation)
                 continue
             }
             do {
                 try await body(client, "http://127.0.0.1:\(port)")
-                await Self.stop(serveTask, installation)
+                try await Self.stop(serveTask, installation)
                 return
             } catch {
-                await Self.stop(serveTask, installation)
+                try await Self.stop(serveTask, installation)
                 throw error
             }
         }
@@ -323,9 +346,11 @@ struct SwiftWebHTTPServerHostTests {
         return false
     }
 
-    private static func stop(_ serveTask: Task<Void, any Error>, _ installation: HTTPServerAppInstallation) async {
-        serveTask.cancel()
-        installation.shutdown()
+    private static func stop(
+        _ serveTask: Task<Void, any Error>,
+        _ installation: HTTPServerAppInstallation
+    ) async throws {
+        try await installation.shutdown()
         _ = await serveTask.result
     }
 }
@@ -341,6 +366,7 @@ private struct HostFixtureApp: App {
         HostSessionLoginPage()
         FormActionEndpoint(HostEchoFormAction.self, path: "/submit")
         SSEEndpoint(HostTickerRoute.self, path: "/events")
+        WebSocketEndpoint(HostBinaryEchoRoute.self, path: "/binary-socket")
         Endpoint("/plain.txt", contentType: "text/plain; charset=utf-8") { _ in
             "plain fixture"
         }
@@ -504,6 +530,16 @@ private struct HostTickerRoute: SSERoute {
         AsyncThrowingStream { continuation in
             continuation.yield(SSEEvent(data: "tick-1"))
             continuation.finish()
+        }
+    }
+}
+
+private struct HostBinaryEchoRoute: WebSocketRoute {
+    init() {}
+
+    func connect(_ context: WebSocketContext) async throws {
+        context.onBinary { bytes in
+            try await context.send(bytes)
         }
     }
 }

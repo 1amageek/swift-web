@@ -122,6 +122,10 @@ public final class ClientRuntimeEntrypoint<Root: Component>: Sendable {
         responseStorage.free()
     }
 
+    public func shutdown() async throws {
+        try await bridge.shutdown()
+    }
+
     private func performOperation(_ operation: () throws -> Void) -> UInt32 {
         do {
             return try accessGate.withExclusiveAccess {
@@ -138,6 +142,7 @@ public final class ClientRuntimeEntrypoint<Root: Component>: Sendable {
         }
     }
 
+    #if !hasFeature(Embedded)
     private func decode<Request: Decodable>(
         _ type: Request.Type,
         pointer: UInt32,
@@ -149,19 +154,17 @@ public final class ClientRuntimeEntrypoint<Root: Component>: Sendable {
         let data = Data(bytes: rawPointer, count: Int(length))
         return try JSONDecoder().decode(Request.self, from: data)
     }
+    #endif
 
-    private func inputData(pointer: UInt32, length: UInt32) throws -> Data {
-        guard let rawPointer = UnsafeRawPointer(bitPattern: Int(pointer)) else {
-            throw ClientRuntimeEntrypointError.invalidInputPointer
-        }
-        return Data(bytes: rawPointer, count: Int(length))
+    private func inputData(pointer: UInt32, length: UInt32) throws -> ClientRuntimeWireData {
+        try ClientRuntimeWireDataFactory.copy(pointer: pointer, length: length)
     }
 }
 
 final class ClientRuntimeResponseStorage: Sendable {
-    private let storage = Mutex(Data())
-    private let responseEncoder: @Sendable (ClientRuntimeResponse) throws -> Data
-    private let snapshotEncoder: @Sendable (ClientRuntimeStateSnapshot) throws -> Data
+    private let storage = Mutex(ClientRuntimeWireData())
+    private let responseEncoder: @Sendable (ClientRuntimeResponse) throws -> ClientRuntimeWireData
+    private let snapshotEncoder: @Sendable (ClientRuntimeStateSnapshot) throws -> ClientRuntimeWireData
 
     init() {
         self.responseEncoder = Self.encodeResponse
@@ -169,13 +172,13 @@ final class ClientRuntimeResponseStorage: Sendable {
     }
 
     init(
-        responseEncoder: @escaping @Sendable (ClientRuntimeResponse) throws -> Data
+        responseEncoder: @escaping @Sendable (ClientRuntimeResponse) throws -> ClientRuntimeWireData
     ) {
         self.responseEncoder = responseEncoder
         self.snapshotEncoder = Self.encodeSnapshot
     }
 
-    func store(_ data: Data) {
+    func store(_ data: ClientRuntimeWireData) {
         storage.withLock { $0 = data }
     }
 
@@ -188,11 +191,19 @@ final class ClientRuntimeResponseStorage: Sendable {
     }
 
     func storeError(_ error: any Error) {
-        let response = ClientRuntimeResponse(error: String(describing: error))
+        #if hasFeature(Embedded)
+        _ = error
+        let errorDescription = "SwiftHTML Embedded WASM runtime operation failed"
+        #else
+        let errorDescription = String(describing: error)
+        #endif
+        let response = ClientRuntimeResponse(error: errorDescription)
         do {
             store(try responseEncoder(response))
         } catch {
-            store(Data(#"{"error":"SwiftHTML WASM response encoding failed"}"#.utf8))
+            store(ClientRuntimeWireDataFactory.utf8(
+                #"{"error":"SwiftHTML WASM response encoding failed"}"#
+            ))
         }
     }
 
@@ -222,10 +233,12 @@ final class ClientRuntimeResponseStorage: Sendable {
     }
 
     func free() {
-        storage.withLock { $0 = Data() }
+        storage.withLock { $0 = ClientRuntimeWireData() }
     }
 
-    private static func encodeResponse(_ response: ClientRuntimeResponse) throws -> Data {
+    private static func encodeResponse(
+        _ response: ClientRuntimeResponse
+    ) throws -> ClientRuntimeWireData {
         #if os(WASI)
         try ClientRuntimeJSONCodec.encode(response)
         #else
@@ -233,7 +246,9 @@ final class ClientRuntimeResponseStorage: Sendable {
         #endif
     }
 
-    private static func encodeSnapshot(_ snapshot: ClientRuntimeStateSnapshot) throws -> Data {
+    private static func encodeSnapshot(
+        _ snapshot: ClientRuntimeStateSnapshot
+    ) throws -> ClientRuntimeWireData {
         #if os(WASI)
         try ClientRuntimeJSONCodec.encode(snapshot)
         #else

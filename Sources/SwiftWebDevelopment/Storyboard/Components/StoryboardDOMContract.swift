@@ -1,9 +1,14 @@
+#if !hasFeature(Embedded)
 import Foundation
+#endif
 import SwiftHTML
 
-// SwiftHTML ships a `CharacterSet` polyfill for FoundationEssentials-only hosts;
-// on the WASM target both it and Foundation's are in scope, so pin the name here.
-private typealias CharacterSet = Foundation.CharacterSet
+// SwiftHTML supplies the Embedded spelling; Foundation owns the standard one.
+#if hasFeature(Embedded)
+private typealias StoryboardCharacterSet = SwiftHTML.CharacterSet
+#else
+private typealias StoryboardCharacterSet = Foundation.CharacterSet
+#endif
 
 /// Indents contract markup one element per line so the DOM contract reads as a
 /// tree instead of a single overflowing string.
@@ -17,7 +22,7 @@ func storyboardPrettyPrintedHTML(_ html: String) -> String {
     var remainder = html[...]
 
     func append(_ text: Substring, at depth: Int) {
-        let trimmed = text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        let trimmed = text.trimmingCharacters(in: StoryboardCharacterSet.whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         lines.append(String(repeating: "  ", count: max(0, depth)) + trimmed)
     }
@@ -50,18 +55,7 @@ func storyboardPrettyPrintedHTML(_ html: String) -> String {
 }
 
 func storyboardDOMContractHTML(from html: String) -> String {
-    var sanitizedHTML = html
-    sanitizedHTML = sanitizedHTML.replacingOccurrences(
-        of: #"\s*data-node="[^"]*""#,
-        with: "",
-        options: .regularExpression
-    )
-    sanitizedHTML = sanitizedHTML.replacingOccurrences(
-        of: #"\s*data-event-[a-z]+="[^"]*""#,
-        with: "",
-        options: .regularExpression
-    )
-    return storyboardPublicClassHTML(from: sanitizedHTML)
+    storyboardPublicClassHTML(from: storyboardRemovingRuntimeAttributes(from: html))
 }
 
 private func storyboardPublicClassHTML(from html: String) -> String {
@@ -69,7 +63,7 @@ private func storyboardPublicClassHTML(from html: String) -> String {
     var remainder = html[...]
     let marker = #" class=""#
 
-    while let range = remainder.range(of: marker) {
+    while let range = storyboardFirstRange(in: remainder, of: marker) {
         output.append(contentsOf: remainder[..<range.lowerBound])
         let valueStart = range.upperBound
         guard let valueEnd = remainder[valueStart...].firstIndex(of: "\"") else {
@@ -112,13 +106,13 @@ private let storyboardInternalClassTokens: Set<String> = [
 
 private func storyboardIsGeneratedAtomicClass(_ token: String) -> Bool {
     guard token.hasPrefix("swui-"),
-          let marker = token.range(of: "-x", options: .backwards) else {
+          let marker = storyboardLastRange(in: token, of: "-x") else {
         return false
     }
 
     let suffix = token[marker.upperBound...]
     guard suffix.count >= 8 else { return false }
     return suffix.allSatisfy { character in
-        character.isNumber || ("a"..."f").contains(character) || ("A"..."F").contains(character)
+        character.isNumber || "abcdefABCDEF".contains(character)
     }
 }

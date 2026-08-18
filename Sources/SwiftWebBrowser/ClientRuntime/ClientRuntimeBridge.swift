@@ -1,9 +1,13 @@
+@_spi(ActorSystemLifecycleOwnership) import ActorSystemCore
+#if hasFeature(Embedded)
+import ActorSystemEmbedded
+#endif
 import SwiftHTML
 import SwiftWebActors
 import SwiftWebStyle
 import Synchronization
 
-public struct ClientRuntimeBootstrapLocation: Sendable, Codable, Equatable {
+public struct ClientRuntimeBootstrapLocation: Sendable, Equatable {
     public let href: String
     public let search: String
 
@@ -13,7 +17,7 @@ public struct ClientRuntimeBootstrapLocation: Sendable, Codable, Equatable {
     }
 }
 
-public struct ClientRuntimeBootstrapRequest: Sendable, Codable, Equatable {
+public struct ClientRuntimeBootstrapRequest: Sendable, Equatable {
     public let hydrationIndex: BrowserHydrationIndex
     public let documentNodeIDUpperBound: Int?
     public let location: ClientRuntimeBootstrapLocation
@@ -39,7 +43,11 @@ public struct ClientRuntimeBootstrapRequest: Sendable, Codable, Equatable {
 
 }
 
-public enum ClientRuntimeBootstrapMode: String, Sendable, Codable, Equatable {
+#if !hasFeature(Embedded)
+extension ClientRuntimeBootstrapRequest: Codable {}
+#endif
+
+public enum ClientRuntimeBootstrapMode: String, Sendable, Equatable {
     case standard
     case hotReload
     case navigation
@@ -47,7 +55,7 @@ public enum ClientRuntimeBootstrapMode: String, Sendable, Codable, Equatable {
 
 public typealias ClientRuntimeStateSnapshot = StateStoreSnapshot
 
-public struct ClientRuntimeAtomicStyleRule: Sendable, Codable, Equatable {
+public struct ClientRuntimeAtomicStyleRule: Sendable, Equatable {
     public let className: String
     public let body: String
 
@@ -57,7 +65,7 @@ public struct ClientRuntimeAtomicStyleRule: Sendable, Codable, Equatable {
     }
 }
 
-public struct ClientRuntimeEventRequest: Sendable, Codable, Equatable {
+public struct ClientRuntimeEventRequest: Sendable, Equatable {
     public let handlerID: HandlerID
     public let event: DOMEvent
     public let componentID: ComponentID?
@@ -73,7 +81,7 @@ public struct ClientRuntimeEventRequest: Sendable, Codable, Equatable {
     }
 }
 
-public struct ClientRuntimeResponse: Sendable, Codable, Equatable {
+public struct ClientRuntimeResponse: Sendable, Equatable {
     public let commandBatch: BrowserDOMCommandBatch?
     public let hydrationIndex: BrowserHydrationIndex?
     public let atomicStyleRules: [ClientRuntimeAtomicStyleRule]
@@ -97,6 +105,7 @@ public struct ClientRuntimeResponse: Sendable, Codable, Equatable {
 
 public enum ClientRuntimeBridgeError: Error, Sendable, CustomStringConvertible {
     case notBootstrapped
+    case shutDown
     case componentMountNotFound(String)
     case duplicateStateSlot(String)
 
@@ -104,6 +113,8 @@ public enum ClientRuntimeBridgeError: Error, Sendable, CustomStringConvertible {
         switch self {
         case .notBootstrapped:
             "SwiftHTML browser runtime was not bootstrapped"
+        case .shutDown:
+            "SwiftHTML browser runtime was shut down"
         case .componentMountNotFound(let typeName):
             "SwiftHTML browser component mount was not found for \(typeName)"
         case .duplicateStateSlot(let slotID):
@@ -112,20 +123,73 @@ public enum ClientRuntimeBridgeError: Error, Sendable, CustomStringConvertible {
     }
 }
 
+final class ClientRuntimeTaskStartGate: Sendable {
+    private struct State: Sendable {
+        var isOpen = false
+        var waiters: [CheckedContinuation<Void, Never>] = []
+    }
+
+    private let state = Mutex(State())
+
+    func wait() async {
+        let isOpen = state.withLock { $0.isOpen }
+        guard !isOpen else {
+            return
+        }
+        await withCheckedContinuation { continuation in
+            let resumeImmediately = state.withLock { state -> Bool in
+                guard !state.isOpen else {
+                    return true
+                }
+                state.waiters.append(continuation)
+                return false
+            }
+            if resumeImmediately {
+                continuation.resume()
+            }
+        }
+    }
+
+    func open() {
+        let waiters = state.withLock { state -> [CheckedContinuation<Void, Never>] in
+            guard !state.isOpen else {
+                return []
+            }
+            state.isOpen = true
+            let waiters = state.waiters
+            state.waiters.removeAll(keepingCapacity: false)
+            return waiters
+        }
+        for waiter in waiters {
+            waiter.resume()
+        }
+    }
+}
+
 public struct ClientComponentMount: Sendable, Equatable {
     public let typeName: String
     public let componentID: ComponentID?
 
+    #if !hasFeature(Embedded)
     public init<Root: Component>(_ type: Root.Type) {
         self.typeName = String(reflecting: type)
         self.componentID = nil
     }
+    #endif
 
     public init(typeName: String, componentID: ComponentID? = nil) {
         self.typeName = typeName
         self.componentID = componentID
     }
 }
+
+#if !hasFeature(Embedded)
+extension ClientRuntimeBootstrapLocation: Codable {}
+extension ClientRuntimeBootstrapMode: Codable {}
+extension ClientRuntimeAtomicStyleRule: Codable {}
+extension ClientRuntimeEventRequest: Codable {}
+extension ClientRuntimeResponse: Codable {}
+#endif
 
 public final class ClientRuntimeBridge<Root: Component>: Sendable {
     private struct StableDOMSignatureRecord {
@@ -191,7 +255,9 @@ public final class ClientRuntimeBridge<Root: Component>: Sendable {
         }
 
         func record(for nodeID: HTMLNodeID) -> BrowserHydrationComponentRecord? {
-            ClientRuntimeBridge.binarySearch(records, nodeID: nodeID, key: \.nodeID)
+            ClientRuntimeBridge.binarySearch(records, nodeID: nodeID) { record in
+                record.nodeID
+            }
         }
     }
 
@@ -203,7 +269,9 @@ public final class ClientRuntimeBridge<Root: Component>: Sendable {
         }
 
         func record(for nodeID: HTMLNodeID) -> ServerSlotRecord? {
-            ClientRuntimeBridge.binarySearch(records, nodeID: nodeID, key: \.nodeID)
+            ClientRuntimeBridge.binarySearch(records, nodeID: nodeID) { record in
+                record.nodeID
+            }
         }
     }
 
@@ -301,20 +369,20 @@ public final class ClientRuntimeBridge<Root: Component>: Sendable {
     private static func binarySearch<Record>(
         _ records: [Record],
         nodeID: HTMLNodeID,
-        key: KeyPath<Record, HTMLNodeID>
+        nodeIDForRecord: (Record) -> HTMLNodeID
     ) -> Record? {
         var lowerBound = 0
         var upperBound = records.count
         while lowerBound < upperBound {
             let midpoint = lowerBound + (upperBound - lowerBound) / 2
-            if records[midpoint][keyPath: key].rawValue < nodeID.rawValue {
+            if nodeIDForRecord(records[midpoint]).rawValue < nodeID.rawValue {
                 lowerBound = midpoint + 1
             } else {
                 upperBound = midpoint
             }
         }
         guard lowerBound < records.count,
-              records[lowerBound][keyPath: key] == nodeID else {
+              nodeIDForRecord(records[lowerBound]) == nodeID else {
             return nil
         }
         return records[lowerBound]
@@ -327,6 +395,8 @@ public final class ClientRuntimeBridge<Root: Component>: Sendable {
         var mountedToLocalNodeMap = NodeMap()
         var documentNodeIDUpperBound: Int?
         var actorBindingScope: SwiftWebActorBindingScope?
+        var isShutdown = false
+        var termination: ActorSystemTermination?
     }
 
     public typealias RootFactory = @Sendable (ClientRuntimeBootstrapRequest) throws -> Root
@@ -344,9 +414,17 @@ public final class ClientRuntimeBridge<Root: Component>: Sendable {
     private let stateStore: StateStore
     private let actorResolverRegistry: SwiftWebActorResolverRegistry
     private let actorSystem: WebActorSystem
+    #if SWIFTWEB_LEGACY_ACTORS
+    private let legacyActorSystem: LegacyWebActorSystem
+    #endif
+    private let ownsActorSystem: Bool
+    #if SWIFTWEB_LEGACY_ACTORS
+    private let ownsLegacyActorSystem: Bool
+    #endif
     private let accessGate = ClientRuntimeAccessGate()
     private let runtimeState = Mutex(RuntimeState())
 
+    #if SWIFTWEB_LEGACY_ACTORS
     public init(
         environmentRegistry: ClientEnvironmentRegistry = .empty,
         componentMount: ClientComponentMount? = nil,
@@ -354,6 +432,7 @@ public final class ClientRuntimeBridge<Root: Component>: Sendable {
         stateStore: StateStore = StateStore(),
         actorResolverRegistry: SwiftWebActorResolverRegistry = .empty,
         actorSystem: WebActorSystem? = nil,
+        legacyActorSystem: LegacyWebActorSystem? = nil,
         rootFactory: @escaping RootFactory
     ) {
         self.rootFactory = rootFactory
@@ -361,7 +440,19 @@ public final class ClientRuntimeBridge<Root: Component>: Sendable {
         self.domHost = domHost
         self.stateStore = stateStore
         self.actorResolverRegistry = actorResolverRegistry
-        self.actorSystem = actorSystem ?? Self.defaultActorSystem()
+        self.actorSystem = actorSystem ?? ClientRuntimeActorSystemFactory.makeActorSystem()
+        self.legacyActorSystem = legacyActorSystem
+            ?? ClientRuntimeActorSystemFactory.makeLegacyActorSystem()
+        #if os(WASI) && (SWIFTWEB_ACTORS || hasFeature(Embedded))
+        self.ownsActorSystem = actorSystem == nil
+        #else
+        self.ownsActorSystem = false
+        #endif
+        #if os(WASI) && !hasFeature(Embedded)
+        self.ownsLegacyActorSystem = legacyActorSystem == nil
+        #else
+        self.ownsLegacyActorSystem = false
+        #endif
         self.environmentFactory = { request in
             // A mounted component renders with local paths that never match the
             // server index's page-level paths, so path-keyed overrides cannot
@@ -386,7 +477,87 @@ public final class ClientRuntimeBridge<Root: Component>: Sendable {
             try environmentRegistry.componentEnvironments(from: request.hydrationIndex, base: base)
         }
     }
+    #else
+    public init(
+        environmentRegistry: ClientEnvironmentRegistry = .empty,
+        componentMount: ClientComponentMount? = nil,
+        domHost: (any BrowserDOMHost)? = nil,
+        stateStore: StateStore = StateStore(),
+        actorResolverRegistry: SwiftWebActorResolverRegistry = .empty,
+        actorSystem: WebActorSystem? = nil,
+        rootFactory: @escaping RootFactory
+    ) {
+        self.rootFactory = rootFactory
+        self.componentMount = componentMount
+        self.domHost = domHost
+        self.stateStore = stateStore
+        self.actorResolverRegistry = actorResolverRegistry
+        self.actorSystem = actorSystem ?? ClientRuntimeActorSystemFactory.makeActorSystem()
+        #if os(WASI) && (SWIFTWEB_ACTORS || hasFeature(Embedded))
+        self.ownsActorSystem = actorSystem == nil
+        #else
+        self.ownsActorSystem = false
+        #endif
+        self.environmentFactory = { request in
+            // A mounted component renders with local paths that never match the
+            // server index's page-level paths, so path-keyed overrides cannot
+            // deliver values provided outside the mount (scene/page
+            // `.environment()`). Those values are uniform across the mounted
+            // subtree: decode the mount's own snapshot into the session's root
+            // environment instead. `.environment()` applied inside the
+            // component content re-executes during client rendering and needs no
+            // restoration.
+            guard let componentMount,
+                  let mounted = Self.component(in: request.hydrationIndex, matching: componentMount),
+                  !mounted.environmentSnapshot.values.isEmpty
+            else {
+                return EnvironmentValues()
+            }
+            return try environmentRegistry.environment(
+                from: mounted.environmentSnapshot,
+                base: EnvironmentValues()
+            )
+        }
+        self.componentEnvironmentFactory = { request, base in
+            try environmentRegistry.componentEnvironments(from: request.hydrationIndex, base: base)
+        }
+    }
+    #endif
 
+    #if SWIFTWEB_LEGACY_ACTORS
+    public init(
+        componentMount: ClientComponentMount? = nil,
+        domHost: (any BrowserDOMHost)? = nil,
+        stateStore: StateStore = StateStore(),
+        actorResolverRegistry: SwiftWebActorResolverRegistry = .empty,
+        actorSystem: WebActorSystem? = nil,
+        legacyActorSystem: LegacyWebActorSystem? = nil,
+        rootFactory: @escaping RootFactory,
+        environmentFactory: @escaping EnvironmentFactory,
+        componentEnvironmentFactory: @escaping ComponentEnvironmentFactory = { _, _ in [:] }
+    ) {
+        self.rootFactory = rootFactory
+        self.componentMount = componentMount
+        self.domHost = domHost
+        self.stateStore = stateStore
+        self.actorResolverRegistry = actorResolverRegistry
+        self.actorSystem = actorSystem ?? ClientRuntimeActorSystemFactory.makeActorSystem()
+        self.legacyActorSystem = legacyActorSystem
+            ?? ClientRuntimeActorSystemFactory.makeLegacyActorSystem()
+        #if os(WASI) && (SWIFTWEB_ACTORS || hasFeature(Embedded))
+        self.ownsActorSystem = actorSystem == nil
+        #else
+        self.ownsActorSystem = false
+        #endif
+        #if os(WASI) && !hasFeature(Embedded)
+        self.ownsLegacyActorSystem = legacyActorSystem == nil
+        #else
+        self.ownsLegacyActorSystem = false
+        #endif
+        self.environmentFactory = environmentFactory
+        self.componentEnvironmentFactory = componentEnvironmentFactory
+    }
+    #else
     public init(
         componentMount: ClientComponentMount? = nil,
         domHost: (any BrowserDOMHost)? = nil,
@@ -402,18 +573,100 @@ public final class ClientRuntimeBridge<Root: Component>: Sendable {
         self.domHost = domHost
         self.stateStore = stateStore
         self.actorResolverRegistry = actorResolverRegistry
-        self.actorSystem = actorSystem ?? Self.defaultActorSystem()
+        self.actorSystem = actorSystem ?? ClientRuntimeActorSystemFactory.makeActorSystem()
+        #if os(WASI) && (SWIFTWEB_ACTORS || hasFeature(Embedded))
+        self.ownsActorSystem = actorSystem == nil
+        #else
+        self.ownsActorSystem = false
+        #endif
         self.environmentFactory = environmentFactory
         self.componentEnvironmentFactory = componentEnvironmentFactory
+    }
+    #endif
+
+    public func requestShutdown() throws -> ActorSystemTermination? {
+        try beginShutdown()
+    }
+
+    public func shutdown() async throws {
+        guard let termination = try requestShutdown() else {
+            return
+        }
+        try await termination.wait()
+    }
+
+    /// Starts terminal cleanup and returns the opaque completion that owns it
+    /// until every actor-system resource has actually finished shutting down.
+    ///
+    /// The WASM C ABI uses this split-phase form because an exported synchronous
+    /// function cannot await Swift concurrency work.
+    func beginShutdown() throws -> ActorSystemTermination? {
+        try accessGate.withExclusiveAccess {
+            let termination = runtimeState.withLock { state -> ActorSystemTermination? in
+                guard !state.isShutdown else {
+                    return state.termination
+                }
+                state.isShutdown = true
+                state.session = nil
+                state.mountedHydrationIndex = nil
+                state.mountedNodeMap = NodeMap()
+                state.mountedToLocalNodeMap = NodeMap()
+                state.documentNodeIDUpperBound = nil
+                state.actorBindingScope = nil
+                var ownsAnyActorSystem = ownsActorSystem
+                #if SWIFTWEB_LEGACY_ACTORS
+                ownsAnyActorSystem = ownsAnyActorSystem || ownsLegacyActorSystem
+                #endif
+                guard ownsAnyActorSystem else {
+                    return nil
+                }
+                let actorSystem = actorSystem
+                let ownsActorSystem = ownsActorSystem
+                #if SWIFTWEB_LEGACY_ACTORS
+                let legacyActorSystem = legacyActorSystem
+                let ownsLegacyActorSystem = ownsLegacyActorSystem
+                #endif
+                let termination = ActorSystemTermination(
+                    dependencies: {
+                        var dependencies: [ActorSystemTermination] = []
+                        #if SWIFTWEB_ACTORS || hasFeature(Embedded)
+                        if ownsActorSystem {
+                            dependencies.append(await actorSystem.requestShutdown())
+                        }
+                        #endif
+                        #if SWIFTWEB_LEGACY_ACTORS
+                        if ownsLegacyActorSystem {
+                            dependencies.append(legacyActorSystem.requestShutdown())
+                        }
+                        #endif
+                        return dependencies
+                    }
+                )
+                state.termination = termination
+                return termination
+            }
+            return termination
+        }
     }
 
     public func bootstrap(_ request: ClientRuntimeBootstrapRequest) throws -> ClientRuntimeResponse {
         try accessGate.withExclusiveAccess {
+            try requireActive()
+            try actorResolverRegistry.install(in: actorSystem)
+            #if SWIFTWEB_LEGACY_ACTORS
+            let actorBindingScope = SwiftWebActorBindingScope(
+                records: request.actorBindings,
+                resolverRegistry: actorResolverRegistry,
+                actorSystem: actorSystem,
+                legacyActorSystem: legacyActorSystem
+            )
+            #else
             let actorBindingScope = SwiftWebActorBindingScope(
                 records: request.actorBindings,
                 resolverRegistry: actorResolverRegistry,
                 actorSystem: actorSystem
             )
+            #endif
             return try SwiftWebActorBindingContext.withValue(actorBindingScope) {
                 try bootstrapWithCurrentActorBindings(
                     request,
@@ -567,6 +820,7 @@ public final class ClientRuntimeBridge<Root: Component>: Sendable {
 
     public func snapshotState() throws -> ClientRuntimeStateSnapshot {
         try accessGate.withExclusiveAccess {
+            try requireActive()
             let schemaHash = runtimeState.withLock { state in
                 state.session?.artifact.hydration.stateSchemaHash
             }
@@ -579,6 +833,7 @@ public final class ClientRuntimeBridge<Root: Component>: Sendable {
 
     public func restoreState(_ snapshot: ClientRuntimeStateSnapshot) throws {
         try accessGate.withExclusiveAccess {
+            try requireActive()
             let artifact = runtimeState.withLock { state in
                 state.session?.artifact
             }
@@ -593,6 +848,7 @@ public final class ClientRuntimeBridge<Root: Component>: Sendable {
 
     public func dispatch(_ request: ClientRuntimeEventRequest) throws -> ClientRuntimeResponse {
         try accessGate.withExclusiveAccess {
+            try requireActive()
             let actorBindingScope = runtimeState.withLock { state in
                 state.actorBindingScope
             } ?? .empty
@@ -712,12 +968,10 @@ public final class ClientRuntimeBridge<Root: Component>: Sendable {
         )
     }
 
-    private static func defaultActorSystem() -> WebActorSystem {
-        #if os(WASI)
-        WebActorSystem(transport: JavaScriptKitWebActorTransport())
-        #else
-        WebActorSystem.shared
-        #endif
+    private func requireActive() throws {
+        guard !runtimeState.withLock({ $0.isShutdown }) else {
+            throw ClientRuntimeBridgeError.shutDown
+        }
     }
 
     private func makeSession(
@@ -826,7 +1080,11 @@ public final class ClientRuntimeBridge<Root: Component>: Sendable {
     }
 
     private static func stateSourceRawValue(from stateSlotID: String) -> String {
-        guard let range = stateSlotID.firstRange(of: ":state:") else {
+        guard let range = firstRange(
+            of: ":state:",
+            in: stateSlotID,
+            from: stateSlotID.startIndex
+        ) else {
             return stateSlotID
         }
         return String(stateSlotID[range.upperBound...])
@@ -1641,9 +1899,13 @@ public final class ClientRuntimeBridge<Root: Component>: Sendable {
         output.reserveCapacity(html.utf8.count)
         var cursor = html.startIndex
 
-        while let openingRange = html[cursor...].firstRange(of: openingMarker) {
+        while let openingRange = firstRange(of: openingMarker, in: html, from: cursor) {
             output.append(contentsOf: html[cursor..<openingRange.lowerBound])
-            guard let closingRange = html[openingRange.upperBound...].firstRange(of: closingMarker) else {
+            guard let closingRange = firstRange(
+                of: closingMarker,
+                in: html,
+                from: openingRange.upperBound
+            ) else {
                 output.append(contentsOf: html[openingRange.lowerBound...])
                 return output
             }
@@ -1687,7 +1949,7 @@ public final class ClientRuntimeBridge<Root: Component>: Sendable {
         var output = ""
         var cursor = html.startIndex
 
-        while let range = html[cursor...].firstRange(of: marker) {
+        while let range = firstRange(of: marker, in: html, from: cursor) {
             output.append(contentsOf: html[cursor..<range.upperBound])
             var numberEnd = range.upperBound
             while numberEnd < html.endIndex, html[numberEnd].isNumber {
@@ -1708,6 +1970,26 @@ public final class ClientRuntimeBridge<Root: Component>: Sendable {
 
         output.append(contentsOf: html[cursor...])
         return output
+    }
+
+    private static func firstRange(
+        of pattern: String,
+        in value: String,
+        from start: String.Index
+    ) -> Range<String.Index>? {
+        guard !pattern.isEmpty else {
+            return start..<start
+        }
+        var cursor = start
+        while cursor < value.endIndex {
+            let suffix = value[cursor...]
+            if suffix.starts(with: pattern) {
+                let end = value.index(cursor, offsetBy: pattern.count)
+                return cursor..<end
+            }
+            cursor = value.index(after: cursor)
+        }
+        return nil
     }
 
     private static func rebased(

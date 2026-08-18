@@ -4,26 +4,59 @@ import FoundationEssentials
 import Foundation
 #endif
 import Synchronization
+@_spi(ActorSystemLifecycleOwnership) import ActorSystemCore
+#if hasFeature(Embedded)
+import ActorSystemEmbedded
+#endif
 import SwiftHTML
 import SwiftWebActors
 
 public struct ClientComponentRegistration: Sendable {
     public let typeName: String
+    #if SWIFTWEB_LEGACY_ACTORS
     private let makeRuntime: @Sendable (
         ComponentID,
         StateStore,
-        (any BrowserDOMHost)?
+        (any BrowserDOMHost)?,
+        WebActorSystem,
+        LegacyWebActorSystem
     ) -> any RegisteredClientRuntime
+    #else
+    private let makeRuntime: @Sendable (
+        ComponentID,
+        StateStore,
+        (any BrowserDOMHost)?,
+        WebActorSystem
+    ) -> any RegisteredClientRuntime
+    #endif
 
+    #if !hasFeature(Embedded)
     public init<Root: Component>(
         _ type: Root.Type,
         environmentRegistry: ClientEnvironmentRegistry = .empty,
         actorResolverRegistry: SwiftWebActorResolverRegistry = .empty,
         rootFactory: @escaping ClientRuntimeBridge<Root>.RootFactory
     ) {
-        let registeredTypeName = String(reflecting: type)
+        self.init(
+            type,
+            typeName: String(reflecting: type),
+            environmentRegistry: environmentRegistry,
+            actorResolverRegistry: actorResolverRegistry,
+            rootFactory: rootFactory
+        )
+    }
+    #endif
+
+    public init<Root: Component>(
+        _ type: Root.Type,
+        typeName registeredTypeName: String,
+        environmentRegistry: ClientEnvironmentRegistry = .empty,
+        actorResolverRegistry: SwiftWebActorResolverRegistry = .empty,
+        rootFactory: @escaping ClientRuntimeBridge<Root>.RootFactory
+    ) {
         self.typeName = registeredTypeName
-        self.makeRuntime = { componentID, stateStore, domHost in
+        #if SWIFTWEB_LEGACY_ACTORS
+        self.makeRuntime = { componentID, stateStore, domHost, actorSystem, legacyActorSystem in
             ClientRegisteredRuntime(
                 typeName: registeredTypeName,
                 componentID: componentID,
@@ -36,22 +69,77 @@ public struct ClientComponentRegistration: Sendable {
                     domHost: domHost,
                     stateStore: stateStore,
                     actorResolverRegistry: actorResolverRegistry,
+                    actorSystem: actorSystem,
+                    legacyActorSystem: legacyActorSystem,
                     rootFactory: rootFactory
                 )
             )
         }
+        #else
+        self.makeRuntime = { componentID, stateStore, domHost, actorSystem in
+            ClientRegisteredRuntime(
+                typeName: registeredTypeName,
+                componentID: componentID,
+                bridge: ClientRuntimeBridge(
+                    environmentRegistry: environmentRegistry,
+                    componentMount: ClientComponentMount(
+                        typeName: registeredTypeName,
+                        componentID: componentID
+                    ),
+                    domHost: domHost,
+                    stateStore: stateStore,
+                    actorResolverRegistry: actorResolverRegistry,
+                    actorSystem: actorSystem,
+                    rootFactory: rootFactory
+                )
+            )
+        }
+        #endif
     }
 
+    #if SWIFTWEB_LEGACY_ACTORS
     fileprivate func runtime(
         componentID: ComponentID,
         stateStore: StateStore,
-        domHost: (any BrowserDOMHost)?
+        domHost: (any BrowserDOMHost)?,
+        actorSystem: WebActorSystem,
+        legacyActorSystem: LegacyWebActorSystem
     ) -> any RegisteredClientRuntime {
-        makeRuntime(componentID, stateStore, domHost)
+        makeRuntime(
+            componentID,
+            stateStore,
+            domHost,
+            actorSystem,
+            legacyActorSystem
+        )
     }
+    #else
+    fileprivate func runtime(
+        componentID: ComponentID,
+        stateStore: StateStore,
+        domHost: (any BrowserDOMHost)?,
+        actorSystem: WebActorSystem
+    ) -> any RegisteredClientRuntime {
+        makeRuntime(componentID, stateStore, domHost, actorSystem)
+    }
+    #endif
 }
 
 public final class ClientBundleRuntimeEntrypoint: Sendable {
+    private enum StartPhase: Sendable, Equatable {
+        case idle
+        case pending
+        case succeeded
+        case failed
+    }
+
+    private enum ShutdownPhase: Sendable, Equatable {
+        case idle
+        case pending
+        case succeeded
+        case failed
+    }
+
     private struct RuntimeEntry: Sendable {
         let componentID: ComponentID
         let componentPath: String
@@ -62,18 +150,45 @@ public final class ClientBundleRuntimeEntrypoint: Sendable {
         var runtimeEntries: [RuntimeEntry] = []
         var runtimeIndexByHandlerID = HandlerRuntimeMap()
         var hydrationIndex = BrowserHydrationIndex.empty
+        var retiringTerminations: [ActorSystemTermination] = []
+        var startPhase = StartPhase.idle
+        var startTask: Task<Void, Never>?
+        var shutdownPhase = ShutdownPhase.idle
+        var shutdownCompletion: ActorSystemTermination?
     }
 
     private let accessGate = ClientRuntimeAccessGate()
     private let responseStorage: ClientRuntimeResponseStorage
     private let registrations: [ClientComponentRegistration]
     private let domHost: (any BrowserDOMHost)?
+    private let actorSystem: WebActorSystem
+    #if SWIFTWEB_LEGACY_ACTORS
+    private let legacyActorSystem: LegacyWebActorSystem
+    #endif
+    private let ownsActorSystem: Bool
+    #if SWIFTWEB_LEGACY_ACTORS
+    private let ownsLegacyActorSystem: Bool
+    #endif
     private let runtimeState = Mutex(RuntimeState())
 
     public init(registrations: [ClientComponentRegistration]) {
         self.registrations = registrations
         self.domHost = Self.browserDOMHost()
         self.responseStorage = ClientRuntimeResponseStorage()
+        self.actorSystem = ClientRuntimeActorSystemFactory.makeActorSystem()
+        #if SWIFTWEB_LEGACY_ACTORS
+        self.legacyActorSystem = ClientRuntimeActorSystemFactory.makeLegacyActorSystem()
+        #endif
+        #if os(WASI) && (SWIFTWEB_ACTORS || hasFeature(Embedded))
+        self.ownsActorSystem = true
+        #else
+        self.ownsActorSystem = false
+        #endif
+        #if SWIFTWEB_LEGACY_ACTORS && os(WASI) && !hasFeature(Embedded)
+        self.ownsLegacyActorSystem = true
+        #elseif SWIFTWEB_LEGACY_ACTORS
+        self.ownsLegacyActorSystem = false
+        #endif
     }
 
     init(
@@ -84,6 +199,20 @@ public final class ClientBundleRuntimeEntrypoint: Sendable {
         self.registrations = registrations
         self.domHost = domHost
         self.responseStorage = responseStorage
+        self.actorSystem = ClientRuntimeActorSystemFactory.makeActorSystem()
+        #if SWIFTWEB_LEGACY_ACTORS
+        self.legacyActorSystem = ClientRuntimeActorSystemFactory.makeLegacyActorSystem()
+        #endif
+        #if os(WASI) && (SWIFTWEB_ACTORS || hasFeature(Embedded))
+        self.ownsActorSystem = true
+        #else
+        self.ownsActorSystem = false
+        #endif
+        #if SWIFTWEB_LEGACY_ACTORS && os(WASI) && !hasFeature(Embedded)
+        self.ownsLegacyActorSystem = true
+        #elseif SWIFTWEB_LEGACY_ACTORS
+        self.ownsLegacyActorSystem = false
+        #endif
     }
 
     private static func browserDOMHost() -> (any BrowserDOMHost)? {
@@ -209,6 +338,185 @@ public final class ClientBundleRuntimeEntrypoint: Sendable {
         responseStorage.free()
     }
 
+    public func start() -> UInt32 {
+        do {
+            return try accessGate.withExclusiveAccess {
+                switch runtimeState.withLock({ $0.startPhase }) {
+                case .pending:
+                    return 3
+                case .succeeded:
+                    return 0
+                case .failed:
+                    return 1
+                case .idle:
+                    break
+                }
+                guard runtimeState.withLock({ $0.shutdownPhase == .idle }) else {
+                    return 1
+                }
+                #if SWIFTWEB_ACTORS || hasFeature(Embedded)
+                guard ownsActorSystem else {
+                    runtimeState.withLock { $0.startPhase = .succeeded }
+                    return 0
+                }
+                let actorSystem = actorSystem
+                let gate = ClientRuntimeTaskStartGate()
+                let task = Task {
+                    await gate.wait()
+                    do {
+                        try await actorSystem.start()
+                        self.completeStart(failureDescription: nil)
+                    } catch {
+                        #if hasFeature(Embedded)
+                        self.completeStart(
+                            failureDescription: "SwiftHTML Embedded WASM actor runtime startup failed"
+                        )
+                        #else
+                        self.completeStart(failureDescription: String(describing: error))
+                        #endif
+                    }
+                }
+                runtimeState.withLock { state in
+                    state.startPhase = .pending
+                    state.startTask = task
+                }
+                gate.open()
+                return 3
+                #else
+                runtimeState.withLock { $0.startPhase = .succeeded }
+                return 0
+                #endif
+            }
+        } catch {
+            return 2
+        }
+    }
+
+    public func startStatus() -> UInt32 {
+        switch runtimeState.withLock({ $0.startPhase }) {
+        case .idle, .pending:
+            return 3
+        case .succeeded:
+            return 0
+        case .failed:
+            return 1
+        }
+    }
+
+    public func shutdown() -> UInt32 {
+        do {
+            return try accessGate.withExclusiveAccess {
+                let existingPhase = runtimeState.withLock { $0.shutdownPhase }
+                switch existingPhase {
+                case .pending:
+                    return 3
+                case .succeeded:
+                    return 0
+                case .failed:
+                    return 1
+                case .idle:
+                    break
+                }
+
+                let retiring = runtimeState.withLock {
+                    state -> ([RuntimeEntry], [ActorSystemTermination], Task<Void, Never>?) in
+                    let entries = state.runtimeEntries
+                    let terminations = state.retiringTerminations.filter { !$0.isTerminated }
+                    let startTask = state.startTask
+                    startTask?.cancel()
+                    state.runtimeEntries.removeAll(keepingCapacity: false)
+                    state.runtimeIndexByHandlerID = HandlerRuntimeMap()
+                    state.hydrationIndex = .empty
+                    state.retiringTerminations.removeAll(keepingCapacity: false)
+                    state.shutdownPhase = .pending
+                    return (entries, terminations, startTask)
+                }
+                var terminations = retiring.1
+                if let startTask = retiring.2 {
+                    terminations.append(
+                        ActorSystemTermination(operation: {
+                            await startTask.value
+                        })
+                    )
+                }
+                let shutdown = beginShutdown(retiring.0)
+                terminations.append(contentsOf: shutdown.terminations)
+                #if SWIFTWEB_ACTORS || hasFeature(Embedded)
+                if ownsActorSystem {
+                    let actorSystem = actorSystem
+                    terminations.append(
+                        ActorSystemTermination(
+                            dependencies: {
+                                [await actorSystem.requestShutdown()]
+                            }
+                        )
+                    )
+                }
+                #endif
+                #if SWIFTWEB_LEGACY_ACTORS
+                if ownsLegacyActorSystem {
+                    let legacyActorSystem = legacyActorSystem
+                    terminations.append(
+                        ActorSystemTermination(
+                            dependencies: {
+                                [legacyActorSystem.requestShutdown()]
+                            }
+                        )
+                    )
+                }
+                #endif
+                let ownedTerminations = terminations
+                #if hasFeature(Embedded)
+                let failureDescription = shutdown.error == nil
+                    ? nil
+                    : "SwiftHTML Embedded WASM runtime shutdown failed"
+                #else
+                let failureDescription = shutdown.error.map { String(describing: $0) }
+                #endif
+
+                let completion = ActorSystemTermination(
+                    dependencies: { ownedTerminations },
+                    operation: {
+                        let dependencyFailure = ownedTerminations.lazy.compactMap {
+                            $0.terminationError
+                        }.first
+                        #if hasFeature(Embedded)
+                        let completedFailureDescription = failureDescription
+                            ?? (dependencyFailure == nil
+                                ? nil
+                                : "SwiftHTML Embedded WASM actor runtime shutdown failed")
+                        #else
+                        let completedFailureDescription = failureDescription
+                            ?? dependencyFailure.map { String(describing: $0) }
+                        #endif
+                        self.completeShutdown(
+                            failureDescription: completedFailureDescription
+                        )
+                    }
+                )
+                runtimeState.withLock { state in
+                    state.shutdownCompletion = completion
+                }
+                return 3
+            }
+        } catch {
+            return 2
+        }
+    }
+
+    /// Returns 3 while shutdown is pending, 0 after cleanup completed, 1 after
+    /// cleanup failed, and 2 when the synchronous ABI access gate rejects reentry.
+    public func shutdownStatus() -> UInt32 {
+        switch runtimeState.withLock({ $0.shutdownPhase }) {
+        case .idle, .pending:
+            return 3
+        case .succeeded:
+            return 0
+        case .failed:
+            return 1
+        }
+    }
+
     func bootstrapStatus(_ request: ClientRuntimeBootstrapRequest) -> UInt32 {
         performOperation {
             try responseStorage.store(try bootstrap(request))
@@ -242,55 +550,75 @@ public final class ClientBundleRuntimeEntrypoint: Sendable {
     }
 
     func bootstrap(_ request: ClientRuntimeBootstrapRequest) throws -> ClientRuntimeResponse {
+        #if SWIFTWEB_ACTORS || hasFeature(Embedded)
+        if ownsActorSystem {
+            guard runtimeState.withLock({ $0.startPhase == .succeeded }) else {
+                throw ActorSystemError.notStarted
+            }
+        }
+        #endif
         var currentIndex = request.hydrationIndex
         var commands: [BrowserDOMCommand] = []
         var atomicStyleRules: [ClientRuntimeAtomicStyleRule] = []
         var runtimeEntries: [RuntimeEntry] = []
 
-        for component in componentsForRegisteredTypes(in: currentIndex) {
-            let runtime = try makeRuntime(for: component, domHost: nil)
-            runtimeEntries.append(
-                RuntimeEntry(
-                    componentID: component.id,
-                    componentPath: component.path,
-                    runtime: runtime
+        do {
+            for component in componentsForRegisteredTypes(in: currentIndex) {
+                let runtime = try makeRuntime(for: component, domHost: nil)
+                runtimeEntries.append(
+                    RuntimeEntry(
+                        componentID: component.id,
+                        componentPath: component.path,
+                        runtime: runtime
+                    )
                 )
-            )
 
-            let componentRequest = ClientRuntimeBootstrapRequest(
-                hydrationIndex: currentIndex,
-                documentNodeIDUpperBound: request.documentNodeIDUpperBound,
-                location: request.location,
-                mode: request.mode,
-                stateSnapshot: request.stateSnapshot.map {
-                    Self.componentSnapshot($0, namespace: component.path)
-                },
-                actorBindings: request.actorBindings
-            )
-            let response = try runtime.bootstrap(componentRequest)
-            if let commandBatch = response.commandBatch {
-                commands.append(contentsOf: commandBatch.commands)
+                let componentRequest = ClientRuntimeBootstrapRequest(
+                    hydrationIndex: currentIndex,
+                    documentNodeIDUpperBound: request.documentNodeIDUpperBound,
+                    location: request.location,
+                    mode: request.mode,
+                    stateSnapshot: request.stateSnapshot.map {
+                        Self.componentSnapshot($0, namespace: component.path)
+                    },
+                    actorBindings: request.actorBindings
+                )
+                let response = try runtime.bootstrap(componentRequest)
+                if let commandBatch = response.commandBatch {
+                    commands.append(contentsOf: commandBatch.commands)
+                }
+                atomicStyleRules.append(contentsOf: response.atomicStyleRules)
+                if let nextIndex = response.hydrationIndex {
+                    currentIndex = nextIndex
+                }
             }
-            atomicStyleRules.append(contentsOf: response.atomicStyleRules)
-            if let nextIndex = response.hydrationIndex {
-                currentIndex = nextIndex
-            }
+        } catch {
+            try retire(runtimeEntries)
+            throw error
         }
 
         let commandBatch = BrowserDOMCommandBatch(commands: commands)
         let appliesDOMCommandsInRuntime = domHost != nil && request.mode != .hotReload
         if appliesDOMCommandsInRuntime, let domHost, !commands.isEmpty {
-            try domHost.apply(commandBatch, currentIndex: request.hydrationIndex)
+            do {
+                try domHost.apply(commandBatch, currentIndex: request.hydrationIndex)
+            } catch {
+                try retire(runtimeEntries)
+                throw error
+            }
         }
         let runtimeIndexByHandlerID = Self.handlerIndex(
             hydrationIndex: currentIndex,
             runtimeEntries: runtimeEntries
         )
-        runtimeState.withLock { state in
+        let previousEntries = runtimeState.withLock { state -> [RuntimeEntry] in
+            let previousEntries = state.runtimeEntries
             state.runtimeEntries = runtimeEntries
             state.runtimeIndexByHandlerID = runtimeIndexByHandlerID
             state.hydrationIndex = currentIndex
+            return previousEntries
         }
+        try retire(previousEntries)
         return ClientRuntimeResponse(
             commandBatch: commandBatch,
             hydrationIndex: currentIndex,
@@ -362,11 +690,22 @@ public final class ClientBundleRuntimeEntrypoint: Sendable {
         guard let registration = registration(for: component.typeName) else {
             throw ClientRuntimeBridgeError.componentMountNotFound(component.typeName)
         }
+        #if SWIFTWEB_LEGACY_ACTORS
         return registration.runtime(
             componentID: component.id,
             stateStore: StateStore(),
-            domHost: domHost
+            domHost: domHost,
+            actorSystem: actorSystem,
+            legacyActorSystem: legacyActorSystem
         )
+        #else
+        return registration.runtime(
+            componentID: component.id,
+            stateStore: StateStore(),
+            domHost: domHost,
+            actorSystem: actorSystem
+        )
+        #endif
     }
 
     private func componentsForRegisteredTypes(
@@ -458,7 +797,11 @@ public final class ClientBundleRuntimeEntrypoint: Sendable {
 
     private func currentStateSchemaHash() -> String {
         runtimeState.withLock { state in
-            StateSchema.hash(state.hydrationIndex.components.flatMap(\.stateSlots))
+            StateSchema.hash(
+                state.hydrationIndex.components.flatMap { component in
+                    component.stateSlots
+                }
+            )
         }
     }
 
@@ -474,6 +817,85 @@ public final class ClientBundleRuntimeEntrypoint: Sendable {
         return ClientRuntimeStateSnapshot(schemaHash: snapshot.schemaHash, values: values)
     }
 
+    private func beginShutdown(
+        _ entries: [RuntimeEntry]
+    ) -> (terminations: [ActorSystemTermination], error: (any Error)?) {
+        var terminations: [ActorSystemTermination] = []
+        var firstError: (any Error)?
+        for entry in entries {
+            do {
+                if let termination = try entry.runtime.requestShutdown() {
+                    terminations.append(termination)
+                }
+            } catch {
+                if firstError == nil {
+                    firstError = error
+                }
+            }
+        }
+        return (terminations, firstError)
+    }
+
+    private func retire(_ entries: [RuntimeEntry]) throws {
+        let shutdown = beginShutdown(entries)
+        if !shutdown.terminations.isEmpty {
+            runtimeState.withLock { state in
+                state.retiringTerminations.removeAll { $0.isTerminated }
+                state.retiringTerminations.append(contentsOf: shutdown.terminations)
+            }
+        }
+        if let error = shutdown.error {
+            throw error
+        }
+    }
+
+    private func completeShutdown(failureDescription: String?) {
+        if let failureDescription {
+            do {
+                try responseStorage.store(ClientRuntimeResponse(error: failureDescription))
+            } catch {
+                responseStorage.storeError(error)
+            }
+        } else {
+            do {
+                try responseStorage.store(ClientRuntimeResponse())
+            } catch {
+                responseStorage.storeError(error)
+            }
+        }
+        runtimeState.withLock { state in
+            state.startTask = nil
+            state.shutdownCompletion = nil
+            state.shutdownPhase = failureDescription == nil ? .succeeded : .failed
+        }
+    }
+
+    private func completeStart(failureDescription: String?) {
+        guard let failureDescription else {
+            runtimeState.withLock { state in
+                state.startTask = nil
+                if state.shutdownPhase == .idle {
+                    state.startPhase = .succeeded
+                }
+            }
+            return
+        }
+        guard runtimeState.withLock({ $0.shutdownPhase == .idle }) else {
+            return
+        }
+        do {
+            try responseStorage.store(ClientRuntimeResponse(error: failureDescription))
+        } catch {
+            responseStorage.storeError(error)
+        }
+        runtimeState.withLock { state in
+            state.startTask = nil
+            if state.shutdownPhase == .idle {
+                state.startPhase = .failed
+            }
+        }
+    }
+
     private static func namespacedStateKey(
         namespace: String,
         localKey: String
@@ -485,6 +907,7 @@ public final class ClientBundleRuntimeEntrypoint: Sendable {
         return "\(value.utf8.count):\(value):"
     }
 
+    #if !hasFeature(Embedded)
     private func decode<Request: Decodable>(
         _ type: Request.Type,
         pointer: UInt32,
@@ -496,12 +919,10 @@ public final class ClientBundleRuntimeEntrypoint: Sendable {
         let data = Data(bytes: rawPointer, count: Int(length))
         return try JSONDecoder().decode(Request.self, from: data)
     }
+    #endif
 
-    private func inputData(pointer: UInt32, length: UInt32) throws -> Data {
-        guard let rawPointer = UnsafeRawPointer(bitPattern: Int(pointer)) else {
-            throw ClientRuntimeEntrypointError.invalidInputPointer
-        }
-        return Data(bytes: rawPointer, count: Int(length))
+    private func inputData(pointer: UInt32, length: UInt32) throws -> ClientRuntimeWireData {
+        try ClientRuntimeWireDataFactory.copy(pointer: pointer, length: length)
     }
 }
 
@@ -511,6 +932,7 @@ fileprivate protocol RegisteredClientRuntime: AnyObject, Sendable {
     func dispatch(_ request: ClientRuntimeEventRequest) throws -> ClientRuntimeResponse
     func snapshotState() throws -> ClientRuntimeStateSnapshot
     func restoreState(_ snapshot: ClientRuntimeStateSnapshot) throws
+    func requestShutdown() throws -> ActorSystemTermination?
 }
 
 private final class ClientRegisteredRuntime<Root: Component>: RegisteredClientRuntime {
@@ -542,5 +964,9 @@ private final class ClientRegisteredRuntime<Root: Component>: RegisteredClientRu
 
     func restoreState(_ snapshot: ClientRuntimeStateSnapshot) throws {
         try bridge.restoreState(snapshot)
+    }
+
+    func requestShutdown() throws -> ActorSystemTermination? {
+        try bridge.requestShutdown()
     }
 }

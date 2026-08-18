@@ -1,21 +1,66 @@
+import ActorSystemGeneration
+import SwiftWebWasmBuild
+
 struct WasmPackageManifestFormat {
-  func packageSwift(context: GeneratedPackageRenderContext) -> String {
+  func packageSwift(context: GeneratedPackageRenderContext) throws -> String {
     let targetNames = context.wasmRuntimeTargets.map(\.targetName)
-    return standardWasmPackageSwift(
+    return try wasmPackageSwift(
       appPackageName: context.appPackageName,
       appProductName: context.appProductName,
       wasmRuntimeTargetNames: targetNames,
-      actorRuntimeDependencyDeclaration: context.actorRuntimeDependencyDeclaration
+      actorDependencyTargets: context.actorDependencyTargets,
+      appActorCustomConditions: context.appActorCustomConditions,
+      appActorUpcomingFeatures: context.appActorUpcomingFeatures,
+      appActorExperimentalFeatures: context.appActorExperimentalFeatures,
+      profile: context.wasmRuntimeProfile,
+      embeddedUnicodeDataTablesLibraryPath: context.embeddedUnicodeDataTablesLibraryPath
     )
   }
 
-  private func standardWasmPackageSwift(
+  private func wasmPackageSwift(
     appPackageName: String,
     appProductName: String,
     wasmRuntimeTargetNames: [String],
-    actorRuntimeDependencyDeclaration: String
-  ) -> String {
-    wasmPackageSwiftContents(
+    actorDependencyTargets: [GeneratedActorDependencyTarget],
+    appActorCustomConditions: Set<String>,
+    appActorUpcomingFeatures: Set<String>,
+    appActorExperimentalFeatures: Set<String>,
+    profile: SwiftWebWasmRuntimeProfile,
+    embeddedUnicodeDataTablesLibraryPath: String?
+  ) throws -> String {
+    let actorRuntimeTargetName = switch profile {
+    case .standard:
+      "ActorSystemDistributed"
+    case .embedded:
+      "ActorSystemEmbedded"
+    }
+    let actorRuntimeDependencies: [String] = switch profile {
+    case .standard:
+      [
+        "\"ActorSystemCore\"",
+        "\"ActorSystemDistributed\"",
+        "\"SwiftHTML\"",
+      ]
+    case .embedded:
+      [
+        "\"ActorSystemCore\"",
+        "\"ActorSystemEmbedded\"",
+        "\"SwiftHTML\"",
+      ]
+    }
+    let packageDependencies: [String] = []
+    let appActorDependencyLines = actorDependencyTargets.isEmpty
+      ? ""
+      : "\n" + actorDependencyTargets
+        .map { "                \"\($0.moduleName)\"," }
+        .joined(separator: "\n")
+    let actorDependencyTargetDeclarations = actorDependencyTargets.map {
+      actorDependencyTargetDeclaration(
+        target: $0,
+        runtimeTargetName: actorRuntimeTargetName
+      )
+    }
+    return try wasmPackageSwiftContents(
       appPackageName: appPackageName,
       wasmRuntimeTargetNames: wasmRuntimeTargetNames,
       targetDeclarations: wasmRuntimeTargetNames.map { targetName in
@@ -26,28 +71,32 @@ struct WasmPackageManifestFormat {
         let appClientTarget = Target.target(
             name: "\(appProductName)",
             dependencies: [
+                "ActorSystemCore",
+                "\(actorRuntimeTargetName)",
+                "JavaScriptKit",
                 "SwiftHTML",
                 "SwiftWebActors",
+                "SwiftWebStyle",
                 "SwiftWebUI",
                 "SwiftWebUIRuntime",
+                "SwiftWebUITheme",\(appActorDependencyLines)
             ],
             path: "Sources/\(appProductName)",
-            swiftSettings: swiftSettings
+            swiftSettings: appActorSwiftSettings
         )
         """,
         """
         let swiftHTMLTarget = Target.target(
             name: "SwiftHTML",
             path: "Sources/SwiftHTML",
-            swiftSettings: swiftSettings
+            swiftSettings: swiftHTMLSwiftSettings
         )
         """,
         """
         let swiftWebActorsTarget = Target.target(
             name: "SwiftWebActors",
             dependencies: [
-                .product(name: "ActorRuntime", package: "swift-actor-runtime"),
-                "SwiftHTML",
+        \(actorRuntimeDependencies.map { "        \($0)," }.joined(separator: "\n"))
             ],
             path: "Sources/SwiftWebActors",
             swiftSettings: actorSwiftSettings
@@ -88,23 +137,29 @@ struct WasmPackageManifestFormat {
         )
         """,
         javaScriptKitTargetDeclarations(),
+        actorSystemTargetDeclarations(runtimeTargetName: actorRuntimeTargetName),
+      ] + actorDependencyTargetDeclarations + [
         """
         let swiftWebUIRuntimeTarget = Target.target(
             name: "SwiftWebUIRuntime",
             dependencies: [
+                "ActorSystemCore",
+                "\(actorRuntimeTargetName)",
                 "SwiftHTML",
                 "JavaScriptKit",
                 "SwiftWebActors",
                 "SwiftWebStyle",
             ],
             path: "Sources/SwiftWebUIRuntime",
-            swiftSettings: swiftSettings
+            swiftSettings: actorSwiftSettings
         )
         """,
       ],
       supportTargets: [
         "cJavaScriptKitTarget",
         "javaScriptKitTarget",
+        "actorSystemCoreTarget",
+        "actorSystemRuntimeTarget",
         "swiftHTMLTarget",
         "swiftWebActorsTarget",
         "swiftWebStyleTarget",
@@ -112,8 +167,16 @@ struct WasmPackageManifestFormat {
         "swiftWebUITarget",
         "swiftWebUIRuntimeTarget",
         "appClientTarget",
-      ],
-      dependencies: [actorRuntimeDependencyDeclaration]
+      ] + actorDependencyTargets.map {
+        GeneratedPackageNameFormatter.variableName(for: $0.moduleName)
+      },
+      dependencies: packageDependencies,
+      appActorCustomConditions: appActorCustomConditions,
+      appActorUpcomingFeatures: appActorUpcomingFeatures,
+      appActorExperimentalFeatures: appActorExperimentalFeatures,
+      actorDependencyTargets: actorDependencyTargets,
+      profile: profile,
+      embeddedUnicodeDataTablesLibraryPath: embeddedUnicodeDataTablesLibraryPath
     )
   }
 
@@ -123,8 +186,14 @@ struct WasmPackageManifestFormat {
     targetDeclarations: [String],
     supportTargetDeclarations: [String],
     supportTargets: [String],
-    dependencies: [String]
-  ) -> String {
+    dependencies: [String],
+    appActorCustomConditions: Set<String>,
+    appActorUpcomingFeatures: Set<String>,
+    appActorExperimentalFeatures: Set<String>,
+    actorDependencyTargets: [GeneratedActorDependencyTarget],
+    profile: SwiftWebWasmRuntimeProfile,
+    embeddedUnicodeDataTablesLibraryPath: String?
+  ) throws -> String {
     let wasmTargetDeclarations = targetDeclarations.joined(separator: "\n\n")
     let wasmProductDeclarations =
       wasmRuntimeTargetNames
@@ -140,6 +209,53 @@ struct WasmPackageManifestFormat {
       ? ""
       : "\n          \(dependencies.joined(separator: ",\n          ")),\n      "
     let supportDeclarations = supportTargetDeclarations.joined(separator: "\n\n")
+    let actorProfile: ActorGenerationProfile = switch profile {
+    case .standard: .standardClient
+    case .embedded: .embeddedClient
+    }
+    let actorDefinitions = SwiftWebActorProjection.generatedCustomConditions(
+      profile: actorProfile,
+      role: .actorDependency
+    ).sorted()
+    let actorSwiftSettings = actorDefinitions.isEmpty
+      ? "let actorSwiftSettings: [SwiftSetting] = swiftSettings"
+      : """
+        let actorSwiftSettings: [SwiftSetting] = swiftSettings + [
+        \(actorDefinitions.map { "    .define(\"\($0)\")," }.joined(separator: "\n"))
+        ]
+        """
+    let targetActorSwiftSettings = [
+      actorTargetSwiftSettingsDeclaration(
+        variableName: "appActorSwiftSettings",
+        customConditions: appActorCustomConditions,
+        upcomingFeatures: appActorUpcomingFeatures,
+        experimentalFeatures: appActorExperimentalFeatures,
+        baselineCustomConditions: Set(actorDefinitions)
+      ),
+    ] + actorDependencyTargets.map { target in
+      actorTargetSwiftSettingsDeclaration(
+        variableName: actorSwiftSettingsVariableName(for: target.moduleName),
+        customConditions: target.customConditions,
+        upcomingFeatures: target.upcomingFeatures,
+        experimentalFeatures: target.experimentalFeatures,
+        baselineCustomConditions: Set(actorDefinitions)
+      )
+    }
+    let embeddedUnicodeLinkerFlags: String
+    switch profile {
+    case .standard:
+      embeddedUnicodeLinkerFlags = ""
+    case .embedded:
+      guard let embeddedUnicodeDataTablesLibraryPath else {
+        throw ActorGenerationError.invalidTargetEnvironment(
+          reason: "Embedded WASM rendering requires the pinned Unicode data tables archive"
+        )
+      }
+      embeddedUnicodeLinkerFlags = """
+
+              "-Xlinker", "\(GeneratedPackageNameFormatter.swiftStringLiteral(embeddedUnicodeDataTablesLibraryPath))",
+        """
+    }
     return """
       // swift-tools-version: 6.4
 
@@ -148,12 +264,14 @@ struct WasmPackageManifestFormat {
       let swiftSettings: [SwiftSetting] = [
           .enableUpcomingFeature("ApproachableConcurrency"),
       ]
-      let actorSwiftSettings: [SwiftSetting] = swiftSettings + [
-          .define("SWIFTWEB_ACTORS"),
-      ]
+      \(actorSwiftSettings)
+      \(targetActorSwiftSettings.joined(separator: "\n"))
       let wasmSwiftSettings: [SwiftSetting] = swiftSettings + [
           .enableExperimentalFeature("Extern"),
           .unsafeFlags(["-Xclang-linker", "-mexec-model=reactor"]),
+      ]
+      let swiftHTMLSwiftSettings: [SwiftSetting] = swiftSettings + [
+          .enableExperimentalFeature("Extern"),
       ]
       let wasmLinkerSettings: [LinkerSetting] = [
           .unsafeFlags([
@@ -164,12 +282,16 @@ struct WasmPackageManifestFormat {
               "-Xlinker", "--export=swiftweb_alloc",
               "-Xlinker", "--export=swiftweb_dealloc",
               "-Xlinker", "--export=swiftweb_bootstrap",
+              "-Xlinker", "--export=swiftweb_shutdown",
+              "-Xlinker", "--export=swiftweb_shutdown_status",
+              "-Xlinker", "--export=swiftweb_start",
+              "-Xlinker", "--export=swiftweb_start_status",
               "-Xlinker", "--export=swiftweb_dispatch_event",
               "-Xlinker", "--export=swiftweb_snapshot_state",
               "-Xlinker", "--export=swiftweb_restore_state",
               "-Xlinker", "--export=swiftweb_response_len",
               "-Xlinker", "--export=swiftweb_response_copy",
-              "-Xlinker", "--export=swiftweb_response_free",
+              "-Xlinker", "--export=swiftweb_response_free",\(embeddedUnicodeLinkerFlags)
           ]),
       ]
 
@@ -233,5 +355,113 @@ struct WasmPackageManifestFormat {
         ]
     )
     """
+  }
+
+  private func actorSystemTargetDeclarations(runtimeTargetName: String) -> String {
+    """
+    let actorSystemCoreTarget = Target.target(
+        name: "ActorSystemCore",
+        path: "Sources/ActorSystemCore",
+        swiftSettings: swiftSettings
+    )
+
+    let actorSystemRuntimeTarget = Target.target(
+        name: "\(runtimeTargetName)",
+        dependencies: [
+            "ActorSystemCore",
+        ],
+        path: "Sources/\(runtimeTargetName)",
+        swiftSettings: swiftSettings
+    )
+    """
+  }
+
+  private func actorDependencyTargetDeclaration(
+    target: GeneratedActorDependencyTarget,
+    runtimeTargetName: String
+  ) -> String {
+    let generatedTargetModules: Set<String> = [
+      "ActorSystemCore",
+      runtimeTargetName,
+      "JavaScriptKit",
+      "SwiftHTML",
+      "SwiftWebActors",
+      "SwiftWebStyle",
+      "SwiftWebUI",
+      "SwiftWebUIRuntime",
+      "SwiftWebUITheme",
+    ]
+    var dependencies = [
+      "\"ActorSystemCore\"",
+      "\"\(runtimeTargetName)\"",
+      "\"SwiftWebActors\"",
+    ]
+    dependencies.append(
+      contentsOf: target.clientImportedModuleNames
+        .filter(generatedTargetModules.contains)
+        .map { "\"\($0)\"" }
+    )
+    dependencies.append(
+      contentsOf: target.dependencyModuleNames.map { "\"\($0)\"" }
+    )
+    var seenDependencies = Set<String>()
+    let dependencyLines = dependencies
+      .filter { seenDependencies.insert($0).inserted }
+      .map { "            \($0)," }
+      .joined(separator: "\n")
+    return """
+    let \(GeneratedPackageNameFormatter.variableName(for: target.moduleName)) = Target.target(
+        name: "\(target.moduleName)",
+        dependencies: [
+    \(dependencyLines)
+        ],
+        path: "Sources/\(target.moduleName)",
+        swiftSettings: \(actorSwiftSettingsVariableName(for: target.moduleName))
+    )
+    """
+  }
+
+  private func actorTargetSwiftSettingsDeclaration(
+    variableName: String,
+    customConditions: Set<String>,
+    upcomingFeatures: Set<String>,
+    experimentalFeatures: Set<String>,
+    baselineCustomConditions: Set<String>
+  ) -> String {
+    let settings = customConditions.subtracting(baselineCustomConditions).sorted().map {
+      ".define(\(swiftLiteral($0)))"
+    } + upcomingFeatures.subtracting(["ApproachableConcurrency"]).sorted().map {
+      ".enableUpcomingFeature(\(swiftLiteral($0)))"
+    } + experimentalFeatures.sorted().map {
+      ".enableExperimentalFeature(\(swiftLiteral($0)))"
+    }
+    guard !settings.isEmpty else {
+      return "let \(variableName): [SwiftSetting] = actorSwiftSettings"
+    }
+    return """
+    let \(variableName): [SwiftSetting] = actorSwiftSettings + [
+    \(settings.map { "    \($0)," }.joined(separator: "\n"))
+    ]
+    """
+  }
+
+  private func actorSwiftSettingsVariableName(for moduleName: String) -> String {
+    "\(GeneratedPackageNameFormatter.variableName(for: moduleName))SwiftSettings"
+  }
+
+  private func swiftLiteral(_ value: String) -> String {
+    var literal = "\""
+    for character in value {
+      switch character {
+      case "\\": literal += "\\\\"
+      case "\"": literal += "\\\""
+      case "\n": literal += "\\n"
+      case "\r": literal += "\\r"
+      case "\t": literal += "\\t"
+      default: literal.append(character)
+      }
+    }
+    literal += "\""
+    return literal
   }
 }

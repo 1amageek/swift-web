@@ -116,7 +116,7 @@ struct StoryboardProductionServer {
     }
 
     private func capturedProcessOutput(arguments: [String]) async throws -> String {
-        let invocation = SwiftBuildInvocation.host()
+        let invocation = try SwiftBuildInvocation.host(packageDirectory: packageDirectory)
         let launchedArguments = invocation.arguments(for: arguments)
         let process = Process()
         process.executableURL = invocation.executableURL

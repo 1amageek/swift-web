@@ -1,91 +1,87 @@
 #if SWIFTWEB_ACTORS
-import Distributed
+import ActorSystemCore
 import SwiftWebActors
 
-/// A scene that presents a group of identically structured distributed
-/// actors, one per identity — like `WindowGroup` presents a group of
-/// identically structured windows.
-///
-///     var body: some Scene {
-///         ActorGroup {
-///             SupportAgent(actorSystem: actorSystem)
-///         }
-///     }
-///
-/// Nothing is created at boot. The factory runs once per identity, when the
-/// first message addressed to that identity arrives (and again after the
-/// host evicts the instance). The new instance is bound to the targeted ID.
-///
-/// Declaring an `ActorGroup` also registers the actor invocation endpoint
-/// (`/_swiftweb/actors/invoke`) on the host, so the group's actors are
-/// reachable without further wiring.
-public struct ActorGroup<ActorType: DistributedActor>: Scene, Sendable, _PrimitiveScene
+/// Registers a concrete distributed actor factory for virtual activation.
+/// Actor methods continue to use their ordinary Distributed Actor call surface;
+/// this scene only supplies host-side construction policy.
+public struct ActorGroup<ActorType: ActorSystemReference>: Scene, Sendable, _PrimitiveScene
 where ActorType.ActorSystem == WebActorSystem {
-    private let factory: @Sendable (WebActorSystem) -> ActorType
+    private let factory: @Sendable (WebActorSystem) throws -> ActorType
     private let scope: ActorScope?
-    private let passivation: ActorPassivationPolicy?
+    private let passivationPolicy: ActorPassivationPolicy?
 
-    /// The factory receives the app's actor system, so it captures no app
-    /// state: `ActorGroup { SupportAgent(actorSystem: $0) }`.
-    public init(scope: ActorScope? = nil, _ factory: @escaping @Sendable (WebActorSystem) -> ActorType) {
-        self.factory = factory
-        self.scope = scope
-        self.passivation = nil
-    }
-
-    /// For factories that capture a `Sendable` actor system themselves.
-    public init(scope: ActorScope? = nil, _ factory: @escaping @Sendable () -> ActorType) {
-        self.factory = { _ in factory() }
-        self.scope = scope
-        self.passivation = nil
-    }
-
-    private init(
-        factory: @escaping @Sendable (WebActorSystem) -> ActorType,
-        scope: ActorScope?,
-        passivation: ActorPassivationPolicy?
+    public init(
+        scope: ActorScope? = nil,
+        _ factory: @escaping @Sendable (WebActorSystem) throws -> ActorType
     ) {
         self.factory = factory
         self.scope = scope
-        self.passivation = passivation
+        self.passivationPolicy = nil
     }
 
-    /// Overrides when this group's idle actors passivate. Composing with a
-    /// `.transient` scope is a configuration error surfaced at scene build.
+    public init(
+        scope: ActorScope? = nil,
+        _ factory: @escaping @Sendable () throws -> ActorType
+    ) {
+        self.factory = { _ in try factory() }
+        self.scope = scope
+        self.passivationPolicy = nil
+    }
+
+    private init(
+        factory: @escaping @Sendable (WebActorSystem) throws -> ActorType,
+        scope: ActorScope?,
+        passivationPolicy: ActorPassivationPolicy?
+    ) {
+        self.factory = factory
+        self.scope = scope
+        self.passivationPolicy = passivationPolicy
+    }
+
     public func passivation(_ policy: ActorPassivationPolicy) -> ActorGroup {
-        ActorGroup(factory: factory, scope: scope, passivation: policy)
+        ActorGroup(
+            factory: factory,
+            scope: scope,
+            passivationPolicy: policy
+        )
     }
 
     func _renderScene(in context: SceneRenderingContext) async throws {
-        if let scope, scope.isTransient, passivation != nil {
+        let contract = SwiftWebActorContractKey(ActorType.self).rawValue
+        if let scope, scope.isTransient, passivationPolicy != nil {
             throw ActorSceneConfigurationError.transientScopeCannotPassivate(
-                contract: WebActorSystem.contract(for: ActorType.self)
+                contract: contract
             )
         }
-        let factory = self.factory
+        context.runtime.requireActorSystem()
         let actorSystem = context.actorSystem
-        context.actorSystem.registerActivator(
-            for: ActorType.self,
-            environment: context.environment
-        ) {
-            _ = factory(actorSystem)
-        }
-        ActorInvocationEndpoint.registerIfNeeded(
-            in: context.runtime,
-            actorSystem: context.actorSystem
+        try actorSystem.registerGeneratedBootstrapIfAvailable(for: ActorType.self)
+        let environment = context.environment
+        let factory = self.factory
+        try await actorSystem.actorHost.register(
+            SwiftWebActorFactory(
+                ActorType.self,
+                activate: { _ in
+                    #if !hasFeature(Embedded)
+                    return try await EnvironmentValues.withValue(environment) {
+                        try factory(actorSystem)
+                    }
+                    #else
+                    return try factory(actorSystem)
+                    #endif
+                },
+                passivate: { address in
+                    actorSystem.unregisterLocal(address)
+                }
+            ),
+            authorization: scope?.swiftWebAuthorization(),
+            passivation: passivationPolicy
         )
-        if let scope {
-            context.actorSystem.registerScopeAuthorization(
-                scope.authorization(),
-                forContract: WebActorSystem.contract(for: ActorType.self)
-            )
-        }
-        if let passivation {
-            context.actorSystem.registerPassivationPolicy(
-                passivation,
-                forContract: WebActorSystem.contract(for: ActorType.self)
-            )
-        }
+        ActorFrameInvocationEndpoint.registerIfNeeded(
+            in: context.runtime,
+            actorSystem: actorSystem
+        )
     }
 }
 #endif

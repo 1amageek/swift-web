@@ -1,4 +1,6 @@
+#if !hasFeature(Embedded)
 import Foundation
+#endif
 import SwiftHTML
 
 // MARK: - Control model
@@ -128,7 +130,9 @@ extension Binding where Value == [String: String] {
     func double(_ fullKey: String) -> Binding<Double> {
         Binding<Double>(
             get: { storyboardDoubleValue(self.wrappedValue[fullKey] ?? storyboardDefaultValue(for: fullKey), key: fullKey) },
-            set: { self.wrappedValue[fullKey] = String(format: "%.2f", $0) }
+            set: {
+                self.wrappedValue[fullKey] = storyboardFixedDecimal($0, fractionDigits: 2)
+            }
         )
     }
 

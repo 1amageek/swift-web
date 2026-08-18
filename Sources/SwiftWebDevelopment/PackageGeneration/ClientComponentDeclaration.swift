@@ -61,28 +61,11 @@ struct ClientComponentDeclaration: Sendable {
 
 struct ClientActorContractDeclaration: Sendable, Hashable {
     let serviceTypeName: String
+    let isLegacyExistential: Bool
 
-    init(serviceTypeName: String) {
+    init(serviceTypeName: String, isLegacyExistential: Bool) {
         self.serviceTypeName = serviceTypeName
+        self.isLegacyExistential = isLegacyExistential
     }
 
-    var existentialTypeName: String {
-        "any \(serviceTypeName)"
-    }
-
-    var stubTypeName: String {
-        let components = serviceTypeName.split(separator: ".").map(String.init)
-        guard let last = components.last else {
-            return "$\(serviceTypeName)"
-        }
-        let prefix = components.dropLast().joined(separator: ".")
-        if prefix.isEmpty {
-            return "$\(last)"
-        }
-        return "\(prefix).$\(last)"
-    }
-
-    var contractKeyExpression: String {
-        "SwiftWebActorContractKey(String(reflecting: (\(existentialTypeName)).self))"
-    }
 }

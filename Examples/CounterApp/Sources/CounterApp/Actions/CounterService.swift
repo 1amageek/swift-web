@@ -1,10 +1,9 @@
 import Distributed
 import SwiftWeb
 
-@ResolvableActor(CounterServiceProtocol.self)
-distributed actor CounterService: CounterServiceProtocol {
+distributed actor CounterService {
     typealias ActorSystem = WebActorSystem
-    private var value = 0
+    private var value: Int = 0
 
     distributed func currentValue() async throws -> Int {
         value

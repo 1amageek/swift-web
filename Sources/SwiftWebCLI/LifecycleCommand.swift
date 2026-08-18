@@ -1,4 +1,5 @@
 import Foundation
+import SwiftWebDevelopment
 
 struct LifecycleCommand {
     let operation: SwiftWebExecutionPlan.Operation
@@ -6,6 +7,7 @@ struct LifecycleCommand {
     let environment: String?
     let host: String?
     let port: Int?
+    let wasmRuntimeProfile: SwiftWebWasmRuntimeProfile
 
     static func parse(
         _ parser: ArgumentParser,
@@ -16,6 +18,7 @@ struct LifecycleCommand {
         var environment: String?
         var host: String?
         var port: Int?
+        var wasmRuntimeProfile = SwiftWebWasmRuntimeProfile.defaultValue()
         while let option = parser.next() {
             switch option {
             case "--package-path":
@@ -26,6 +29,23 @@ struct LifecycleCommand {
                 host = try parser.requireValue(after: option)
             case "--port" where operation == .dev:
                 port = try parser.requireInt(after: option)
+            case "--runtime", "--wasm-runtime":
+                let rawValue = try parser.requireValue(after: option)
+                guard let profile = SwiftWebWasmRuntimeProfile(rawValue: rawValue) else {
+                    throw CLIError(
+                        message:
+                            "unknown WASM runtime profile: \(rawValue). Expected standard or embedded.",
+                        exitCode: 64
+                    )
+                }
+                guard operation != .dev || profile == .standard else {
+                    throw CLIError(
+                        message:
+                            "the embedded WASM runtime is not supported by the development server; use prepare, build, or deploy",
+                        exitCode: 64
+                    )
+                }
+                wasmRuntimeProfile = profile
             default:
                 throw CLIError(message: "unknown option: \(option)", exitCode: 64)
             }
@@ -35,7 +55,8 @@ struct LifecycleCommand {
             packageDirectory: packageDirectory.standardizedFileURL,
             environment: environment,
             host: host,
-            port: port
+            port: port,
+            wasmRuntimeProfile: wasmRuntimeProfile
         )
     }
 
@@ -44,7 +65,8 @@ struct LifecycleCommand {
             packageDirectory: packageDirectory,
             environmentOverride: environment,
             hostOverride: host,
-            portOverride: port
+            portOverride: port,
+            wasmRuntimeProfile: wasmRuntimeProfile
         ).run(operation)
     }
 }

@@ -37,4 +37,11 @@ extension Route {
         }
         return false
     }
+
+    package var isWebSocket: Bool {
+        if case .webSocket = handler {
+            return true
+        }
+        return false
+    }
 }

@@ -5,9 +5,9 @@ import FoundationEssentials
 import Foundation
 #endif
 
-/// A backing store for `@ActorStorage` grain state, keyed by actor ID. Hosts
-/// install a concrete store on the `WebActorSystem`; the Cloudflare host backs
-/// it with Durable Object storage, and native hosts can use any durable store.
+/// A backing store for `@ActorStorage` grain state, keyed by actor ID. Concrete
+/// hosts install it on `SwiftWebActorHost`; the explicit legacy actor system
+/// accepts the same contract during migration.
 ///
 /// A value is the per-key encoded state of one actor: `[storageKey: encoded]`.
 /// `load` returns `nil` when the actor has never persisted state, so the actor

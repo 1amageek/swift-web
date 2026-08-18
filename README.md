@@ -36,16 +36,16 @@ SwiftWeb pins the host toolchain and WASM SDK to the same snapshot.
 | Item | Required value |
 |---|---|
 | Swift tools version | `6.4` |
-| Swiftly selector | `6.4-snapshot-2026-07-23` |
-| Swift toolchain | `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-23-a` |
-| Browser SDK | `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-23-a_wasm` |
+| Swiftly selector | `6.4.x-snapshot-2026-08-14` |
+| Swift toolchain | `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-08-14-a` |
+| Browser SDK | `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-08-14-a_wasm` |
 | Package platform | macOS 26.2 or newer |
 
 For WASM commands, point SwiftWeb at the real toolchain directory. A `swiftly`
 shim does not contain the matching `wasm-ld` executable.
 
 ```bash
-export SWIFT_WEB_TOOLCHAIN_BIN="$HOME/Library/Developer/Toolchains/swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-23-a.xctoolchain/usr/bin"
+export SWIFT_WEB_TOOLCHAIN_BIN="$HOME/Library/Developer/Toolchains/swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-08-14-a.xctoolchain/usr/bin"
 export SWIFT_WEB_HOST_SWIFT="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
 export SWIFT_WEB_WASM_SWIFT="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
 export SWIFT_WEB_WASM_TOOLCHAIN_BIN="$SWIFT_WEB_TOOLCHAIN_BIN"
@@ -293,12 +293,12 @@ and `Sources`; do not edit `.swiftweb/generated` directly.
 | `sweb new <Name> [--output <directory>]` | Create a minimal application |
 | `sweb new <Name> --ai` | Create a chat-oriented SwiftWebUI application |
 | `sweb new <Name> --adapter <owner/repository>` | Add an adapter package and configured production environment |
-| `sweb prepare [--environment <name>]` | Resolve adapters and materialize configured environments |
+| `sweb prepare [--environment <name>] [--runtime standard|embedded]` | Resolve adapters and materialize configured environments |
 | `sweb xcode` | Refresh and open `.swiftweb/generated/dev` |
 | `sweb dev [--environment <name>] [--host <host>] [--port <port>]` | Build and run the selected environment locally |
 | `sweb storyboard` | Generate and run the SwiftWebUI component Storyboard |
-| `sweb build [--environment <name>]` | Build and verify the selected environment |
-| `sweb deploy [--environment <name>]` | Build, verify, and deploy the selected environment |
+| `sweb build [--environment <name>] [--runtime standard|embedded]` | Build and verify the selected environment |
+| `sweb deploy [--environment <name>] [--runtime standard|embedded]` | Build, verify, and deploy the selected environment |
 | `sweb clean [--storyboard] [--swiftpm] [--all]` | Remove selected generated output |
 
 All package commands accept `--package-path <directory>`. Lifecycle commands
@@ -331,8 +331,16 @@ sweb deploy --environment production
 state changes remain isolated to the selected Deployment adapter's deploy
 tasks.
 
-The public browser profile is standard Swift WASM. Embedded Swift WASM is not
-a supported SwiftWeb browser runtime.
+The browser runtime profile is selected at the build boundary. Application
+source keeps the same actor call surface in both profiles:
+
+```bash
+sweb build --environment production --runtime embedded
+```
+
+Embedded builds use the pinned matching Embedded WASM SDK. The development
+server remains a Standard WASM workflow; use `prepare`, `build`, or `deploy` for
+Embedded artifacts.
 
 ## Project Layout
 
@@ -394,7 +402,7 @@ Use the pinned toolchain for every validation command. Native tests run through
 Xcode with a timeout guard:
 
 ```bash
-TOOLCHAINS=org.swift.64202607171a \
+TOOLCHAINS=org.swift.64202608141a \
 scripts/swift-test-hang-guard.sh \
   --repeats 1 \
   --timeout 1200 \

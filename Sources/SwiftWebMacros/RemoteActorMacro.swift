@@ -39,12 +39,24 @@ public struct RemoteActorMacro: AccessorMacro {
         }
 
         let serviceType = type.description
+        if type.trimmedDescription.hasPrefix("any ") {
+            return [
+                """
+                get {
+                    SwiftWebActorBinding.resolve(
+                        (\(raw: serviceType)).self,
+                        contract: SwiftWebActorContractKey(String(reflecting: (\(raw: serviceType)).self))
+                    )
+                }
+                """
+            ]
+        }
         return [
             """
             get {
                 SwiftWebActorBinding.resolve(
                     (\(raw: serviceType)).self,
-                    contract: SwiftWebActorContractKey(String(reflecting: (\(raw: serviceType)).self))
+                    contract: SwiftWebActorContractKey((\(raw: serviceType)).self)
                 )
             }
             """

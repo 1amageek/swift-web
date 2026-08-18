@@ -769,6 +769,7 @@ struct SwiftWebUIRenderingTests {
     #expect(rendered.contains("class=\"swui-stepper-button\" aria-label=\"Decrement Count\""))
     #expect(rendered.contains("class=\"swui-stepper-button\" aria-label=\"Increment Count\""))
     #expect(rendered.contains("class=\"swui-navigation-link\""))
+    #expect(rendered.contains("href=\"/details\""))
   }
 
   @Test

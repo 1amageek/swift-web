@@ -1,6 +1,13 @@
 # Actor Injection Design
 
-Status: implemented contract for the `@RemoteActor` client component API.
+Status: implemented legacy contract for the `@RemoteActor` client component
+API. Superseded for new development by
+[Swift Actor System Design](SwiftActorSystemDesign.md).
+
+This document continues to describe the SwiftWeb 0.11.0 `@Resolvable` execution
+path during migration. The accepted target architecture uses concrete
+distributed actor types as the contract and retains this path only through an
+explicit compatibility layer.
 
 SwiftWeb actor injection is a convenience layer over Apple's `@Resolvable`
 distributed actor protocol model. It must not introduce a second RPC system.

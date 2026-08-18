@@ -1,4 +1,4 @@
-#if SWIFTWEB_ACTORS
+#if SWIFTWEB_LEGACY_ACTORS
 public struct WebActorAuthorizationError: Error, Sendable, Equatable, CustomStringConvertible {
     public let reason: String
 

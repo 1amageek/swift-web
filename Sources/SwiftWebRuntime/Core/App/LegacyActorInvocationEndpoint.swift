@@ -1,5 +1,5 @@
-#if SWIFTWEB_ACTORS
-@preconcurrency import ActorRuntime
+#if SWIFTWEB_LEGACY_ACTORS
+@preconcurrency import ActorSystemCompatibility
 #if canImport(FoundationEssentials)
 import FoundationEssentials
 #elseif canImport(Foundation)
@@ -13,14 +13,14 @@ import SwiftWebActors
 /// the first `ActorGroup` is lowered; decodes `InvocationEnvelope`s from the
 /// raw body (the envelope wire format is plain JSON, owned by the actor
 /// transport) and dispatches them on the app's actor system.
-enum ActorInvocationEndpoint {
+enum LegacyActorInvocationEndpoint {
     static let path = "/_swiftweb/actors/invoke"
 
     private struct RegisteredKey: RuntimeStorageKey {
         typealias Value = Bool
     }
 
-    static func registerIfNeeded(in runtime: AppRuntime, actorSystem: WebActorSystem) {
+    static func registerIfNeeded(in runtime: AppRuntime, actorSystem: LegacyWebActorSystem) {
         guard runtime.requestContext.storage[RegisteredKey.self] != true else {
             return
         }
@@ -32,7 +32,18 @@ enum ActorInvocationEndpoint {
             guard let body = try await request.collectedBody() else {
                 throw Abort(.badRequest, reason: "Actor invocation body is missing")
             }
-            let envelope = try JSONDecoder().decode(InvocationEnvelope.self, from: Data(body))
+            let envelope: InvocationEnvelope
+            do {
+                envelope = try JSONDecoder().decode(
+                    InvocationEnvelope.self,
+                    from: Data(body)
+                )
+            } catch {
+                throw Abort(
+                    .badRequest,
+                    reason: "Actor invocation body is malformed"
+                )
+            }
             let actorSecurity = request.securityConfiguration.actors
             let context = WebActorInvocationContext(
                 transport: .http,
@@ -45,7 +56,7 @@ enum ActorInvocationEndpoint {
                 response = try await actorSystem.invoke(
                     envelope: envelope,
                     context: context,
-                    authorization: actorSecurity.authorization,
+                    authorization: actorSecurity.legacyAuthorization,
                     activationPolicy: actorSecurity.activation
                 )
             } catch let error as WebActorAuthorizationError {

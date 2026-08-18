@@ -1,4 +1,5 @@
 import Foundation
+import ActorSystemCore
 import SwiftHTML
 import SwiftWebActors
 @testable import SwiftWebUIRuntime
@@ -28,7 +29,10 @@ struct ClientRuntimeJSONCodecTests {
             actorBindings: [
                 SwiftWebActorBindingRecord(
                     contractKey: "CounterService",
-                    actorID: "counter-1"
+                    actorID: ActorAddress(
+                        type: ActorTypeID(high: 1, low: 2),
+                        identity: "counter-1"
+                    )
                 ),
             ]
         )
@@ -132,6 +136,61 @@ struct ClientRuntimeJSONCodecTests {
 
         #expect(throws: ClientRuntimeJSONCodecError.self) {
             try ClientRuntimeJSONCodec.decodeEventRequest(from: data)
+        }
+    }
+
+    @Test
+    func embeddedCodecPreservesBootstrapPayloadAndUInt64ActorType() throws {
+        let request = ClientRuntimeBootstrapRequest(
+            hydrationIndex: hydrationIndex(),
+            documentNodeIDUpperBound: 24,
+            location: ClientRuntimeBootstrapLocation(
+                href: "https://example.test/counter",
+                search: ""
+            ),
+            mode: .standard,
+            actorBindings: [
+                SwiftWebActorBindingRecord(
+                    contractKey: "CounterService",
+                    actorID: ActorAddress(
+                        type: ActorTypeID(high: UInt64.max, low: UInt64.max - 1),
+                        identity: "counter-embedded"
+                    )
+                ),
+            ]
+        )
+
+        let bytes = Array(try JSONEncoder().encode(request))
+        let decoded = try ClientRuntimeEmbeddedJSONCodec.decodeBootstrapRequest(from: bytes)
+
+        #expect(decoded == request)
+    }
+
+    @Test
+    func embeddedCodecResponseMatchesCodableWireShape() throws {
+        let response = ClientRuntimeResponse(
+            commandBatch: BrowserDOMCommandBatch(commands: [
+                .updateText(node: HTMLNodeID(1), value: "埋め込み\nruntime"),
+                .setProperty(node: HTMLNodeID(1), name: "value", value: nil),
+            ]),
+            hydrationIndex: hydrationIndex(),
+            atomicStyleRules: [
+                ClientRuntimeAtomicStyleRule(className: "s1", body: "color: red"),
+            ]
+        )
+
+        let bytes = try ClientRuntimeEmbeddedJSONCodec.encode(response)
+        let decoded = try JSONDecoder().decode(ClientRuntimeResponse.self, from: Data(bytes))
+
+        #expect(decoded == response)
+    }
+
+    @Test
+    func embeddedCodecRejectsMalformedJSONWithoutTrapping() throws {
+        let bytes = Array(#"{"handlerID":"h1","event":{"value":"\uD800"}}"#.utf8)
+
+        #expect(throws: ClientRuntimeJSONCodecError.self) {
+            try ClientRuntimeEmbeddedJSONCodec.decodeEventRequest(from: bytes)
         }
     }
 

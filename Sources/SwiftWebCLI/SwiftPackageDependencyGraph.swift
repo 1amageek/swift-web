@@ -31,7 +31,7 @@ protocol SwiftPackageDependencyGraphLoading: Sendable {
 
 struct SwiftPackageDependencyGraphLoader: SwiftPackageDependencyGraphLoading {
     func load(packageDirectory: URL) async throws -> SwiftPackageDependencyGraph {
-        let invocation = SwiftBuildInvocation.host()
+        let invocation = try SwiftBuildInvocation.host(packageDirectory: packageDirectory)
         let process = Process()
         let standardOutput = Pipe()
         process.executableURL = invocation.executableURL

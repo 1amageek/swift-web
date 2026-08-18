@@ -142,6 +142,9 @@ struct SwiftWebDiagnosticsTests {
     let source = SwiftWebWasmRuntimeHostScript.source
 
     #expect(source.contains("swiftweb_bootstrap"))
+    #expect(source.contains("swiftweb_shutdown"))
+    #expect(source.contains("swiftweb_shutdown_status"))
+    #expect(source.contains("while (status === 3)"))
     #expect(source.contains("documentNodeIDUpperBound: this.descriptor.documentNodeIDUpperBound ?? null"))
     #expect(source.contains("swiftweb_dispatch_event"))
     #expect(source.contains("swiftweb_snapshot_state"))
@@ -262,8 +265,10 @@ struct SwiftWebDiagnosticsTests {
     #expect(source.contains("Unknown SwiftWeb DOM command"))
     #expect(source.contains("error.swiftWebRequiresFullReload = response.status === 409 || response.status === 410"))
     #expect(source.contains("window.location.reload()"))
-    #expect(source.contains("this.instances.delete(bundleID)"))
-    #expect(source.contains("this.swiftRuntimes.delete(bundleID)"))
+    #expect(source.contains("this.runtimeRecords = new Map()"))
+    #expect(source.contains("const previousRuntimeRecordToShutdown = this.releaseRuntimeAlias(bundleID)"))
+    #expect(source.contains("await this.shutdownRuntimeRecords("))
+    #expect(source.contains("uniqueRecords.set(record.instance, record)"))
     #expect(
       source.contains(
         "this.publishStatus(runtimeWasReady, \"bundleLoaded\");\n      this.publishMetrics();"))

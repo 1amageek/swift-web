@@ -12,7 +12,6 @@ struct SwiftWebGeneratedPackageBuilder {
   let wasmRuntimeProfile: SwiftWebWasmRuntimeProfile
 
   func run() async throws {
-    try validateSupportedWasmRuntimeProfile()
     let resolvedSwiftSDK = try resolvedSwiftSDKName()
     let wasmToolchain = try resolvedWasmToolchain(swiftSDK: resolvedSwiftSDK)
     let generatedPackage = try SwiftWebGeneratedPackageMaterializer(
@@ -53,6 +52,16 @@ struct SwiftWebGeneratedPackageBuilder {
       arguments.append("-c")
       arguments.append(resolvedConfiguration)
     }
+    if buildsWasmRuntime,
+      wasmRuntimeProfile == .embedded,
+      let wasmToolchain
+    {
+      let unicodeDataTables = try wasmToolchain.embeddedUnicodeDataTablesLibraryURL()
+      arguments.append(contentsOf: [
+        "-Xswiftc", "-Xlinker",
+        "-Xswiftc", unicodeDataTables.path,
+      ])
+    }
 
     var environment = ProcessInfo.processInfo.environment
     if buildsWasmRuntime {
@@ -64,7 +73,12 @@ struct SwiftWebGeneratedPackageBuilder {
       }
     }
 
-    let invocation = wasmToolchain.map(SwiftBuildInvocation.wasm(toolchain:)) ?? .host()
+    let invocation: SwiftBuildInvocation
+    if let wasmToolchain {
+      invocation = .wasm(toolchain: wasmToolchain)
+    } else {
+      invocation = try .host(packageDirectory: packageDirectory, environment: environment)
+    }
     try await runProcess(
       arguments: invocation.arguments(for: arguments),
       executableURL: invocation.executableURL,
@@ -75,16 +89,6 @@ struct SwiftWebGeneratedPackageBuilder {
         runtime: wasmRuntime,
         scratchDirectory: resolvedScratchDirectory,
         configuration: resolvedConfiguration ?? "debug"
-      )
-    }
-  }
-
-  private func validateSupportedWasmRuntimeProfile() throws {
-    guard !buildsWasmRuntime || wasmRuntimeProfile == .standard else {
-      throw CLIError(
-        message:
-          "unsupported WASM runtime profile: \(wasmRuntimeProfile.rawValue). SwiftWeb supports the standard WASM profile only.",
-        exitCode: 64
       )
     }
   }
@@ -131,11 +135,11 @@ struct SwiftWebGeneratedPackageBuilder {
       let baseSDK =
         swiftSDK
         ?? ProcessInfo.processInfo.environment["SWIFT_WEB_WASM_SDK"]
-        ?? SwiftWebWasmToolchain.defaultSwiftSDKName
-      if baseSDK.contains("embedded") {
+        ?? wasmRuntimeProfile.defaultSwiftSDKName
+      guard wasmRuntimeProfile.supports(swiftSDKName: baseSDK) else {
         throw CLIError(
           message:
-            "unsupported Swift SDK for SwiftWeb WASM: \(baseSDK). SwiftWeb supports the standard WASM SDK only.",
+            "Swift SDK \(baseSDK) does not match the \(wasmRuntimeProfile.rawValue) WASM runtime profile.",
           exitCode: 64
         )
       }
@@ -149,7 +153,7 @@ struct SwiftWebGeneratedPackageBuilder {
       return nil
     }
     return try SwiftWebWasmToolchain.resolve(
-      sdkName: swiftSDK ?? SwiftWebWasmToolchain.defaultSwiftSDKName
+      sdkName: swiftSDK ?? wasmRuntimeProfile.defaultSwiftSDKName
     )
   }
 

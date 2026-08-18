@@ -6,24 +6,20 @@ struct SwiftBuildInvocation {
     let argumentsPrefix: [String]
 
     static func host(
+        packageDirectory: URL,
         environment: [String: String] = ProcessInfo.processInfo.environment,
-        fileManager: FileManager = .default
-    ) -> SwiftBuildInvocation {
-        if let override = environment["SWIFT_WEB_HOST_SWIFT"], !override.isEmpty {
-            return SwiftBuildInvocation(
-                executableURL: URL(fileURLWithPath: override).standardizedFileURL,
-                argumentsPrefix: []
-            )
-        }
-        if fileManager.isExecutableFile(atPath: "/usr/bin/xcrun") {
-            return SwiftBuildInvocation(
-                executableURL: URL(fileURLWithPath: "/usr/bin/xcrun"),
-                argumentsPrefix: ["swift"]
-            )
-        }
+        hostSwiftExecutableURL: URL? = nil
+    ) throws -> SwiftBuildInvocation {
+        let toolchain = try SwiftWebHostSwiftToolchain.resolve(
+            configuration: SwiftWebDevRuntimeConfiguration(
+                packageDirectory: packageDirectory,
+                hostSwiftExecutableURL: hostSwiftExecutableURL
+            ),
+            environment: environment
+        )
         return SwiftBuildInvocation(
-            executableURL: URL(fileURLWithPath: "/usr/bin/env"),
-            argumentsPrefix: ["swift"]
+            executableURL: toolchain.swiftExecutableURL,
+            argumentsPrefix: []
         )
     }
 

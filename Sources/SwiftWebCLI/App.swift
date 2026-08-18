@@ -105,13 +105,13 @@ struct CommandLineInterface {
             """
             Usage:
               sweb new <AppName> [--output <directory>] [--force] [--ai] [--adapter <owner/repository>]
-              sweb prepare [--package-path <directory>] [--environment <name>]
+              sweb prepare [--package-path <directory>] [--environment <name>] [--runtime standard|embedded]
               sweb xcode [--package-path <directory>] [--product <name>] [--no-open]
-              sweb build [--package-path <directory>] [--environment <name>]
+              sweb build [--package-path <directory>] [--environment <name>] [--runtime standard|embedded]
               sweb clean [--package-path <directory>] [--storyboard] [--swiftpm] [--all]
               sweb dev [--package-path <directory>] [--environment <name>] [--host <host>] [--port <port>]
-              sweb deploy [--package-path <directory>] [--environment <name>]
-              sweb storyboard [--package-path <directory>] [--output <directory>] [--host <host>] [--port <port>] [--no-run] [--force] [--production] [--runtime standard] [--swift-sdk <sdk>] [-c debug|release]
+              sweb deploy [--package-path <directory>] [--environment <name>] [--runtime standard|embedded]
+              sweb storyboard [--package-path <directory>] [--output <directory>] [--host <host>] [--port <port>] [--no-run] [--force] [--production] [--runtime standard|embedded] [--swift-sdk <sdk>] [-c debug|release]
 
             Commands:
               new         Create a SwiftWeb app skeleton. Pass --ai for a chat-first template, and --adapter to add an adapter package.

@@ -1,5 +1,5 @@
-#if SWIFTWEB_ACTORS
-@preconcurrency import ActorRuntime
+#if SWIFTWEB_LEGACY_ACTORS
+@preconcurrency import ActorSystemCompatibility
 #if canImport(FoundationEssentials)
 import FoundationEssentials
 #elseif canImport(Foundation)
@@ -20,7 +20,7 @@ public final class WebSocketActorTransport: WebActorTransport, Sendable {
     public typealias SendFrame = @Sendable (String) async throws -> Void
 
     private struct State: Sendable {
-        var system: WebActorSystem?
+        var system: LegacyWebActorSystem?
         var invocationContext: WebActorInvocationContext = .trusted
         var authorization: WebActorAuthorization = .allowAll
         var activationPolicy: WebActorActivationPolicy = .unbounded
@@ -51,12 +51,12 @@ public final class WebSocketActorTransport: WebActorTransport, Sendable {
     /// The actor system that hosts this peer's local actors. Inbound
     /// invocations dispatch to it; without a bound system they are answered
     /// with an error response.
-    public func bind(_ system: WebActorSystem) {
+    public func bind(_ system: LegacyWebActorSystem) {
         state.withLock { $0.system = system }
     }
 
     public func bind(
-        _ system: WebActorSystem,
+        _ system: LegacyWebActorSystem,
         context: WebActorInvocationContext,
         authorization: WebActorAuthorization,
         activationPolicy: WebActorActivationPolicy = .defaults
@@ -206,6 +206,7 @@ public final class WebSocketActorTransport: WebActorTransport, Sendable {
             do {
                 try await sendFrame(try Self.encodeFrame(.response(response)))
             } catch {
+                closed(error)
             }
         }
     }

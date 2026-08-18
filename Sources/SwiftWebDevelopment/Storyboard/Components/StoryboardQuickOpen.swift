@@ -1,10 +1,15 @@
+#if !hasFeature(Embedded)
 import Foundation
+#endif
 import SwiftHTML
 import SwiftWebUI
 
-// SwiftHTML ships a `CharacterSet` polyfill for FoundationEssentials-only hosts;
-// on the WASM target both it and Foundation's are in scope, so pin the name here.
-private typealias CharacterSet = Foundation.CharacterSet
+// SwiftHTML supplies the Embedded spelling; Foundation owns the standard one.
+#if hasFeature(Embedded)
+private typealias StoryboardCharacterSet = SwiftHTML.CharacterSet
+#else
+private typealias StoryboardCharacterSet = Foundation.CharacterSet
+#endif
 
 /// The catalog's quick-open search: a real, working ⌘K palette.
 ///
@@ -101,16 +106,16 @@ public struct StoryboardQuickOpen: ClientComponent {
     }
 
     private var matches: [CatalogItem] {
-        let needle = query.trimmingCharacters(in: CharacterSet.whitespaces).lowercased()
-        let allItems = catalogCategories.flatMap(\.items)
+        let needle = query.trimmingCharacters(in: StoryboardCharacterSet.whitespaces).lowercased()
+        let allItems = catalogCategories.flatMap { category in category.items }
         guard !needle.isEmpty else {
             return Array(allItems.prefix(9))
         }
         return Array(
             allItems.filter { item in
-                item.name.lowercased().contains(needle)
-                    || item.code.lowercased().contains(needle)
-                    || item.summary.lowercased().contains(needle)
+                storyboardContains(item.name.lowercased(), needle)
+                    || storyboardContains(item.code.lowercased(), needle)
+                    || storyboardContains(item.summary.lowercased(), needle)
             }
             .prefix(12)
         )

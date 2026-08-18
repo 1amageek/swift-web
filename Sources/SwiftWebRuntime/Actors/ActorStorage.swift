@@ -19,7 +19,7 @@ import Synchronization
 /// from the installed `WebActorPersistentStore` when the actor activates and
 /// saves it after each invocation. When no store is installed the value is
 /// purely in-memory — durability requires a store; this is a host configuration,
-/// not a silent fallback (see `WebActorSystem.setPersistentStore`).
+/// not a silent fallback (see `SwiftWebActorHost.installPersistentStore`).
 ///
 /// The wrapped value is held in a `Sendable` box the actor system can read and
 /// restore without crossing the actor's isolation: the actor mutates it through
@@ -104,6 +104,13 @@ enum ActorStorageActivationContext {
         operation: () throws -> Result
     ) rethrows -> Result {
         try $current.withValue(value, operation: operation)
+    }
+
+    static func withValue<Result: Sendable>(
+        _ value: Collector,
+        operation: @Sendable () async throws -> Result
+    ) async rethrows -> Result {
+        try await $current.withValue(value, operation: operation)
     }
 
     static func register(_ box: any PersistentValueBox) {

@@ -29,19 +29,36 @@ struct ServerPackageFormat: GeneratedPackageFormat {
       installsDevelopmentHooks
       ? "\nimport SwiftWebDevelopmentHooks"
       : ""
+    let actorImport = context.nativeActorBootstrapTypeName == nil
+      ? ""
+      : "\nimport SwiftWebActors"
     let developmentInstall =
       installsDevelopmentHooks
       ? "\n        SwiftWebDevConsoleLogging.bootstrap()\n        await SwiftWebDevelopmentHooksRuntime.install()\n"
       : ""
+    let appInitialization: String
+    let runReceiver: String
+    if let bootstrapTypeName = context.nativeActorBootstrapTypeName {
+      appInitialization = """
+                try WebActorSystem.shared.registerGeneratedBootstrap(\(bootstrapTypeName).self)
+                let app = \(context.appProductName)()
+                try app.actorSystem.registerGeneratedBootstrap(\(bootstrapTypeName).self)
+
+        """
+      runReceiver = "app"
+    } else {
+      appInitialization = ""
+      runReceiver = context.appProductName
+    }
     guard let runtimeTarget = context.wasmRuntimeTargets.first else {
       return """
         import \(context.appProductName)
-        import SwiftWebHTTPServerHost\(developmentImport)
+        import SwiftWebHTTPServerHost\(actorImport)\(developmentImport)
 
         @main
         struct AppServerLauncher {
             static func main() async throws {
-        \(developmentInstall)        try await \(context.appProductName).run()
+        \(developmentInstall)\(appInitialization)        try await \(runReceiver).run()
             }
         }
         """
@@ -85,16 +102,16 @@ struct ServerPackageFormat: GeneratedPackageFormat {
     return """
       import \(context.appProductName)
       import Foundation
-      import SwiftWebHTTPServerHost\(developmentImport)
+      import SwiftWebHTTPServerHost\(actorImport)\(developmentImport)
 
       @main
       struct AppServerLauncher {
           static func main() async throws {
-      \(developmentInstall)        let wasmScratchDirectory = ProcessInfo.processInfo.environment["SWIFTWEB_WASM_SCRATCH_PATH"].map {
+      \(developmentInstall)\(appInitialization)        let wasmScratchDirectory = ProcessInfo.processInfo.environment["SWIFTWEB_WASM_SCRATCH_PATH"].map {
                   URL(fileURLWithPath: $0, isDirectory: true)
               }
 
-              try await \(context.appProductName).run(
+              try await \(runReceiver).run(
                   clientRuntime: .wasm(
                       id: "\(productName)",
                       assetPath: "\(assetPath)",
@@ -114,6 +131,7 @@ struct ServerPackageFormat: GeneratedPackageFormat {
   }
 
   private func packageSwift(context: GeneratedPackageRenderContext) -> String {
+    // SwiftPM resolves these paths from the canonical server package directory.
     let appDependencyPath = GeneratedPackageNameFormatter.relativePath(
       from: context.layout.serverPackageDirectory,
       to: context.layout.appPackageDirectory
@@ -122,6 +140,9 @@ struct ServerPackageFormat: GeneratedPackageFormat {
       from: context.layout.serverPackageDirectory,
       to: context.swiftWebPackageDirectory
     )
+    let actorDependency = context.nativeActorBootstrapTypeName == nil
+      ? ""
+      : "\n              .product(name: \"SwiftWebActors\", package: \"swift-web\"),"
     return """
       // swift-tools-version: 6.4
 
@@ -135,7 +156,7 @@ struct ServerPackageFormat: GeneratedPackageFormat {
           name: "AppServerLauncher",
           dependencies: [
               .product(name: "\(context.appProductName)", package: "\(context.appPackageDependencyName)"),
-              .product(name: "SwiftWebHTTPServerHost", package: "swift-web"),
+              .product(name: "SwiftWebHTTPServerHost", package: "swift-web"),\(actorDependency)
           ],
           path: "Sources/AppServerLauncher",
           swiftSettings: swiftSettings

@@ -12,9 +12,13 @@ final class ActorPersistentStateRegistry: Sendable {
 
     /// Records the boxes an actor declared during activation. Actors with no
     /// `@ActorStorage` properties are not tracked.
-    func bind(id: String, boxes: [any PersistentValueBox]) {
+    func bind(id: String, boxes: [any PersistentValueBox]) throws {
         guard !boxes.isEmpty else {
             return
+        }
+        let keys = Set(boxes.map(\.key))
+        guard keys.count == boxes.count else {
+            throw SwiftWebActorHostError.duplicatePersistentStorageKey(actorID: id)
         }
         bindings.withLock { $0[id] = Binding(boxes: boxes) }
     }
@@ -22,6 +26,10 @@ final class ActorPersistentStateRegistry: Sendable {
     /// Drops an actor's binding on eviction, so the next activation reloads.
     func forget(id: String) {
         bindings.withLock { $0[id] = nil }
+    }
+
+    func removeAll() {
+        bindings.withLock { $0.removeAll(keepingCapacity: false) }
     }
 
     /// Restores persisted values into the actor's boxes exactly once per

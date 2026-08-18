@@ -21,8 +21,13 @@ xcuserdata/
 
 # SwiftWeb generated artifacts
 .swiftweb/
+**/ActorSystemGenerated/
 .cache/
-/Packages/
+/Packages/*
+!/Packages/swift-actor-system/
+!/Packages/swift-actor-system/**
+/Packages/swift-actor-system/.build/
+/Packages/swift-actor-system/.swiftpm/
 /SwiftWebUI Storyboard.html
 
 # IDE

@@ -1,137 +1,388 @@
 #if SWIFTWEB_ACTORS
-@preconcurrency import ActorRuntime
-@preconcurrency import Distributed
-#if canImport(FoundationEssentials)
-import FoundationEssentials
-#elseif canImport(Foundation)
-import Foundation
-#endif
-import SwiftHTML
-import Synchronization
+@_spi(ActorSystemLifecycleOwnership) import ActorSystemCore
+import ActorSystemDistributed
+import Distributed
 
+/// The compiler-facing SwiftWeb distributed actor system.
+///
+/// All routing, framing, correlation, timeout, cancellation, and codec work is
+/// delegated to `SwiftActorSystem`. SwiftWeb host policy is composed with the
+/// interceptor supplied through `ActorSystemConfiguration`.
 public final class WebActorSystem: DistributedActorSystem, Sendable {
-    public typealias ActorID = String
-    public typealias InvocationEncoder = WebActorInvocationEncoder
-    public typealias InvocationDecoder = WebActorInvocationDecoder
-    public typealias ResultHandler = WebActorResultHandler
+    public typealias ActorID = ActorAddress
+    public typealias InvocationEncoder = ActorDistributedInvocationEncoder
+    public typealias InvocationDecoder = ActorDistributedInvocationDecoder
+    public typealias ResultHandler = ActorDistributedResultHandler
     public typealias SerializationRequirement = Codable & Sendable
 
-    public static let shared = WebActorSystem()
-
-    private let registry = ActorRegistry()
-    private let transportBox: Mutex<(any WebActorTransport)?>
-    private let activators = Mutex<[String: WebActorActivator]>([:])
-    private let scopeAuthorizations = Mutex<[String: WebActorAuthorization]>([:])
-    private let passivationPolicies = Mutex<[String: ActorPassivationPolicy]>([:])
-    private let reminderStoreBox = Mutex<(any WebActorReminderStore)?>(nil)
-    private let statePublisherBox = Mutex<(any WebActorStatePublisher)?>(nil)
-    private let activationRecords = Mutex<[ActorID: WebActorActivationRecord]>([:])
-    private let activationLock = Mutex<Void>(())
-    private let persistentStoreBox: Mutex<(any WebActorPersistentStore)?>
-    private let persistentState = ActorPersistentStateRegistry()
-
-    public init(transport: (any WebActorTransport)? = nil) {
-        self.transportBox = Mutex(transport)
-        self.persistentStoreBox = Mutex(nil)
-    }
-
-    /// Installs the store that backs `@ActorStorage` grain state. Without one,
-    /// `@ActorStorage` values are in-memory only (no durability). The Cloudflare
-    /// host installs a Durable Object-backed store; native hosts can install any
-    /// durable store, or `InMemoryActorPersistentStore` for a process-lifetime one.
-    public func setPersistentStore(_ store: any WebActorPersistentStore) {
-        persistentStoreBox.withLock { $0 = store }
-    }
-
-    private var persistentStore: (any WebActorPersistentStore)? {
-        persistentStoreBox.withLock { $0 }
-    }
-
-    /// Installs the transport for outbound calls to non-local actors. Hosts
-    /// that learn their routing after construction (the Durable Object host
-    /// wiring WebSocket sessions) use this; it replaces any prior transport.
-    public func setTransport(_ transport: any WebActorTransport) {
-        transportBox.withLock { $0 = transport }
-    }
-
-    private var transport: (any WebActorTransport)? {
-        transportBox.withLock { $0 }
-    }
-
-    /// The contract prefix identifying an actor type in virtual-actor IDs
-    /// (`"<contract>:<name>"`), matching the prefix `assignID` generates.
-    public static func contract<Act: DistributedActor>(for actorType: Act.Type) -> String {
-        String(reflecting: actorType)
-    }
-
-    /// The ID addressing the virtual actor of the given type with the given
-    /// logical name. Sending to it activates the actor on demand when an
-    /// `ActorGroup` for the type is registered.
-    public static func actorID<Act: DistributedActor>(for actorType: Act.Type, named name: String) -> ActorID {
-        "\(contract(for: actorType)):\(name)"
-    }
-
-    /// Registers the factory that activates instances of `actorType` on
-    /// demand, one per ID. Registered by `ActorGroup` during scene lowering.
-    /// The environment is established around activation and every invocation
-    /// on the group's actors, so `@Environment` resolves inside them.
-    public func registerActivator<Act: DistributedActor>(
-        for actorType: Act.Type,
-        environment: EnvironmentValues = EnvironmentValues(),
-        activate: @escaping @Sendable () -> Void
-    ) where Act.ActorSystem == WebActorSystem {
-        let activator = WebActorActivator(environment: environment, activate: activate)
-        activators.withLock { $0[Self.contract(for: actorType)] = activator }
-    }
-
-    /// Registers the scope-implied authorization for a contract. Registered
-    /// by `ActorGroup` when the group declares an `ActorScope`; applied to
-    /// every external invocation addressed to the contract, after the
-    /// app-level authorizer allows the request.
-    public func registerScopeAuthorization(_ authorization: WebActorAuthorization, forContract contract: String) {
-        scopeAuthorizations.withLock { $0[contract] = authorization }
-    }
-
-    /// Registers a per-contract passivation policy. Registered by
-    /// `ActorGroup` when the group declares one; overrides the host-level
-    /// `WebActorActivationPolicy.idleTimeout` for that contract.
-    public func registerPassivationPolicy(_ policy: ActorPassivationPolicy, forContract contract: String) {
-        passivationPolicies.withLock { $0[contract] = policy }
-    }
-
-    private func scopeAuthorization(for recipient: WebActorRecipient) -> WebActorAuthorization? {
-        guard let contract = recipient.contract else {
-            return nil
+    private static let sharedConfiguration = ActorSystemConfiguration(
+        sessionIdentitySource: SwiftWebRandomActorSessionIdentitySource()
+    )
+    private static let sharedRequestTransport: SwiftWebRequestReplyActorTransport = {
+        do {
+            return try SwiftWebRequestReplyActorTransport(
+                maximumPendingRequests: sharedConfiguration.maximumInFlightCalls,
+                maximumBufferedFrames: sharedConfiguration.maximumConcurrentInboundCalls,
+                maximumPeerEndpoints: sharedConfiguration.maximumTransportEndpoints,
+                maximumPeerIdentityBytes: sharedConfiguration.maximumIdentityBytes
+            )
+        } catch {
+            preconditionFailure(
+                "The default SwiftWeb HTTP actor transport configuration is invalid: \(error)"
+            )
         }
-        return scopeAuthorizations.withLock { $0[contract] }
-    }
-
-    public func assignID<Act>(_ actorType: Act.Type) -> ActorID where Act: DistributedActor {
-        if let pending = WebActorActivationContext.current?.takeIfMatching(contract: Self.contract(for: actorType)) {
-            return pending
+    }()
+    private static let sharedWebSocketTransport: SwiftWebWebSocketActorTransport = {
+        do {
+            return try SwiftWebWebSocketActorTransport(
+                configuration: sharedConfiguration
+            )
+        } catch {
+            preconditionFailure(
+                "The default SwiftWeb actor transport configuration is invalid: \(error)"
+            )
         }
-        return "\(String(reflecting: actorType)):\(UUID().uuidString)"
+    }()
+    public static let shared: WebActorSystem = {
+        do {
+            return try WebActorSystem(
+                transports: [
+                    .swiftWebHTTP: sharedRequestTransport,
+                    .swiftWebWebSocket: sharedWebSocketTransport,
+                ],
+                configuration: sharedConfiguration
+            )
+        } catch {
+            preconditionFailure(
+                "The default SwiftWeb actor host configuration is invalid: \(error)"
+            )
+        }
+    }()
+
+    package let actorHost: SwiftWebActorHost
+    public let configuration: ActorSystemConfiguration
+    package let frameCodec: ActorFrameCodec
+    public let distributedBackend: SwiftWebDistributedActorBackend
+    package let hostingTransportCapability: SwiftWebActorHostingTransportCapability
+    private let implementation: SwiftActorSystem
+    private let lifecycle: ActorSystemLifecycleCoordinator
+
+    public convenience init(
+        codecRegistry: ActorDistributedCodecRegistry = ActorDistributedCodecRegistry(),
+        identitySource: any ActorIdentitySource = SequentialActorIdentitySource(),
+        router: any ActorRouter = RejectingActorRouter(),
+        transports: [ActorTransportID: any ActorTransport] = [:],
+        configuration: ActorSystemConfiguration,
+        callOptions: ActorCallOptions = .defaults
+    ) throws {
+        let configuredActorHost = configuration.inboundInterceptor as? SwiftWebActorHost
+        if configuredActorHost == nil,
+           configuration.inboundInterceptor is any ActorLocalInvocationClaiming {
+            throw SwiftWebActorSystemConfigurationError.conflictingLocalInvocationOwners
+        }
+        let resolvedActorHost = configuredActorHost ?? SwiftWebActorHost()
+        self.init(
+            codecRegistry: codecRegistry,
+            actorIdentitySource: identitySource,
+            router: router,
+            transports: transports,
+            resolvedActorHost: resolvedActorHost,
+            configuration: configuration,
+            callOptions: callOptions
+        )
     }
 
-    public func actorReady<Act>(_ actor: Act) where Act: DistributedActor, Act.ID == ActorID {
-        registry.register(actor, id: actor.id)
+    @available(*, deprecated, message: "Use identitySource instead of actorIdentitySource")
+    public convenience init(
+        codecRegistry: ActorDistributedCodecRegistry = ActorDistributedCodecRegistry(),
+        actorIdentitySource: any ActorIdentitySource,
+        router: any ActorRouter = RejectingActorRouter(),
+        transports: [ActorTransportID: any ActorTransport] = [:],
+        configuration: ActorSystemConfiguration,
+        callOptions: ActorCallOptions = .defaults
+    ) throws {
+        try self.init(
+            codecRegistry: codecRegistry,
+            identitySource: actorIdentitySource,
+            router: router,
+            transports: transports,
+            configuration: configuration,
+            callOptions: callOptions
+        )
+    }
+
+    public convenience init(
+        codecRegistry: ActorDistributedCodecRegistry = ActorDistributedCodecRegistry(),
+        identitySource: any ActorIdentitySource = SequentialActorIdentitySource(),
+        router: any ActorRouter = RejectingActorRouter(),
+        transports: [ActorTransportID: any ActorTransport] = [:],
+        actorHost: SwiftWebActorHost,
+        configuration: ActorSystemConfiguration,
+        callOptions: ActorCallOptions = .defaults
+    ) throws {
+        if let configuredActorHost = configuration.inboundInterceptor as? SwiftWebActorHost,
+           configuredActorHost !== actorHost {
+            throw SwiftWebActorSystemConfigurationError.conflictingActorHosts
+        }
+        if configuration.inboundInterceptor is any ActorLocalInvocationClaiming,
+           configuration.inboundInterceptor as? SwiftWebActorHost == nil {
+            throw SwiftWebActorSystemConfigurationError.conflictingLocalInvocationOwners
+        }
+        self.init(
+            codecRegistry: codecRegistry,
+            actorIdentitySource: identitySource,
+            router: router,
+            transports: transports,
+            resolvedActorHost: actorHost,
+            configuration: configuration,
+            callOptions: callOptions
+        )
+    }
+
+    @available(*, deprecated, message: "Use identitySource instead of actorIdentitySource")
+    public convenience init(
+        codecRegistry: ActorDistributedCodecRegistry = ActorDistributedCodecRegistry(),
+        actorIdentitySource: any ActorIdentitySource,
+        router: any ActorRouter = RejectingActorRouter(),
+        transports: [ActorTransportID: any ActorTransport] = [:],
+        actorHost: SwiftWebActorHost,
+        configuration: ActorSystemConfiguration,
+        callOptions: ActorCallOptions = .defaults
+    ) throws {
+        try self.init(
+            codecRegistry: codecRegistry,
+            identitySource: actorIdentitySource,
+            router: router,
+            transports: transports,
+            actorHost: actorHost,
+            configuration: configuration,
+            callOptions: callOptions
+        )
+    }
+
+    private init(
+        codecRegistry: ActorDistributedCodecRegistry,
+        actorIdentitySource: any ActorIdentitySource,
+        router: any ActorRouter,
+        transports: [ActorTransportID: any ActorTransport],
+        resolvedActorHost: SwiftWebActorHost,
+        configuration: ActorSystemConfiguration,
+        callOptions: ActorCallOptions
+    ) {
+        let inboundInterceptor: any ActorInboundInvocationInterceptor
+        if let configuredActorHost = configuration.inboundInterceptor as? SwiftWebActorHost,
+           configuredActorHost === resolvedActorHost {
+            inboundInterceptor = resolvedActorHost
+        } else {
+            inboundInterceptor = SwiftWebActorInboundInterceptor(
+                configuredInterceptor: configuration.inboundInterceptor,
+                actorHost: resolvedActorHost
+            )
+        }
+        let effectiveConfiguration = configuration.replacingInboundInterceptor(
+            inboundInterceptor
+        )
+        self.actorHost = resolvedActorHost
+        self.configuration = effectiveConfiguration
+        self.frameCodec = ActorFrameCodec(configuration: effectiveConfiguration)
+        self.hostingTransportCapability = SwiftWebActorHostingTransportCapability(
+            transports: transports
+        )
+        let implementation = SwiftActorSystem(
+            codecRegistry: codecRegistry,
+            actorIdentitySource: SwiftWebDistributedActorIdentitySource(
+                fallback: actorIdentitySource
+            ),
+            router: router,
+            transports: transports,
+            configuration: effectiveConfiguration,
+            callOptions: callOptions
+        )
+        self.implementation = implementation
+        self.distributedBackend = SwiftWebDistributedActorBackend(
+            implementation: implementation
+        )
+        self.lifecycle = ActorSystemLifecycleCoordinator(
+            start: {
+                try await resolvedActorHost.sealConfiguration()
+                try await implementation.start()
+            },
+            requestShutdown: {
+                let admission = await resolvedActorHost.requestStopAdmission()
+                let implementationTermination = await implementation.requestShutdown()
+                return ActorSystemTermination(
+                    dependencies: {
+                        [admission, implementationTermination]
+                    },
+                    operation: {
+                        let hostTermination = await resolvedActorHost.requestFinishShutdown()
+                        try await hostTermination.waitForCompletionAsDependency()
+                    }
+                )
+            }
+        )
+    }
+
+    public convenience init<Bootstrap: SwiftActorSystemBootstrap>(
+        generatedBootstrap: Bootstrap.Type,
+        identitySource: any ActorIdentitySource = SequentialActorIdentitySource(),
+        router: any ActorRouter = RejectingActorRouter(),
+        transports: [ActorTransportID: any ActorTransport] = [:],
+        configuration: ActorSystemConfiguration,
+        callOptions: ActorCallOptions = .defaults
+    ) throws {
+        try self.init(
+            identitySource: identitySource,
+            router: router,
+            transports: transports,
+            configuration: configuration,
+            callOptions: callOptions
+        )
+        try distributedBackend.registerGeneratedBootstrap(Bootstrap.self)
+    }
+
+    @available(*, deprecated, message: "Use identitySource instead of actorIdentitySource")
+    public convenience init<Bootstrap: SwiftActorSystemBootstrap>(
+        generatedBootstrap: Bootstrap.Type,
+        actorIdentitySource: any ActorIdentitySource,
+        router: any ActorRouter = RejectingActorRouter(),
+        transports: [ActorTransportID: any ActorTransport] = [:],
+        configuration: ActorSystemConfiguration,
+        callOptions: ActorCallOptions = .defaults
+    ) throws {
+        try self.init(
+            generatedBootstrap: Bootstrap.self,
+            identitySource: actorIdentitySource,
+            router: router,
+            transports: transports,
+            configuration: configuration,
+            callOptions: callOptions
+        )
+    }
+
+    public convenience init<Bootstrap: SwiftActorSystemBootstrap>(
+        generatedBootstrap: Bootstrap.Type,
+        identitySource: any ActorIdentitySource = SequentialActorIdentitySource(),
+        router: any ActorRouter = RejectingActorRouter(),
+        transports: [ActorTransportID: any ActorTransport] = [:],
+        actorHost: SwiftWebActorHost,
+        configuration: ActorSystemConfiguration,
+        callOptions: ActorCallOptions = .defaults
+    ) throws {
+        try self.init(
+            identitySource: identitySource,
+            router: router,
+            transports: transports,
+            actorHost: actorHost,
+            configuration: configuration,
+            callOptions: callOptions
+        )
+        try distributedBackend.registerGeneratedBootstrap(Bootstrap.self)
+    }
+
+    @available(*, deprecated, message: "Use identitySource instead of actorIdentitySource")
+    public convenience init<Bootstrap: SwiftActorSystemBootstrap>(
+        generatedBootstrap: Bootstrap.Type,
+        actorIdentitySource: any ActorIdentitySource,
+        router: any ActorRouter = RejectingActorRouter(),
+        transports: [ActorTransportID: any ActorTransport] = [:],
+        actorHost: SwiftWebActorHost,
+        configuration: ActorSystemConfiguration,
+        callOptions: ActorCallOptions = .defaults
+    ) throws {
+        try self.init(
+            generatedBootstrap: Bootstrap.self,
+            identitySource: actorIdentitySource,
+            router: router,
+            transports: transports,
+            actorHost: actorHost,
+            configuration: configuration,
+            callOptions: callOptions
+        )
+    }
+
+    @available(*, deprecated, message: "Use distributedBackend.registerGeneratedBootstrap(_:)")
+    public func registerGeneratedBootstrap(
+        _ bootstrap: any SwiftActorSystemBootstrap.Type
+    ) throws {
+        try distributedBackend.registerGeneratedBootstrap(bootstrap)
+    }
+
+    package func registerGeneratedBootstrapIfAvailable<ActorType>(
+        for actorType: ActorType.Type
+    ) throws where ActorType: ActorSystemReference,
+                   ActorType.ActorSystem == WebActorSystem {
+        guard let bootstrapProvider = actorType as? any SwiftActorSystemBootstrapProvider.Type else {
+            return
+        }
+        try distributedBackend.registerGeneratedBootstrap(
+            bootstrapProvider.actorSystemBootstrap
+        )
+    }
+
+    @available(*, deprecated, message: "Use distributedBackend.registerCodec(_:typeID:codec:)")
+    public func registerCodec<Value: Codable & Sendable>(
+        _ type: Value.Type,
+        typeID: ActorTypeID,
+        codec: ActorGeneratedCodec<Value>
+    ) throws {
+        try distributedBackend.registerCodec(type, typeID: typeID, codec: codec)
+    }
+
+    @available(*, deprecated, message: "Use distributedBackend.register(_:)")
+    public func register(_ registration: AnyDistributedActorTypeRegistration) throws {
+        try distributedBackend.register(registration)
+    }
+
+    public func start() async throws {
+        try await lifecycle.start()
+    }
+
+    public func requestShutdown() async -> ActorSystemTermination {
+        await lifecycle.requestShutdown()
+    }
+
+    public func shutdown() async throws {
+        try await lifecycle.shutdown()
+    }
+
+    public func assignID<Act>(_ actorType: Act.Type) -> ActorID
+    where Act: DistributedActor, Act.ID == ActorID {
+        implementation.assignID(actorType)
+    }
+
+    public func actorReady<Act>(_ actor: Act)
+    where Act: DistributedActor, Act.ID == ActorID {
+        implementation.actorReady(actor)
     }
 
     public func resignID(_ id: ActorID) {
-        activationRecords.withLock { $0[id] = nil }
-        persistentState.forget(id: id)
-        registry.unregister(id: id)
+        implementation.resignID(id)
+    }
+
+    public func unregisterLocal(_ id: ActorAddress) {
+        implementation.unregisterLocal(id)
+    }
+
+    public func reminders(for id: ActorAddress) -> SwiftWebActorReminders {
+        actorHost.reminders(for: id)
+    }
+
+    public func deliverReminder(
+        _ reminder: SwiftWebActorReminder
+    ) async throws {
+        try await actorHost.deliverReminder(reminder)
     }
 
     public func resolve<Act>(
         id: ActorID,
         as actorType: Act.Type
     ) throws -> Act? where Act: DistributedActor, Act.ID == ActorID {
-        registry.find(id: id) as? Act
+        try implementation.resolve(id: id, as: actorType)
     }
 
     public func makeInvocationEncoder() -> InvocationEncoder {
-        WebActorInvocationEncoder()
+        implementation.makeInvocationEncoder()
     }
 
     public func remoteCall<Act, Err, Res>(
@@ -140,22 +391,19 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
         invocation: inout InvocationEncoder,
         throwing: Err.Type,
         returning: Res.Type
-    ) async throws -> Res where Act: DistributedActor, Act.ID == ActorID, Err: Error, Res: Codable & Sendable {
-        invocation.recordTarget(target)
-        let envelope = try invocation.makeInvocationEnvelope(recipientID: actor.id)
-        let response = try await dispatch(envelope: envelope, target: target)
-
-        switch response.result {
-        case .success(let data):
-            return try JSONDecoder().decode(Res.self, from: data)
-        case .void:
-            guard Res.self == Void.self else {
-                throw RuntimeError.executionFailed("Expected \(Res.self), but invocation returned Void", underlying: "Type mismatch")
-            }
-            return () as! Res
-        case .failure(let error):
-            throw error
-        }
+    ) async throws -> Res
+    where Act: DistributedActor,
+          Act.ID == ActorID,
+          Err: Error,
+          Res: Codable & Sendable {
+        try await lifecycle.start()
+        return try await implementation.remoteCall(
+            on: actor,
+            target: target,
+            invocation: &invocation,
+            throwing: throwing,
+            returning: returning
+        )
     }
 
     public func remoteCallVoid<Act, Err>(
@@ -163,479 +411,47 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
         target: RemoteCallTarget,
         invocation: inout InvocationEncoder,
         throwing: Err.Type
-    ) async throws where Act: DistributedActor, Act.ID == ActorID, Err: Error {
-        invocation.recordTarget(target)
-        let envelope = try invocation.makeInvocationEnvelope(recipientID: actor.id)
-        let response = try await dispatch(envelope: envelope, target: target)
-
-        switch response.result {
-        case .void:
-            return
-        case .success:
-            throw RuntimeError.executionFailed("Expected Void, but invocation returned a value", underlying: "Type mismatch")
-        case .failure(let error):
-            throw error
-        }
-    }
-
-    public func invoke(
-        actorID: ActorID,
-        targetIdentifier: String,
-        arguments: [Data]
-    ) async throws -> ResponseEnvelope {
-        let envelope = InvocationEnvelope(
-            recipientID: actorID,
-            target: targetIdentifier,
-            arguments: arguments
-        )
-        return try await invoke(envelope: envelope)
-    }
-
-    public func invoke(envelope: InvocationEnvelope) async throws -> ResponseEnvelope {
-        try await execute(
-            envelope: envelope,
-            target: RemoteCallTarget(envelope.target),
-            activationPolicy: .unbounded
-        )
-    }
-
-    public func invoke(
-        envelope: InvocationEnvelope,
-        context: WebActorInvocationContext,
-        authorization: WebActorAuthorization,
-        activationPolicy: WebActorActivationPolicy = .defaults
-    ) async throws -> ResponseEnvelope {
-        let target = RemoteCallTarget(envelope.target)
-        let recipient = WebActorRecipient(actorID: envelope.recipientID)
-        let state = actorAuthorizationState(for: recipient)
-        let request = WebActorAuthorizationRequest(
-            envelope: envelope,
-            recipient: recipient,
-            targetIdentifier: envelope.target,
-            context: context,
-            isRegistered: state.isRegistered,
-            isVirtualActor: state.isVirtualActor
-        )
-        switch await authorization.authorize(request) {
-        case .allow:
-            break
-        case .deny(let reason):
-            throw WebActorAuthorizationError(reason)
-        }
-        if let scoped = scopeAuthorization(for: recipient) {
-            switch await scoped.authorize(request) {
-            case .allow:
-                break
-            case .deny(let reason):
-                throw WebActorAuthorizationError(reason)
-            }
-        }
-        return try await execute(
-            envelope: envelope,
-            target: target,
-            activationPolicy: activationPolicy
-        )
-    }
-
-    public func shutdown() {
-        activationRecords.withLock { $0.removeAll() }
-        registry.clear()
-    }
-
-    private func dispatch(
-        envelope: InvocationEnvelope,
-        target: RemoteCallTarget
-    ) async throws -> ResponseEnvelope {
-        if registry.find(id: envelope.recipientID) != nil {
-            return try await execute(envelope: envelope, target: target, activationPolicy: .unbounded)
-        }
-
-        guard let transport else {
-            throw RuntimeError.actorNotFound(envelope.recipientID)
-        }
-        return try await transport.call(envelope)
-    }
-
-    private func execute(
-        envelope: InvocationEnvelope,
-        target: RemoteCallTarget,
-        activationPolicy: WebActorActivationPolicy
-    ) async throws -> ResponseEnvelope {
-        #if !hasFeature(Embedded)
-        if let environment = registeredEnvironment(for: envelope.recipientID) {
-            return try await EnvironmentValues.withValue(environment) {
-                try await self.executeResolved(
-                    envelope: envelope,
-                    target: target,
-                    activationPolicy: activationPolicy
-                )
-            }
-        }
-        #endif
-        return try await executeResolved(
-            envelope: envelope,
-            target: target,
-            activationPolicy: activationPolicy
-        )
-    }
-
-    private func registeredEnvironment(for id: ActorID) -> EnvironmentValues? {
-        guard let separator = id.firstIndex(of: ":") else {
-            return nil
-        }
-        return activators.withLock { $0[String(id[..<separator])] }?.environment
-    }
-
-    private func executeResolved(
-        envelope: InvocationEnvelope,
-        target: RemoteCallTarget,
-        activationPolicy: WebActorActivationPolicy
-    ) async throws -> ResponseEnvelope {
-        let now = Date()
-        let registeredActor = registry.find(id: envelope.recipientID)
-        if registeredActor != nil {
-            markVirtualActorAccess(id: envelope.recipientID, at: now)
-        }
-        var wasActivated = false
-        var evictions: [WebActorEviction] = []
-        let resolvedActor: (any DistributedActor)?
-        if let registeredActor {
-            resolvedActor = registeredActor
-        } else {
-            let activation = try activatedActor(
-                id: envelope.recipientID,
-                activationPolicy: activationPolicy,
-                now: now
-            )
-            resolvedActor = activation.actor
-            wasActivated = activation.wasActivated
-            evictions = activation.evictions
-        }
-        guard let actor = resolvedActor else {
-            throw RuntimeError.actorNotFound(envelope.recipientID)
-        }
-
-        // Passivate evicted instances outside the activation lock: run their
-        // hooks and persist any grain state the hooks mutated.
-        try await runPassivation(for: evictions)
-
-        // Restore grain state before the first dispatch sees the actor.
-        try await persistentState.loadIfNeeded(id: envelope.recipientID, store: persistentStore)
-
-        // The activation hook runs after grain state is restored, so cold
-        // start and resume observe the same, fully rehydrated actor.
-        if wasActivated, let lifecycle = actor as? any WebActorLifecycle {
-            await Self.runActivatedHook(on: lifecycle)
-        }
-
-        var decoder = try WebActorInvocationDecoder(envelope: envelope)
-        let resultStore = WebActorInvocationResultStore()
-        let handler = WebActorResultHandler(callID: envelope.callID) { response in
-            await resultStore.store(response)
-        }
-
-        try await executeDistributedTarget(
+    ) async throws
+    where Act: DistributedActor, Act.ID == ActorID, Err: Error {
+        try await lifecycle.start()
+        try await implementation.remoteCallVoid(
             on: actor,
             target: target,
-            invocationDecoder: &decoder,
-            handler: handler
-        )
-
-        // Persist grain state after the invocation. A save failure fails the
-        // call rather than silently dropping the mutation.
-        try await persistentState.save(id: envelope.recipientID, store: persistentStore)
-
-        guard let response = await resultStore.response else {
-            throw RuntimeError.executionFailed("No result captured", underlying: "Unknown")
-        }
-        return response
-    }
-
-    /// Activates the virtual actor an ID targets when an `ActorGroup` factory
-    /// is registered for its contract. The lock makes activation per-ID
-    /// single-flight: concurrent messages for the same ID get one instance.
-    private func activatedActor(
-        id: ActorID,
-        activationPolicy: WebActorActivationPolicy,
-        now: Date
-    ) throws -> WebActorActivationResult {
-        guard let separator = id.firstIndex(of: ":") else {
-            return WebActorActivationResult(actor: nil, wasActivated: false, evictions: [])
-        }
-        let contract = String(id[..<separator])
-        guard let activator = activators.withLock({ $0[contract] }) else {
-            return WebActorActivationResult(actor: nil, wasActivated: false, evictions: [])
-        }
-        return try activationLock.withLock { _ in
-            if let existing = registry.find(id: id) {
-                markVirtualActorAccess(id: id, at: now)
-                return WebActorActivationResult(actor: existing, wasActivated: false, evictions: [])
-            }
-            guard activationPolicy.maximumVirtualActorCount > 0 else {
-                throw RuntimeError.transportFailed("Virtual actor activation is disabled")
-            }
-            var evictions = purgeExpiredVirtualActors(now: now, policy: activationPolicy)
-            evictions.append(contentsOf: evictLeastRecentlyUsedVirtualActorsIfNeeded(policy: activationPolicy))
-            let storageCollector = ActorStorageActivationContext.Collector()
-            let remoteStateCollector = RemoteStateActivationContext.Collector()
-            WebActorActivationContext.withValue(WebActorPendingID(id)) {
-                ActorStorageActivationContext.withValue(storageCollector) {
-                    RemoteStateActivationContext.withValue(remoteStateCollector) {
-                        activator.activate()
-                    }
-                }
-            }
-            guard let activated = registry.find(id: id) else {
-                throw RuntimeError.executionFailed(
-                    "ActorGroup factory did not create a \(contract) on this actor system for id '\(id)'",
-                    underlying: "The factory must construct the actor with the app's actor system"
-                )
-            }
-            persistentState.bind(id: id, boxes: storageCollector.collected())
-            if let statePublisher = statePublisherBox.withLock({ $0 }) {
-                for box in remoteStateCollector.collected() {
-                    box.bind(actorID: id, publisher: statePublisher)
-                }
-            }
-            recordVirtualActor(id: id, contract: contract, at: now)
-            return WebActorActivationResult(actor: activated, wasActivated: true, evictions: evictions)
-        }
-    }
-
-    private func actorAuthorizationState(
-        for recipient: WebActorRecipient
-    ) -> (isRegistered: Bool, isVirtualActor: Bool) {
-        let isRegistered = registry.find(id: recipient.actorID) != nil
-        let isTrackedVirtual = activationRecords.withLock { $0[recipient.actorID] != nil }
-        let canActivate = recipient.contract.map { contract in
-            activators.withLock { $0[contract] != nil }
-        } ?? false
-        return (
-            isRegistered: isRegistered,
-            isVirtualActor: isTrackedVirtual || (!isRegistered && canActivate)
+            invocation: &invocation,
+            throwing: throwing
         )
     }
-
-    private func recordVirtualActor(id: ActorID, contract: String, at date: Date) {
-        activationRecords.withLock { records in
-            records[id] = WebActorActivationRecord(id: id, contract: contract, lastAccess: date)
-        }
-    }
-
-    private func markVirtualActorAccess(id: ActorID, at date: Date) {
-        activationRecords.withLock { records in
-            guard var record = records[id] else {
-                return
-            }
-            record.lastAccess = date
-            records[id] = record
-        }
-    }
-
-    private func purgeExpiredVirtualActors(now: Date, policy: WebActorActivationPolicy) -> [WebActorEviction] {
-        let contractPolicies = passivationPolicies.withLock { $0 }
-        guard policy.idleTimeout != nil || !contractPolicies.isEmpty else {
-            return []
-        }
-        let expiredIDs = activationRecords.withLock { records in
-            let expiredIDs = records.values
-                .filter { record in
-                    let timeout = contractPolicies[record.contract]?.idleTimeout ?? policy.idleTimeout
-                    guard let timeout else {
-                        return false
-                    }
-                    return now.timeIntervalSince(record.lastAccess) >= timeout
-                }
-                .map(\.id)
-            for id in expiredIDs {
-                records[id] = nil
-            }
-            return expiredIDs
-        }
-        return unregisterCapturingInstances(ids: expiredIDs)
-    }
-
-    private func evictLeastRecentlyUsedVirtualActorsIfNeeded(
-        policy: WebActorActivationPolicy
-    ) -> [WebActorEviction] {
-        guard policy.maximumVirtualActorCount < Int.max else {
-            return []
-        }
-        let evictedIDs = activationRecords.withLock { records in
-            guard records.count >= policy.maximumVirtualActorCount else {
-                return [] as [ActorID]
-            }
-            let removalCount = records.count - policy.maximumVirtualActorCount + 1
-            let evictedIDs = records.values
-                .sorted { left, right in left.lastAccess < right.lastAccess }
-                .prefix(removalCount)
-                .map(\.id)
-            for id in evictedIDs {
-                records[id] = nil
-            }
-            return evictedIDs
-        }
-        return unregisterCapturingInstances(ids: evictedIDs)
-    }
-
-    /// Unregisters the given IDs, capturing each live instance so the caller
-    /// can run its `passivating()` hook outside the activation lock. The
-    /// durable grain state is intentionally left in place: passivation
-    /// evicts the instance, not the identity.
-    private func unregisterCapturingInstances(ids: [ActorID]) -> [WebActorEviction] {
-        ids.map { id in
-            let instance = registry.find(id: id)
-            registry.unregister(id: id)
-            return WebActorEviction(id: id, instance: instance)
-        }
-    }
-
-    /// Runs `passivating()` hooks for evicted instances and persists any
-    /// grain state the hook mutated. A save failure propagates: dropping a
-    /// mutation silently is worse than failing the triggering call.
-    private func runPassivation(for evictions: [WebActorEviction]) async throws {
-        for eviction in evictions {
-            guard let lifecycle = eviction.instance as? any WebActorLifecycle else {
-                continue
-            }
-            await Self.runPassivatingHook(on: lifecycle)
-            try await persistentState.save(id: eviction.id, store: persistentStore)
-        }
-    }
-
-    /// Lifecycle hooks are ordinary (non-distributed) actor methods, so they
-    /// can only be invoked through `whenLocal`. Instances reached here are
-    /// always local: they were activated or registered on this system.
-    private static func runActivatedHook(on lifecycle: some WebActorLifecycle) async {
-        await lifecycle.whenLocal { isolated in
-            await isolated.activated()
-        }
-    }
-
-    private static func runPassivatingHook(on lifecycle: some WebActorLifecycle) async {
-        await lifecycle.whenLocal { isolated in
-            await isolated.passivating()
-        }
-    }
-
-    /// Installs the publisher that fans `@RemoteState` changes out to
-    /// observing clients. The WebSocket host routes changes to observer
-    /// peers; without a publisher, `@RemoteState` values stay local.
-    public func setStatePublisher(_ publisher: any WebActorStatePublisher) {
-        statePublisherBox.withLock { $0 = publisher }
-    }
-
-    /// Installs the durable reminder backend. The Cloudflare host lowers
-    /// reminders onto Durable Object Alarms; native hosts can install
-    /// `InProcessActorReminderStore` for process-lifetime scheduling.
-    public func setReminderStore(_ store: any WebActorReminderStore) {
-        reminderStoreBox.withLock { $0 = store }
-    }
-
-    /// The reminder handle for an actor identity.
-    public func reminders(for id: ActorID) -> WebActorReminders {
-        WebActorReminders(actorID: id, store: reminderStoreBox.withLock { $0 })
-    }
-
-    /// Delivers a fired reminder: re-activates the actor when passivated
-    /// (restoring grain state and running `activated()`), invokes
-    /// `WebActorRemindable.reminder(_:)`, and persists state the handler
-    /// mutated. Delivery to a non-remindable actor throws.
-    public func deliverReminder(_ reminder: WebActorReminder) async throws {
-        #if !hasFeature(Embedded)
-        if let environment = registeredEnvironment(for: reminder.actorID) {
-            return try await EnvironmentValues.withValue(environment) {
-                try await self.deliverResolvedReminder(reminder)
-            }
-        }
-        #endif
-        try await deliverResolvedReminder(reminder)
-    }
-
-    private func deliverResolvedReminder(_ reminder: WebActorReminder) async throws {
-        let now = Date()
-        var wasActivated = false
-        var evictions: [WebActorEviction] = []
-        let resolvedActor: (any DistributedActor)?
-        if let registered = registry.find(id: reminder.actorID) {
-            markVirtualActorAccess(id: reminder.actorID, at: now)
-            resolvedActor = registered
-        } else {
-            let activation = try activatedActor(id: reminder.actorID, activationPolicy: .defaults, now: now)
-            resolvedActor = activation.actor
-            wasActivated = activation.wasActivated
-            evictions = activation.evictions
-        }
-        guard let actor = resolvedActor else {
-            throw RuntimeError.actorNotFound(reminder.actorID)
-        }
-        try await runPassivation(for: evictions)
-        try await persistentState.loadIfNeeded(id: reminder.actorID, store: persistentStore)
-        if wasActivated, let lifecycle = actor as? any WebActorLifecycle {
-            await Self.runActivatedHook(on: lifecycle)
-        }
-        guard let remindable = actor as? any WebActorRemindable else {
-            throw WebActorReminderError.actorNotRemindable(actorID: reminder.actorID, name: reminder.name)
-        }
-        try await Self.runReminderHook(on: remindable, name: reminder.name)
-        try await persistentState.save(id: reminder.actorID, store: persistentStore)
-    }
-
-    private static func runReminderHook(on remindable: some WebActorRemindable, name: String) async throws {
-        try await remindable.whenLocal { isolated in
-            try await isolated.reminder(name)
-        }
-    }
 }
 
-/// An evicted virtual actor: its ID and, when it was still registered, the
-/// live instance whose `passivating()` hook should run.
-private struct WebActorEviction: Sendable {
-    let id: WebActorSystem.ActorID
-    let instance: (any DistributedActor)?
+#elseif hasFeature(Embedded)
+import ActorSystemCore
+import ActorSystemEmbedded
+
+public typealias WebActorSystem = EmbeddedActorSystem
+
+private enum SwiftWebEmbeddedActorSystemHolder {
+    static let shared = EmbeddedActorSystem(
+        identitySource: SwiftWebEmbeddedActorIdentitySource(),
+        configuration: ActorSystemConfiguration(
+            sessionIdentitySource: UnavailableActorSessionIdentitySource()
+        )
+    )
 }
 
-/// The outcome of resolving a virtual actor for an invocation: the resolved
-/// instance, whether this call activated it, and instances evicted to make
-/// room, whose passivation hooks run outside the activation lock.
-private struct WebActorActivationResult: Sendable {
-    let actor: (any DistributedActor)?
-    let wasActivated: Bool
-    let evictions: [WebActorEviction]
-}
+public extension EmbeddedActorSystem {
+    typealias ActorID = ActorAddress
 
-private struct WebActorActivator: Sendable {
-    let environment: EnvironmentValues
-    let activate: @Sendable () -> Void
-}
-
-private struct WebActorActivationRecord: Sendable {
-    let id: WebActorSystem.ActorID
-    let contract: String
-    var lastAccess: Date
-}
-
-private actor WebActorInvocationResultStore {
-    private var storedResponse: ResponseEnvelope?
-
-    var response: ResponseEnvelope? {
-        storedResponse
-    }
-
-    func store(_ response: ResponseEnvelope) {
-        storedResponse = response
+    static var shared: EmbeddedActorSystem {
+        SwiftWebEmbeddedActorSystemHolder.shared
     }
 }
 #else
+import ActorSystemCore
 
-/// The actor-free stand-in compiled when the `Actors` trait is disabled.
-///
-/// It keeps the `App`/`Scene` API shape (`actorSystem` parameters and
-/// defaults) without linking `Distributed` or `ActorRuntime`. Hosting
-/// distributed actors — `ActorGroup`, transports, persistent stores —
-/// requires the trait, so none of that surface exists here.
+/// The actor-free stand-in compiled when neither Distributed Actors nor the
+/// Embedded actor runtime is selected.
 public final class WebActorSystem: Sendable {
-    public typealias ActorID = String
+    public typealias ActorID = ActorAddress
 
     public static let shared = WebActorSystem()
 

@@ -23,7 +23,7 @@ the archive for those records.
 |---|---|
 | [Client Bundle Loading](ClientBundleLoadingDesign.md) | Implemented browser bundle and loading contract |
 | [Client Navigation](ClientNavigationDesign.md) | Implemented progressive navigation contract |
-| [Actor Injection](ActorInjectionDesign.md) | Implemented `@RemoteActor` contract |
+| [Actor Injection](ActorInjectionDesign.md) | Deprecated `@Resolvable` compatibility contract; new actors use the Swift Actor System decision below |
 | [SwiftWebUI Core](SwiftWebUICoreDesign.md) | Current component, property, modifier, and environment model |
 | [SwiftWebUI Style](SwiftWebUIStyleDesign.md) | Current styling responsibility and resolution rules |
 | [Atomic Styling](AtomicStyling.md) | Current class generation, collection, and emission contract |
@@ -32,6 +32,7 @@ the archive for those records.
 
 | Document | Decision |
 |---|---|
+| [Swift Actor System](SwiftActorSystemDesign.md) | A concrete `distributed actor` declaration is the single source of truth; Native uses Swift Distributed Actors and Embedded uses generated semantic twins over one transport-neutral core |
 | [Browser Runtime JavaScriptKit](BrowserRuntimeJavaScriptKitDecision.md) | JavaScriptKit is the internal browser adapter; SwiftWebUI remains the public UI API |
 | [Host and Deployment Adapter Contract](AdapterContract.md) | Hosts and deployments are separate adapter components discovered through SwiftPM |
 | [Host Rendering Contract](HostRenderingContract.md) | Hosts own platform lifecycle and consume one common SwiftWeb rendering result |

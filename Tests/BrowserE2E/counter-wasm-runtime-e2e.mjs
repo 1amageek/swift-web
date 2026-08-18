@@ -624,7 +624,7 @@ struct CounterPageE2EComponents: Component {
 
 async function launchDevServer(appRoot, scratchRoot, port, host) {
   const swiftWebExecutable = await resolveSwiftWebExecutable();
-  const wasmSwiftSDK = process.env.SWIFT_WEB_WASM_SDK || "swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-23-a_wasm";
+  const wasmSwiftSDK = process.env.SWIFT_WEB_WASM_SDK || "swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-08-14-a_wasm";
   const hostSwiftExecutable = process.env.SWIFT_WEB_HOST_SWIFT
     || process.env.SWIFTWEB_E2E_HOST_SWIFT_EXECUTABLE
     || process.env.SWIFTWEB_E2E_SWIFT_EXECUTABLE;
@@ -1619,6 +1619,157 @@ public let swiftWebE2EInjectedCompilerError =
       || report.hmrDOMTransaction.leakedAttribute !== null) {
       throw new Error(
         `Client HMR DOM transaction did not roll back atomically: ${JSON.stringify(report.hmrDOMTransaction)}`
+      );
+    }
+
+    report.hmrRuntimeOwnership = await page.evaluate(async () => {
+      const runtime = window.__swiftWebWasmRuntime;
+      const savedState = runtime.captureHotUpdateState();
+      const originalShutdownRuntime = runtime.shutdownRuntime;
+      const shutdowns = [];
+      const oldInstance = { name: "old-shared-runtime" };
+      const oldSwiftRuntime = { name: "old-shared-owner" };
+      const newInstance = { name: "new-runtime" };
+      const newSwiftRuntime = { name: "new-owner" };
+      const failingInstance = { name: "failing-runtime" };
+      const succeedingInstance = { name: "succeeding-runtime" };
+      const provisionalInstance = { name: "provisional-runtime" };
+      const failedCleanupInstance = { name: "provisional-cleanup-failure" };
+      let cleanupError = null;
+      let cleanupRequiresFullReload = false;
+      let provisionalStartError = null;
+      let provisionalCleanupError = null;
+      let provisionalCleanupRequiresFullReload = false;
+      let preservedStartError = null;
+      try {
+        runtime.registerRuntimeAlias("ownership-a", oldInstance, oldSwiftRuntime);
+        runtime.registerRuntimeAlias("ownership-b", oldInstance, oldSwiftRuntime);
+        runtime.loadedBundleIDs.add("ownership-a");
+        runtime.loadedBundleIDs.add("ownership-b");
+        const transactionState = runtime.captureHotUpdateState();
+
+        const partialRetirement = runtime.releaseRuntimeAlias("ownership-a");
+        const sharedAliasRemained = runtime.instances.get("ownership-b") === oldInstance;
+        runtime.registerRuntimeAlias("ownership-a", newInstance, newSwiftRuntime);
+        const newRuntimeRecord = runtime.releaseRuntimeAlias("ownership-a");
+        runtime.shutdownRuntime = async (instance) => {
+          shutdowns.push(instance.name);
+        };
+        await runtime.shutdownRuntimeRecords([newRuntimeRecord]);
+        runtime.restoreHotUpdateState(transactionState);
+        const rollbackRestored = runtime.instances.get("ownership-a") === oldInstance
+          && runtime.instances.get("ownership-b") === oldInstance
+          && runtime.runtimeRecords.get(oldInstance)?.aliases.size === 2;
+
+        const firstAliasRetirement = runtime.releaseRuntimeAlias("ownership-a");
+        const lastAliasRetirement = runtime.releaseRuntimeAlias("ownership-b");
+        await runtime.shutdownRuntimeRecords([
+          firstAliasRetirement,
+          lastAliasRetirement,
+          lastAliasRetirement
+        ]);
+
+        runtime.shutdownRuntime = async (instance) => {
+          shutdowns.push(instance.name);
+        };
+        try {
+          await runtime.startOwnedRuntime(
+            provisionalInstance,
+            { name: "provisional-owner" },
+            async () => {
+              throw new Error("expected provisional start failure");
+            }
+          );
+        } catch (error) {
+          provisionalStartError = String(error && error.message ? error.message : error);
+        }
+
+        runtime.shutdownRuntime = async (instance) => {
+          shutdowns.push(instance.name);
+          throw new Error("expected provisional cleanup failure");
+        };
+        try {
+          await runtime.startOwnedRuntime(
+            failedCleanupInstance,
+            { name: "provisional-failed-cleanup-owner" },
+            async () => {
+              throw new Error("preserved provisional start failure");
+            }
+          );
+        } catch (error) {
+          provisionalCleanupError = String(error && error.message ? error.message : error);
+          provisionalCleanupRequiresFullReload = error?.swiftWebRequiresFullReload === true;
+          preservedStartError = String(
+            error?.swiftWebInstantiationError?.message || error?.swiftWebInstantiationError || ""
+          );
+        }
+
+        runtime.registerRuntimeAlias("ownership-failing", failingInstance, { name: "failing-owner" });
+        runtime.registerRuntimeAlias(
+          "ownership-succeeding",
+          succeedingInstance,
+          { name: "succeeding-owner" }
+        );
+        const failingRecord = runtime.releaseRuntimeAlias("ownership-failing");
+        const succeedingRecord = runtime.releaseRuntimeAlias("ownership-succeeding");
+        runtime.shutdownRuntime = async (instance) => {
+          shutdowns.push(instance.name);
+          if (instance === failingInstance) {
+            throw new Error("expected cleanup failure");
+          }
+        };
+        try {
+          await runtime.shutdownRuntimeRecords([failingRecord, succeedingRecord]);
+        } catch (error) {
+          cleanupError = String(error && error.message ? error.message : error);
+          cleanupRequiresFullReload = error?.swiftWebRequiresFullReload === true;
+        }
+
+        return {
+          partialRetirementWasDeferred: partialRetirement === null,
+          sharedAliasRemained,
+          rollbackRestored,
+          oldRuntimeShutdownCount: shutdowns.filter(
+            (name) => name === "old-shared-runtime"
+          ).length,
+          newRuntimeShutdownCount: shutdowns.filter(
+            (name) => name === "new-runtime"
+          ).length,
+          provisionalRuntimeShutdownCount: shutdowns.filter(
+            (name) => name === "provisional-runtime"
+          ).length,
+          provisionalRecordReleased: !runtime.runtimeRecords.has(provisionalInstance)
+            && !runtime.runtimeRecords.has(failedCleanupInstance),
+          provisionalStartError,
+          provisionalCleanupError,
+          provisionalCleanupRequiresFullReload,
+          preservedStartError,
+          cleanupAttemptedAll: shutdowns.includes("failing-runtime")
+            && shutdowns.includes("succeeding-runtime"),
+          cleanupError,
+          cleanupRequiresFullReload
+        };
+      } finally {
+        runtime.shutdownRuntime = originalShutdownRuntime;
+        runtime.restoreHotUpdateState(savedState);
+      }
+    });
+    if (!report.hmrRuntimeOwnership.partialRetirementWasDeferred
+      || !report.hmrRuntimeOwnership.sharedAliasRemained
+      || !report.hmrRuntimeOwnership.rollbackRestored
+      || report.hmrRuntimeOwnership.oldRuntimeShutdownCount !== 1
+      || report.hmrRuntimeOwnership.newRuntimeShutdownCount !== 1
+      || report.hmrRuntimeOwnership.provisionalRuntimeShutdownCount !== 1
+      || !report.hmrRuntimeOwnership.provisionalRecordReleased
+      || report.hmrRuntimeOwnership.provisionalStartError !== "expected provisional start failure"
+      || report.hmrRuntimeOwnership.provisionalCleanupError !== "expected provisional cleanup failure"
+      || !report.hmrRuntimeOwnership.provisionalCleanupRequiresFullReload
+      || report.hmrRuntimeOwnership.preservedStartError !== "preserved provisional start failure"
+      || !report.hmrRuntimeOwnership.cleanupAttemptedAll
+      || report.hmrRuntimeOwnership.cleanupError !== "expected cleanup failure"
+      || !report.hmrRuntimeOwnership.cleanupRequiresFullReload) {
+      throw new Error(
+        `Client HMR runtime ownership was not physical-instance safe: ${JSON.stringify(report.hmrRuntimeOwnership)}`
       );
     }
 

@@ -111,6 +111,7 @@ package enum SwiftWebWasmRuntimeHostScript {
         this.primaryInstance = null;
         this.primaryBundleID = null;
         this.swiftRuntimes = new Map();
+        this.runtimeRecords = new Map();
         this.bootstrappedBundleIDs = new Set();
         this.hotUpdateContentHashes = new Map();
         this.currentDocumentURL = window.location.href;
@@ -488,11 +489,8 @@ package enum SwiftWebWasmRuntimeHostScript {
       }
 
       aliasLoadedBundle(rawBundleID, sourceBundleID, instance) {
-        this.instances.set(rawBundleID, instance);
         const swiftRuntime = this.swiftRuntimes.get(sourceBundleID);
-        if (swiftRuntime) {
-          this.swiftRuntimes.set(rawBundleID, swiftRuntime);
-        }
+        this.registerRuntimeAlias(rawBundleID, instance, swiftRuntime);
         if (this.bootstrappedBundleIDs.has(sourceBundleID)) {
           this.bootstrappedBundleIDs.add(rawBundleID);
         }
@@ -504,6 +502,62 @@ package enum SwiftWebWasmRuntimeHostScript {
         this.publishStatus(this.metrics.ready === true, "bundleLoaded");
         this.publishMetrics();
         return instance;
+      }
+
+      registerRuntimeAlias(bundleID, instance, swiftRuntime = null) {
+        let record = this.runtimeRecords.get(instance);
+        if (!record) {
+          if (!swiftRuntime) {
+            throw new Error(`SwiftWeb WASM runtime ${bundleID} has no physical runtime owner`);
+          }
+          record = { instance, swiftRuntime, aliases: new Set() };
+          this.runtimeRecords.set(instance, record);
+        }
+        record.aliases.add(bundleID);
+        this.instances.set(bundleID, instance);
+        this.swiftRuntimes.set(bundleID, record.swiftRuntime);
+      }
+
+      async startOwnedRuntime(instance, swiftRuntime, operation) {
+        const record = { instance, swiftRuntime, aliases: new Set() };
+        this.runtimeRecords.set(instance, record);
+        try {
+          await operation();
+          return record;
+        } catch (error) {
+          if (this.runtimeRecords.get(instance) === record) {
+            this.runtimeRecords.delete(instance);
+          }
+          try {
+            await this.shutdownRuntimeRecords([record]);
+          } catch (cleanupError) {
+            cleanupError.swiftWebInstantiationError = error;
+            throw cleanupError;
+          }
+          throw error;
+        }
+      }
+
+      releaseRuntimeAlias(bundleID) {
+        const instance = this.instances.get(bundleID) || null;
+        this.instances.delete(bundleID);
+        this.swiftRuntimes.delete(bundleID);
+        this.loadedBundleIDs.delete(bundleID);
+        this.bootstrappedBundleIDs.delete(bundleID);
+        this.loading.delete(bundleID);
+        if (!instance) {
+          return null;
+        }
+        const record = this.runtimeRecords.get(instance);
+        if (!record) {
+          return null;
+        }
+        record.aliases.delete(bundleID);
+        if (record.aliases.size > 0) {
+          return null;
+        }
+        this.runtimeRecords.delete(instance);
+        return record;
       }
 
       async loadBundle(bundleID) {
@@ -538,7 +592,8 @@ package enum SwiftWebWasmRuntimeHostScript {
         this.loading.set(rawBundleID, promise);
         try {
           const instance = await promise;
-          this.instances.set(rawBundleID, instance);
+          const record = this.runtimeRecords.get(instance);
+          this.registerRuntimeAlias(rawBundleID, instance, record && record.swiftRuntime);
           this.loadedBundleIDs.add(rawBundleID);
           this.publishStatus(runtimeWasReady, "bundleLoaded");
           this.publishMetrics();
@@ -599,14 +654,16 @@ package enum SwiftWebWasmRuntimeHostScript {
           bundleMetrics.bindMs = this.durationSince(bindStartedAt);
 
           const startStartedAt = this.now();
-          if (typeof instance.exports._start === "function") {
-            instance.exports._start();
-          } else {
-            swiftRuntime.main();
-          }
+          await this.startOwnedRuntime(instance, swiftRuntime, async () => {
+            if (typeof instance.exports._start === "function") {
+              instance.exports._start();
+            } else {
+              swiftRuntime.main();
+            }
+            await this.startRuntime(instance);
+          });
           bundleMetrics.startMs = this.durationSince(startStartedAt);
           bundleMetrics.totalMs = this.durationSince(startedAt);
-          this.swiftRuntimes.set(bundleID, swiftRuntime);
           this.recordBundleMetrics(bundleMetrics);
           this.recordMetric("bundle.instantiate.complete", {
             bundleID,
@@ -1520,6 +1577,7 @@ package enum SwiftWebWasmRuntimeHostScript {
         const previousState = this.captureHotUpdateState();
         const previousDOMState = this.captureHotUpdateDOMState();
         const staged = [];
+        let committed = false;
         let stagedHydrationIndex = this.hydrationIndex;
         try {
           for (const update of updates) {
@@ -1571,12 +1629,35 @@ package enum SwiftWebWasmRuntimeHostScript {
           }
           this.hydrationIndex = stagedHydrationIndex;
           this.primaryInstance = this.instances.get(this.primaryBundleID) || this.primaryInstance;
+          committed = true;
+          await this.shutdownRuntimeRecords(
+            staged.map((result) => result.previousRuntimeRecordToShutdown)
+          );
           this.recordMetric("hmr.clientRuntimeBatch.complete", { runtimeCount: staged.length });
           this.publishMetrics();
           return staged.map((result) => result.response);
         } catch (error) {
-          this.restoreHotUpdateDOMState(previousDOMState);
-          this.restoreHotUpdateState(previousState);
+          if (!committed) {
+            const rollbackRuntimeRecords = [];
+            for (const result of staged) {
+              const runtimeRecord = this.releaseRuntimeAlias(result.bundleID);
+              if (runtimeRecord) {
+                rollbackRuntimeRecords.push(runtimeRecord);
+              }
+            }
+            let rollbackError = null;
+            try {
+              await this.shutdownRuntimeRecords(rollbackRuntimeRecords);
+            } catch (cleanupError) {
+              rollbackError = cleanupError;
+            }
+            this.restoreHotUpdateDOMState(previousDOMState);
+            this.restoreHotUpdateState(previousState);
+            if (rollbackError) {
+              rollbackError.swiftWebHotUpdateError = error;
+              error = rollbackError;
+            }
+          }
           this.recordMetric("hmr.clientRuntimeBatch.failed", {
             runtimeCount: updates.length,
             error: String(error && error.message ? error.message : error)
@@ -1610,29 +1691,37 @@ package enum SwiftWebWasmRuntimeHostScript {
         }
         const previousInstance = this.instances.get(bundleID) || null;
         const stateSnapshot = previousInstance ? this.snapshotState(previousInstance) : null;
-        this.instances.delete(bundleID);
-        this.swiftRuntimes.delete(bundleID);
-        this.loadedBundleIDs.delete(bundleID);
-        this.bootstrappedBundleIDs.delete(bundleID);
-        this.loading.delete(bundleID);
+        const previousRuntimeRecordToShutdown = this.releaseRuntimeAlias(bundleID);
         this.recordMetric("hmr.clientComponent.start", {
           bundleID,
           componentTypeName: update.componentTypeName || null,
           contentHash: update.contentHash || null
         });
         const instance = await this.loadBundle(bundleID);
-        const response = this.callRuntime("swiftweb_bootstrap", {
-          hydrationIndex,
-          documentNodeIDUpperBound: this.descriptor.documentNodeIDUpperBound ?? null,
-          location: {
-            href: window.location.href,
-            search: window.location.search
-          },
-          mode: "hotReload",
-          stateSnapshot,
-          actorBindings: this.descriptor.actorBindings || []
-        }, instance);
-        return { bundleID, update, response };
+        try {
+          const response = this.callRuntime("swiftweb_bootstrap", {
+            hydrationIndex,
+            documentNodeIDUpperBound: this.descriptor.documentNodeIDUpperBound ?? null,
+            location: {
+              href: window.location.href,
+              search: window.location.search
+            },
+            mode: "hotReload",
+            stateSnapshot,
+            actorBindings: this.descriptor.actorBindings || []
+          }, instance);
+          return {
+            bundleID,
+            update,
+            response,
+            instance,
+            previousRuntimeRecordToShutdown
+          };
+        } catch (error) {
+          const runtimeRecord = this.releaseRuntimeAlias(bundleID);
+          await this.shutdownRuntimeRecords([runtimeRecord]);
+          throw error;
+        }
       }
 
       captureHotUpdateState() {
@@ -1649,6 +1738,16 @@ package enum SwiftWebWasmRuntimeHostScript {
           hydrationIndex: this.hydrationIndex,
           instances: new Map(this.instances),
           swiftRuntimes: new Map(this.swiftRuntimes),
+          runtimeRecords: new Map(
+            Array.from(this.runtimeRecords.entries()).map(([instance, record]) => [
+              instance,
+              {
+                instance: record.instance,
+                swiftRuntime: record.swiftRuntime,
+                aliases: new Set(record.aliases)
+              }
+            ])
+          ),
           loading: new Map(this.loading),
           loadedBundleIDs: new Set(this.loadedBundleIDs),
           bootstrappedBundleIDs: new Set(this.bootstrappedBundleIDs),
@@ -1663,6 +1762,7 @@ package enum SwiftWebWasmRuntimeHostScript {
         this.hydrationIndex = state.hydrationIndex;
         this.instances = state.instances;
         this.swiftRuntimes = state.swiftRuntimes;
+        this.runtimeRecords = state.runtimeRecords;
         this.loading = state.loading;
         this.loadedBundleIDs = state.loadedBundleIDs;
         this.bootstrappedBundleIDs = state.bootstrappedBundleIDs;
@@ -1778,6 +1878,85 @@ package enum SwiftWebWasmRuntimeHostScript {
           throw new Error(response && response.error ? response.error : `SwiftWeb WASM call failed: ${exportName}`);
         }
         return response;
+      }
+
+      async startRuntime(instance) {
+        if (!instance || !instance.exports || typeof instance.exports.swiftweb_start !== "function") {
+          const error = new Error("SwiftWeb WASM runtime does not export swiftweb_start");
+          error.swiftWebRequiresFullReload = true;
+          throw error;
+        }
+        if (typeof instance.exports.swiftweb_start_status !== "function") {
+          const error = new Error("SwiftWeb WASM runtime does not export swiftweb_start_status");
+          error.swiftWebRequiresFullReload = true;
+          throw error;
+        }
+
+        const exports = instance.exports;
+        let status = exports.swiftweb_start();
+        while (status === 3) {
+          await new Promise((resolve) => setTimeout(resolve, 0));
+          status = exports.swiftweb_start_status();
+        }
+        if (status === 2) {
+          throw new Error("SwiftWeb WASM runtime rejected concurrent or re-entrant access: swiftweb_start");
+        }
+        const response = this.readResponse(exports);
+        if (status !== 0) {
+          throw new Error(response && response.error
+            ? response.error
+            : "SwiftWeb WASM actor runtime startup failed");
+        }
+      }
+
+      async shutdownRuntime(instance) {
+        if (!instance || !instance.exports || typeof instance.exports.swiftweb_shutdown !== "function") {
+          const error = new Error("SwiftWeb WASM runtime does not export swiftweb_shutdown");
+          error.swiftWebRequiresFullReload = true;
+          throw error;
+        }
+        if (typeof instance.exports.swiftweb_shutdown_status !== "function") {
+          const error = new Error("SwiftWeb WASM runtime does not export swiftweb_shutdown_status");
+          error.swiftWebRequiresFullReload = true;
+          throw error;
+        }
+
+        const exports = instance.exports;
+        let status = exports.swiftweb_shutdown();
+        while (status === 3) {
+          await new Promise((resolve) => setTimeout(resolve, 0));
+          status = exports.swiftweb_shutdown_status();
+        }
+        if (status === 2) {
+          throw new Error("SwiftWeb WASM runtime rejected concurrent or re-entrant access: swiftweb_shutdown");
+        }
+        const response = this.readResponse(exports);
+        if (status !== 0) {
+          throw new Error(response && response.error
+            ? response.error
+            : "SwiftWeb WASM runtime shutdown failed");
+        }
+      }
+
+      async shutdownRuntimeRecords(records) {
+        const uniqueRecords = new Map();
+        for (const record of records.filter((record) => !!record)) {
+          uniqueRecords.set(record.instance, record);
+        }
+        let firstError = null;
+        for (const record of uniqueRecords.values()) {
+          try {
+            await this.shutdownRuntime(record.instance);
+          } catch (error) {
+            if (!firstError) {
+              firstError = error;
+            }
+          }
+        }
+        if (firstError) {
+          firstError.swiftWebRequiresFullReload = true;
+          throw firstError;
+        }
       }
 
       readResponse(exports) {

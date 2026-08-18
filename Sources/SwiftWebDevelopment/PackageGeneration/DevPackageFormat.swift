@@ -89,6 +89,9 @@ struct DevPackageFormat: GeneratedPackageFormat {
       from: context.layout.devPackageDirectory,
       to: context.swiftWebPackageDirectory
     )
+    let actorDependency = context.nativeActorBootstrapTypeName == nil
+      ? ""
+      : "\n              .product(name: \"SwiftWebActors\", package: \"swift-web\"),"
     return """
       // swift-tools-version: 6.4
 
@@ -113,7 +116,7 @@ struct DevPackageFormat: GeneratedPackageFormat {
           dependencies: [
               .product(name: "\(context.appProductName)", package: "\(context.appPackageDependencyName)"),
               .product(name: "SwiftWebHTTPServerHost", package: "swift-web"),
-              .product(name: "SwiftWebDevelopmentHooks", package: "swift-web"),
+              .product(name: "SwiftWebDevelopmentHooks", package: "swift-web"),\(actorDependency)
           ],
           path: "Sources/AppDevelopmentServerLauncher",
           swiftSettings: swiftSettings

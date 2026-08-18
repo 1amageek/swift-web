@@ -1,5 +1,5 @@
-#if SWIFTWEB_ACTORS
-@preconcurrency import ActorRuntime
+#if SWIFTWEB_LEGACY_ACTORS
+@preconcurrency import ActorSystemCompatibility
 @preconcurrency import Distributed
 
 public struct WebActorInvocationEncoder: DistributedTargetInvocationEncoder {

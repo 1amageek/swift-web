@@ -8,6 +8,7 @@ struct SwiftWebLifecycleExecutor: Sendable {
         let materializedEnvironment: SwiftWebEnvironmentMaterializer.MaterializedEnvironment
         let hostOverride: String?
         let portOverride: Int?
+        let wasmRuntimeProfile: SwiftWebWasmRuntimeProfile
     }
 
     func execute(plan: SwiftWebExecutionPlan, context: Context) async throws {
@@ -24,7 +25,8 @@ struct SwiftWebLifecycleExecutor: Sendable {
                 try SwiftWebGeneratedPackagePreparer(
                     packageDirectory: context.resolution.packageDirectory,
                     product: "app-server",
-                    printsSummary: false
+                    printsSummary: false,
+                    wasmRuntimeProfile: context.wasmRuntimeProfile
                 ).run()
             case .buildServer:
                 try await SwiftWebGeneratedPackageBuilder(
@@ -34,7 +36,7 @@ struct SwiftWebLifecycleExecutor: Sendable {
                     buildsWasmRuntime: false,
                     swiftSDK: nil,
                     configuration: nil,
-                    wasmRuntimeProfile: .defaultValue()
+                    wasmRuntimeProfile: context.wasmRuntimeProfile
                 ).run()
             case .buildBrowserRuntime:
                 try await SwiftWebGeneratedPackageBuilder(
@@ -44,7 +46,7 @@ struct SwiftWebLifecycleExecutor: Sendable {
                     buildsWasmRuntime: true,
                     swiftSDK: nil,
                     configuration: nil,
-                    wasmRuntimeProfile: .defaultValue()
+                    wasmRuntimeProfile: context.wasmRuntimeProfile
                 ).run()
             case .runDevelopmentServer:
                 try await runDevelopmentServer(context: context)
@@ -84,6 +86,7 @@ struct SwiftWebLifecycleExecutor: Sendable {
         }
         process.currentDirectoryURL = try workingDirectory(task, context: context)
         var environment = ProcessInfo.processInfo.environment
+        environment["SWIFTWEB_WASM_RUNTIME_PROFILE"] = context.wasmRuntimeProfile.rawValue
         for (key, value) in task.environment {
             environment[key] = render(value, context: context)
         }
@@ -173,7 +176,11 @@ struct SwiftWebLifecycleExecutor: Sendable {
     }
 
     private func render(_ value: String, context: Context) -> String {
-        context.materializedEnvironment.substitutions.reduce(value) { partial, entry in
+        let rendered = value.replacingOccurrences(
+            of: "{{swiftweb.wasmRuntimeProfile}}",
+            with: context.wasmRuntimeProfile.rawValue
+        )
+        return context.materializedEnvironment.substitutions.reduce(rendered) { partial, entry in
             partial.replacingOccurrences(of: "{{\(entry.key)}}", with: entry.value)
         }
     }

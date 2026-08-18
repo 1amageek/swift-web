@@ -1,14 +1,11 @@
 #if SWIFTWEB_ACTORS
 import Distributed
 
-/// Optional lifecycle hooks for virtual actors hosted by `WebActorSystem`.
+/// Optional lifecycle hooks for virtual actors hosted by `SwiftWebActorHost`.
 ///
-/// `activated()` runs after the actor is constructed for an addressed
-/// identity and its `@ActorStorage` grain state is restored — cold start
-/// and resume are the same path. `passivating()` runs right before an idle
-/// instance is evicted; grain state mutated by the hook is persisted after
-/// it returns. Both hooks default to no-ops, so actors adopt only what
-/// they need.
+/// `activated()` runs after the actor is constructed for an addressed identity
+/// and its `@ActorStorage` grain state is restored. `passivating()` runs right
+/// before an idle instance is evicted. Both hooks default to no-ops.
 public protocol WebActorLifecycle: DistributedActor {
     /// Called after activation, once grain state has been restored.
     func activated() async

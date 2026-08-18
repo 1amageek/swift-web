@@ -1,8 +1,7 @@
 import Logging
-import NIOHTTPServer
 @_spi(Hosting) import SwiftWebCore
 
-/// Connects a rendered SwiftWeb app to `NIOHTTPServer`.
+/// Connects a rendered SwiftWeb app to the native HTTP/WebSocket server.
 public struct HTTPServerHost: Sendable {
     private let hostname: String
     private let port: Int
@@ -47,18 +46,15 @@ public struct HTTPServerHost: Sendable {
                 sessionStorage: sessionStorage,
                 logger: logger
             )
-            let configuration = try NIOHTTPServerConfiguration(
-                bindTarget: .hostAndPort(host: hostname, port: port),
-                supportedHTTPVersions: [.http1_1],
-                transportSecurity: .plaintext
-            )
-            let server = NIOHTTPServer(
-                logger: logger,
-                configuration: configuration
+            let server = SwiftWebNIOHTTPServer(
+                hostname: hostname,
+                port: port,
+                handler: handler,
+                logger: logger
             )
             return HTTPServerAppInstallation(
                 server: server,
-                handler: handler,
+                renderedApp: renderedApp,
                 developmentParentMonitor: parentMonitor
             )
         } catch {
@@ -72,9 +68,9 @@ public struct HTTPServerHost: Sendable {
         do {
             try await installation.serve()
         } catch {
-            installation.shutdown()
+            try await installation.shutdown()
             throw error
         }
-        installation.shutdown()
+        try await installation.shutdown()
     }
 }

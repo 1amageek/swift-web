@@ -1,4 +1,4 @@
-#if SWIFTWEB_ACTORS
+#if SWIFTWEB_LEGACY_ACTORS
 public struct WebActorInvocationContext: Sendable, Equatable {
     public enum Transport: String, Sendable, Codable {
         case trusted

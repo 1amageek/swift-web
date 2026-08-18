@@ -3,6 +3,33 @@ import XCTest
 @testable import SwiftWebCLI
 
 final class SwiftWebLifecycleTests: XCTestCase {
+    func testLifecycleCommandSelectsEmbeddedRuntime() throws {
+        let command = try LifecycleCommand.parse(
+            ArgumentParser(arguments: ["--runtime", "embedded"]),
+            operation: .build
+        )
+
+        XCTAssertEqual(command.wasmRuntimeProfile, .embedded)
+    }
+
+    func testDevelopmentLifecycleRejectsEmbeddedRuntime() {
+        XCTAssertThrowsError(
+            try LifecycleCommand.parse(
+                ArgumentParser(arguments: ["--runtime", "embedded"]),
+                operation: .dev
+            )
+        )
+    }
+
+    func testHostBuildInvocationRejectsAnUnpinnedCompilerOverride() {
+        XCTAssertThrowsError(
+            try SwiftBuildInvocation.host(
+                packageDirectory: FileManager.default.temporaryDirectory,
+                environment: ["SWIFT_WEB_HOST_SWIFT": "/usr/bin/false"]
+            )
+        )
+    }
+
     func testDevelopmentLifecycleBuildsOnlyTheDevelopmentServer() {
         XCTAssertEqual(
             SwiftWebProjectLifecycle.operations(for: .dev),

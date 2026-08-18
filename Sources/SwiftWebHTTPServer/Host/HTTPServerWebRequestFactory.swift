@@ -16,7 +16,8 @@ enum HTTPServerRequestFactory {
         parameters: PathParameters,
         session: HTTPServerSessionBox,
         runtimeContext: RequestRuntimeContext,
-        logger: Logger
+        logger: Logger,
+        remoteAddress: String? = nil
     ) -> Request {
         let rawPath = request.path ?? "/"
         let parts = rawPath.split(separator: "?", maxSplits: 1, omittingEmptySubsequences: false)
@@ -57,7 +58,7 @@ enum HTTPServerRequestFactory {
             hasSession: session.hasExistingSession,
             logger: logger,
             runtimeContext: runtimeContext,
-            remoteAddress: nil,
+            remoteAddress: remoteAddress,
             parameters: parameters
         )
     }

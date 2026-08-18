@@ -1,4 +1,6 @@
+#if !hasFeature(Embedded)
 import Foundation
+#endif
 
 /// The curated preview backdrops. Liquid Glass and materials are invisible
 /// against a void, so every stage renders on one of these gradient scenes;

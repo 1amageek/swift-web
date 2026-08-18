@@ -40,19 +40,8 @@ struct SwiftWebHostHTTPHandler: HTTPServerRequestHandler {
         reader: consuming sending NIOHTTPServer.Reader,
         responseSender: consuming sending NIOHTTPServer.ResponseSender
     ) async throws {
-        let rawPath = request.path ?? "/"
-        let pathOnly = String(rawPath.split(separator: "?", maxSplits: 1, omittingEmptySubsequences: false).first ?? "/")
-        let match = matcher.match(method: request.method, path: pathOnly)
-
-        let bodyLimit: Int
-        switch match?.route.bodyStrategy {
-        case .collect(let maxSize):
-            bodyLimit = maxSize ?? Self.defaultMaxBodySize
-        case .stream, nil:
-            // Request-body streaming is not exposed to handlers yet; buffered
-            // collection keeps `.stream` routes functional within the limit.
-            bodyLimit = Self.defaultMaxBodySize
-        }
+        let match = httpMatch(for: request)
+        let bodyLimit = bodyLimit(for: match)
 
         let bodyBytes: [UInt8]?
         do {
@@ -67,19 +56,46 @@ struct SwiftWebHostHTTPHandler: HTTPServerRequestHandler {
             return
         }
 
-        let session = HTTPServerSessionBox(
-            cookieValue: Self.sessionCookie(in: request),
-            storage: sessionStorage
-        )
-        let webRequest = HTTPServerRequestFactory.webRequest(
-            request: request,
+        let response = await response(
+            for: request,
+            match: match,
             bodyBytes: bodyBytes,
-            parameters: match?.parameters ?? PathParameters(),
-            session: session,
-            runtimeContext: runtimeContext,
-            logger: logger
+            remoteAddress: nil
         )
+        try await Self.send(response, responseSender: responseSender)
+    }
 
+    func httpMatch(for request: HTTPRequest) -> RouteMatch? {
+        matcher.matchHTTP(method: request.method, path: Self.pathOnly(in: request))
+    }
+
+    func webSocketMatch(for request: HTTPRequest) -> RouteMatch? {
+        matcher.matchWebSocket(path: Self.pathOnly(in: request))
+    }
+
+    func bodyLimit(for match: RouteMatch?) -> Int {
+        switch match?.route.bodyStrategy {
+        case .collect(let maxSize):
+            max(0, maxSize ?? Self.defaultMaxBodySize)
+        case .stream, nil:
+            // Request-body streaming is not exposed to handlers yet; buffered
+            // collection keeps `.stream` routes functional within the limit.
+            Self.defaultMaxBodySize
+        }
+    }
+
+    func response(
+        for request: HTTPRequest,
+        match: RouteMatch?,
+        bodyBytes: [UInt8]?,
+        remoteAddress: String?
+    ) async -> Response {
+        let (webRequest, session) = makeRequest(
+            from: request,
+            match: match,
+            bodyBytes: bodyBytes,
+            remoteAddress: remoteAddress
+        )
         let terminal = HTTPServerErrorResponder(
             next: HTTPServerRouteResponder(match: match),
             logger: logger
@@ -100,7 +116,84 @@ struct SwiftWebHostHTTPHandler: HTTPServerRequestHandler {
             )
         }
         session.finalize(response: &response)
-        try await Self.send(response, responseSender: responseSender)
+        return response
+    }
+
+    func webSocketUpgradeHeaders(
+        for request: HTTPRequest,
+        remoteAddress: String?
+    ) async throws -> HTTPFields? {
+        guard let match = webSocketMatch(for: request),
+              case .webSocket(let shouldUpgrade, _) = match.route.handler
+        else {
+            return nil
+        }
+        let (webRequest, _) = makeRequest(
+            from: request,
+            match: match,
+            bodyBytes: nil,
+            remoteAddress: remoteAddress
+        )
+        return try await shouldUpgrade(webRequest)
+    }
+
+    func connectWebSocket(
+        for request: HTTPRequest,
+        remoteAddress: String?,
+        channel: any WebSocketChannel
+    ) async {
+        guard let match = webSocketMatch(for: request),
+              case .webSocket(_, let onUpgrade) = match.route.handler
+        else {
+            do {
+                try await channel.close()
+            } catch {
+                logger.error("Unmatched WebSocket close failed: \(String(describing: error))")
+            }
+            return
+        }
+        let (webRequest, _) = makeRequest(
+            from: request,
+            match: match,
+            bodyBytes: nil,
+            remoteAddress: remoteAddress
+        )
+        await onUpgrade(webRequest, channel)
+    }
+
+    private func makeRequest(
+        from request: HTTPRequest,
+        match: RouteMatch?,
+        bodyBytes: [UInt8]?,
+        remoteAddress: String?
+    ) -> (Request, HTTPServerSessionBox) {
+        let session = HTTPServerSessionBox(
+            cookieValue: Self.sessionCookie(in: request),
+            storage: sessionStorage
+        )
+        return (
+            HTTPServerRequestFactory.webRequest(
+                request: request,
+                bodyBytes: bodyBytes,
+                parameters: match?.parameters ?? PathParameters(),
+                session: session,
+                runtimeContext: runtimeContext,
+                logger: logger,
+                remoteAddress: remoteAddress
+            ),
+            session
+        )
+    }
+
+    private static func pathOnly(in request: HTTPRequest) -> String {
+        let rawPath = request.path ?? "/"
+        return String(
+            rawPath.split(
+                separator: "?",
+                maxSplits: 1,
+                omittingEmptySubsequences: false
+            ).first ?? "/"
+        )
     }
 
     private static func sessionCookie(in request: HTTPRequest) -> String? {

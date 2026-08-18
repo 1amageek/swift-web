@@ -1,4 +1,6 @@
+#if !hasFeature(Embedded)
 import Foundation
+#endif
 import SwiftHTML
 import SwiftWebUI
 

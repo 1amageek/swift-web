@@ -1,3 +1,4 @@
+#if !hasFeature(Embedded)
 #if canImport(FoundationEssentials)
 import FoundationEssentials
 #elseif canImport(Foundation)
@@ -523,3 +524,4 @@ private struct ClientRuntimeURLQueryIndexKey: CodingKey {
         self.intValue = nil
     }
 }
+#endif

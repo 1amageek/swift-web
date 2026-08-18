@@ -1,4 +1,4 @@
-#if os(WASI)
+#if os(WASI) && SWIFTWEB_LEGACY_ACTORS
 #if canImport(FoundationEssentials)
 import FoundationEssentials
 #elseif canImport(Foundation)

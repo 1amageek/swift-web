@@ -6,7 +6,7 @@ import Foundation
 
 package enum SwiftWebRuntime {
     /// Development toggles read from the process environment. Embedded hosts
-    /// have no process environment; both features are native-host only.
+    /// have no process environment.
     package static var streamsResponses: Bool {
         #if hasFeature(Embedded)
         false
@@ -19,7 +19,7 @@ package enum SwiftWebRuntime {
         #if hasFeature(Embedded)
         false
         #else
-        ProcessInfo.processInfo.environment["SWIFT_WEB_ENABLE_VAPOR_WEBSOCKETS"] == "1"
+        true
         #endif
     }
 }

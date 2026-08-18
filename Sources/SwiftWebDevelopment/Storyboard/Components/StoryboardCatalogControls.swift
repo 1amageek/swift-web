@@ -1,4 +1,6 @@
+#if !hasFeature(Embedded)
 import Foundation
+#endif
 import SwiftHTML
 import SwiftWebUI
 
@@ -35,7 +37,7 @@ struct CatalogRangeControl: Component {
                 .foregroundStyle(.secondary)
             Slider(value: value, in: 0...1, step: 0.05, .aria("labelledby", labelID))
                 .frame(maxWidth: .infinity)
-            Text(String(format: "%.2f", value.wrappedValue))
+            Text(storyboardFixedDecimal(value.wrappedValue, fractionDigits: 2))
                 .font(Font(size: .px(13), design: .monospaced))
                 .foregroundStyle(.secondary)
         }

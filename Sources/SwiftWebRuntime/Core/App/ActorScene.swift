@@ -1,7 +1,8 @@
-#if SWIFTWEB_ACTORS
+import ActorSystemCore
 import SwiftWebActors
 
-public struct ActorScene<Content: Scene, ActorType: SwiftWebActorExporting>: Scene, _PrimitiveScene {
+public struct ActorScene<Content: Scene, ActorType: ActorSystemReference>: Scene, _PrimitiveScene
+where ActorType.ActorSystem == WebActorSystem {
     private let content: Content
     private let actor: ActorType
 
@@ -16,13 +17,21 @@ public struct ActorScene<Content: Scene, ActorType: SwiftWebActorExporting>: Sce
     }
 
     func _renderScene(in context: SceneRenderingContext) async throws {
+        context.runtime.requireActorSystem()
+        #if SWIFTWEB_ACTORS
+        try await context.actorSystem.actorHost.registerBound(address: actor.id)
+        ActorFrameInvocationEndpoint.registerIfNeeded(
+            in: context.runtime,
+            actorSystem: context.actorSystem
+        )
+        #endif
         try await SceneRenderer.render(content, in: context.adding(actor))
     }
 }
 
 public extension Scene {
-    func actor<ActorType: SwiftWebActorExporting>(_ actor: ActorType) -> some Scene {
+    func actor<ActorType: ActorSystemReference>(_ actor: ActorType) -> some Scene
+    where ActorType.ActorSystem == WebActorSystem {
         ActorScene(content: self, actor: actor)
     }
 }
-#endif

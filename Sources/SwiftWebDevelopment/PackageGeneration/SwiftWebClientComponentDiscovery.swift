@@ -205,14 +205,19 @@ struct SwiftWebClientComponentDiscovery {
                 else {
                     continue
                 }
-                declarations.append(ClientActorContractDeclaration(serviceTypeName: serviceTypeName))
+                declarations.append(
+                    ClientActorContractDeclaration(
+                        serviceTypeName: serviceTypeName,
+                        isLegacyExistential: type.hasPrefix("any ")
+                    )
+                )
             }
         }
 
         var seen = Set<String>()
         var unique: [ClientActorContractDeclaration] = []
         for declaration in declarations.sorted(by: { $0.serviceTypeName < $1.serviceTypeName })
-        where seen.insert(declaration.serviceTypeName).inserted {
+        where seen.insert("\(declaration.isLegacyExistential):\(declaration.serviceTypeName)").inserted {
             unique.append(declaration)
         }
         return unique

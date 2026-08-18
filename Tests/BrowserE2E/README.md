@@ -55,13 +55,13 @@ contract:
 
 | Toolchain | Purpose |
 |---|---|
-| Host Swift | Builds the `sweb` CLI and runs the development host with the pinned `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-23-a` toolchain. |
-| WASM Swift SDK | Builds client runtime bundles with the matching `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-23-a_wasm` SDK. |
+| Host Swift | Builds the `sweb` CLI and runs the development host with the pinned `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-08-14-a` toolchain. |
+| WASM Swift SDK | Builds client runtime bundles with the matching `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-08-14-a_wasm` SDK. |
 
 Configure the exact toolchain before running an E2E command:
 
 ```bash
-export SWIFT_WEB_TOOLCHAIN_BIN="$HOME/Library/Developer/Toolchains/swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-23-a.xctoolchain/usr/bin"
+export SWIFT_WEB_TOOLCHAIN_BIN="$HOME/Library/Developer/Toolchains/swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-08-14-a.xctoolchain/usr/bin"
 export SWIFTWEB_E2E_HOST_SWIFT_EXECUTABLE="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
 export SWIFT_WEB_WASM_SWIFT="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
 export SWIFT_WEB_WASM_TOOLCHAIN_BIN="$SWIFT_WEB_TOOLCHAIN_BIN"
@@ -77,7 +77,7 @@ Environment variables:
 | `SWIFTWEB_E2E_PORT` | Fixed port. If omitted, an available port is selected. |
 | `SWIFTWEB_E2E_TIMEOUT_MS` | Overall wait timeout for server, runtime, and HMR phases. |
 | `SWIFTWEB_E2E_HMR_TIMEOUT_MS` | Timeout for individual HMR phases. Defaults to 300 seconds so cold Swift 6.4 snapshot builds can complete. |
-| `SWIFT_WEB_WASM_SDK` | Swift SDK used for WASM client runtime builds. Defaults to `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-23-a_wasm`. |
+| `SWIFT_WEB_WASM_SDK` | Swift SDK used for WASM client runtime builds. Defaults to `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-08-14-a_wasm`. |
 | `SWIFT_WEB_WASM_SWIFT` | Optional Swift executable override for WASM builds. |
 | `SWIFT_WEB_WASM_TOOLCHAIN_BIN` | Optional WASM toolchain bin directory override. |
 | `SWIFTWEB_E2E_BROWSER_EXECUTABLE_PATH` | Use a specific Chromium-compatible browser executable. |

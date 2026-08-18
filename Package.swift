@@ -6,6 +6,7 @@ import PackageDescription
 let swiftWebSwiftSettings: [SwiftSetting] = [
     .enableUpcomingFeature("ApproachableConcurrency"),
     .define("SWIFTWEB_ACTORS", .when(traits: ["Actors"])),
+    .define("SWIFTWEB_LEGACY_ACTORS", .when(traits: ["LegacyActors"])),
 ]
 
 // Host and WASM builds use the same pinned Swift 6.4 development snapshot.
@@ -41,22 +42,53 @@ let swiftWebUIThemeDependencies: [Target.Dependency] = [
 let swiftWebUIRuntimeDependencies: [Target.Dependency] = [
     swiftHTMLDependency,
     .product(name: "JavaScriptKit", package: "JavaScriptKit"),
+    .product(name: "ActorSystemCore", package: "swift-actor-system"),
+    .product(name: "ActorSystemEmbedded", package: "swift-actor-system"),
     "SwiftWebActors",
     "SwiftWebStyle",
 ]
 
 let swiftWebUsesMacros = !swiftWebCoreOnly || swiftWebHostedApplication
 
-let actorRuntimeDependency: Target.Dependency = .product(
-    name: "ActorRuntime",
-    package: "swift-actor-runtime",
+let actorSystemCompatibilityDependency: Target.Dependency = .product(
+    name: "ActorSystemCompatibility",
+    package: "swift-actor-system",
+    condition: .when(traits: ["LegacyActors"])
+)
+
+let actorSystemCoreDependency: Target.Dependency = .product(
+    name: "ActorSystemCore",
+    package: "swift-actor-system"
+)
+
+let actorSystemDistributedDependency: Target.Dependency = .product(
+    name: "ActorSystemDistributed",
+    package: "swift-actor-system",
     condition: .when(traits: ["Actors"])
+)
+
+let actorSystemEmbeddedDependency: Target.Dependency = .product(
+    name: "ActorSystemEmbedded",
+    package: "swift-actor-system"
+)
+
+let actorSystemGenerationDependency: Target.Dependency = .product(
+    name: "ActorSystemGeneration",
+    package: "swift-actor-system"
+)
+
+let actorSystemBuildSupportDependency: Target.Dependency = .product(
+    name: "ActorSystemBuildSupport",
+    package: "swift-actor-system"
 )
 
 let swiftWebActorsDependencies: [Target.Dependency] =
     [
         swiftHTMLDependency,
-        actorRuntimeDependency,
+        actorSystemCoreDependency,
+        actorSystemDistributedDependency,
+        actorSystemEmbeddedDependency,
+        actorSystemCompatibilityDependency,
     ] + (swiftWebUsesMacros ? ["SwiftWebMacros"] : [])
 
 // The @Actor accessor macro declaration is gated behind SWIFTWEB_MACROS so that
@@ -102,20 +134,18 @@ let package = Package(
         .library(name: "SwiftWebStoryboard", targets: ["SwiftWebStoryboard"]),
         .executable(name: "sweb", targets: ["SwiftWebCLI"]),
     ],
-    // The Actors trait (SE-0450, default-enabled) carries the distributed
-    // actor runtime: SwiftWebActors' Distributed/ActorRuntime surface,
-    // ActorGroup/ActorScene lowering, and the actor security policy. Disable
-    // it for page-serving-only deployments (e.g. Cloudflare Worker SSR) to
-    // keep ActorRuntime and the Distributed runtime out of the binary; a
-    // minimal WebActorSystem stub keeps the App/Scene API shape.
+    // Actors enables the transport-independent binary actor system. The
+    // deprecated ActorRuntime JSON path is isolated behind LegacyActors so an
+    // Actors-only build never links the old runtime.
     traits: [
         .default(enabledTraits: ["Actors"]),
         .trait(name: "Actors"),
+        .trait(name: "LegacyActors", enabledTraits: ["Actors"]),
     ],
     dependencies: [
         .package(url: "https://github.com/1amageek/swift-html.git", from: "0.15.0"),
         .package(url: "https://github.com/1amageek/JavaScriptKit.git", from: "0.57.0"),
-        .package(url: "https://github.com/1amageek/swift-actor-runtime.git", exact: "0.6.0"),
+        .package(path: "Packages/swift-actor-system"),
         .package(url: "https://github.com/apple/swift-http-types", from: "1.0.0"),
     ] + (swiftWebHostedApplication ? [
         .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "603.0.2"),
@@ -125,6 +155,7 @@ let package = Package(
         .package(url: "https://github.com/swift-server/swift-http-server", from: "0.1.0"),
         .package(url: "https://github.com/apple/swift-http-api-proposal.git", from: "0.2.0"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.82.0"),
+        .package(url: "https://github.com/apple/swift-nio-extras.git", from: "1.34.1"),
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.6.0"),
         .package(url: "https://github.com/apple/swift-crypto.git", from: "4.0.0"),
         .package(url: "https://github.com/apple/swift-service-context.git", from: "1.3.0"),
@@ -187,7 +218,8 @@ let package = Package(
             dependencies: [
                 swiftHTMLDependency,
                 "SwiftWebHost",
-                actorRuntimeDependency,
+                actorSystemCoreDependency,
+                actorSystemCompatibilityDependency,
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 "SwiftWebActors",
                 "SwiftWebBrowserRuntime",
@@ -279,7 +311,8 @@ let package = Package(
             dependencies: [
                 swiftHTMLDependency,
                 "SwiftWebHost",
-                actorRuntimeDependency,
+                actorSystemCoreDependency,
+                actorSystemCompatibilityDependency,
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "Logging", package: "swift-log"),
                 "SwiftWebActors",
@@ -309,6 +342,11 @@ let package = Package(
                 .product(name: "HTTPAPIs", package: "swift-http-api-proposal"),
                 .product(name: "NIOHTTPServer", package: "swift-http-server"),
                 .product(name: "NIOCore", package: "swift-nio"),
+                .product(name: "NIOHTTP1", package: "swift-nio"),
+                .product(name: "NIOPosix", package: "swift-nio"),
+                .product(name: "NIOWebSocket", package: "swift-nio"),
+                .product(name: "NIOHTTPTypes", package: "swift-nio-extras"),
+                .product(name: "NIOHTTPTypesHTTP1", package: "swift-nio-extras"),
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "Logging", package: "swift-log"),
                 "SwiftWebCore",
@@ -355,6 +393,8 @@ let package = Package(
                 swiftHTMLDependency,
                 .product(name: "SwiftParser", package: "swift-syntax"),
                 .product(name: "SwiftSyntax", package: "swift-syntax"),
+                actorSystemBuildSupportDependency,
+                actorSystemGenerationDependency,
                 "SwiftWebDevelopmentHooks",
                 "SwiftWebWasmBuild",
             ],
@@ -498,6 +538,11 @@ let package = Package(
                 "SwiftWebPackageGeneration",
                 "SwiftWebStoryboardTooling",
                 "SwiftWebWasmBuild",
+                actorSystemCoreDependency,
+                actorSystemDistributedDependency,
+                actorSystemEmbeddedDependency,
+                actorSystemBuildSupportDependency,
+                actorSystemGenerationDependency,
             ],
             swiftSettings: swiftWebSwiftSettings
         ),

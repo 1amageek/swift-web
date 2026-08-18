@@ -19,7 +19,7 @@ final class ResolvableActorMacroTests: XCTestCase {
             distributed actor CounterService: CounterServiceProtocol {
             }
 
-            extension CounterService: SwiftWebActorExporting {
+            extension CounterService: LegacySwiftWebActorExporting {
                 typealias SwiftWebActorContract = $CounterServiceProtocol
 
                 nonisolated static var swiftWebActorContractKey: SwiftWebActorContractKey {
@@ -46,7 +46,7 @@ final class ResolvableActorMacroTests: XCTestCase {
             distributed actor CounterService: Services.CounterServiceProtocol {
             }
 
-            extension CounterService: SwiftWebActorExporting {
+            extension CounterService: LegacySwiftWebActorExporting {
                 typealias SwiftWebActorContract = Services.$CounterServiceProtocol
 
                 nonisolated static var swiftWebActorContractKey: SwiftWebActorContractKey {

@@ -30,9 +30,39 @@ public struct RouteMatcher: Sendable {
         return match(method: method, pathComponents: components)
     }
 
+    public func matchHTTP(method: HTTPRequest.Method, path: String) -> RouteMatch? {
+        let components = path
+            .split(separator: "/", omittingEmptySubsequences: true)
+            .map(String.init)
+        return match(
+            method: method,
+            pathComponents: components,
+            accepting: { $0.isHTTP }
+        )
+    }
+
+    public func matchWebSocket(path: String) -> RouteMatch? {
+        let components = path
+            .split(separator: "/", omittingEmptySubsequences: true)
+            .map(String.init)
+        return match(
+            method: .get,
+            pathComponents: components,
+            accepting: { $0.isWebSocket }
+        )
+    }
+
     public func match(method: HTTPRequest.Method, pathComponents: [String]) -> RouteMatch? {
+        match(method: method, pathComponents: pathComponents, accepting: { _ in true })
+    }
+
+    private func match(
+        method: HTTPRequest.Method,
+        pathComponents: [String],
+        accepting: (Route) -> Bool
+    ) -> RouteMatch? {
         var best: (route: Route, parameters: PathParameters, specificity: [Int])?
-        for route in routes {
+        for route in routes where accepting(route) {
             guard route.method == method || (method == .head && route.method == .get) else {
                 continue
             }

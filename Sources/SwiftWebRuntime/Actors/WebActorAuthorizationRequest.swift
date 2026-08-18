@@ -1,5 +1,5 @@
-#if SWIFTWEB_ACTORS
-@preconcurrency import ActorRuntime
+#if SWIFTWEB_LEGACY_ACTORS
+@preconcurrency import ActorSystemCompatibility
 
 public struct WebActorAuthorizationRequest: Sendable {
     public let envelope: InvocationEnvelope

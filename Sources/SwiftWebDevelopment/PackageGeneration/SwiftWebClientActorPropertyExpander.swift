@@ -82,6 +82,7 @@ private final class ActorPropertyRewriter: SyntaxRewriter {
         }
 
         let serviceType = type.description
+        let isLegacyExistential = type.trimmedDescription.hasPrefix("any ")
         let indent = Self.declarationIndent(of: node)
         let otherAttributes = node.attributes
             .filter { attribute in
@@ -94,12 +95,15 @@ private final class ActorPropertyRewriter: SyntaxRewriter {
         let modifiers = node.modifiers.map { $0.trimmedDescription }
         let declarationHead = (otherAttributes + modifiers + ["var"]).joined(separator: " ")
 
+        let contractExpression = isLegacyExistential
+            ? "SwiftWebActorContractKey(String(reflecting: (\(serviceType)).self))"
+            : "SwiftWebActorContractKey((\(serviceType)).self)"
         let lines = [
             "\(declarationHead) \(identifier): \(serviceType) {",
             "    get {",
             "        SwiftWebActorBinding.resolve(",
             "            (\(serviceType)).self,",
-            "            contract: SwiftWebActorContractKey(String(reflecting: (\(serviceType)).self))",
+            "            contract: \(contractExpression)",
             "        )",
             "    }",
             "}",

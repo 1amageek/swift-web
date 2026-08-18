@@ -5,11 +5,13 @@ struct SwiftWebGeneratedPackagePreparer {
     let packageDirectory: URL
     let product: String
     let printsSummary: Bool
+    let wasmRuntimeProfile: SwiftWebWasmRuntimeProfile
 
     func run() throws {
         let generatedPackage = try SwiftWebGeneratedPackageMaterializer(
             appPackageDirectory: packageDirectory,
-            serverProductName: product
+            serverProductName: product,
+            wasmRuntimeProfile: wasmRuntimeProfile
         )
         .materialize()
 

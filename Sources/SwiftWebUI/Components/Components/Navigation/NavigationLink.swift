@@ -86,7 +86,7 @@ public struct NavigationLink<Label: Component>: AttributeComponent {
     private var linkAttributes: [HTMLAttribute] {
         var result = [HTMLAttribute("data-navigation-link", "true")]
         if isEnabled {
-            result.append(.href(destination.relativeString))
+            result.append(.href(destination.absoluteString))
         } else {
             result.append(.aria("disabled", "true"))
             result.append(.tabindex(-1))

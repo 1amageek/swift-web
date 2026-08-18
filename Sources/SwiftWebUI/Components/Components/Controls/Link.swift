@@ -85,7 +85,7 @@ public struct Link<Label: Component>: AttributeComponent {
 
     private var linkAttributes: [HTMLAttribute] {
         if isEnabled {
-            return [.href(destination.relativeString)]
+            return [.href(destination.absoluteString)]
         }
         return [
             .aria("disabled", "true"),

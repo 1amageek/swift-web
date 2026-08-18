@@ -65,7 +65,8 @@ struct NewCommand {
             packageDirectory: projectDirectory,
             environmentOverride: nil,
             hostOverride: nil,
-            portOverride: nil
+            portOverride: nil,
+            wasmRuntimeProfile: .standard
         )
         .run(.prepare)
 

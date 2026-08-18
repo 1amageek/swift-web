@@ -1,4 +1,6 @@
+#if !hasFeature(Embedded)
 import Foundation
+#endif
 import SwiftHTML
 import SwiftWebStyle
 import SwiftWebUI
@@ -20,7 +22,9 @@ public struct StoryboardDetailIsland: ClientComponent {
     @State private var enabled = true
     @State private var volume = 0.6
     @State private var density = 3
+    #if !hasFeature(Embedded)
     @State private var due = Date(timeIntervalSince1970: 1_718_000_000)
+    #endif
     @State private var accent = "#3366ff"
     @State private var pick = "json"
     @State private var segment = "grid"
@@ -187,7 +191,11 @@ public struct StoryboardDetailIsland: ClientComponent {
         case "menu", "picker":
             PickersDetail(selection: selection, ui: $ui)
         case "securefield", "texteditor", "toggle", "slider", "stepper", "datepicker", "calendar", "colorpicker", "form", "textfield":
+            #if hasFeature(Embedded)
+            InputsDetail(selection: selection, ui: $ui)
+            #else
             InputsDetail(selection: selection, ui: $ui, due: $due)
+            #endif
         case "color":
             FoundationsDetail(selection: selection, state: ui)
         case "progressview", "gauge":

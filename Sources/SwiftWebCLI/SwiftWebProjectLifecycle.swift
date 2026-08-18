@@ -1,10 +1,12 @@
 import Foundation
+import SwiftWebDevelopment
 
 struct SwiftWebProjectLifecycle: Sendable {
     let packageDirectory: URL
     let environmentOverride: String?
     let hostOverride: String?
     let portOverride: Int?
+    let wasmRuntimeProfile: SwiftWebWasmRuntimeProfile
 
     func run(_ operation: SwiftWebExecutionPlan.Operation) async throws {
         let resolution = try await SwiftWebProjectResolver().resolve(
@@ -89,7 +91,8 @@ struct SwiftWebProjectLifecycle: Sendable {
             resolution: resolution,
             materializedEnvironment: materialized,
             hostOverride: hostOverride,
-            portOverride: portOverride
+            portOverride: portOverride,
+            wasmRuntimeProfile: wasmRuntimeProfile
         )
         for operation in operations {
             let plan = try SwiftWebExecutionPlan.make(

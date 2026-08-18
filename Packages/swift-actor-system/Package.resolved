@@ -1,0 +1,24 @@
+{
+  "originHash" : "5db1bbe6a67e7234c3a58015623633f25889ebe06272fdd4c26d6aaf17c630a9",
+  "pins" : [
+    {
+      "identity" : "swift-actor-runtime",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/1amageek/swift-actor-runtime.git",
+      "state" : {
+        "revision" : "d066afe8dcbaaf22fac454f24300a2751acffe8f",
+        "version" : "0.6.0"
+      }
+    },
+    {
+      "identity" : "swift-syntax",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/swiftlang/swift-syntax.git",
+      "state" : {
+        "revision" : "79e4b74a295b6eb74a8b585e3a39d29e70c1dbd1",
+        "version" : "603.0.2"
+      }
+    }
+  ],
+  "version" : 3
+}

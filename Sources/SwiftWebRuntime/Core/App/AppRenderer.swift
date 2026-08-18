@@ -6,9 +6,29 @@ public enum AppRenderer {
         _ app: AppType,
         in context: AppRenderingContext
     ) async throws -> RenderedApp {
+        let actorSystem = app.actorSystem
+        #if SWIFTWEB_LEGACY_ACTORS
+        let legacyActorSystem = app.legacyActorSystem
         let runtime = AppRuntime(
-            serverConfiguration: context.serverConfiguration
+            serverConfiguration: context.serverConfiguration,
+            actorSystem: actorSystem,
+            legacyActorSystem: legacyActorSystem
         )
+        let sceneContext = SceneRenderingContext.root(
+            runtime,
+            actorSystem: actorSystem,
+            legacyActorSystem: legacyActorSystem
+        )
+        #else
+        let runtime = AppRuntime(
+            serverConfiguration: context.serverConfiguration,
+            actorSystem: actorSystem
+        )
+        let sceneContext = SceneRenderingContext.root(
+            runtime,
+            actorSystem: actorSystem
+        )
+        #endif
         let security = context.developmentHooks.configureSecurity(app.security)
         runtime.requestContext.securityConfiguration = security
 
@@ -17,19 +37,36 @@ public enum AppRenderer {
         context.developmentHooks.installMiddlewares(&middlewares)
         context.developmentHooks.registerRoutes(runtime.routes)
 
-        try await (context.clientRuntime ?? app.clientRuntime).install(in: runtime)
-        try await SceneRenderer.render(
-            app.body,
-            in: SceneRenderingContext.root(
-                runtime,
-                actorSystem: app.actorSystem
+        do {
+            try await (context.clientRuntime ?? app.clientRuntime).install(in: runtime)
+            try await SceneRenderer.render(
+                app.body,
+                in: sceneContext
             )
-        )
+            #if SWIFTWEB_ACTORS
+            if runtime.requiresActorSystem {
+                try await actorSystem.actorHost.installAuthorization(
+                    security.actors.authorization
+                )
+                try await actorSystem.actorHost.installActivationPolicy(
+                    security.actors.activation
+                )
+            }
+            #endif
+            try await runtime.start()
+        } catch {
+            let termination = await runtime.requestShutdown()
+            try await termination.wait()
+            throw error
+        }
 
         return RenderedApp(
             routes: runtime.routes.all,
             middlewares: middlewares,
-            requestContext: runtime.requestContext
+            requestContext: runtime.requestContext,
+            requestShutdown: {
+                await runtime.requestShutdown()
+            }
         )
     }
 }

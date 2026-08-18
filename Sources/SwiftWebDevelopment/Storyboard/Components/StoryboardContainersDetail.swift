@@ -1,4 +1,6 @@
+#if !hasFeature(Embedded)
 import Foundation
+#endif
 import SwiftHTML
 import SwiftWebUI
 
@@ -194,7 +196,7 @@ struct ContainersDetail: Component {
         ScrollView(.vertical) {
             LazyVGrid(columns: columns, spacing: .small) {
                 ForEach(1...9, id: { index in index }) { index in
-                    Text(String(format: "%02d", index))
+                    Text(storyboardPaddedInteger(index, width: 2))
                         .font(.caption)
                         .frame(maxWidth: .infinity)
                         .padding(.all, 6)

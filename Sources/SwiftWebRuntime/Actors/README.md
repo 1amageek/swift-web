@@ -1,115 +1,135 @@
 # SwiftWebActors
 
-SwiftWebActors is the shared Distributed Actor runtime boundary for SwiftWeb server and client builds.
+SwiftWebActors is SwiftWeb's application-facing integration for the
+transport-neutral actor runtime in `Packages/swift-actor-system`.
 
-It owns the `WebActorSystem` adapter, invocation envelope encoding/decoding, result handling, and the transport protocol used to move ActorRuntime envelopes across process or network boundaries. It does not own HTTP route registration, page rendering, UI components, or browser DOM updates.
+The concrete `distributed actor` declaration is the actor contract on Native
+and standard WASM. Embedded WASM consumes a generated semantic twin with the
+same actor identity, method surface, schema, payload, and error model. Actor
+code never selects HTTP, WebSocket, or another transport.
 
 ## Responsibility
 
 | Area | Responsibility |
 |---|---|
-| Actor system | Provides `WebActorSystem`, the `DistributedActorSystem` used by SwiftWeb service actors. |
-| Registry | Holds local distributed actor instances and resolves local actor IDs. |
-| Remote resolution | Returns `nil` from `resolve(id:as:)` for non-local actors so Swift can create remote stubs. |
-| Invocation codec | Wraps ActorRuntime's Codable invocation encoder and decoder with SwiftWeb's `Codable & Sendable` requirement. |
-| Result handling | Encodes successful returns, void returns, and typed runtime failures into `ResponseEnvelope`. |
-| Transport boundary | Defines `WebActorTransport` so clients can send `InvocationEnvelope` values to a server gateway. Browser-specific transport implementations live outside this module. |
-| Actor RPC security | Defines invocation context, authorization, activation limits, and WebSocket sender binding primitives used by host adapters before dispatch. |
+| Compiler-facing facade | `WebActorSystem` delegates Swift Distributed Actor requirements to `SwiftActorSystem`. |
+| Common runtime | `ActorSystemCore` owns identity, frames, routing, correlation, timeout, cancellation, and lifecycle. |
+| Host policy | `SwiftWebActorHost` owns authorization, virtual activation, persistence, passivation, reminders, and remote state. |
+| Transport adapters | SwiftWeb HTTP and WebSocket adapters move bounded binary actor frames and authenticated metadata. |
+| Scene binding | `ActorGroup`, `.actor(...)`, and `@RemoteActor` bind concrete actor references without exposing transport handles. |
+| Embedded projection | Generated actor twins use `EmbeddedActorSystem` without importing `Distributed`, `Codable`, or ActorRuntime. |
+| Compatibility | `LegacyWebActorSystem` and legacy JSON envelopes remain explicit deprecated migration paths. |
 
 ## Runtime Flow
 
 ```mermaid
 flowchart LR
-  A["@Resolvable protocol"] --> B["$Protocol.resolve(id:using:)"]
-  B --> C["WebActorSystem"]
-  C --> D{"local actor?"}
-  D -->|yes| E["executeDistributedTarget"]
-  D -->|no| F["WebActorTransport"]
-  F --> G["remote gateway"]
-  G --> H["server WebActorSystem.invoke"]
-  H --> E
-  E --> I["ResponseEnvelope"]
+  Actor["concrete distributed actor"] --> Compiler["Swift compiler thunk"]
+  Compiler --> Facade["WebActorSystem"]
+  Facade --> Core["ActorSystemCore"]
+  Core --> Local{"local target?"}
+  Local -->|yes| Execute["executeDistributedTarget"]
+  Local -->|no| Router["ActorRouter"]
+  Router --> Transport["ActorTransport"]
+  Transport --> Peer["remote ActorSystemCore"]
 ```
 
-## Usage Boundary
+The portable frame and payload formats end at `ActorTransport`. HTTP,
+WebSocket, UART, BLE, and application-defined links do not become actor APIs.
 
-Client-visible service contracts should be protocols annotated with Apple's `@Resolvable` macro.
+## Authoring Model
 
-```swift
-@Resolvable
-public protocol CounterServiceProtocol: DistributedActor
-where ActorSystem == WebActorSystem {
-    distributed func currentValue() async throws -> Int
-    distributed func increment() async throws -> Int
-}
-```
-
-Server implementations are ordinary distributed actors using `WebActorSystem`.
+An application declares one concrete actor:
 
 ```swift
-public distributed actor CounterService: CounterServiceProtocol {
+public distributed actor Counter {
     public typealias ActorSystem = WebActorSystem
 
     private var value = 0
 
-    public distributed func currentValue() async throws -> Int {
-        value
-    }
-
-    public distributed func increment() async throws -> Int {
-        value += 1
+    public distributed func increment(by amount: Int) async throws -> Int {
+        value += amount
         return value
     }
 }
 ```
 
-Client runtimes resolve the protocol stub, not an `ActionReference`.
+Direct resolution and invocation retain the Distributed Actor surface:
 
 ```swift
-let service = try $CounterServiceProtocol.resolve(id: actorID, using: actorSystem)
-let value = try await service.increment()
+let counter = try Counter.resolve(id: address, using: actorSystem)
+let value = try await counter.increment(by: 1)
 ```
 
-SwiftWeb's `@RemoteActor` client component API is a higher-level accessor macro over
-this same operation. It returns the resolved `@Resolvable` protocol object to
-component code and keeps actor ids, `WebActorSystem`, and transport setup in the
-runtime layer. The generated WASM entrypoint registers the matching `$Protocol`
-resolver discovered from client component source. The design contract is tracked in
-[`../../docs/ActorInjectionDesign.md`](../../../docs/ActorInjectionDesign.md).
+SwiftWeb can inject that same concrete reference:
+
+```swift
+public struct CounterClient: ClientComponent {
+    @RemoteActor
+    private var counter: Counter
+
+    public func increment() async throws -> Int {
+        try await counter.increment(by: 1)
+    }
+}
+```
+
+The actor type receives generated `ActorSystemReference` metadata. Applications
+do not author a service protocol, contract annotation, implementation
+annotation, method ID, wire layout, or transport binding.
+
+## SwiftWeb Host Boundary
+
+`WebActorSystem` is the facade owner that composes Core with SwiftWeb-specific
+host policy:
+
+```text
+AppRuntime
+└── WebActorSystem
+    ├── SwiftActorSystem
+    │   └── ActorSystemCore
+    └── SwiftWebActorHost
+        ├── authorization and activation
+        ├── persistence and passivation
+        ├── reminders
+        └── remote state
+```
+
+`AppRuntime` owns only the facade's application lifetime. `WebActorSystem`
+seals host configuration before starting Core. During shutdown it stops host
+admission, shuts down Core transports and pending calls, then passivates and
+releases host actors. Its termination ticket reports persistence failures only
+after best-effort cleanup has completed.
 
 ## Difference From Server Actions
 
-SwiftWeb has two server interaction methods. SwiftWebActors owns only the direct RPC method.
+| Method | Caller surface | Runtime boundary |
+|---|---|---|
+| Distributed actor call | `try await counter.increment(by: 1)` | Binary actor frame through `ActorSystemCore` and `ActorTransport` |
+| Server Action | `Button` or form action | Page-local typed HTTP endpoint and `ActionReference` |
 
-| Method | Owned here? | Caller shape | Runtime shape |
-|---|---|---|---|
-| Server Action | No | `Button("Save", action: service.saveAction)` | SwiftWeb `ActionReference` with HTTP method and path, usually returning `ActionResult`. |
-| Resolvable RPC | Yes | `try await service.increment()` after `$Protocol.resolve(id:using:)` | ActorRuntime invocation envelope through `WebActorTransport`. |
+Server Actions are not actor stubs. Distributed actor calls do not fall back to
+Server Actions or to the legacy JSON actor endpoint.
 
-Server Actions are page-local HTTP handlers backed by SwiftWeb action descriptors. They are not distributed actor stubs and do not depend on `WebActorSystem`. A client that needs direct typed calls should resolve an `@Resolvable` protocol instead of using `ActionReference`.
+## Legacy Compatibility
+
+The deprecated `@Resolvable` protocol, `@ResolvableActor`,
+`LegacyWebActorSystem`, `WebActorTransport`, and the JSON invocation envelope
+path are compiled only with the explicit `LegacyActors` trait. `Actors` alone
+links only the binary runtime; only `ActorSystemCompatibility` imports the old
+`ActorRuntime` module. Legacy and binary traffic use separate endpoints or
+media types. Failure on the concrete actor path never retries through the
+legacy path.
 
 ## Not Responsible For
 
 | Not owned by SwiftWebActors | Owner |
 |---|---|
-| HTTP route registration and CSRF checks | `SwiftWeb` |
-| Server action method/path handling | `SwiftWeb` action routes |
-| Page routing and rendering | `SwiftWeb` and `SwiftHTML` |
-| Component state and DOM patching | `SwiftHTML` / `SwiftWebUIRuntime` |
-| Project templates and generated package materialization | `SwiftWebCLI` and `SwiftWeb` development runtime |
-| Client `@RemoteActor` macro expansion | `SwiftWebMacros` (declaration lives in `SwiftWebActors`) |
-| Client resolver registry generation | `SwiftWebPackageGeneration` |
+| Actor schema scanning and profile source generation | `ActorSystemGeneration` and SwiftWeb package generation |
+| HTTP listener and RFC 6455 implementation | SwiftWeb host adapters |
+| Page routing and rendering | `SwiftWebCore` and `SwiftHTML` |
+| Component state and DOM patching | `SwiftWebUIRuntime` |
+| Board-specific UART, BLE, TCP, ISR, or DMA adaptation | Deployment-provided `ActorTransport` |
 
-## Design Notes
-
-- `WebActorSystem.resolve(id:as:)` returns a local actor only when the ID exists in the local registry.
-- Missing local actors are treated as remote, allowing Swift's distributed actor machinery to create stubs for `@Resolvable` protocols.
-- External actor invocations should enter through `invoke(envelope:context:authorization:activationPolicy:)`. The direct `invoke(envelope:)` overload is for trusted in-process calls and compatibility paths.
-- `WebActorSecurityPolicy.defaults` denies external RPC. Apps that expose browser or WebSocket actor calls must install an authorizer that validates the caller principal, recipient actor ID, and target method.
-- Virtual `ActorGroup` activations are tracked separately from the local actor registry so hosts can enforce max-count and idle-time eviction without changing the Distributed Actor registry contract.
-- WebSocket routes should bind a server-derived peer ID with `WebSocketInboundSenderPolicy.bind` before registering the socket for push routing.
-- `WebActorTransport` moves raw ActorRuntime envelopes; it must not depend on host or HTTP framework types.
-- HTTP host integration belongs in SwiftWebCore's actor endpoint and the concrete host adapters that mount collected routes.
-- Browser fetch integration belongs in `SwiftWebUIRuntime.JavaScriptKitWebActorTransport`.
-- `ActionReference` is not this module's responsibility and is not Apple's `@Resolvable` model.
-- `@RemoteActor` must remain a component injection convenience over `$Protocol.resolve(id:using:)`; it must not add a second SwiftWeb-owned RPC protocol.
+The authoritative architecture and completion gates are recorded in
+[`docs/SwiftActorSystemDesign.md`](../../../docs/SwiftActorSystemDesign.md).

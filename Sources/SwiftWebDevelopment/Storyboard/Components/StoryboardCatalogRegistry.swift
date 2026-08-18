@@ -1,4 +1,6 @@
+#if !hasFeature(Embedded)
 import Foundation
+#endif
 
 public struct CatalogItem: Identifiable, Sendable {
     public let id: String

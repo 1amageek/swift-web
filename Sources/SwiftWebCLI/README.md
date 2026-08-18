@@ -21,13 +21,13 @@ The command grammar is defined by `CommandLineInterface` in `App.swift`:
 
 ```text
 sweb new <AppName> [--output <directory>] [--force] [--ai] [--adapter <owner/repository>]
-sweb prepare [--package-path <directory>] [--environment <name>]
+sweb prepare [--package-path <directory>] [--environment <name>] [--runtime standard|embedded]
 sweb xcode [--package-path <directory>] [--product <name>] [--no-open]
-sweb build [--package-path <directory>] [--environment <name>]
+sweb build [--package-path <directory>] [--environment <name>] [--runtime standard|embedded]
 sweb clean [--package-path <directory>] [--storyboard] [--swiftpm] [--all]
 sweb dev [--package-path <directory>] [--environment <name>] [--host <host>] [--port <port>]
-sweb deploy [--package-path <directory>] [--environment <name>]
-sweb storyboard [--package-path <directory>] [--output <directory>] [--host <host>] [--port <port>] [--no-run] [--force] [--production] [--runtime standard] [--swift-sdk <sdk>] [-c debug|release]
+sweb deploy [--package-path <directory>] [--environment <name>] [--runtime standard|embedded]
+sweb storyboard [--package-path <directory>] [--output <directory>] [--host <host>] [--port <port>] [--no-run] [--force] [--production] [--runtime standard|embedded] [--swift-sdk <sdk>] [-c debug|release]
 ```
 
 ## Project Creation
@@ -140,6 +140,11 @@ sweb deploy --environment production
 `deploy` always runs prepare and build first. Only Deployment deploy tasks may
 change remote state. Task IDs and dependencies are validated as a DAG before
 execution.
+
+`prepare`, `build`, and `deploy` carry one explicit WASM runtime profile through
+package projection, SDK selection, built-in build tasks, and adapter command
+environments. `dev` accepts only `standard` because its incremental runtime does
+not consume Embedded artifacts.
 
 The exact compiler and linker environment is documented in
 [Toolchain](../../docs/Toolchain.md).

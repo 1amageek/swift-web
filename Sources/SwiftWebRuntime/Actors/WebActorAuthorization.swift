@@ -1,4 +1,4 @@
-#if SWIFTWEB_ACTORS
+#if SWIFTWEB_LEGACY_ACTORS
 public struct WebActorAuthorization: Sendable {
     private let authorizeValue: @Sendable (WebActorAuthorizationRequest) async -> WebActorAuthorizationDecision
 

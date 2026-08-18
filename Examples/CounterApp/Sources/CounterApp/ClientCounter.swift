@@ -2,7 +2,7 @@ import SwiftHTML
 import SwiftWebUI
 
 public struct ClientCounter: ClientComponent {
-    @RemoteActor private var counter: any CounterServiceProtocol
+    @RemoteActor private var counter: CounterService
     @State private var value = 0
 
     public init() {}

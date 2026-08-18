@@ -161,7 +161,7 @@ async function prepareAppCopy(root) {
 
 async function launchDevServer(appRoot, scratchRoot, port) {
   const swiftWebExecutable = await resolveSwiftWebExecutable();
-  const wasmSwiftSDK = process.env.SWIFT_WEB_WASM_SDK || "swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-23-a_wasm";
+  const wasmSwiftSDK = process.env.SWIFT_WEB_WASM_SDK || "swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-08-14-a_wasm";
   report.swiftWebExecutable = swiftWebExecutable;
   report.wasmSwiftSDK = wasmSwiftSDK;
   if (process.env.SWIFT_WEB_WASM_SWIFT) {

@@ -29,10 +29,28 @@ struct WasmRuntimeEntrypointFormat {
     let environmentRegistryDeclaration =
       "private let \(environmentRegistryVariableName) = "
       + "ClientEnvironmentRegistry.swiftWebUI\(registeringCalls)"
-    let registrations = target.componentTypeNames.map { typeName in
+    let bootstrapHelper = """
+      private func makeSwiftWebWasmRoot<Root: Component>(
+          _ type: Root.Type,
+          bootstrap request: ClientRuntimeBootstrapRequest,
+          fallback: @autoclosure () -> Root
+      ) throws -> Root {
+          fallback()
+      }
+
+      private func makeSwiftWebWasmRoot<Root: ClientRuntimeBootstrapInitializable>(
+          _ type: Root.Type,
+          bootstrap request: ClientRuntimeBootstrapRequest,
+          fallback: @autoclosure () -> Root
+      ) throws -> Root {
+          try Root(bootstrap: request)
+      }
       """
+    let registrations = target.componentTypeNames.map { typeName in
+      return """
           ClientComponentRegistration(
               \(typeName).self,
+              typeName: "\(typeName)",
               environmentRegistry: \(environmentRegistryVariableName),
               actorResolverRegistry: \(actorResolverVariableName)
           ) { request in
@@ -52,20 +70,7 @@ struct WasmRuntimeEntrypointFormat {
       import SwiftWebUI
       import SwiftWebUIRuntime
 
-      private func makeSwiftWebWasmRoot<Root: Component>(
-          _ type: Root.Type,
-          bootstrap request: ClientRuntimeBootstrapRequest,
-          fallback: @autoclosure () -> Root
-      ) throws -> Root {
-          guard let bootstrapType = type as? any ClientRuntimeBootstrapInitializable.Type else {
-              return fallback()
-          }
-          let root = try bootstrapType.init(bootstrap: request)
-          guard let typedRoot = root as? Root else {
-              throw ClientRuntimeBridgeError.componentMountNotFound(String(reflecting: type))
-          }
-          return typedRoot
-      }
+      \(bootstrapHelper)
 
       private let \(actorResolverVariableName) =
           SwiftWebGeneratedActorResolvers.\(WasmActorResolverRegistryFormat.functionName(for: target.targetName))()
@@ -94,6 +99,30 @@ struct WasmRuntimeEntrypointFormat {
       @_cdecl("swiftweb_bootstrap")
       public func swiftweb_bootstrap(_ pointer: UInt32, _ length: UInt32) -> UInt32 {
           \(runtimeVariableName).bootstrap(pointer: pointer, length: length)
+      }
+
+      @MainActor
+      @_cdecl("swiftweb_start")
+      public func swiftweb_start() -> UInt32 {
+          \(runtimeVariableName).start()
+      }
+
+      @MainActor
+      @_cdecl("swiftweb_start_status")
+      public func swiftweb_start_status() -> UInt32 {
+          \(runtimeVariableName).startStatus()
+      }
+
+      @MainActor
+      @_cdecl("swiftweb_shutdown")
+      public func swiftweb_shutdown() -> UInt32 {
+          \(runtimeVariableName).shutdown()
+      }
+
+      @MainActor
+      @_cdecl("swiftweb_shutdown_status")
+      public func swiftweb_shutdown_status() -> UInt32 {
+          \(runtimeVariableName).shutdownStatus()
       }
 
       @MainActor

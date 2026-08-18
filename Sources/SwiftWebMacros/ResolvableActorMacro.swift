@@ -26,13 +26,13 @@ public struct ResolvableActorMacro: ExtensionMacro {
         }
 
         let stub = stubType(for: contract)
-        // Public actors satisfy the public SwiftWebActorExporting protocol,
+        // Public actors satisfy the public LegacySwiftWebActorExporting protocol,
         // so the generated members must carry the actor's access level.
         let access = declaration.modifiers.contains { $0.name.tokenKind == .keyword(.public) }
             ? "public "
             : ""
         let extensionDecl = DeclSyntax(stringLiteral: """
-        extension \(type.trimmed): SwiftWebActorExporting {
+        extension \(type.trimmed): LegacySwiftWebActorExporting {
             \(access)typealias SwiftWebActorContract = \(stub)
 
             \(access)nonisolated static var swiftWebActorContractKey: SwiftWebActorContractKey {

@@ -1,12 +1,632 @@
 import Foundation
 import Synchronization
+import SwiftHTML
 import Testing
 
+@testable import ActorSystemGeneration
+@testable import ActorSystemBuildSupport
 @testable import SwiftWebPackageGeneration
 @testable import SwiftWebWasmBuild
+import SwiftWebDevelopmentHooks
 
 @Suite
 struct SwiftWebGeneratedPackageMaterializerTests {
+  @Test
+  func importedModulesSelectsOnlyTheActiveProfileBranch() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+      "SwiftWebGeneratedPackageMaterializerImports-\(UUID().uuidString)",
+      isDirectory: true
+    )
+    defer {
+      do {
+        try FileManager.default.removeItem(at: root)
+      } catch {
+        Issue.record("Failed to remove temporary directory: \(error)")
+      }
+    }
+    try FileManager.default.createDirectory(
+      at: root,
+      withIntermediateDirectories: true
+    )
+    let sourceURL = root.appendingPathComponent("ConditionalImports.swift")
+    try """
+    import SwiftWeb
+    #if os(WASI)
+      #if hasFeature(Embedded)
+      import EmbeddedActors
+      #else
+      import StandardActors
+      #endif
+    #else
+    import HostActors
+    #endif
+    #if ROOT_ACTORS
+    import RootActorExtension
+    #endif
+    """.write(to: sourceURL, atomically: true, encoding: .utf8)
+
+    let rootConfiguredEnvironment = try wasmEnvironment(
+      embedded: false,
+      availableModules: [
+        "EmbeddedActors", "StandardActors", "HostActors", "RootActorExtension", "SwiftWeb",
+      ]
+    ).addingBuildConditions(customConditions: ["ROOT_ACTORS"])
+    let standardImports = try SwiftWebGeneratedPackageMaterializer.importedModules(
+      in: [(url: sourceURL, relativePath: "ConditionalImports.swift")],
+      targetEnvironment: rootConfiguredEnvironment
+    )
+    let embeddedImports = try SwiftWebGeneratedPackageMaterializer.importedModules(
+      in: [(url: sourceURL, relativePath: "ConditionalImports.swift")],
+      targetEnvironment: wasmEnvironment(
+        embedded: true,
+        availableModules: ["EmbeddedActors", "StandardActors", "HostActors", "SwiftWeb"]
+      )
+    )
+
+    #expect(standardImports == Set(["RootActorExtension", "StandardActors", "SwiftWeb"]))
+    #expect(embeddedImports == Set(["EmbeddedActors", "SwiftWeb"]))
+  }
+
+  @Test
+  func dependencyProjectionMirrorsRetainedClientDeclarations() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+      "SwiftWebActorDependencyProjection-\(UUID().uuidString)",
+      isDirectory: true
+    )
+    defer {
+      do {
+        try FileManager.default.removeItem(at: root)
+      } catch {
+        Issue.record("Failed to remove temporary directory: \(error)")
+      }
+    }
+    let sourceDirectory = root.appendingPathComponent("Sources/SharedActors", isDirectory: true)
+    let source = """
+    #if canImport(Distributed)
+    import Distributed
+    #endif
+
+    public struct ClientHelper {
+      public init() {}
+    }
+
+    #if hasFeature(Embedded)
+    public let dependencyClientMarker = "client"
+    #else
+    private let dependencyServerSecret = "secret"
+    #endif
+
+    distributed actor SharedCounter {
+      typealias ActorSystem = TestActorSystem
+      distributed func value() async throws -> Int { 1 }
+    }
+    """
+    try write(source, to: sourceDirectory.appendingPathComponent("Feature.swift"))
+    let serverOnlySource = "let dependencyServerSecret = \"secret\""
+    try write(
+      serverOnlySource,
+      to: sourceDirectory.appendingPathComponent("Actions/Secret.swift")
+    )
+    try write(
+      serverOnlySource,
+      to: sourceDirectory.appendingPathComponent("App.swift")
+    )
+    let manifest = ActorGeneratedManifest(
+      packageIdentity: "shared",
+      moduleName: "SharedActors",
+      profile: .embeddedClient,
+      toolchainFingerprint: "fixture",
+      sourceRoot: sourceDirectory.path,
+      inputSources: [
+        ActorGeneratedManifest.InputSource(
+          relativePath: "Feature.swift",
+          contentDigest: ActorStableHash.digest(source),
+          replacedActorNames: ["SharedCounter"],
+          replacedPortableTypeNames: []
+        ),
+        ActorGeneratedManifest.InputSource(
+          relativePath: "Actions/Secret.swift",
+          contentDigest: ActorStableHash.digest(serverOnlySource),
+          replacedActorNames: [],
+          replacedPortableTypeNames: []
+        ),
+        ActorGeneratedManifest.InputSource(
+          relativePath: "App.swift",
+          contentDigest: ActorStableHash.digest(serverOnlySource),
+          replacedActorNames: [],
+          replacedPortableTypeNames: []
+        )
+      ],
+      generatedFiles: [],
+      dependencySchemas: [],
+      schemaContentDigest: "fixture",
+      schemaModuleTypeName: "SharedActorsActorSchemaModule",
+      bootstrapTypeName: "SharedActorsActorSystemBootstrap"
+    )
+    let generatedDirectory = root.appendingPathComponent("generated", isDirectory: true)
+    try FileManager.default.createDirectory(
+      at: generatedDirectory,
+      withIntermediateDirectories: true
+    )
+    let projection = SwiftWebActorDependencyProjection(
+      moduleName: "SharedActors",
+      dependencyModuleNames: [],
+      clientImportedModuleNames: [],
+      customConditions: [],
+      upcomingFeatures: [],
+      experimentalFeatures: [],
+      sourceDirectory: sourceDirectory,
+      projection: try SwiftWebActorProjection(
+        manifest: manifest,
+        generatedDirectory: generatedDirectory,
+        targetEnvironment: wasmEnvironment(
+          embedded: true,
+          availableModules: ["ActorSystemEmbedded"]
+        )
+      )
+    )
+    let destination = root.appendingPathComponent("materialized", isDirectory: true)
+    try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+
+    try projection.installProjectedOriginalSources(
+      in: destination,
+      fileWriter: GeneratedPackageFileWriter()
+    )
+
+    let projected = try String(
+      contentsOf: destination.appendingPathComponent("Feature.swift"),
+      encoding: .utf8
+    )
+    #expect(projected.contains("struct ClientHelper"))
+    #expect(projected.contains("dependencyClientMarker"))
+    #expect(!projected.contains("dependencyServerSecret"))
+    #expect(!projected.contains("distributed actor SharedCounter"))
+    #expect(
+      !FileManager.default.fileExists(
+        atPath: destination.appendingPathComponent("Actions/Secret.swift").path
+      )
+    )
+    #expect(
+      !FileManager.default.fileExists(
+        atPath: destination.appendingPathComponent("App.swift").path
+      )
+    )
+  }
+
+  @Test
+  func materializationTransactionRestoresBothRootsAfterCommitFailure() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+      "SwiftWebGeneratedPackageTransaction-\(UUID().uuidString)",
+      isDirectory: true
+    )
+    defer {
+      do {
+        try FileManager.default.removeItem(at: root)
+      } catch {
+        Issue.record("Failed to remove temporary directory: \(error)")
+      }
+    }
+    let generatedRoot = root.appendingPathComponent("generated", isDirectory: true)
+    let nativeSource = root.appendingPathComponent("Sources/App", isDirectory: true)
+    let nativeGenerated = nativeSource.appendingPathComponent(
+      "ActorSystemGenerated",
+      isDirectory: true
+    )
+    try write(
+      "old generated root",
+      to: generatedRoot.appendingPathComponent("marker.txt")
+    )
+    try write(
+      "old native projection",
+      to: nativeGenerated.appendingPathComponent("marker.txt")
+    )
+    let transaction = GeneratedPackageMaterializationTransaction(
+      generatedPackageDirectory: generatedRoot,
+      nativeSourceDirectory: nativeSource,
+      beforeGeneratedRootCommit: {
+        throw GeneratedPackageCommitFixtureError()
+      }
+    )
+    try transaction.prepare()
+    try write(
+      "new generated root",
+      to: transaction.stagingGeneratedPackageDirectory
+        .appendingPathComponent("marker.txt")
+    )
+    try write(
+      "new native projection",
+      to: transaction.stagingNativeSourceDirectory
+        .appendingPathComponent("ActorSystemGenerated/marker.txt")
+    )
+
+    #expect(throws: GeneratedPackageCommitFixtureError.self) {
+      try transaction.commit()
+    }
+
+    #expect(
+      try String(
+        contentsOf: generatedRoot.appendingPathComponent("marker.txt"),
+        encoding: .utf8
+      ) == "old generated root"
+    )
+    #expect(
+      try String(
+        contentsOf: nativeGenerated.appendingPathComponent("marker.txt"),
+        encoding: .utf8
+      ) == "old native projection"
+    )
+    try transaction.discardPreparedArtifacts()
+  }
+
+  @Test
+  func materializationTransactionRecoversAnInterruptedPreparedCommit() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+      "SwiftWebGeneratedPackageRecovery-\(UUID().uuidString)",
+      isDirectory: true
+    )
+    defer {
+      do {
+        try FileManager.default.removeItem(at: root)
+      } catch {
+        Issue.record("Failed to remove temporary directory: \(error)")
+      }
+    }
+    let generatedRoot = root.appendingPathComponent("generated", isDirectory: true)
+    let nativeSource = root.appendingPathComponent("Sources/App", isDirectory: true)
+    let nativeGenerated = nativeSource.appendingPathComponent(
+      "ActorSystemGenerated",
+      isDirectory: true
+    )
+    try write("old generated root", to: generatedRoot.appendingPathComponent("marker.txt"))
+    try write("old native projection", to: nativeGenerated.appendingPathComponent("marker.txt"))
+
+    let interrupted = GeneratedPackageMaterializationTransaction(
+      generatedPackageDirectory: generatedRoot,
+      nativeSourceDirectory: nativeSource
+    )
+    try interrupted.prepare()
+    try write(
+      "new generated root",
+      to: interrupted.stagingGeneratedPackageDirectory.appendingPathComponent("marker.txt")
+    )
+    let stagedNativeGenerated = interrupted.stagingNativeSourceDirectory
+      .appendingPathComponent("ActorSystemGenerated", isDirectory: true)
+    try write(
+      "new native projection",
+      to: stagedNativeGenerated.appendingPathComponent("marker.txt")
+    )
+    let journal = GeneratedPackageMaterializationTransaction.RecoveryJournal(
+      version: 1,
+      phase: .prepared,
+      hadGeneratedPackage: true,
+      hadNativeSources: true,
+      generatedPackageDirectory: generatedRoot.path,
+      nativeGeneratedSourceDirectory: nativeGenerated.path,
+      stagingGeneratedPackageDirectory: interrupted.stagingGeneratedPackageDirectory.path,
+      stagingNativeSourceDirectory: interrupted.stagingNativeSourceDirectory.path,
+      generatedPackageBackupDirectory: interrupted.generatedPackageBackupDirectory.path,
+      nativeGeneratedSourceBackupDirectory: interrupted.nativeGeneratedSourceBackupDirectory.path
+    )
+    try JSONEncoder().encode(journal).write(
+      to: interrupted.recoveryJournalURL,
+      options: .atomic
+    )
+    try FileManager.default.moveItem(
+      at: generatedRoot,
+      to: interrupted.generatedPackageBackupDirectory
+    )
+    try FileManager.default.moveItem(
+      at: nativeGenerated,
+      to: interrupted.nativeGeneratedSourceBackupDirectory
+    )
+    try FileManager.default.moveItem(
+      at: stagedNativeGenerated,
+      to: nativeGenerated
+    )
+
+    let recovered = GeneratedPackageMaterializationTransaction(
+      generatedPackageDirectory: generatedRoot,
+      nativeSourceDirectory: nativeSource
+    )
+    try recovered.prepare()
+
+    #expect(
+      try String(
+        contentsOf: generatedRoot.appendingPathComponent("marker.txt"),
+        encoding: .utf8
+      ) == "old generated root"
+    )
+    #expect(
+      try String(
+        contentsOf: nativeGenerated.appendingPathComponent("marker.txt"),
+        encoding: .utf8
+      ) == "old native projection"
+    )
+    #expect(!FileManager.default.fileExists(atPath: recovered.recoveryJournalURL.path))
+    try recovered.discardPreparedArtifacts()
+  }
+
+  @Test
+  func materializationTransactionFinalizesAnInterruptedInstalledCommit() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+      "SwiftWebGeneratedPackageInstalledRecovery-\(UUID().uuidString)",
+      isDirectory: true
+    )
+    defer {
+      do {
+        try FileManager.default.removeItem(at: root)
+      } catch {
+        Issue.record("Failed to remove temporary directory: \(error)")
+      }
+    }
+    let generatedRoot = root.appendingPathComponent("generated", isDirectory: true)
+    let nativeSource = root.appendingPathComponent("Sources/App", isDirectory: true)
+    let nativeGenerated = nativeSource.appendingPathComponent(
+      "ActorSystemGenerated",
+      isDirectory: true
+    )
+    try write("old generated root", to: generatedRoot.appendingPathComponent("marker.txt"))
+    try write("old native projection", to: nativeGenerated.appendingPathComponent("marker.txt"))
+
+    let interrupted = GeneratedPackageMaterializationTransaction(
+      generatedPackageDirectory: generatedRoot,
+      nativeSourceDirectory: nativeSource
+    )
+    try interrupted.prepare()
+    try write(
+      "new generated root",
+      to: interrupted.stagingGeneratedPackageDirectory.appendingPathComponent("marker.txt")
+    )
+    let stagedNativeGenerated = interrupted.stagingNativeSourceDirectory
+      .appendingPathComponent("ActorSystemGenerated", isDirectory: true)
+    try write(
+      "new native projection",
+      to: stagedNativeGenerated.appendingPathComponent("marker.txt")
+    )
+    var journal = GeneratedPackageMaterializationTransaction.RecoveryJournal(
+      version: 1,
+      phase: .prepared,
+      hadGeneratedPackage: true,
+      hadNativeSources: true,
+      generatedPackageDirectory: generatedRoot.path,
+      nativeGeneratedSourceDirectory: nativeGenerated.path,
+      stagingGeneratedPackageDirectory: interrupted.stagingGeneratedPackageDirectory.path,
+      stagingNativeSourceDirectory: interrupted.stagingNativeSourceDirectory.path,
+      generatedPackageBackupDirectory: interrupted.generatedPackageBackupDirectory.path,
+      nativeGeneratedSourceBackupDirectory: interrupted.nativeGeneratedSourceBackupDirectory.path
+    )
+    try JSONEncoder().encode(journal).write(
+      to: interrupted.recoveryJournalURL,
+      options: .atomic
+    )
+    try FileManager.default.moveItem(
+      at: generatedRoot,
+      to: interrupted.generatedPackageBackupDirectory
+    )
+    try FileManager.default.moveItem(
+      at: nativeGenerated,
+      to: interrupted.nativeGeneratedSourceBackupDirectory
+    )
+    try FileManager.default.moveItem(
+      at: stagedNativeGenerated,
+      to: nativeGenerated
+    )
+    try FileManager.default.moveItem(
+      at: interrupted.stagingGeneratedPackageDirectory,
+      to: generatedRoot
+    )
+    journal.phase = .installed
+    try JSONEncoder().encode(journal).write(
+      to: interrupted.recoveryJournalURL,
+      options: .atomic
+    )
+
+    let recovered = GeneratedPackageMaterializationTransaction(
+      generatedPackageDirectory: generatedRoot,
+      nativeSourceDirectory: nativeSource
+    )
+    try recovered.prepare()
+
+    #expect(
+      try String(
+        contentsOf: generatedRoot.appendingPathComponent("marker.txt"),
+        encoding: .utf8
+      ) == "new generated root"
+    )
+    #expect(
+      try String(
+        contentsOf: nativeGenerated.appendingPathComponent("marker.txt"),
+        encoding: .utf8
+      ) == "new native projection"
+    )
+    #expect(!FileManager.default.fileExists(atPath: interrupted.generatedPackageBackupDirectory.path))
+    #expect(!FileManager.default.fileExists(atPath: interrupted.nativeGeneratedSourceBackupDirectory.path))
+    #expect(!FileManager.default.fileExists(atPath: recovered.recoveryJournalURL.path))
+    try recovered.discardPreparedArtifacts()
+  }
+
+  @Test
+  func rendersDependencyActorTargetsAndQualifiedAggregateBootstrap() throws {
+    let root = URL(fileURLWithPath: "/tmp/swiftweb-format-fixture", isDirectory: true)
+    let context = GeneratedPackageRenderContext(
+      layout: GeneratedPackageLayout(
+        appPackageDirectory: root,
+        rootDirectory: root.appendingPathComponent("generated", isDirectory: true)
+      ),
+      swiftWebPackageDirectory: root,
+      appPackageName: "SampleApp",
+      appPackageDependencyName: "sample-app",
+      appProductName: "SampleApp",
+      serverProductName: "app-server",
+      developmentServerProductName: "app-server-dev",
+      devProductName: "SampleApp-dev",
+      wasmRuntimeTargets: [],
+      clientEnvironmentKeyTypeNames: [],
+      wasmRuntimeProfile: .standard,
+      embeddedUnicodeDataTablesLibraryPath: nil,
+      nativeActorBootstrapTypeName: "SampleAppActorSystemBootstrap",
+      clientActorBootstrapTypeName: "SampleAppActorSystemBootstrap",
+      appActorCustomConditions: ["ROOT_ACTORS", "SWIFTWEB_ACTORS"],
+      appActorUpcomingFeatures: ["RootUpcoming"],
+      appActorExperimentalFeatures: [],
+      actorDependencyTargets: [
+        GeneratedActorDependencyTarget(
+          moduleName: "CommonActors",
+          dependencyModuleNames: [],
+          bootstrapTypeName: "CommonActorsActorSystemBootstrap"
+        ),
+        GeneratedActorDependencyTarget(
+          moduleName: "SharedActors",
+          dependencyModuleNames: ["CommonActors"],
+          clientImportedModuleNames: ["ActorRuntime", "JavaScriptKit", "SwiftWebUI"],
+          customConditions: ["SHARED_ACTORS", "SWIFTWEB_ACTORS"],
+          experimentalFeatures: ["SharedExperimental"],
+          bootstrapTypeName: "SharedActorsActorSystemBootstrap"
+        ),
+      ]
+    )
+
+    let packageSource = try WasmPackageManifestFormat().packageSwift(context: context)
+    let resolverSource = try WasmActorResolverRegistryFormat().resolverRegistrySwift(
+      context: context
+    )
+    let launcherSource = ServerPackageFormat.serverLauncherSwift(
+      context: context,
+      installsDevelopmentHooks: false
+    )
+
+    #expect(packageSource.contains("name: \"CommonActors\""))
+    #expect(packageSource.contains("name: \"SharedActors\""))
+    #expect(packageSource.contains("path: \"Sources/CommonActors\""))
+    #expect(packageSource.contains("path: \"Sources/SharedActors\""))
+    #expect(packageSource.contains("\"CommonActors\","))
+    let appTargetStart = try #require(
+      packageSource.range(of: "let appClientTarget = Target.target(")
+    )
+    let appTargetEnd = try #require(
+      packageSource.range(
+        of: "swiftSettings: appActorSwiftSettings",
+        range: appTargetStart.lowerBound..<packageSource.endIndex
+      )
+    )
+    let appTargetDeclaration = packageSource[
+      appTargetStart.lowerBound..<appTargetEnd.upperBound
+    ]
+    #expect(appTargetDeclaration.contains("name: \"SampleApp\""))
+    #expect(appTargetDeclaration.contains("swiftSettings: appActorSwiftSettings"))
+    let sharedTargetStart = try #require(
+      packageSource.range(of: "let sharedActorsTarget = Target.target(")
+    )
+    let sharedTargetEnd = try #require(
+      packageSource.range(
+        of: "path: \"Sources/SharedActors\"",
+        range: sharedTargetStart.lowerBound..<packageSource.endIndex
+      )
+    )
+    let sharedTargetDeclaration = packageSource[
+      sharedTargetStart.lowerBound..<sharedTargetEnd.upperBound
+    ]
+    #expect(sharedTargetDeclaration.contains("\"CommonActors\","))
+    #expect(sharedTargetDeclaration.contains("\"JavaScriptKit\","))
+    #expect(sharedTargetDeclaration.contains("\"SwiftWebUI\","))
+    #expect(!sharedTargetDeclaration.contains("ActorRuntime"))
+    let sharedActorSettings = try #require(
+      packageSource.range(
+        of: "swiftSettings: sharedActorsTargetSwiftSettings",
+        range: sharedTargetStart.lowerBound..<packageSource.endIndex
+      )
+    )
+    #expect(sharedActorSettings.lowerBound > sharedTargetEnd.lowerBound)
+    #expect(packageSource.contains("let appActorSwiftSettings: [SwiftSetting] = actorSwiftSettings + ["))
+    #expect(packageSource.contains(".define(\"ROOT_ACTORS\")"))
+    #expect(packageSource.contains(".enableUpcomingFeature(\"RootUpcoming\")"))
+    #expect(packageSource.contains("let sharedActorsTargetSwiftSettings: [SwiftSetting] = actorSwiftSettings + ["))
+    #expect(packageSource.contains(".define(\"SHARED_ACTORS\")"))
+    #expect(packageSource.contains(".enableExperimentalFeature(\"SharedExperimental\")"))
+    #expect(
+      packageSource.components(separatedBy: ".define(\"SWIFTWEB_ACTORS\")").count == 2
+    )
+    #expect(!packageSource.contains("SWIFTWEB_LEGACY_ACTORS"))
+    #expect(!packageSource.contains("ActorSystemCompatibility"))
+    #expect(resolverSource.contains("import CommonActors"))
+    #expect(resolverSource.contains("import SharedActors"))
+    #expect(resolverSource.contains("SampleAppActorSystemBootstrap.self"))
+    #expect(
+      resolverSource.contains(
+        "CommonActors.CommonActorsActorSystemBootstrap.self"
+      )
+    )
+    #expect(
+      resolverSource.contains(
+        "SharedActors.SharedActorsActorSystemBootstrap.self"
+      )
+    )
+    let sharedRegistration = try #require(
+      launcherSource.range(
+        of: "try WebActorSystem.shared.registerGeneratedBootstrap(SampleAppActorSystemBootstrap.self)"
+      )
+    )
+    let appInitialization = try #require(
+      launcherSource.range(of: "let app = SampleApp()")
+    )
+    let appRegistration = try #require(
+      launcherSource.range(
+        of: "try app.actorSystem.registerGeneratedBootstrap(SampleAppActorSystemBootstrap.self)"
+      )
+    )
+    #expect(sharedRegistration.lowerBound < appInitialization.lowerBound)
+    #expect(appInitialization.lowerBound < appRegistration.lowerBound)
+  }
+
+  @Test
+  func generatedProfilesRejectLegacyActorContractsBeforeRendering() {
+    let root = URL(fileURLWithPath: "/tmp/swiftweb-legacy-contract-fixture", isDirectory: true)
+    for profile in [SwiftWebWasmRuntimeProfile.standard, .embedded] {
+      let context = GeneratedPackageRenderContext(
+        layout: GeneratedPackageLayout(
+          appPackageDirectory: root,
+          rootDirectory: root.appendingPathComponent("generated", isDirectory: true)
+        ),
+        swiftWebPackageDirectory: root,
+        appPackageName: "SampleApp",
+        appPackageDependencyName: "sample-app",
+        appProductName: "SampleApp",
+        serverProductName: "app-server",
+        developmentServerProductName: "app-server-dev",
+        devProductName: "SampleApp-dev",
+        wasmRuntimeTargets: [
+          WasmRuntimeTargetDeclaration(
+            targetName: "SampleAppWasmRuntime",
+            bundleID: ClientBundleID("sample-app"),
+            componentTypeNames: ["ClientSample"],
+            actorContracts: [
+              ClientActorContractDeclaration(
+                serviceTypeName: "SampleServiceProtocol",
+                isLegacyExistential: true
+              )
+            ],
+            linkMode: .standalone
+          )
+        ],
+        clientEnvironmentKeyTypeNames: [],
+        wasmRuntimeProfile: profile,
+        embeddedUnicodeDataTablesLibraryPath: profile == .embedded
+          ? "/tmp/libswiftUnicodeDataTables.a"
+          : nil,
+        nativeActorBootstrapTypeName: nil,
+        clientActorBootstrapTypeName: nil,
+        appActorCustomConditions: [],
+        appActorUpcomingFeatures: [],
+        appActorExperimentalFeatures: [],
+        actorDependencyTargets: []
+      )
+
+      #expect(throws: SwiftWebGeneratedPackageMaterializerError.self) {
+        try WasmActorResolverRegistryFormat().resolverRegistrySwift(context: context)
+      }
+    }
+  }
+
   @Test
   func materializesGeneratedBuildPackage() throws {
     let root = FileManager.default.temporaryDirectory
@@ -78,8 +698,8 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Components/Text.swift")
     )
     try write(
-      "public struct WebActorSystem {}",
-      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebRuntime/Actors/WebActorSystem.swift")
+      "public struct LegacyWebActorSystem {}",
+      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebRuntime/Actors/LegacyWebActorSystem.swift")
     )
     try write(
       "import SwiftHTML\npublic struct RuntimeEntrypoint {}",
@@ -113,7 +733,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     try write(
       """
       public struct ClientSample: ClientComponent {
-          @RemoteActor private var service: any SampleServiceProtocol
+          @RemoteActor private var service: SampleService
 
           public init() {}
       }
@@ -134,16 +754,64 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       """,
       to: appPackage.appendingPathComponent("Sources/SampleApp/ClientExtensionBox.swift")
     )
+    let sampleActorSourceDirectory = appPackage.appendingPathComponent(
+      "Sources/SampleApp",
+      isDirectory: true
+    )
+    let sampleActorSource = sampleActorSourceDirectory.appendingPathComponent(
+      "Services/SampleService.swift"
+    )
     try write(
       """
-      @Resolvable
-      protocol SampleServiceProtocol: DistributedActor
-      where ActorSystem == WebActorSystem {
-          distributed func ping() async throws -> String
+      import Distributed
+      import SwiftWebActors
+
+      distributed actor SampleService {
+          typealias ActorSystem = WebActorSystem
+
+          distributed func ping() async throws -> String {
+              "pong"
+          }
       }
       """,
-      to: appPackage.appendingPathComponent(
-        "Sources/SampleApp/Services/SampleServiceProtocol.swift")
+      to: sampleActorSource
+    )
+    let fixtureActors = try ActorSourceScanner.scan(
+      sourceFiles: [sampleActorSource],
+      moduleName: "SampleApp",
+      includingActorSystemTypes: ["WebActorSystem"]
+    )
+    let fixtureToolchain = try SwiftWebHostSwiftToolchain.resolve(
+      configuration: SwiftWebDevRuntimeConfiguration(packageDirectory: appPackage)
+    )
+    let fixtureToolchainFingerprint = try ActorToolchainFingerprint.compute(
+      swiftCompiler: fixtureToolchain.swiftCompilerURL
+    )
+    let fixtureCompilerTargets = fixtureActors.flatMap { actor in
+      actor.methods.map { method in
+        ActorCompilerTargetMapping(
+          key: ActorCompilerTargetKey(
+            actorSymbol: actor.symbol,
+            canonicalMethodSignature: method.canonicalSignature
+          ),
+          targetIdentifier: "fixture:\(actor.symbol):\(method.canonicalSignature)"
+        )
+      }
+    }
+    let fixtureSchema = try ActorSchemaReconciler.reconcile(
+      actors: fixtureActors,
+      packageIdentity: "sampleapp",
+      moduleName: "SampleApp",
+      toolchainFingerprint: fixtureToolchainFingerprint,
+      compilerTargets: fixtureCompilerTargets,
+      sourceRoot: sampleActorSourceDirectory,
+      existing: ActorSchemaLock(packageIdentity: "sampleapp")
+    )
+    let fixtureSchemaEncoder = JSONEncoder()
+    fixtureSchemaEncoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+    try fixtureSchemaEncoder.encode(fixtureSchema).write(
+      to: appPackage.appendingPathComponent("ActorSchema.lock"),
+      options: .atomic
     )
     try write(
       "struct Page {}", to: appPackage.appendingPathComponent("Sources/SampleApp/Routes/Page.swift")
@@ -255,7 +923,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     #expect(!wasmPackageResolved.contains("javascriptkit"))
     #expect(!wasmPackageResolved.contains("swift-syntax"))
     #expect(!wasmPackageResolved.contains("vapor"))
-    #expect(wasmPackageResolved.contains("swift-actor-runtime"))
+    #expect(!wasmPackageResolved.contains("swift-actor-runtime"))
     #expect(
       serverPackageSwift.contains(
         ".executable(name: \"app-server\", targets: [\"AppServerLauncher\"])"))
@@ -305,9 +973,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     )
     #expect(!wasmPackageSwift.contains("swift-syntax"))
     #expect(!wasmPackageSwift.contains("BridgeJSMacros"))
-    #expect(
-      wasmPackageSwift.contains(
-        ".package(url: \"https://github.com/1amageek/swift-actor-runtime.git\", exact: \"0.6.0\")"))
+    #expect(!wasmPackageSwift.contains("swift-actor-runtime"))
     #expect(!wasmPackageSwift.contains(".package(path: \"\(swiftWebPackage.path)\""))
     #expect(!wasmPackageSwift.contains(".package(path: \"\(appPackage.path)\""))
     #expect(!wasmPackageSwift.contains("AppServerLauncher"))
@@ -330,16 +996,20 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         let swiftWebActorsTarget = Target.target(
             name: "SwiftWebActors",
             dependencies: [
-                .product(name: "ActorRuntime", package: "swift-actor-runtime"),
+                "ActorSystemCore",
+                "ActorSystemDistributed",
                 "SwiftHTML",
             ],
             path: "Sources/SwiftWebActors",
             swiftSettings: actorSwiftSettings
         )
         """))
-    #expect(
-      wasmPackageSwift.contains(
-        ".product(name: \"ActorRuntime\", package: \"swift-actor-runtime\")"))
+    #expect(!wasmPackageSwift.contains("ActorRuntime"))
+    #expect(!wasmPackageSwift.contains("ActorSystemCompatibility"))
+    #expect(!wasmPackageSwift.contains("SWIFTWEB_LEGACY_ACTORS"))
+    #expect(wasmPackageSwift.contains("let actorSystemCoreTarget = Target.target("))
+    #expect(wasmPackageSwift.contains("name: \"ActorSystemDistributed\""))
+    #expect(wasmPackageSwift.contains("path: \"Sources/ActorSystemDistributed\""))
     #expect(wasmPackageSwift.contains("let swiftWebUITarget = Target.target("))
     #expect(wasmPackageSwift.contains("let swiftWebUIThemeTarget = Target.target("))
     #expect(wasmPackageSwift.contains("let cJavaScriptKitTarget = Target.target("))
@@ -356,10 +1026,15 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         let appClientTarget = Target.target(
             name: "SampleApp",
             dependencies: [
+                "ActorSystemCore",
+                "ActorSystemDistributed",
+                "JavaScriptKit",
                 "SwiftHTML",
                 "SwiftWebActors",
+                "SwiftWebStyle",
                 "SwiftWebUI",
                 "SwiftWebUIRuntime",
+                "SwiftWebUITheme",
             ],
         """))
     #expect(
@@ -390,6 +1065,8 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         let swiftWebUIRuntimeTarget = Target.target(
             name: "SwiftWebUIRuntime",
             dependencies: [
+                "ActorSystemCore",
+                "ActorSystemDistributed",
                 "SwiftHTML",
                 "JavaScriptKit",
                 "SwiftWebActors",
@@ -398,6 +1075,10 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         """))
     #expect(wasmPackageSwift.contains("--export=swiftweb_snapshot_state"))
     #expect(wasmPackageSwift.contains("--export=swiftweb_restore_state"))
+    #expect(wasmPackageSwift.contains("--export=swiftweb_shutdown"))
+    #expect(wasmPackageSwift.contains("--export=swiftweb_shutdown_status"))
+    #expect(wasmPackageSwift.contains("let swiftHTMLSwiftSettings: [SwiftSetting]"))
+    #expect(wasmPackageSwift.contains("swiftSettings: swiftHTMLSwiftSettings"))
     // The client hydration walk recurses the component tree; deep trees overflow
     // the default 1MB wasm stack. Pin the larger stack so it can't silently regress.
     #expect(wasmPackageSwift.contains("stack-size=16777216"))
@@ -439,11 +1120,11 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       encoding: .utf8
     )
     #expect(!copiedClientSample.contains("@RemoteActor"))
-    #expect(copiedClientSample.contains("private var service: any SampleServiceProtocol {"))
+    #expect(copiedClientSample.contains("private var service: SampleService {"))
     #expect(copiedClientSample.contains("SwiftWebActorBinding.resolve("))
     #expect(
       copiedClientSample.contains(
-        "SwiftWebActorContractKey(String(reflecting: (any SampleServiceProtocol).self))"
+        "SwiftWebActorContractKey((SampleService).self)"
       ))
     #expect(
       FileManager.default.fileExists(
@@ -455,7 +1136,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       ))
     #expect(
       FileManager.default.fileExists(
-        atPath: wasmSources.appendingPathComponent("SampleApp/Services/SampleServiceProtocol.swift")
+        atPath: wasmSources.appendingPathComponent("SampleApp/Services/SampleService.swift")
           .path
       ))
     #expect(
@@ -506,9 +1187,9 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     #expect(wasmActorResolvers.contains("SwiftWebActorResolver("))
     #expect(
       wasmActorResolvers.contains(
-        "SwiftWebActorContractKey(String(reflecting: (any SampleServiceProtocol).self))"
+        "SwiftWebActorContractKey(SampleService.self)"
       ))
-    #expect(wasmActorResolvers.contains("actorContract: $SampleServiceProtocol.self"))
+    #expect(wasmActorResolvers.contains("actorContract: SampleService.self"))
     #expect(wasmEntrypoint.contains("actorResolverRegistry: sampleAppWasmRuntimeActorResolvers"))
     #expect(wasmEntrypoint.contains("import SwiftWebUI"))
     #expect(wasmEntrypoint.contains("import SwiftWebUIRuntime"))
@@ -518,8 +1199,9 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     #expect(wasmEntrypoint.contains("ClientBadge.self"))
     #expect(wasmEntrypoint.contains("ClientExtensionBox.self"))
     #expect(wasmEntrypoint.contains("makeSwiftWebWasmRoot"))
-    #expect(wasmEntrypoint.contains("ClientRuntimeBootstrapInitializable.Type"))
-    #expect(wasmEntrypoint.contains("let root = try bootstrapType.init(bootstrap: request)"))
+    #expect(wasmEntrypoint.contains("Root: ClientRuntimeBootstrapInitializable"))
+    #expect(wasmEntrypoint.contains("try Root(bootstrap: request)"))
+    #expect(!wasmEntrypoint.contains(" as? "))
     #expect(
       FileManager.default.fileExists(
         atPath: wasmSources.appendingPathComponent("SwiftHTML/Core/HTML.swift").path
@@ -538,7 +1220,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       ))
     #expect(
       FileManager.default.fileExists(
-        atPath: wasmSources.appendingPathComponent("SwiftWebActors/WebActorSystem.swift").path
+        atPath: wasmSources.appendingPathComponent("SwiftWebActors/LegacyWebActorSystem.swift").path
       ))
     #expect(
       FileManager.default.fileExists(
@@ -604,7 +1286,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
   }
 
   @Test
-  func rejectsUnsupportedEmbeddedWasmRuntimeProfile() throws {
+  func materializesEmbeddedWasmRuntimeProfile() throws {
     let root = FileManager.default.temporaryDirectory
       .appendingPathComponent(
         "SwiftWebEmbeddedWasmMaterializerTests-\(UUID().uuidString)", isDirectory: true)
@@ -677,8 +1359,8 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Components/Text.swift")
     )
     try write(
-      "public struct WebActorSystem {}",
-      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebRuntime/Actors/WebActorSystem.swift")
+      "public struct LegacyWebActorSystem {}",
+      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebRuntime/Actors/LegacyWebActorSystem.swift")
     )
     try write(
       "import SwiftHTML\npublic struct RuntimeEntrypoint {}",
@@ -714,13 +1396,64 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       to: appPackage.appendingPathComponent("Sources/SampleApp/ClientSample.swift")
     )
 
-    #expect(throws: SwiftWebGeneratedPackageMaterializerError.self) {
-      try SwiftWebGeneratedPackageMaterializer(
-        appPackageDirectory: appPackage,
-        wasmRuntimeProfile: .embedded
+    let generated = try SwiftWebGeneratedPackageMaterializer(
+      appPackageDirectory: appPackage,
+      wasmRuntimeProfile: .embedded
+    )
+    .materialize()
+    let manifest = try String(
+      contentsOf: generated.wasmPackageDirectory.appendingPathComponent("Package.swift"),
+      encoding: .utf8
+    )
+    let sources = generated.wasmPackageDirectory.appendingPathComponent(
+      "Sources",
+      isDirectory: true
+    )
+    let entrypoint = try String(
+      contentsOf: sources.appendingPathComponent(
+        "SampleAppWasmRuntime/SampleAppWasmRuntime.swift"
+      ),
+      encoding: .utf8
+    )
+
+    #expect(manifest.contains("let actorSystemCoreTarget = Target.target("))
+    #expect(manifest.contains("name: \"ActorSystemEmbedded\""))
+    #expect(manifest.contains("path: \"Sources/ActorSystemEmbedded\""))
+    #expect(!manifest.contains("ActorRuntime"))
+    #expect(!manifest.contains("ActorSystemCompatibility"))
+    #expect(!manifest.contains("SWIFTWEB_LEGACY_ACTORS"))
+    #expect(!manifest.contains("swift-actor-runtime"))
+    #expect(!manifest.contains(".define(\"SWIFTWEB_ACTORS\")"))
+    #expect(manifest.contains("\"ActorSystemEmbedded\","))
+    #expect(entrypoint.contains("typeName: \"ClientSample\""))
+    #expect(entrypoint.contains("Root: ClientRuntimeBootstrapInitializable"))
+    #expect(entrypoint.contains("try Root(bootstrap: request)"))
+    #expect(entrypoint.contains("@_cdecl(\"swiftweb_shutdown\")"))
+    #expect(entrypoint.contains("@_cdecl(\"swiftweb_shutdown_status\")"))
+    #expect(!entrypoint.contains("String(reflecting:"))
+    #expect(!entrypoint.contains(" as? "))
+    #expect(
+      FileManager.default.fileExists(
+        atPath: sources.appendingPathComponent("ActorSystemCore/ActorSystemCore.swift").path
       )
-      .materialize()
-    }
+    )
+    #expect(
+      FileManager.default.fileExists(
+        atPath: sources.appendingPathComponent("ActorSystemEmbedded/EmbeddedActorSystem.swift").path
+      )
+    )
+    #expect(
+      !FileManager.default.fileExists(
+        atPath: sources.appendingPathComponent("ActorSystemDistributed").path
+      )
+    )
+    #expect(
+      FileManager.default.fileExists(
+        atPath: sources.appendingPathComponent(
+          "SampleApp/SwiftWebGeneratedActorResolvers.swift"
+        ).path
+      )
+    )
   }
 
   @Test
@@ -830,8 +1563,8 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Components/Text.swift")
     )
     try write(
-      "public struct WebActorSystem {}",
-      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebRuntime/Actors/WebActorSystem.swift")
+      "public struct LegacyWebActorSystem {}",
+      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebRuntime/Actors/LegacyWebActorSystem.swift")
     )
     try write(
       "import SwiftHTML\npublic struct RuntimeEntrypoint {}",
@@ -893,12 +1626,10 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     #expect(serverPackageResolved.contains("\"branch\" : \"main\""))
     #expect(devPackageResolved.contains("\"identity\" : \"swift-http-server\""))
     #expect(devPackageResolved.contains("\"branch\" : \"main\""))
-    #expect(wasmPackageResolved.contains("\"identity\" : \"swift-actor-runtime\""))
+    #expect(!wasmPackageResolved.contains("\"identity\" : \"swift-actor-runtime\""))
     #expect(!wasmPackageResolved.contains("\"identity\" : \"swift-http-server\""))
     #expect(!wasmPackageResolved.contains("\"identity\" : \"vapor\""))
-    #expect(
-      wasmPackageSwift.contains(
-        ".package(url: \"https://github.com/1amageek/swift-actor-runtime.git\", exact: \"0.6.0\")"))
+    #expect(!wasmPackageSwift.contains("swift-actor-runtime"))
   }
 
   @Test
@@ -972,8 +1703,8 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Components/Text.swift")
     )
     try write(
-      "public struct WebActorSystem {}",
-      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebRuntime/Actors/WebActorSystem.swift")
+      "public struct LegacyWebActorSystem {}",
+      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebRuntime/Actors/LegacyWebActorSystem.swift")
     )
     try write(
       "import SwiftHTML\npublic struct RuntimeEntrypoint {}",
@@ -1053,7 +1784,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       ))
     #expect(
       FileManager.default.fileExists(
-        atPath: generatedSources.appendingPathComponent("SwiftWebActors/WebActorSystem.swift").path
+        atPath: generatedSources.appendingPathComponent("SwiftWebActors/LegacyWebActorSystem.swift").path
       ))
     #expect(
       FileManager.default.fileExists(
@@ -1147,8 +1878,8 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Components/Text.swift")
     )
     try write(
-      "public struct WebActorSystem {}",
-      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebRuntime/Actors/WebActorSystem.swift")
+      "public struct LegacyWebActorSystem {}",
+      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebRuntime/Actors/LegacyWebActorSystem.swift")
     )
     try write(
       "import SwiftHTML\npublic struct RuntimeEntrypoint {}",
@@ -1337,8 +2068,8 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Components/Text.swift")
     )
     try write(
-      "public struct WebActorSystem {}",
-      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebRuntime/Actors/WebActorSystem.swift")
+      "public struct LegacyWebActorSystem {}",
+      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebRuntime/Actors/LegacyWebActorSystem.swift")
     )
     try write(
       "import SwiftHTML\npublic struct RuntimeEntrypoint {}",
@@ -1607,8 +2338,8 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Components/Text.swift")
     )
     try write(
-      "public struct WebActorSystem {}",
-      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebRuntime/Actors/WebActorSystem.swift")
+      "public struct LegacyWebActorSystem {}",
+      to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebRuntime/Actors/LegacyWebActorSystem.swift")
     )
     try write(
       "import SwiftHTML\npublic struct RuntimeEntrypoint {}",
@@ -1683,6 +2414,25 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     try contents.write(to: url, atomically: true, encoding: .utf8)
   }
 
+  private func wasmEnvironment(
+    embedded: Bool,
+    availableModules: Set<String>
+  ) throws -> ActorGenerationTargetEnvironment {
+    try ActorGenerationTargetEnvironment(
+      availableModules: availableModules,
+      features: embedded ? ["ApproachableConcurrency", "Embedded"] : [
+        "ApproachableConcurrency"
+      ],
+      operatingSystem: "WASI",
+      architecture: "wasm32",
+      objectFormat: "wasm",
+      pointerBitWidth: 32,
+      atomicBitWidths: [8, 16, 32, 64],
+      languageVersion: [6],
+      compilerVersion: [6, 4]
+    )
+  }
+
   private func writeJavaScriptKitRuntimeCheckout(in swiftWebPackage: URL) throws {
     let sourceRoot =
       swiftWebPackage
@@ -1730,6 +2480,21 @@ struct SwiftWebGeneratedPackageMaterializerTests {
   }
 
   private func writeSwiftWebStyleRuntimeSources(in swiftWebPackage: URL) throws {
+    for targetName in [
+      "SwiftWebActors",
+      "SwiftWebStyle",
+      "SwiftWebUIRuntime",
+      "SwiftWebCore",
+      "SwiftWeb",
+      "SwiftWebHTTPServerHost",
+    ] {
+      try write(
+        "public enum \(targetName)FixtureModule {}",
+        to: swiftWebPackage.appendingPathComponent(
+          "Sources/\(targetName)/Fixture.swift"
+        )
+      )
+    }
     try write(
       "import SwiftHTML\npublic struct StyleRegistry { public init() {} }",
       to: swiftWebPackage.appendingPathComponent("Sources/SwiftWebUI/Style/StyleRegistry.swift")
@@ -1758,3 +2523,5 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     )
   }
 }
+
+private struct GeneratedPackageCommitFixtureError: Error {}

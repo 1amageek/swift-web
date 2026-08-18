@@ -24,8 +24,7 @@ flowchart LR
 | `App.swift` | Redirects `/` and mounts the counter service and page in `ActorScene` |
 | `Routes/CounterPage.swift` | Loads server state and renders the complete document |
 | `ClientCounter.swift` | Owns browser `@State` and typed actor calls |
-| `Services/CounterServiceProtocol.swift` | Declares the `@Resolvable` distributed actor contract |
-| `Actions/CounterService.swift` | Implements server state, RPC, and page-invalidating actions |
+| `Actions/CounterService.swift` | Declares the concrete distributed actor contract and implements server state, calls, and page-invalidating actions |
 
 The user package remains a library. `sweb` owns concrete launch products under
 `.swiftweb/generated`:
@@ -86,7 +85,7 @@ Build optimized browser runtimes and compression sidecars:
 sweb build \
   --wasm \
   --runtime standard \
-  --swift-sdk swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-23-a_wasm \
+  --swift-sdk swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-08-14-a_wasm \
   -c release
 ```
 

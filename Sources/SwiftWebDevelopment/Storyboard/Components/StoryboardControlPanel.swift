@@ -1,4 +1,6 @@
+#if !hasFeature(Embedded)
 import Foundation
+#endif
 import SwiftHTML
 import SwiftWebUI
 
@@ -30,14 +32,14 @@ private func doubleBinding(_ ui: Binding<[String: String]>, _ fullKey: String, _
 func formatControlNumber(_ value: Double, _ unit: ControlUnit) -> String {
     switch unit {
     case .integer, .pixels: return String(Int(value.rounded()))
-    case .decimal: return String(format: "%.2f", value)
+    case .decimal: return storyboardFixedDecimal(value, fractionDigits: 2)
     }
 }
 
 /// Human-readable readout shown beside a slider.
 private func controlReadout(_ value: Double, _ unit: ControlUnit) -> String {
     switch unit {
-    case .decimal: return String(format: "%.2f", value)
+    case .decimal: return storyboardFixedDecimal(value, fractionDigits: 2)
     case .integer: return String(Int(value.rounded()))
     case .pixels: return "\(Int(value.rounded()))px"
     }

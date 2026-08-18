@@ -17,13 +17,13 @@ struct WasmPackageFormat: GeneratedPackageFormat {
       GeneratedFile(
         packageKind: packageKind,
         relativePath: "Sources/\(context.appProductName)/SwiftWebGeneratedActorResolvers.swift",
-        contents: actorResolverFormat.resolverRegistrySwift(context: context)
+        contents: try actorResolverFormat.resolverRegistrySwift(context: context)
       ))
     files.append(
       GeneratedFile(
         packageKind: packageKind,
         relativePath: "Package.swift",
-        contents: manifestFormat.packageSwift(context: context)
+        contents: try manifestFormat.packageSwift(context: context)
       )
     )
     return files

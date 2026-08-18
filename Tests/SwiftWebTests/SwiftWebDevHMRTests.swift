@@ -378,18 +378,18 @@ struct SwiftWebDevHMRTests {
 
     let firstHash = try SwiftWebWasmBuildInputHasher.hash(
       runtime: runtime,
-      sdkName: "swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-23-a_wasm",
+      sdkName: "swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-08-14-a_wasm",
       swiftExecutablePath: "/usr/bin/swift"
     )
     let secondHash = try SwiftWebWasmBuildInputHasher.hash(
       runtime: runtime,
-      sdkName: "swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-23-a_wasm",
+      sdkName: "swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-08-14-a_wasm",
       swiftExecutablePath: "/usr/bin/swift"
     )
     try write("changed but ignored", to: root.appendingPathComponent("README.md"))
     let afterIgnoredFileHash = try SwiftWebWasmBuildInputHasher.hash(
       runtime: runtime,
-      sdkName: "swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-23-a_wasm",
+      sdkName: "swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-08-14-a_wasm",
       swiftExecutablePath: "/usr/bin/swift"
     )
     try write(
@@ -398,7 +398,7 @@ struct SwiftWebDevHMRTests {
     )
     let afterSourceChangeHash = try SwiftWebWasmBuildInputHasher.hash(
       runtime: runtime,
-      sdkName: "swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-07-23-a_wasm",
+      sdkName: "swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-08-14-a_wasm",
       swiftExecutablePath: "/usr/bin/swift"
     )
 
@@ -1495,7 +1495,11 @@ private func makeExecutable(named name: String, in directory: URL) throws -> URL
     withIntermediateDirectories: true
   )
   let url = directory.appendingPathComponent(name)
-  try "#!/bin/sh\nexit 0\n".write(to: url, atomically: true, encoding: .utf8)
+  try "#!/bin/sh\necho 'Swift version 6.4-dev (Swift 424cae54c1a10da)'\nexit 0\n".write(
+    to: url,
+    atomically: true,
+    encoding: .utf8
+  )
   try FileManager.default.setAttributes(
     [.posixPermissions: 0o755],
     ofItemAtPath: url.path

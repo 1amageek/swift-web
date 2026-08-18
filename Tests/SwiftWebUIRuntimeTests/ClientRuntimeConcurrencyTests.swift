@@ -1,3 +1,4 @@
+import ActorSystemCore
 import Foundation
 import SwiftHTML
 import Synchronization
@@ -129,6 +130,82 @@ private struct RepeatedRuntimePage: Component {
 
 @Suite(.serialized)
 struct ClientRuntimeConcurrencyTests {
+    @Test
+    func actorFetchFailureNormalizationHonorsCancellationAndShutdown() {
+        struct AdapterFailure: Error {}
+
+        let cancelled = JavaScriptKitActorRequestErrorNormalizer.normalize(
+            AdapterFailure(),
+            isCancelled: true,
+            isAccepting: true
+        )
+        #expect(cancelled.code == .cancelled)
+
+        let shutdown = JavaScriptKitActorRequestErrorNormalizer.normalize(
+            AdapterFailure(),
+            isCancelled: false,
+            isAccepting: false
+        )
+        #expect(shutdown.code == .transportClosed)
+
+        let rejected = JavaScriptKitActorRequestErrorNormalizer.normalize(
+            AdapterFailure(),
+            isCancelled: false,
+            isAccepting: true
+        )
+        #expect(rejected.code == .transportClosed)
+
+        let protocolFailure = JavaScriptKitActorRequestErrorNormalizer.normalize(
+            ActorSystemError.decodingFailed,
+            isCancelled: false,
+            isAccepting: true
+        )
+        #expect(protocolFailure.code == .decodingFailed)
+    }
+
+    @Test
+    func bridgeShutdownIsTerminal() async throws {
+        let index = RepeatedRuntimeCounter().renderArtifact().browserHydrationIndex()
+        let request = ClientRuntimeBootstrapRequest(
+            hydrationIndex: index,
+            location: ClientRuntimeBootstrapLocation(href: "/", search: "")
+        )
+        let bridge = ClientRuntimeBridge<RepeatedRuntimeCounter> { _ in
+            RepeatedRuntimeCounter()
+        }
+        _ = try bridge.bootstrap(request)
+        try await bridge.shutdown()
+
+        #expect(throws: ClientRuntimeBridgeError.self) {
+            _ = try bridge.bootstrap(request)
+        }
+    }
+
+    @Test
+    func bundleShutdownReportsCompletionOnlyAfterItsOwnerTaskFinishes() async throws {
+        let index = RepeatedRuntimePage().renderArtifact().browserHydrationIndex()
+        let entrypoint = ClientBundleRuntimeEntrypoint(
+            registrations: [
+                ClientComponentRegistration(RepeatedRuntimeCounter.self) { _ in
+                    RepeatedRuntimeCounter()
+                },
+            ],
+            domHost: nil
+        )
+        _ = try entrypoint.bootstrap(
+            ClientRuntimeBootstrapRequest(
+                hydrationIndex: index,
+                location: ClientRuntimeBootstrapLocation(href: "/", search: "")
+            )
+        )
+
+        #expect(entrypoint.shutdown() == 3)
+        while entrypoint.shutdownStatus() == 3 {
+            await Task.yield()
+        }
+        #expect(entrypoint.shutdownStatus() == 0)
+    }
+
     @Test
     func bundleNamespacesStateForRepeatedComponentTypes() throws {
         let serverIndex = RepeatedRuntimePage().renderArtifact().browserHydrationIndex()

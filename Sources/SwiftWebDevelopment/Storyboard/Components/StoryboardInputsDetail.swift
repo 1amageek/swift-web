@@ -1,4 +1,6 @@
+#if !hasFeature(Embedded)
 import Foundation
+#endif
 import SwiftHTML
 import SwiftWebUI
 
@@ -9,7 +11,9 @@ struct InputsDetail: Component {
     /// Shared control-panel state, keyed "componentID.knob".
     let ui: Binding<[String: String]>
     /// The date is kept as a typed binding (the panel only toggles its style).
+    #if !hasFeature(Embedded)
     let due: Binding<Date>
+    #endif
 
     private var state: [String: String] { ui.wrappedValue }
 
@@ -75,6 +79,57 @@ struct InputsDetail: Component {
         default: return .regular
         }
     }
+
+    #if hasFeature(Embedded)
+    @HTMLBuilder
+    private func calendarDemo() -> some Component {
+        let events = state.controlFlag("calendar", "events")
+        let selected = state.control("calendar", "selected")
+        let narrow = state.control("calendar", "weekdays") == "narrow"
+        let ui = self.ui
+        VStack(alignment: .center, spacing: .small) {
+            CalendarView(
+                year: 2026,
+                month: 6,
+                firstWeekday: 1,
+                today: GregorianDay(year: 2026, month: 6, day: 15),
+                weekdaySymbols: narrow ? ["S", "M", "T", "W", "T", "F", "S"] : nil,
+                accessibilityLabel: "Calendar demo"
+            ) { day in
+                Button(action: { ui.string("calendar.selected").wrappedValue = day.isoDate }) {
+                    CalendarCellContent {
+                        CalendarCellHeader(day, isSelected: day.isoDate == selected)
+                        if events {
+                            CalendarCellBody {
+                                if !day.isOutsideMonth, [3, 8, 14, 21, 27].contains(day.day) {
+                                    calendarEventDot()
+                                }
+                            }
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+            .frame(maxWidth: 320)
+            Text(selected.isEmpty ? "Tap a day to select it" : "selected = \(selected)")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    @HTMLBuilder
+    private func datePickerDemo() -> some Component {
+        Text("DatePicker requires the standard runtime's Date and Calendar capability.")
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+    }
+
+    private func calendarEventDot() -> some Component {
+        Text("").as(.span)
+            .frame(width: 5, height: 5)
+            .background(Color.accent, in: .capsule)
+    }
+    #else
 
     // The CalendarView showcase drives the real operations: the pager steps
     // the displayed month, clicking a day selects it (filled back through
@@ -181,6 +236,7 @@ struct InputsDetail: Component {
                 .disabled(disabled)
         }
     }
+    #endif
 
     @HTMLBuilder
     private func formDemo() -> some Component {

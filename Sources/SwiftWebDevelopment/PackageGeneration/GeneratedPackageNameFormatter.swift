@@ -2,6 +2,12 @@ import Foundation
 import SwiftHTML
 import SwiftWebDevelopmentHooks
 
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
+
 enum GeneratedPackageNameFormatter {
   static func productName(forWasmRuntimeTarget targetName: String) -> String {
     kebabCase(targetName)
@@ -115,8 +121,11 @@ enum GeneratedPackageNameFormatter {
   }
 
   static func relativePath(from baseDirectory: URL, to targetDirectory: URL) -> String {
-    let baseComponents = baseDirectory.standardizedFileURL.pathComponents
-    let targetComponents = targetDirectory.standardizedFileURL.pathComponents
+    // SwiftPM canonicalizes a package directory before resolving manifest paths.
+    // Canonicalize both sides here as well so aliases such as /tmp -> /private/tmp
+    // cannot turn a valid /Users dependency into /private/Users.
+    let baseComponents = canonicalFileURL(baseDirectory).pathComponents
+    let targetComponents = canonicalFileURL(targetDirectory).pathComponents
     var commonCount = 0
 
     while commonCount < baseComponents.count,
@@ -130,6 +139,57 @@ enum GeneratedPackageNameFormatter {
     let children = Array(targetComponents.dropFirst(commonCount))
     let components = parents + children
     return components.isEmpty ? "." : components.joined(separator: "/")
+  }
+
+  static func canonicalFileURL(
+    _ url: URL,
+    fileManager: FileManager = .default
+  ) -> URL {
+    var existingAncestor = url.standardizedFileURL
+    var missingPathComponents: [String] = []
+
+    while !fileManager.fileExists(atPath: existingAncestor.path) {
+      let parent = existingAncestor.deletingLastPathComponent()
+      guard parent.path != existingAncestor.path else {
+        break
+      }
+      missingPathComponents.append(existingAncestor.lastPathComponent)
+      existingAncestor = parent
+    }
+
+    let canonicalAncestorPath = resolvedRealPath(existingAncestor.path)
+      ?? existingAncestor.path
+    var canonicalURL = URL(
+      fileURLWithPath: canonicalAncestorPath,
+      isDirectory: true
+    )
+    for component in missingPathComponents.reversed() {
+      canonicalURL.appendPathComponent(component)
+    }
+    // Do not call standardizedFileURL here. Foundation rewrites the real path
+    // /private/tmp back to its /tmp symlink spelling, while SwiftPM keeps the
+    // real path when resolving local manifest dependencies.
+    return canonicalURL
+  }
+
+  private static func resolvedRealPath(_ path: String) -> String? {
+    path.withCString { pathPointer in
+      #if canImport(Darwin)
+      guard let resolvedPointer = Darwin.realpath(pathPointer, nil) else {
+        return nil
+      }
+      defer { Darwin.free(resolvedPointer) }
+      return String(cString: resolvedPointer)
+      #elseif canImport(Glibc)
+      guard let resolvedPointer = Glibc.realpath(pathPointer, nil) else {
+        return nil
+      }
+      defer { Glibc.free(resolvedPointer) }
+      return String(cString: resolvedPointer)
+      #else
+      return nil
+      #endif
+    }
   }
 
   static func uniqueTypeNames(_ typeNames: [String]) -> [String] {

@@ -70,10 +70,8 @@ struct _EnvironmentScene<Content: Scene>: Scene, _PrimitiveScene {
         // Carry the environment down the scene graph (ActorGroup, nested
         // modifiers) and establish it around every route handler registered
         // below, so page/action/stream rendering sees the same values.
-        let modified = SceneRenderingContext(
-            runtime: context.runtime,
+        let modified = context.replacing(
             routes: EnvironmentRoutesBuilder(base: context.routes, environment: environment),
-            actorSystem: context.actorSystem,
             environment: environment,
             actorBindings: context.actorBindings
         )

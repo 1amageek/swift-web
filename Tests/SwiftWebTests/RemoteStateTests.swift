@@ -1,5 +1,7 @@
 #if SWIFTWEB_ACTORS
+import ActorSystemCore
 import Distributed
+#if SWIFTWEB_LEGACY_ACTORS
 import Foundation
 import Synchronization
 import Testing
@@ -18,7 +20,7 @@ private final class RecordingStatePublisher: WebActorStatePublisher {
 }
 
 private distributed actor StreamingProbe: WebActorRemindable {
-    typealias ActorSystem = WebActorSystem
+    typealias ActorSystem = LegacyWebActorSystem
 
     @RemoteState("progress") private var progress = 0
 
@@ -33,14 +35,14 @@ private distributed actor StreamingProbe: WebActorRemindable {
 
 @Suite struct RemoteStateTests {
     @Test func activatedActorPublishesStateChanges() async throws {
-        let system = WebActorSystem()
+        let system = LegacyWebActorSystem()
         let publisher = RecordingStatePublisher()
         system.setStatePublisher(publisher)
         system.registerActivator(for: StreamingProbe.self) {
             _ = StreamingProbe(actorSystem: system)
         }
 
-        let actorID = WebActorSystem.actorID(for: StreamingProbe.self, named: "s1")
+        let actorID = LegacyWebActorSystem.actorID(for: StreamingProbe.self, named: "s1")
         try await system.deliverReminder(
             WebActorReminder(actorID: actorID, name: "tick", fireDate: Date())
         )
@@ -62,5 +64,87 @@ private distributed actor StreamingProbe: WebActorRemindable {
         draft = "b"
         #expect(draft == "b")
     }
+
+    @Test func unbindDrainsPublicationBeforeFinishing() async {
+        let publisher = BlockingSwiftWebStatePublisher()
+        let address = ActorAddress(
+            type: ActorTypeID(high: 601, low: 602),
+            identity: "remote-state-drain"
+        )
+        let box = RemoteStateBox(key: "value", value: 0)
+        box.bind(actorAddress: address, publisher: publisher)
+        box.update(1)
+        await publisher.waitUntilPublishing()
+
+        let completion = RemoteStateUnbindCompletion()
+        let unbind = Task {
+            await box.unbind()
+            await completion.markCompleted()
+        }
+        await Task.yield()
+        #expect(await publisher.eventNames == ["publish-start"])
+        #expect(await completion.isCompleted == false)
+
+        await publisher.releasePublication()
+        await unbind.value
+        await publisher.finish(actorAddress: address)
+
+        #expect(
+            await publisher.eventNames
+                == ["publish-start", "publish-end", "finish"]
+        )
+    }
 }
+
+private actor BlockingSwiftWebStatePublisher: SwiftWebActorStatePublisher {
+    private var events: [String] = []
+    private var startedWaiters: [CheckedContinuation<Void, Never>] = []
+    private var releaseContinuation: CheckedContinuation<Void, Never>?
+
+    var eventNames: [String] {
+        events
+    }
+
+    func publish(_ change: SwiftWebRemoteStateChange) async {
+        _ = change
+        events.append("publish-start")
+        let waiters = startedWaiters
+        startedWaiters.removeAll(keepingCapacity: false)
+        for waiter in waiters {
+            waiter.resume()
+        }
+        await withCheckedContinuation { continuation in
+            releaseContinuation = continuation
+        }
+        events.append("publish-end")
+    }
+
+    func finish(actorAddress: ActorAddress) async {
+        _ = actorAddress
+        events.append("finish")
+    }
+
+    func waitUntilPublishing() async {
+        if events.contains("publish-start") {
+            return
+        }
+        await withCheckedContinuation { continuation in
+            startedWaiters.append(continuation)
+        }
+    }
+
+    func releasePublication() {
+        releaseContinuation?.resume()
+        releaseContinuation = nil
+    }
+}
+
+private actor RemoteStateUnbindCompletion {
+    private(set) var isCompleted = false
+
+    func markCompleted() {
+        isCompleted = true
+    }
+}
+#endif
 #endif

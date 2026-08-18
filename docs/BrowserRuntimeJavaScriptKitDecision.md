@@ -55,7 +55,7 @@ The default SwiftWebUI model needs the runtime API column, not the BridgeJS colu
 | Layer | Contract |
 |---|---|
 | Generated WASM `Package.swift` | Declare local `_CJavaScriptKit` and `JavaScriptKit` targets from copied sources. Do not declare an external `JavaScriptKit` package dependency by default. |
-| Generated WASM `Package.resolved` | Keep only remote package pins that are declared by the generated WASM package. The default set is `swift-actor-runtime`. |
+| Generated WASM `Package.resolved` | Keep only remote package pins declared by the generated WASM package. The default actor-system path uses local `ActorSystemCore` / `ActorSystemEmbedded` targets and must not retain `swift-actor-runtime`; that package belongs only to the explicit `LegacyActors` compatibility boundary. |
 | JavaScriptKit source copy | Copy `JavaScriptKit` and `_CJavaScriptKit` runtime sources. Skip `JavaScriptKit/Macros.swift`, `JavaScriptKit/Runtime`, and `JavaScriptKit/Documentation.docc`. |
 | SwiftWeb host/dev graph | Continue using SwiftSyntax where SwiftWeb owns macro expansion or development-time source classification. |
 | Public API | Prefer SwiftWebUI primitives over exposing arbitrary JavaScriptKit BridgeJS usage through client components. |

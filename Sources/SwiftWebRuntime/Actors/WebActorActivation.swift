@@ -1,4 +1,4 @@
-#if SWIFTWEB_ACTORS
+#if SWIFTWEB_LEGACY_ACTORS
 import Synchronization
 
 /// The virtual-actor ID a factory is being activated for. The first actor the
@@ -23,7 +23,7 @@ final class WebActorPendingID: Sendable {
 }
 
 /// Carries the pending virtual-actor ID across the factory call during
-/// activation, so `WebActorSystem.assignID` can bind the new instance to the
+/// activation, so `LegacyWebActorSystem.assignID` can bind the new instance to the
 /// ID the incoming envelope targets.
 enum WebActorActivationContext {
     @TaskLocal static var current: WebActorPendingID?

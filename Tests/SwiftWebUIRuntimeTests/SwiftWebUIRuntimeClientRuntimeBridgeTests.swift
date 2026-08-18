@@ -1,4 +1,5 @@
 import Foundation
+import ActorSystemCore
 import SwiftHTML
 import SwiftWebActors
 import SwiftWebUIRuntime
@@ -534,7 +535,13 @@ struct SwiftWebUIRuntimeClientRuntimeBridgeTests {
             ),
             mode: .navigation,
             actorBindings: [
-                SwiftWebActorBindingRecord(contractKey: "CounterService", actorID: "counter-1"),
+                SwiftWebActorBindingRecord(
+                    contractKey: "CounterService",
+                    actorID: ActorAddress(
+                        type: ActorTypeID(high: 1, low: 2),
+                        identity: "counter-1"
+                    )
+                ),
             ]
         )
 
@@ -544,7 +551,13 @@ struct SwiftWebUIRuntimeClientRuntimeBridgeTests {
         #expect(decoded.mode == .navigation)
         #expect(decoded.documentNodeIDUpperBound == 128)
         #expect(decoded.actorBindings == [
-            SwiftWebActorBindingRecord(contractKey: "CounterService", actorID: "counter-1"),
+            SwiftWebActorBindingRecord(
+                contractKey: "CounterService",
+                actorID: ActorAddress(
+                    type: ActorTypeID(high: 1, low: 2),
+                    identity: "counter-1"
+                )
+            ),
         ])
         #expect(String(decoding: data, as: UTF8.self).contains("\"mode\":\"navigation\""))
         #expect(String(decoding: data, as: UTF8.self).contains("\"documentNodeIDUpperBound\":128"))

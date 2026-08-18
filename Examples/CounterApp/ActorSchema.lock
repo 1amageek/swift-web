@@ -1,0 +1,113 @@
+{
+  "actors" : [
+    {
+      "fields" : [
+        {
+          "fieldID" : 1,
+          "hasDefaultValue" : true,
+          "isOptional" : false,
+          "sourceName" : "value",
+          "type" : "Int"
+        }
+      ],
+      "methods" : [
+        {
+          "canonicalSignature" : "currentValue()->Int:async:throws",
+          "compilerTargetAliases" : [
+            {
+              "targetIdentifier" : "$s10CounterApp0A7ServiceC12currentValueSiyYaKFTE",
+              "toolchainFingerprint" : "swiftc-d2d377a9b66c040c0cb1cfbd1250d9e3"
+            }
+          ],
+          "errorType" : "throws",
+          "methodID" : 360208252951499975,
+          "parameters" : [
+
+          ],
+          "resultType" : "Int",
+          "sourceName" : "currentValue"
+        },
+        {
+          "canonicalSignature" : "decrement()->Int:async:throws",
+          "compilerTargetAliases" : [
+            {
+              "targetIdentifier" : "$s10CounterApp0A7ServiceC9decrementSiyYaKFTE",
+              "toolchainFingerprint" : "swiftc-d2d377a9b66c040c0cb1cfbd1250d9e3"
+            }
+          ],
+          "errorType" : "throws",
+          "methodID" : 8382847882140630130,
+          "parameters" : [
+
+          ],
+          "resultType" : "Int",
+          "sourceName" : "decrement"
+        },
+        {
+          "canonicalSignature" : "increment()->Int:async:throws",
+          "compilerTargetAliases" : [
+            {
+              "targetIdentifier" : "$s10CounterApp0A7ServiceC9incrementSiyYaKFTE",
+              "toolchainFingerprint" : "swiftc-d2d377a9b66c040c0cb1cfbd1250d9e3"
+            }
+          ],
+          "errorType" : "throws",
+          "methodID" : 9338078509609157082,
+          "parameters" : [
+
+          ],
+          "resultType" : "Int",
+          "sourceName" : "increment"
+        }
+      ],
+      "moduleName" : "CounterApp",
+      "reservedFieldIDs" : [
+
+      ],
+      "schemaFingerprint" : {
+        "high" : 15168869352346316631,
+        "low" : 8357293623241324598
+      },
+      "sourcePath" : "Actions/CounterService.swift",
+      "sourceSymbol" : "CounterApp.CounterService",
+      "typeID" : {
+        "high" : 5532415186763806550,
+        "low" : 18209370681378809297
+      }
+    }
+  ],
+  "formatVersion" : 3,
+  "moduleName" : "CounterApp",
+  "packageIdentity" : "counterapp",
+  "reservedActorTypeIDs" : [
+
+  ],
+  "reservedMethodIDs" : [
+
+  ],
+  "reservedValueTypeIDs" : [
+
+  ],
+  "valueTypes" : [
+    {
+      "canonicalType" : "Swift.Int",
+      "cases" : [
+
+      ],
+      "fields" : [
+
+      ],
+      "reservedCaseIDs" : [
+
+      ],
+      "reservedFieldIDs" : [
+
+      ],
+      "sourceType" : "Int",
+      "typeID" : {
+        "high" : 17136416053037652511,
+        "low" : 11586992519881825816
+      }
+    }
+  ]
+}

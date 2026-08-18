@@ -1,10 +1,10 @@
-#if SWIFTWEB_ACTORS
+#if SWIFTWEB_LEGACY_ACTORS
 public struct WebActorRecipient: Sendable, Equatable, Hashable {
-    public let actorID: WebActorSystem.ActorID
+    public let actorID: LegacyWebActorSystem.ActorID
     public let contract: String?
     public let name: String?
 
-    public init(actorID: WebActorSystem.ActorID) {
+    public init(actorID: LegacyWebActorSystem.ActorID) {
         self.actorID = actorID
         guard let separator = actorID.firstIndex(of: ":") else {
             self.contract = nil

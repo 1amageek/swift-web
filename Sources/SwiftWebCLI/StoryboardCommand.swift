@@ -47,22 +47,19 @@ struct StoryboardCommand {
             case "--production", "--compress":
                 mode = .production
             case "--embedded":
-                throw CLIError(
-                    message:
-                        "unsupported WASM runtime profile: embedded. SwiftWeb supports the standard WASM profile only.",
-                    exitCode: 64
-                )
+                mode = .production
+                wasmRuntimeProfile = .embedded
             case "--runtime", "--wasm-runtime":
                 let rawValue = try parser.requireValue(after: option)
-                guard rawValue == SwiftWebWasmRuntimeProfile.standard.rawValue else {
+                guard let profile = SwiftWebWasmRuntimeProfile(rawValue: rawValue) else {
                     throw CLIError(
                         message:
-                            "unsupported WASM runtime profile: \(rawValue). SwiftWeb supports the standard WASM profile only.",
+                            "unknown WASM runtime profile: \(rawValue). Expected standard or embedded.",
                         exitCode: 64
                     )
                 }
                 mode = .production
-                wasmRuntimeProfile = .standard
+                wasmRuntimeProfile = profile
             case "--swift-sdk":
                 swiftSDK = try parser.requireValue(after: option)
             case "-c", "--configuration":
@@ -70,14 +67,6 @@ struct StoryboardCommand {
             default:
                 throw CLIError(message: "unknown option: \(option)", exitCode: 64)
             }
-        }
-
-        if mode == .production, wasmRuntimeProfile != .standard {
-            throw CLIError(
-                message:
-                    "unsupported WASM runtime profile: \(wasmRuntimeProfile.rawValue). SwiftWeb supports the standard WASM profile only.",
-                exitCode: 64
-            )
         }
 
         return StoryboardCommand(

@@ -784,19 +784,7 @@ public enum JavaScriptKitBrowserRuntime {
     }
 
     private static func domKeyIdentity(for key: Key) -> String {
-        do {
-            let data = try JSONEncoder().encode(key)
-            let payload = try JSONDecoder().decode(DOMKeyIdentityPayload.self, from: data)
-            return payload.identity ?? payload.rawValue
-        } catch {
-            // The key should always round-trip; a failure means a keyed move may
-            // target the wrong element. Surface it instead of silently falling
-            // back, then use the rawValue as the best available identity.
-            _ = JSObject.global.console.error(
-                "[SwiftWebUI] domKeyIdentity: could not decode key identity (\(error)); using rawValue \"\(key.rawValue)\"."
-            )
-            return key.rawValue
-        }
+        key.identity
     }
 
     private static func childNode(parent: JSValue, index: Int) -> JSValue? {
@@ -886,8 +874,4 @@ public enum JavaScriptKitBrowserRuntime {
     }
 }
 
-private struct DOMKeyIdentityPayload: Decodable {
-    let rawValue: String
-    let identity: String?
-}
 #endif
