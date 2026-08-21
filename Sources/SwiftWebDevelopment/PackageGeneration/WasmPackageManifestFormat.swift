@@ -3,6 +3,9 @@ import SwiftWebWasmBuild
 
 struct WasmPackageManifestFormat {
   func packageSwift(context: GeneratedPackageRenderContext) throws -> String {
+    if context.wasmRuntimeTargets.isEmpty && context.actorDependencyTargets.isEmpty {
+      return emptyPackageSwift(appPackageName: context.appPackageName)
+    }
     let targetNames = context.wasmRuntimeTargets.map(\.targetName)
     return try wasmPackageSwift(
       appPackageName: context.appPackageName,
@@ -15,6 +18,24 @@ struct WasmPackageManifestFormat {
       profile: context.wasmRuntimeProfile,
       embeddedUnicodeDataTablesLibraryPath: context.embeddedUnicodeDataTablesLibraryPath
     )
+  }
+
+  private func emptyPackageSwift(appPackageName: String) -> String {
+    """
+    // swift-tools-version: 6.4
+
+    import PackageDescription
+
+    let package = Package(
+        name: "\(appPackageName)WasmGenerated",
+        platforms: [
+            .macOS("26.2"),
+        ],
+        products: [],
+        targets: [],
+        swiftLanguageModes: [.v6]
+    )
+    """
   }
 
   private func wasmPackageSwift(

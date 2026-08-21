@@ -149,6 +149,37 @@ struct SwiftWebEvaluatedPackageTargetGraphTests {
   }
 
   @Test
+  func unresolvedProductsOnUnreachableTargetsDoNotBlockTheApp() throws {
+    let graph = try singlePackageGraph(
+      settingsJSON: "[]",
+      supportDependenciesJSON:
+        #"[{"product":["TestOnlyProduct","test-only-package",null,null]}]"#
+    )
+
+    #expect(try graph.directDependencyModuleNames(of: "App").isEmpty)
+    #expect(try graph.reachableModuleNames(from: "App") == ["App"])
+    #expect(throws: ActorGenerationError.self) {
+      try graph.directDependencyModuleNames(of: "Support")
+    }
+  }
+
+  @Test
+  func unresolvedProductsOnReachableTargetsRemainErrors() throws {
+    let graph = try singlePackageGraph(
+      dependenciesJSON:
+        #"[{"product":["MissingProduct","missing-package",null,null]}]"#,
+      settingsJSON: "[]"
+    )
+
+    #expect(throws: ActorGenerationError.self) {
+      try graph.directDependencyModuleNames(of: "App")
+    }
+    #expect(throws: ActorGenerationError.self) {
+      try graph.reachableModuleNames(from: "App")
+    }
+  }
+
+  @Test
   func malformedDependencyConditionsAreRejected() throws {
     #expect(throws: ActorGenerationError.self) {
       _ = try singlePackageGraph(
@@ -301,6 +332,7 @@ struct SwiftWebEvaluatedPackageTargetGraphTests {
   private func singlePackageGraph(
     dependenciesJSON: String = "[]",
     settingsJSON: String,
+    supportDependenciesJSON: String = "[]",
     supportSettingsJSON: String = "[]"
   ) throws -> SwiftWebEvaluatedPackageTargetGraph {
     let root = URL(fileURLWithPath: "/fixture/App", isDirectory: true)
@@ -319,7 +351,7 @@ struct SwiftWebEvaluatedPackageTargetGraphTests {
           {
             "name":"Support",
             "path":"SupportSources",
-            "dependencies":[],
+            "dependencies":\(supportDependenciesJSON),
             "settings":\(supportSettingsJSON)
           }
         ],

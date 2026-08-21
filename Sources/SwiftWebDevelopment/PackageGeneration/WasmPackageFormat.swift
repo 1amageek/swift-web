@@ -6,6 +6,15 @@ struct WasmPackageFormat: GeneratedPackageFormat {
   private let actorResolverFormat = WasmActorResolverRegistryFormat()
 
   func files(context: GeneratedPackageRenderContext) throws -> [GeneratedFile] {
+    if context.wasmRuntimeTargets.isEmpty && context.actorDependencyTargets.isEmpty {
+      return [
+        GeneratedFile(
+          packageKind: packageKind,
+          relativePath: "Package.swift",
+          contents: try manifestFormat.packageSwift(context: context)
+        )
+      ]
+    }
     var files = context.wasmRuntimeTargets.map { target in
       GeneratedFile(
         packageKind: packageKind,

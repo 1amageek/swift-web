@@ -1028,7 +1028,11 @@ written before either live root moves. A thrown commit restores the previous
 generated set, while the next materialization either restores a prepared
 transaction or finalizes an installed transaction after process interruption.
 Reusable SwiftPM state moves only after both new roots are installed, so cache
-transfer cannot create a mixed source generation.
+transfer cannot create a mixed source generation. The generated root owns the
+shared `--scratch-path` used by server and WASM builds; its `.build` and
+`.swiftpm` directories survive every successful materialization and SwiftPM
+invalidates individual build nodes when a generated manifest or source changes.
+Package-local state is transferred only when that package manifest is unchanged.
 
 `AppActorBootstrap` has profile-specific implementations with a common role:
 
@@ -1221,6 +1225,12 @@ Bootstrap references are module-qualified, and target names plus their generated
 manifest declaration names are checked for collisions before files are
 installed. A missing source target, conflicting module schema, dependency cycle,
 unknown client module, or generated-target collision is a generation error.
+
+An application with no `ClientComponent` declarations has no browser runtime.
+Materialization therefore validates and installs only the native host actor
+projection, emits an empty WASM package, and does not resolve a WASM SDK, project
+client actors, or mirror application sources into a client target. Server-only
+imports and dependencies remain owned by the native application target.
 
 A general SwiftPM build tool plugin cannot be assumed to remove an original
 source file from its target's compilation. General SwiftPM support therefore

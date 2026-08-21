@@ -11,6 +11,7 @@ package struct SwiftWebEvaluatedPackageTargetGraph: Sendable {
     package let customConditions: Set<String>
     package let upcomingFeatures: Set<String>
     package let experimentalFeatures: Set<String>
+    private let dependencyResolutionIssues: [String]
     private let projectionValidationIssues: [String]
 
     package var features: Set<String> {
@@ -26,6 +27,7 @@ package struct SwiftWebEvaluatedPackageTargetGraph: Sendable {
       customConditions: Set<String> = [],
       upcomingFeatures: Set<String> = [],
       experimentalFeatures: Set<String> = [],
+      dependencyResolutionIssues: [String] = [],
       projectionValidationIssues: [String] = []
     ) {
       self.moduleName = moduleName
@@ -41,7 +43,16 @@ package struct SwiftWebEvaluatedPackageTargetGraph: Sendable {
       self.customConditions = customConditions
       self.upcomingFeatures = upcomingFeatures
       self.experimentalFeatures = experimentalFeatures
+      self.dependencyResolutionIssues = dependencyResolutionIssues
       self.projectionValidationIssues = projectionValidationIssues
+    }
+
+    package func validateDependencyResolution() throws {
+      guard dependencyResolutionIssues.isEmpty else {
+        throw ActorGenerationError.schemaConflict(
+          reason: dependencyResolutionIssues.joined(separator: "; ")
+        )
+      }
     }
 
     package func validateGeneratedProjectionCapabilities() throws {
@@ -87,6 +98,7 @@ package struct SwiftWebEvaluatedPackageTargetGraph: Sendable {
         reason: "SwiftPM target graph has no target named \(moduleName)"
       )
     }
+    try target.validateDependencyResolution()
     return target.directDependencyModuleNames
   }
 
@@ -104,6 +116,7 @@ package struct SwiftWebEvaluatedPackageTargetGraph: Sendable {
           reason: "SwiftPM target graph edge references missing target \(moduleName)"
         )
       }
+      try target.validateDependencyResolution()
       pending.append(contentsOf: target.directDependencyModuleNames)
     }
     return visited
@@ -310,37 +323,42 @@ package enum SwiftWebEvaluatedPackageTargetGraphLoader {
     for manifest in manifests {
       for target in manifest.targets.values {
         var dependencies = Set<String>()
+        var dependencyResolutionIssues: [String] = []
         for dependency in target.dependencies {
-          switch dependency {
-          case .target(let name):
-            guard manifest.targets[name] != nil else {
-              throw ActorGenerationError.schemaConflict(
-                reason: "SwiftPM target \(target.name) references missing target \(name) in \(manifest.packageRoot.path)"
-              )
-            }
-            dependencies.insert(name)
-          case .byName(let name):
-            if manifest.targets[name] != nil {
+          do {
+            switch dependency {
+            case .target(let name):
+              guard manifest.targets[name] != nil else {
+                throw ActorGenerationError.schemaConflict(
+                  reason: "SwiftPM target \(target.name) references missing target \(name) in \(manifest.packageRoot.path)"
+                )
+              }
               dependencies.insert(name)
-            } else {
+            case .byName(let name):
+              if manifest.targets[name] != nil {
+                dependencies.insert(name)
+              } else {
+                dependencies.formUnion(
+                  try resolveProductTargets(
+                    name: name,
+                    packageReference: nil,
+                    requestingManifest: manifest,
+                    productsByName: productsByName
+                  )
+                )
+              }
+            case .product(let name, let packageReference):
               dependencies.formUnion(
                 try resolveProductTargets(
                   name: name,
-                  packageReference: nil,
+                  packageReference: packageReference,
                   requestingManifest: manifest,
                   productsByName: productsByName
                 )
               )
             }
-          case .product(let name, let packageReference):
-            dependencies.formUnion(
-              try resolveProductTargets(
-                name: name,
-                packageReference: packageReference,
-                requestingManifest: manifest,
-                productsByName: productsByName
-              )
-            )
+          } catch let error as ActorGenerationError {
+            dependencyResolutionIssues.append(String(describing: error))
           }
         }
         targets[target.name] = SwiftWebEvaluatedPackageTargetGraph.Target(
@@ -352,6 +370,7 @@ package enum SwiftWebEvaluatedPackageTargetGraphLoader {
           customConditions: target.customConditions,
           upcomingFeatures: target.upcomingFeatures,
           experimentalFeatures: target.experimentalFeatures,
+          dependencyResolutionIssues: dependencyResolutionIssues,
           projectionValidationIssues: target.projectionValidationIssues
         )
       }

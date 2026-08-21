@@ -259,6 +259,54 @@ struct SwiftWebGeneratedPackageMaterializerTests {
   }
 
   @Test
+  func materializationTransactionPreservesSharedBuildState() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+      "SwiftWebGeneratedPackageState-\(UUID().uuidString)",
+      isDirectory: true
+    )
+    defer {
+      do {
+        try FileManager.default.removeItem(at: root)
+      } catch {
+        Issue.record("Failed to remove temporary directory: \(error)")
+      }
+    }
+    let generatedRoot = root.appendingPathComponent("generated", isDirectory: true)
+    let nativeSource = root.appendingPathComponent("Sources/App", isDirectory: true)
+    let buildMarker = generatedRoot.appendingPathComponent(
+      ".build/server/cache-marker",
+      isDirectory: false
+    )
+    let swiftPMMarker = generatedRoot.appendingPathComponent(
+      ".swiftpm/configuration/registries.json",
+      isDirectory: false
+    )
+    try write("build cache", to: buildMarker)
+    try write("swiftpm state", to: swiftPMMarker)
+    try write("old", to: generatedRoot.appendingPathComponent("marker.txt"))
+
+    let transaction = GeneratedPackageMaterializationTransaction(
+      generatedPackageDirectory: generatedRoot,
+      nativeSourceDirectory: nativeSource
+    )
+    try transaction.prepare()
+    try write(
+      "new",
+      to: transaction.stagingGeneratedPackageDirectory.appendingPathComponent("marker.txt")
+    )
+    try transaction.commit()
+
+    #expect(try String(contentsOf: buildMarker, encoding: .utf8) == "build cache")
+    #expect(try String(contentsOf: swiftPMMarker, encoding: .utf8) == "swiftpm state")
+    #expect(
+      try String(
+        contentsOf: generatedRoot.appendingPathComponent("marker.txt"),
+        encoding: .utf8
+      ) == "new"
+    )
+  }
+
+  @Test
   func materializationTransactionRecoversAnInterruptedPreparedCommit() throws {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(
       "SwiftWebGeneratedPackageRecovery-\(UUID().uuidString)",
@@ -576,6 +624,43 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     )
     #expect(sharedRegistration.lowerBound < appInitialization.lowerBound)
     #expect(appInitialization.lowerBound < appRegistration.lowerBound)
+  }
+
+  @Test
+  func serverOnlyApplicationRendersNoClientRuntimeTargets() throws {
+    let root = URL(fileURLWithPath: "/tmp/swiftweb-server-only-fixture", isDirectory: true)
+    let context = GeneratedPackageRenderContext(
+      layout: GeneratedPackageLayout(
+        appPackageDirectory: root,
+        rootDirectory: root.appendingPathComponent("generated", isDirectory: true)
+      ),
+      swiftWebPackageDirectory: root,
+      appPackageName: "ServerOnlyApp",
+      appPackageDependencyName: "server-only-app",
+      appProductName: "ServerOnlyApp",
+      serverProductName: "app-server",
+      developmentServerProductName: "app-server-dev",
+      devProductName: "ServerOnlyApp-dev",
+      wasmRuntimeTargets: [],
+      clientEnvironmentKeyTypeNames: [],
+      wasmRuntimeProfile: .standard,
+      embeddedUnicodeDataTablesLibraryPath: nil,
+      nativeActorBootstrapTypeName: nil,
+      clientActorBootstrapTypeName: nil,
+      appActorCustomConditions: [],
+      appActorUpcomingFeatures: [],
+      appActorExperimentalFeatures: [],
+      actorDependencyTargets: []
+    )
+
+    let files = try WasmPackageFormat().files(context: context)
+    let packageSource = try #require(files.first?.contents)
+
+    #expect(files.map(\.relativePath) == ["Package.swift"])
+    #expect(packageSource.contains("products: []"))
+    #expect(packageSource.contains("targets: []"))
+    #expect(!packageSource.contains("appClientTarget"))
+    #expect(!packageSource.contains("SwiftWebUIRuntime"))
   }
 
   @Test

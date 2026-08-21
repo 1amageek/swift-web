@@ -475,57 +475,71 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
       compilerTargetEnvironment: nativeTargetEnvironment,
       targetGraph: nativeTargetGraph
     )
-    let clientActorProfile: ActorGenerationProfile
-    switch wasmRuntimeProfile {
-    case .standard:
-      clientActorProfile = .standardClient
-    case .embedded:
-      clientActorProfile = .embeddedClient
-    }
-    let wasmToolchain = try SwiftWebWasmToolchain.resolve(
-      sdkName: wasmRuntimeProfile.defaultSwiftSDKName
-    )
-    let wasmSDKCompilerConfiguration =
-      try SwiftWebWasmSDKCompilerConfiguration.resolve(
-        sdkName: wasmToolchain.sdkName
-      )
-    let embeddedUnicodeDataTablesLibraryPath: String?
-    switch wasmRuntimeProfile {
-    case .standard:
-      embeddedUnicodeDataTablesLibraryPath = nil
-    case .embedded:
-      embeddedUnicodeDataTablesLibraryPath = try wasmToolchain
-        .embeddedUnicodeDataTablesLibraryURL()
-        .path
-    }
-    let clientTargetEnvironment = try ActorCompilerTargetEnvironmentResolver.resolve(
-      swiftCompiler: wasmToolchain.swiftCompilerURL,
-      compilerArguments: wasmSDKCompilerConfiguration.compilerArguments + [
-        "-enable-upcoming-feature", "ApproachableConcurrency",
-      ],
-      availableModules: SwiftWebActorProjection.generatedTargetModules(
-        for: clientActorProfile
-      ),
-      featureProbeCandidates: ["Embedded"]
-    )
-    let clientTargetGraph = try SwiftWebEvaluatedPackageTargetGraphLoader.load(
-      packageDirectory: appPackageDirectory,
-      swiftExecutable: toolchain.swiftExecutableURL,
-      environment: toolchain.applying(to: ProcessInfo.processInfo.environment),
-      targetEnvironment: clientTargetEnvironment
-    )
-    guard let clientAppTarget = clientTargetGraph.target(named: appProductName) else {
+    guard let nativeAppTarget = nativeTargetGraph.target(named: appProductName) else {
       throw ActorGenerationError.schemaConflict(
         reason: "SwiftPM target graph has no application target named \(appProductName)"
       )
     }
-    let clientActorProjectionSet = try makeActorProjection(
-      appProductName: appProductName,
-      profile: clientActorProfile,
-      toolchain: toolchain,
-      compilerTargetEnvironment: clientTargetEnvironment,
-      targetGraph: clientTargetGraph
-    )
+    let clientAppTarget: SwiftWebEvaluatedPackageTargetGraph.Target?
+    let clientActorProjectionSet: SwiftWebActorProjectionSet
+    let embeddedUnicodeDataTablesLibraryPath: String?
+    if wasmRuntimeTargets.isEmpty {
+      clientAppTarget = nil
+      clientActorProjectionSet = .empty
+      embeddedUnicodeDataTablesLibraryPath = nil
+    } else {
+      let clientActorProfile: ActorGenerationProfile
+      switch wasmRuntimeProfile {
+      case .standard:
+        clientActorProfile = .standardClient
+      case .embedded:
+        clientActorProfile = .embeddedClient
+      }
+      let wasmToolchain = try SwiftWebWasmToolchain.resolve(
+        sdkName: wasmRuntimeProfile.defaultSwiftSDKName
+      )
+      let wasmSDKCompilerConfiguration =
+        try SwiftWebWasmSDKCompilerConfiguration.resolve(
+          sdkName: wasmToolchain.sdkName
+        )
+      switch wasmRuntimeProfile {
+      case .standard:
+        embeddedUnicodeDataTablesLibraryPath = nil
+      case .embedded:
+        embeddedUnicodeDataTablesLibraryPath = try wasmToolchain
+          .embeddedUnicodeDataTablesLibraryURL()
+          .path
+      }
+      let clientTargetEnvironment = try ActorCompilerTargetEnvironmentResolver.resolve(
+        swiftCompiler: wasmToolchain.swiftCompilerURL,
+        compilerArguments: wasmSDKCompilerConfiguration.compilerArguments + [
+          "-enable-upcoming-feature", "ApproachableConcurrency",
+        ],
+        availableModules: SwiftWebActorProjection.generatedTargetModules(
+          for: clientActorProfile
+        ),
+        featureProbeCandidates: ["Embedded"]
+      )
+      let clientTargetGraph = try SwiftWebEvaluatedPackageTargetGraphLoader.load(
+        packageDirectory: appPackageDirectory,
+        swiftExecutable: toolchain.swiftExecutableURL,
+        environment: toolchain.applying(to: ProcessInfo.processInfo.environment),
+        targetEnvironment: clientTargetEnvironment
+      )
+      guard let resolvedClientAppTarget = clientTargetGraph.target(named: appProductName) else {
+        throw ActorGenerationError.schemaConflict(
+          reason: "SwiftPM target graph has no application target named \(appProductName)"
+        )
+      }
+      clientAppTarget = resolvedClientAppTarget
+      clientActorProjectionSet = try makeActorProjection(
+        appProductName: appProductName,
+        profile: clientActorProfile,
+        toolchain: toolchain,
+        compilerTargetEnvironment: clientTargetEnvironment,
+        targetGraph: clientTargetGraph
+      )
+    }
     try validateGeneratedWasmTargetNames(
       appProductName: appProductName,
       wasmRuntimeTargetNames: wasmRuntimeTargetNames,
@@ -539,22 +553,27 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
 
     try removeLegacyMaterializationLockFile()
     try removeLegacySinglePackageLayout()
-    try wasmSourceMirror.copyStandardSources(
-      appProductName: appProductName,
-      appSourceDirectory: clientAppTarget.sourceDirectory,
-      appSourceFiles: clientAppTarget.sourceFiles,
-      swiftHTMLPackageDirectory: swiftHTMLPackageDirectory,
-      swiftWebPackageDirectory: swiftWebPackageDirectory,
-      actorProjection: clientActorProjectionSet.root,
-      actorDependencyProjections: clientActorProjectionSet.dependencies
-    )
-    try wasmSourceMirror.removeStaleWasmSourceTargets(
-      keeping: Set(
-        wasmRuntimeProfile.wasmSourceTargets(appProductName: appProductName)
-          + wasmRuntimeTargetNames
-          + clientActorProjectionSet.dependencies.map(\.moduleName)
+    if let clientAppTarget {
+      try wasmSourceMirror.copyStandardSources(
+        appProductName: appProductName,
+        appSourceDirectory: clientAppTarget.sourceDirectory,
+        appSourceFiles: clientAppTarget.sourceFiles,
+        swiftHTMLPackageDirectory: swiftHTMLPackageDirectory,
+        swiftWebPackageDirectory: swiftWebPackageDirectory,
+        actorProjection: clientActorProjectionSet.root,
+        actorDependencyProjections: clientActorProjectionSet.dependencies
       )
+    }
+    try wasmSourceMirror.removeStaleWasmSourceTargets(
+      keeping: clientAppTarget == nil
+        ? []
+        : Set(
+          wasmRuntimeProfile.wasmSourceTargets(appProductName: appProductName)
+            + wasmRuntimeTargetNames
+            + clientActorProjectionSet.dependencies.map(\.moduleName)
+        )
     )
+    let appTarget = clientAppTarget ?? nativeAppTarget
     let renderContext = GeneratedPackageRenderContext(
       layout: layout,
       swiftWebPackageDirectory: swiftWebPackageDirectory,
@@ -572,9 +591,9 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
       embeddedUnicodeDataTablesLibraryPath: embeddedUnicodeDataTablesLibraryPath,
       nativeActorBootstrapTypeName: nativeActorProjectionSet.root?.manifest.bootstrapTypeName,
       clientActorBootstrapTypeName: clientActorProjectionSet.root?.manifest.bootstrapTypeName,
-      appActorCustomConditions: clientAppTarget.customConditions,
-      appActorUpcomingFeatures: clientAppTarget.upcomingFeatures,
-      appActorExperimentalFeatures: clientAppTarget.experimentalFeatures,
+      appActorCustomConditions: appTarget.customConditions,
+      appActorUpcomingFeatures: appTarget.upcomingFeatures,
+      appActorExperimentalFeatures: appTarget.experimentalFeatures,
       actorDependencyTargets: clientActorProjectionSet.dependencies.map {
         GeneratedActorDependencyTarget(
           moduleName: $0.moduleName,

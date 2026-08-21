@@ -437,6 +437,10 @@ final class GeneratedPackageMaterializationTransaction {
     guard fileManager.fileExists(atPath: previousGeneratedPackageDirectory.path) else {
       return
     }
+    try transferReusableStateDirectories(
+      from: previousGeneratedPackageDirectory,
+      to: installedGeneratedPackageDirectory
+    )
     for packageName in ["server", "dev", "wasm"] {
       let previousPackage = previousGeneratedPackageDirectory.appendingPathComponent(
         packageName,
@@ -454,16 +458,27 @@ final class GeneratedPackageMaterializationTransaction {
       else {
         continue
       }
-      for stateName in [".build", ".swiftpm"] {
-        let previous = previousPackage.appendingPathComponent(stateName, isDirectory: true)
-        let installed = installedPackage.appendingPathComponent(stateName, isDirectory: true)
-        guard fileManager.fileExists(atPath: previous.path),
-          !fileManager.fileExists(atPath: installed.path)
-        else {
-          continue
-        }
-        try fileManager.moveItem(at: previous, to: installed)
+      try transferReusableStateDirectories(
+        from: previousPackage,
+        to: installedPackage
+      )
+    }
+  }
+
+  private func transferReusableStateDirectories(
+    from previousDirectory: URL,
+    to installedDirectory: URL
+  ) throws {
+    let fileManager = FileManager.default
+    for stateName in [".build", ".swiftpm"] {
+      let previous = previousDirectory.appendingPathComponent(stateName, isDirectory: true)
+      let installed = installedDirectory.appendingPathComponent(stateName, isDirectory: true)
+      guard fileManager.fileExists(atPath: previous.path),
+        !fileManager.fileExists(atPath: installed.path)
+      else {
+        continue
       }
+      try fileManager.moveItem(at: previous, to: installed)
     }
   }
 }
