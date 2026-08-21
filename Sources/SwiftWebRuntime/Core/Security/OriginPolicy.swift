@@ -91,3 +91,13 @@ public struct OriginPolicy: Sendable {
     }
 
 }
+
+public extension Request {
+    /// The externally visible origin resolved with the app's forwarded-header policy.
+    var origin: String? {
+        OriginPolicy.requestOrigin(
+            for: self,
+            forwardedHeaders: securityConfiguration.forwardedHeaders
+        )
+    }
+}

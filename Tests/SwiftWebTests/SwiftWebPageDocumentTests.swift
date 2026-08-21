@@ -118,6 +118,51 @@ struct SwiftWebPageDocumentTests {
     }
 
     @Test
+    func rendersOpenGraphMetadataFromCanonicalPageValues() {
+        let rendered = PageDocument(
+            metadata: PageMetadata(
+                title: "Summer & Fireworks",
+                description: "Events across <Japan>.",
+                language: "en",
+                openGraph: OpenGraphMetadata(
+                    type: "website",
+                    url: "https://example.com/en?month=2026-08",
+                    siteName: "Japan Calendar",
+                    locale: "en_US",
+                    alternateLocales: ["ja_JP", "fr_FR"],
+                    image: OpenGraphImage(
+                        url: "https://example.com/assets/calendar.jpg",
+                        secureURL: "https://example.com/assets/calendar.jpg",
+                        mediaType: "image/jpeg",
+                        width: 1_200,
+                        height: 630,
+                        alt: "Seasonal events in Japan"
+                    )
+                )
+            )
+        ) {
+            main { "Calendar" }
+        }
+        .render()
+
+        #expect(rendered.contains("<html lang=\"en\" prefix=\"og: https://ogp.me/ns#\">"))
+        #expect(rendered.contains("<meta property=\"og:title\" content=\"Summer &amp; Fireworks\">"))
+        #expect(rendered.contains("<meta property=\"og:type\" content=\"website\">"))
+        #expect(rendered.contains("<meta property=\"og:url\" content=\"https://example.com/en?month=2026-08\">"))
+        #expect(rendered.contains("<meta property=\"og:description\" content=\"Events across &lt;Japan&gt;.\">"))
+        #expect(rendered.contains("<meta property=\"og:site_name\" content=\"Japan Calendar\">"))
+        #expect(rendered.contains("<meta property=\"og:locale\" content=\"en_US\">"))
+        #expect(rendered.contains("<meta property=\"og:locale:alternate\" content=\"ja_JP\">"))
+        #expect(rendered.contains("<meta property=\"og:locale:alternate\" content=\"fr_FR\">"))
+        #expect(rendered.contains("<meta property=\"og:image\" content=\"https://example.com/assets/calendar.jpg\">"))
+        #expect(rendered.contains("<meta property=\"og:image:secure_url\" content=\"https://example.com/assets/calendar.jpg\">"))
+        #expect(rendered.contains("<meta property=\"og:image:type\" content=\"image/jpeg\">"))
+        #expect(rendered.contains("<meta property=\"og:image:width\" content=\"1200\">"))
+        #expect(rendered.contains("<meta property=\"og:image:height\" content=\"630\">"))
+        #expect(rendered.contains("<meta property=\"og:image:alt\" content=\"Seasonal events in Japan\">"))
+    }
+
+    @Test
     func pageResponseEmitsAtomicCSSInHeadWithoutInlineStyle() async throws {
         try await withRuntime { runtime in
             let request = Request(runtime: runtime)

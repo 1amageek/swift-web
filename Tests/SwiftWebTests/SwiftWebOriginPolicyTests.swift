@@ -38,6 +38,7 @@ struct OriginPolicyTests {
             request.headers[HTTPField.Name("X-Forwarded-Host")!] = "example.com"
 
             #expect(OriginPolicy.requestOrigin(for: request) == "http://127.0.0.1:3000")
+            #expect(request.origin == "http://127.0.0.1:3000")
         }
     }
 
