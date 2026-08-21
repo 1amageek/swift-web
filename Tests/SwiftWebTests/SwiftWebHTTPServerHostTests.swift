@@ -1,9 +1,12 @@
 import Foundation
 import HTTPTypes
 import Logging
+import NIOCore
+import NIOPosix
 import SwiftHTML
 import SwiftWeb
 import SwiftWebHTTPServerHost
+import Synchronization
 import Testing
 
 @Suite
@@ -277,6 +280,42 @@ struct SwiftWebHTTPServerHostTests {
         }
     }
 
+    @Test
+    func peerDisconnectAndShutdownAreNotLoggedAsConnectionFailures() async throws {
+        let logStore = HostLogStore()
+        let logger = Logger(label: "swiftweb.tests.host", factory: { _ in
+            HostRecordingLogHandler(store: logStore)
+        })
+
+        for _ in 0..<5 {
+            let port = Int.random(in: 20_000..<60_000)
+            let host = HTTPServerHost(hostname: "127.0.0.1", port: port)
+            let installation = try await host.render(HostFixtureApp(), logger: logger)
+            let serveTask = Task {
+                try await installation.serve()
+            }
+            let client = Self.makeClient()
+            guard await Self.waitUntilReady(client: client, port: port, serveTask: serveTask) else {
+                try await Self.stop(serveTask, installation)
+                continue
+            }
+
+            try await Self.connectAndDisconnect(port: port)
+            try await Task.sleep(for: .milliseconds(100))
+
+            let (_, response) = try await client.data(
+                from: URL(string: "http://127.0.0.1:\(port)/")!
+            )
+            #expect((response as? HTTPURLResponse)?.statusCode == 200)
+
+            try await Self.stop(serveTask, installation)
+            #expect(!logStore.contains("SwiftWeb connection failed"))
+            return
+        }
+
+        throw HostTestError.serverNeverBecameReady
+    }
+
     // MARK: - Harness
 
     private enum HostTestError: Error {
@@ -352,6 +391,45 @@ struct SwiftWebHTTPServerHostTests {
     ) async throws {
         try await installation.shutdown()
         _ = await serveTask.result
+    }
+
+    private static func connectAndDisconnect(port: Int) async throws {
+        let channel = try await ClientBootstrap(group: MultiThreadedEventLoopGroup.singleton)
+            .connect(host: "127.0.0.1", port: port)
+            .get()
+        try await channel.close().get()
+    }
+}
+
+private final class HostLogStore: Sendable {
+    private let messages = Mutex<[String]>([])
+
+    func append(_ message: String) {
+        messages.withLock { messages in
+            messages.append(message)
+        }
+    }
+
+    func contains(_ text: String) -> Bool {
+        messages.withLock { messages in
+            messages.contains { $0.contains(text) }
+        }
+    }
+}
+
+private struct HostRecordingLogHandler: LogHandler {
+    var metadataProvider: Logger.MetadataProvider?
+    var metadata: Logger.Metadata = [:]
+    var logLevel: Logger.Level = .trace
+    let store: HostLogStore
+
+    subscript(metadataKey key: String) -> Logger.Metadata.Value? {
+        get { metadata[key] }
+        set { metadata[key] = newValue }
+    }
+
+    func log(event: LogEvent) {
+        store.append(event.message.description)
     }
 }
 

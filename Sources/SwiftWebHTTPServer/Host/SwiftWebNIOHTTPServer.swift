@@ -132,7 +132,32 @@ struct SwiftWebNIOHTTPServer: Sendable {
                 )
             }
         } catch {
+            guard !Self.isExpectedConnectionTermination(error) else {
+                return
+            }
             logger.error("SwiftWeb connection failed: \(String(describing: error))")
+        }
+    }
+
+    private static func isExpectedConnectionTermination(_ error: any Error) -> Bool {
+        if error is CancellationError {
+            return true
+        }
+
+        guard let channelError = error as? ChannelError else {
+            return false
+        }
+
+        switch channelError {
+        case .inappropriateOperationForState,
+             .ioOnClosedChannel,
+             .alreadyClosed,
+             .inputClosed,
+             .outputClosed,
+             .eof:
+            return true
+        default:
+            return false
         }
     }
 
