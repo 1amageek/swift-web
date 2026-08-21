@@ -61,12 +61,28 @@ struct LifecycleCommand {
     }
 
     func run() async throws {
-        try await SwiftWebProjectLifecycle(
-            packageDirectory: packageDirectory,
-            environmentOverride: environment,
-            hostOverride: host,
-            portOverride: port,
-            wasmRuntimeProfile: wasmRuntimeProfile
-        ).run(operation)
+        do {
+            try await SwiftWebProjectLifecycle(
+                packageDirectory: packageDirectory,
+                environmentOverride: environment,
+                hostOverride: host,
+                portOverride: port,
+                wasmRuntimeProfile: wasmRuntimeProfile
+            ).run(operation)
+        } catch {
+            guard Self.isGracefulTermination(
+                operation: operation,
+                terminationRequested: SwiftWebDevSignalHandler.shouldStop
+            ) else {
+                throw error
+            }
+        }
+    }
+
+    static func isGracefulTermination(
+        operation: SwiftWebExecutionPlan.Operation,
+        terminationRequested: Bool
+    ) -> Bool {
+        operation == .dev && terminationRequested
     }
 }
