@@ -156,6 +156,14 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-http-api-proposal.git", from: "0.2.0"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.82.0"),
         .package(url: "https://github.com/apple/swift-nio-extras.git", from: "1.34.1"),
+        .package(
+            url: "https://github.com/1amageek/swift-tls.git",
+            revision: "f6c84c5a72d476eb0a0450418f736360cd03a42a"
+        ),
+        .package(
+            url: "https://github.com/1amageek/swift-tls-nio.git",
+            revision: "008e384e81ba3eb328ed8ca41907c53389e90814"
+        ),
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.6.0"),
         .package(url: "https://github.com/apple/swift-crypto.git", from: "4.0.0"),
         .package(url: "https://github.com/apple/swift-service-context.git", from: "1.3.0"),
@@ -347,6 +355,8 @@ let package = Package(
                 .product(name: "NIOWebSocket", package: "swift-nio"),
                 .product(name: "NIOHTTPTypes", package: "swift-nio-extras"),
                 .product(name: "NIOHTTPTypesHTTP1", package: "swift-nio-extras"),
+                .product(name: "TLS", package: "swift-tls"),
+                .product(name: "TLSNIO", package: "swift-tls-nio"),
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "Logging", package: "swift-log"),
                 "SwiftWebCore",
@@ -538,6 +548,7 @@ let package = Package(
                 "SwiftWebPackageGeneration",
                 "SwiftWebStoryboardTooling",
                 "SwiftWebWasmBuild",
+                .product(name: "TLS", package: "swift-tls"),
                 actorSystemCoreDependency,
                 actorSystemDistributedDependency,
                 actorSystemEmbeddedDependency,

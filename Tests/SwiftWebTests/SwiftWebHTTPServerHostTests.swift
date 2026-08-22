@@ -4,6 +4,7 @@ import Logging
 import NIOCore
 import NIOPosix
 import SwiftHTML
+import TLS
 import SwiftWeb
 import SwiftWebHTTPServerHost
 import Synchronization
@@ -257,11 +258,11 @@ struct SwiftWebHTTPServerHostTests {
         }
     }
 
-    @Test
+    @Test(.timeLimit(.minutes(1)))
     func upgradesAndEchoesBinaryWebSocketMessages() async throws {
         try await withHost(HostFixtureApp()) { client, base in
             let webSocketURL = try #require(
-                URL(string: base.replacingOccurrences(of: "http://", with: "ws://") + "/binary-socket")
+                Self.webSocketURL(base: base, path: "/binary-socket")
             )
             let socket = client.webSocketTask(with: webSocketURL)
             socket.resume()
@@ -277,6 +278,64 @@ struct SwiftWebHTTPServerHostTests {
                 return
             }
             #expect(received == expected)
+        }
+    }
+
+    @Test(.timeLimit(.minutes(1)))
+    func servesHTTPSAndSecureWebSocketMessages() async throws {
+        try await withTLSHost(HostFixtureApp()) { client, base in
+            let (schemeData, schemeResponse) = try await client.data(
+                from: URL(string: "\(base)/request-scheme")!
+            )
+            #expect((schemeResponse as? HTTPURLResponse)?.statusCode == 200)
+            #expect(String(decoding: schemeData, as: UTF8.self) == "https")
+
+            let webSocketURL = try #require(
+                Self.webSocketURL(base: base, path: "/scheme-binary-socket")
+            )
+            #expect(webSocketURL.scheme == "wss")
+            let socket = client.webSocketTask(with: webSocketURL)
+            socket.resume()
+            defer {
+                socket.cancel(with: .normalClosure, reason: nil)
+            }
+
+            let schemeMessage = try await socket.receive()
+            guard case .string(let scheme) = schemeMessage else {
+                Issue.record("Expected the secure request scheme")
+                return
+            }
+            #expect(scheme == "https")
+
+            let expected = Data([0x00, 0x01, 0x7F, 0x80, 0xFF])
+            try await socket.send(.data(expected))
+            let echoMessage = try await socket.receive()
+            guard case .data(let received) = echoMessage else {
+                Issue.record("Expected a binary secure WebSocket response")
+                return
+            }
+            #expect(received == expected)
+        }
+    }
+
+    @Test
+    func rejectsTLSWithoutAServerIdentity() {
+        #expect(throws: HTTPServerTransportConfigurationError.missingServerIdentity) {
+            _ = try HTTPServerTransportConfiguration.tls(
+                TLSConfiguration(alpnProtocols: ["http/1.1"])
+            )
+        }
+    }
+
+    @Test
+    func rejectsUnsupportedTLSApplicationProtocols() {
+        var configuration = HostTLSTestIdentity.serverConfiguration()
+        configuration.alpnProtocols = ["h2", "http/1.1"]
+
+        #expect(
+            throws: HTTPServerTransportConfigurationError.unsupportedApplicationProtocol("h2")
+        ) {
+            _ = try HTTPServerTransportConfiguration.tls(configuration)
         }
     }
 
@@ -353,6 +412,53 @@ struct SwiftWebHTTPServerHostTests {
         throw HostTestError.serverNeverBecameReady
     }
 
+    private func withTLSHost<Definition: App>(
+        _ app: Definition,
+        _ body: (URLSession, String) async throws -> Void
+    ) async throws {
+        var serverConfiguration = HostTLSTestIdentity.serverConfiguration()
+        serverConfiguration.alpnProtocols = []
+        let transport = try HTTPServerTransportConfiguration.tls(
+            serverConfiguration
+        )
+        for _ in 0..<5 {
+            let port = Int.random(in: 20_000..<60_000)
+            let host = HTTPServerHost(
+                hostname: "127.0.0.1",
+                port: port,
+                transport: transport
+            )
+            var logger = Logger(label: "swiftweb.tests.host.tls")
+            logger.logLevel = .trace
+            let installation = try await host.render(app, logger: logger)
+            let serveTask = Task {
+                try await installation.serve()
+            }
+            let client = Self.makeTLSClient()
+            let base = "https://127.0.0.1:\(port)"
+            guard await Self.waitUntilReady(
+                client: client,
+                url: URL(string: "\(base)/")!,
+                serveTask: serveTask
+            ) else {
+                client.invalidateAndCancel()
+                try await Self.stop(serveTask, installation)
+                continue
+            }
+            do {
+                try await body(client, base)
+                client.invalidateAndCancel()
+                try await Self.stop(serveTask, installation)
+                return
+            } catch {
+                client.invalidateAndCancel()
+                try await Self.stop(serveTask, installation)
+                throw error
+            }
+        }
+        throw HostTestError.serverNeverBecameReady
+    }
+
     private static func makeClient() -> URLSession {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.httpShouldSetCookies = false
@@ -361,12 +467,35 @@ struct SwiftWebHTTPServerHostTests {
         return URLSession(configuration: configuration)
     }
 
+    private static func makeTLSClient() -> URLSession {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.httpShouldSetCookies = false
+        configuration.httpCookieAcceptPolicy = .never
+        configuration.timeoutIntervalForRequest = 15
+        return URLSession(
+            configuration: configuration,
+            delegate: HostTLSTestTrustDelegate(),
+            delegateQueue: nil
+        )
+    }
+
     private static func waitUntilReady(
         client: URLSession,
         port: Int,
         serveTask: Task<Void, any Error>
     ) async -> Bool {
-        let url = URL(string: "http://127.0.0.1:\(port)/")!
+        await waitUntilReady(
+            client: client,
+            url: URL(string: "http://127.0.0.1:\(port)/")!,
+            serveTask: serveTask
+        )
+    }
+
+    private static func waitUntilReady(
+        client: URLSession,
+        url: URL,
+        serveTask: Task<Void, any Error>
+    ) async -> Bool {
         for _ in 0..<100 {
             if serveTask.isCancelled {
                 return false
@@ -383,6 +512,22 @@ struct SwiftWebHTTPServerHostTests {
             }
         }
         return false
+    }
+
+    private static func webSocketURL(base: String, path: String) -> URL? {
+        guard var components = URLComponents(string: base) else {
+            return nil
+        }
+        switch components.scheme {
+        case "http":
+            components.scheme = "ws"
+        case "https":
+            components.scheme = "wss"
+        default:
+            return nil
+        }
+        components.path = path
+        return components.url
     }
 
     private static func stop(
@@ -445,6 +590,10 @@ private struct HostFixtureApp: App {
         FormActionEndpoint(HostEchoFormAction.self, path: "/submit")
         SSEEndpoint(HostTickerRoute.self, path: "/events")
         WebSocketEndpoint(HostBinaryEchoRoute.self, path: "/binary-socket")
+        WebSocketEndpoint(HostSchemeBinaryEchoRoute.self, path: "/scheme-binary-socket")
+        Endpoint("/request-scheme", contentType: "text/plain; charset=utf-8") { request in
+            request.url.scheme ?? "none"
+        }
         Endpoint("/plain.txt", contentType: "text/plain; charset=utf-8") { _ in
             "plain fixture"
         }
@@ -616,6 +765,17 @@ private struct HostBinaryEchoRoute: WebSocketRoute {
     init() {}
 
     func connect(_ context: WebSocketContext) async throws {
+        context.onBinary { bytes in
+            try await context.send(bytes)
+        }
+    }
+}
+
+private struct HostSchemeBinaryEchoRoute: WebSocketRoute {
+    init() {}
+
+    func connect(_ context: WebSocketContext) async throws {
+        try await context.send(context.request.url.scheme ?? "none")
         context.onBinary { bytes in
             try await context.send(bytes)
         }

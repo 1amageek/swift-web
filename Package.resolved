@@ -1,5 +1,5 @@
 {
-  "originHash" : "524cc2ba0522f68d52aada56a0d3f540cf6d2cc4e55be321d8b06bcb4bfa46ae",
+  "originHash" : "caa0d8c638f491259fd8fe2289a00dbabf3188730d8f181bb556be321ebccef4",
   "pins" : [
     {
       "identity" : "async-http-client",
@@ -164,6 +164,15 @@
       }
     },
     {
+      "identity" : "swift-networking",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/1amageek/swift-networking.git",
+      "state" : {
+        "revision" : "c5da46c2ab2fd1244b40a208cd1fa406ead43dca",
+        "version" : "0.1.0"
+      }
+    },
+    {
       "identity" : "swift-nio",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-nio.git",
@@ -236,6 +245,14 @@
       }
     },
     {
+      "identity" : "swift-ssl",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/1amageek/swift-ssl.git",
+      "state" : {
+        "revision" : "25b28cbc9da59730fc135a190004eb99d0337b52"
+      }
+    },
+    {
       "identity" : "swift-syntax",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/swiftlang/swift-syntax.git",
@@ -251,6 +268,22 @@
       "state" : {
         "revision" : "869129b7bf4ecc57b97d0193ad29690ca2134750",
         "version" : "1.8.1"
+      }
+    },
+    {
+      "identity" : "swift-tls",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/1amageek/swift-tls.git",
+      "state" : {
+        "revision" : "f6c84c5a72d476eb0a0450418f736360cd03a42a"
+      }
+    },
+    {
+      "identity" : "swift-tls-nio",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/1amageek/swift-tls-nio.git",
+      "state" : {
+        "revision" : "008e384e81ba3eb328ed8ca41907c53389e90814"
       }
     }
   ],

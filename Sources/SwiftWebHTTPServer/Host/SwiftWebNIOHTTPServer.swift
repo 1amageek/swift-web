@@ -7,6 +7,7 @@ import NIOHTTPTypesHTTP1
 import NIOPosix
 import NIOWebSocket
 import Synchronization
+import TLSNIO
 @_spi(Hosting) import SwiftWebCore
 
 /// The native HTTP/1.1 host pipeline. HTTP and RFC 6455 upgrade negotiation
@@ -29,6 +30,7 @@ struct SwiftWebNIOHTTPServer: Sendable {
 
     let hostname: String
     let port: Int
+    let transport: HTTPServerTransportConfiguration
     let handler: SwiftWebHostHTTPHandler
     let logger: Logger
 
@@ -54,6 +56,12 @@ struct SwiftWebNIOHTTPServer: Sendable {
     private func configure(_ channel: Channel) -> EventLoopFuture<EventLoopFuture<UpgradeResult>> {
         channel.eventLoop.makeCompletedFuture {
             let remoteAddress = channel.remoteAddress.map(String.init(describing:))
+            if let tlsHandler = try transport.makeTLSHandler() {
+                try channel.pipeline.syncOperations.addHandlers(
+                    tlsHandler,
+                    SwiftWebTLSConnectionErrorHandler(logger: logger)
+                )
+            }
             let upgrader = NIOTypedWebSocketServerUpgrader<UpgradeResult>(
                 maxFrameSize: Self.maximumWebSocketMessageBytes,
                 shouldUpgrade: { channel, requestHead in
@@ -61,7 +69,7 @@ struct SwiftWebNIOHTTPServer: Sendable {
                     promise.completeWithTask {
                         let request = try HTTPRequest(
                             requestHead,
-                            secure: false,
+                            secure: self.transport.isSecure,
                             splitCookie: false
                         )
                         guard let fields = try await self.handler.webSocketUpgradeHeaders(
@@ -88,7 +96,7 @@ struct SwiftWebNIOHTTPServer: Sendable {
                         )
                         let request = try HTTPRequest(
                             requestHead,
-                            secure: false,
+                            secure: self.transport.isSecure,
                             splitCookie: false
                         )
                         return .webSocket(
@@ -104,7 +112,7 @@ struct SwiftWebNIOHTTPServer: Sendable {
                 notUpgradingCompletionHandler: { channel in
                     channel.eventLoop.makeCompletedFuture {
                         try channel.pipeline.syncOperations.addHandler(
-                            HTTP1ToHTTPServerCodec(secure: false)
+                            HTTP1ToHTTPServerCodec(secure: self.transport.isSecure)
                         )
                         let asyncChannel = try HTTPChannel(
                             wrappingChannelSynchronously: channel

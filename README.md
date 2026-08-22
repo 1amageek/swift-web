@@ -146,6 +146,43 @@ try await installation.serve()
 `App.run()` is the command-line convenience over this same path. Host adapter
 authors should follow the [Host Rendering Contract](docs/HostRenderingContract.md).
 
+### HTTPS and WSS
+
+The native host can terminate TLS directly through
+[`swift-tls-nio`](https://github.com/1amageek/swift-tls-nio). Supply a
+server-side `TLSConfiguration` through the host-owned transport configuration:
+
+```swift
+import SwiftWebHTTPServerHost
+import TLS
+
+let identity = TLSIdentity(
+    privateKey: privateKeyBytes,
+    keyType: .ecdsaP256,
+    certificateChain: [Certificate(der: leafCertificateDER)]
+)
+let transport = try HTTPServerTransportConfiguration.tls(
+    .server(identity: identity, alpn: ["http/1.1"])
+)
+let host = HTTPServerHost(
+    hostname: "0.0.0.0",
+    port: 8443,
+    transport: transport
+)
+
+try await host.run(MyApp())
+```
+
+The same listener serves HTTPS routes and WSS upgrades. TLS is installed before
+the HTTP/1.1 and WebSocket handlers, so route and WebSocket APIs continue to
+receive plaintext while transport bytes remain encrypted. An empty ALPN list is
+normalized to `http/1.1`; unsupported protocols fail during transport
+configuration instead of selecting a codec the host cannot serve.
+
+Browser clients should derive WebSocket URLs from the page origin. An HTTPS
+page therefore resolves its socket endpoint to `wss://`; HTTP continues to use
+`ws://` for explicitly plaintext development listeners.
+
 A static page returns a complete `HTMLDocument`:
 
 ```swift

@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+| Area | Change |
+|---|---|
+| HTTPS and WSS | Adds host-owned TLS transport configuration backed by `swift-tls-nio`, with one TLS session per accepted NIO channel and secure request-scheme propagation through HTTP and WebSocket upgrades. |
+| Configuration | Validates server identity and HTTP/1.1 ALPN compatibility before binding; unsupported protocols fail with `HTTPServerTransportConfigurationError`. |
+| Validation | Exercises HTTPS request translation and a real WSS binary round trip while retaining the existing plaintext HTTP/WS path. |
+
 ## 0.11.0 - 2026-08-15
 
 | Area | Change |

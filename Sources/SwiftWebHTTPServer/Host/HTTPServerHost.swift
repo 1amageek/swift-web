@@ -5,17 +5,20 @@ import Logging
 public struct HTTPServerHost: Sendable {
     private let hostname: String
     private let port: Int
+    private let transport: HTTPServerTransportConfiguration
     private let clientRuntime: ClientRuntimeConfiguration?
     private let sessionStorage: any HTTPServerSessionStorage
 
     public init(
         hostname: String = "127.0.0.1",
         port: Int = 8080,
+        transport: HTTPServerTransportConfiguration = .plaintext,
         clientRuntime: ClientRuntimeConfiguration? = nil,
         sessionStorage: any HTTPServerSessionStorage = InMemorySessionStorage()
     ) {
         self.hostname = hostname
         self.port = port
+        self.transport = transport
         self.clientRuntime = clientRuntime
         self.sessionStorage = sessionStorage
     }
@@ -49,6 +52,7 @@ public struct HTTPServerHost: Sendable {
             let server = SwiftWebNIOHTTPServer(
                 hostname: hostname,
                 port: port,
+                transport: transport,
                 handler: handler,
                 logger: logger
             )

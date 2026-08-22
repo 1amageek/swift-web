@@ -58,6 +58,24 @@ try await installation.serve()
 `App.run()` remains a convenience over the same host and rendering path. It
 does not introduce a second application container.
 
+The host also owns transport security. A secure listener is configured with a
+validated `HTTPServerTransportConfiguration` and installs one independent
+`TLSNIOHandler` per accepted channel:
+
+```mermaid
+flowchart LR
+  TCP["TCP channel"] --> TLS["TLSNIOHandler"]
+  TLS --> Upgrade["HTTP/1.1 + RFC 6455 upgrade"]
+  Upgrade --> HTTP["HTTPS route"]
+  Upgrade --> WS["WSS route"]
+```
+
+SwiftWeb core receives only the resulting request scheme and plaintext request
+or WebSocket data. Certificate identity, TLS policy, handshake deadlines, and
+encrypted buffer ownership remain in the native host and `swift-tls-nio`.
+Plaintext remains an explicit transport configuration for local development and
+deployments whose trusted edge terminates TLS before forwarding requests.
+
 ## Request Translation
 
 Every native request is translated into `SwiftWebHost.Request` using the exact
