@@ -67,6 +67,24 @@ struct CompilerTargetExtractorTests {
     }
 
     @Test
+    func compilerTargetIgnoresRemoteArgumentMetadataLiteral() throws {
+        let probe = fixtureProbe()
+        let target = "$s7Fixture7CounterC9increment2byS2i_tYaKFTE"
+        let sil = """
+        // __actorSystemTargetProbe_0(_:_:)
+        sil hidden @probe : $@convention(thin) () -> () {
+          %0 = witness_method $System, #DistributedActorSystem.remoteCall
+          %1 = string_literal utf8 "amount"
+          %2 = string_literal utf8 "\(target)"
+        }
+        """
+
+        let mappings = try CompilerTargetExtractor.parse(sil: sil, probes: [probe])
+
+        #expect(mappings == [ActorCompilerTargetMapping(key: probe.key, targetIdentifier: target)])
+    }
+
+    @Test
     func ambiguousCompilerLiteralsFailWithoutGuessing() throws {
         let probe = fixtureProbe()
         let sil = """

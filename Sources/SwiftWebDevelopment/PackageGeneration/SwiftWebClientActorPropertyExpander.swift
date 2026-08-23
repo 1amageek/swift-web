@@ -101,7 +101,7 @@ private final class ActorPropertyRewriter: SyntaxRewriter {
         let lines = [
             "\(declarationHead) \(identifier): \(serviceType) {",
             "    get {",
-            "        SwiftWebActorBinding.resolve(",
+            "        SwiftWebActorBinding.\(isLegacyExistential ? "resolve" : "resolveActor")(",
             "            (\(serviceType)).self,",
             "            contract: \(contractExpression)",
             "        )",

@@ -1,8 +1,27 @@
 import ActorSystemCore
+import Foundation
 import Testing
+
+private struct ActorByteBufferCodableEnvelope: Codable {
+    let payload: ActorByteBuffer
+}
 
 @Suite
 struct ActorCodecTests {
+    @Test
+    func actorByteBufferSatisfiesDistributedActorSerializationRequirement() throws {
+        let original = ActorByteBufferCodableEnvelope(
+            payload: ActorByteBuffer([0, 1, 127, 128, 255])
+        )
+
+        let encoded = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(
+            ActorByteBufferCodableEnvelope.self,
+            from: encoded
+        )
+
+        #expect(decoded.payload == original.payload)
+    }
     @Test
     func frameRoundTripsWithoutChangingWireFields() throws {
         let codec = ActorFrameCodec(

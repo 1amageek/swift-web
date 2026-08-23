@@ -1,4 +1,4 @@
-#if !canImport(Logging)
+#if SWIFTWEB_PORTABLE_LOGGING
 /// Minimal stand-in for swift-log's `Logger`, for profiles built without
 /// swift-log (Embedded/wasm core-only builds). Messages go to standard output with a level tag; the
 /// embedded host profile (Cloudflare Workers) captures stdout into its log

@@ -61,6 +61,7 @@ public struct SceneRenderingContext {
     #endif
     package let environment: EnvironmentValues
     package let actorBindings: SwiftWebActorBindingScope
+    package let actorServiceBindings: [SwiftWebActorServiceBinding]
 
     #if SWIFTWEB_LEGACY_ACTORS
     package init(
@@ -69,7 +70,8 @@ public struct SceneRenderingContext {
         actorSystem: WebActorSystem = .shared,
         legacyActorSystem: LegacyWebActorSystem = .shared,
         environment: EnvironmentValues = EnvironmentValues(),
-        actorBindings: SwiftWebActorBindingScope = .empty
+        actorBindings: SwiftWebActorBindingScope = .empty,
+        actorServiceBindings: [SwiftWebActorServiceBinding] = []
     ) {
         self.runtime = runtime
         self.routes = routes
@@ -77,6 +79,7 @@ public struct SceneRenderingContext {
         self.legacyActorSystem = legacyActorSystem
         self.environment = environment
         self.actorBindings = actorBindings
+        self.actorServiceBindings = actorServiceBindings
     }
     #else
     package init(
@@ -84,13 +87,15 @@ public struct SceneRenderingContext {
         routes: any RoutesBuilder,
         actorSystem: WebActorSystem = .shared,
         environment: EnvironmentValues = EnvironmentValues(),
-        actorBindings: SwiftWebActorBindingScope = .empty
+        actorBindings: SwiftWebActorBindingScope = .empty,
+        actorServiceBindings: [SwiftWebActorServiceBinding] = []
     ) {
         self.runtime = runtime
         self.routes = routes
         self.actorSystem = actorSystem
         self.environment = environment
         self.actorBindings = actorBindings
+        self.actorServiceBindings = actorServiceBindings
     }
     #endif
 
@@ -98,24 +103,32 @@ public struct SceneRenderingContext {
     package static func root(
         _ runtime: AppRuntime,
         actorSystem: WebActorSystem = .shared,
-        legacyActorSystem: LegacyWebActorSystem = .shared
+        legacyActorSystem: LegacyWebActorSystem = .shared,
+        actorBindings: SwiftWebActorBindingScope = .empty,
+        actorServiceBindings: [SwiftWebActorServiceBinding] = []
     ) -> SceneRenderingContext {
         SceneRenderingContext(
             runtime: runtime,
             routes: runtime.routes,
             actorSystem: actorSystem,
-            legacyActorSystem: legacyActorSystem
+            legacyActorSystem: legacyActorSystem,
+            actorBindings: actorBindings,
+            actorServiceBindings: actorServiceBindings
         )
     }
     #else
     package static func root(
         _ runtime: AppRuntime,
-        actorSystem: WebActorSystem = .shared
+        actorSystem: WebActorSystem = .shared,
+        actorBindings: SwiftWebActorBindingScope = .empty,
+        actorServiceBindings: [SwiftWebActorServiceBinding] = []
     ) -> SceneRenderingContext {
         SceneRenderingContext(
             runtime: runtime,
             routes: runtime.routes,
-            actorSystem: actorSystem
+            actorSystem: actorSystem,
+            actorBindings: actorBindings,
+            actorServiceBindings: actorServiceBindings
         )
     }
     #endif
@@ -178,7 +191,8 @@ public struct SceneRenderingContext {
             actorSystem: actorSystem,
             legacyActorSystem: legacyActorSystem,
             environment: environment,
-            actorBindings: actorBindings
+            actorBindings: actorBindings,
+            actorServiceBindings: actorServiceBindings
         )
         #else
         return SceneRenderingContext(
@@ -186,9 +200,26 @@ public struct SceneRenderingContext {
             routes: routes,
             actorSystem: actorSystem,
             environment: environment,
-            actorBindings: actorBindings
+            actorBindings: actorBindings,
+            actorServiceBindings: actorServiceBindings
         )
         #endif
+    }
+
+    package func actorServiceRoutes(
+        for address: ActorAddress
+    ) throws -> (host: ActorRoute?, client: ActorRoute?) {
+        let matches = actorServiceBindings.filter { $0.actorType == address.type }
+        guard matches.count <= 1 else {
+            throw SwiftWebActorServiceBindingError.duplicateActorType(address.type)
+        }
+        guard let binding = matches.first else {
+            return (nil, nil)
+        }
+        return (
+            try binding.hostRoute.route(identity: address.identity),
+            try binding.clientRoute?.route(identity: address.identity)
+        )
     }
 }
 
@@ -206,9 +237,9 @@ public enum SwiftWebActorRenderContext {
         }
     }
 
-    public static func withValue<Result: Sendable>(
+    public static func withValue<Result>(
         _ value: SwiftWebActorBindingScope,
-        operation: @Sendable () async throws -> Result
+        operation: () async throws -> Result
     ) async rethrows -> Result {
         try await EnlargedStackContext.withValue(SwiftWebActorRenderContextPropagator(scope: value)) {
             try await SwiftWebActorBindingContext.withValue(value, operation: operation)

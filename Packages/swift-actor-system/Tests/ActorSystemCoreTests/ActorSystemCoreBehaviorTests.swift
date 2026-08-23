@@ -563,6 +563,47 @@ struct ActorSystemCoreBehaviorTests {
     }
 
     @Test
+    func cancellationIsDispatchedWhileRequestReplySendAwaitsItsResponse() async throws {
+        let transport = RequestReplyDispatchActorTransport()
+        let transportID = ActorTransportID("request-reply-dispatch")
+        let address = ActorAddress(
+            type: ActorTypeID(high: 17, low: 18),
+            identity: "remote-request-reply"
+        )
+        let core = ActorSystemCore(
+            router: StaticActorRouter(
+                routes: [
+                    address.type: ActorRoute(
+                        transport: transportID,
+                        endpoint: ActorEndpoint("remote-request-reply")
+                    ),
+                ]
+            ),
+            transports: [transportID: transport],
+            configuration: configuration(session: 18)
+        )
+        try await core.start()
+        let invocation = Task {
+            try await core.invoke(Self.emptyInvocation(to: address))
+        }
+        await transport.waitUntilInvocationIsDispatched()
+
+        invocation.cancel()
+        await transport.waitUntilCancellationIsDispatched()
+
+        do {
+            _ = try await invocation.value
+            Issue.record("Expected the caller cancellation to fail the invocation")
+        } catch let error as ActorSystemError {
+            #expect(error == .cancelled)
+        } catch {
+            Issue.record("Unexpected invocation error: \(error)")
+        }
+        #expect(transport.cancellationCount == 1)
+        try await core.shutdown()
+    }
+
+    @Test
     func endpointTerminationFailsOnlyCallsForThatEndpoint() async throws {
         let transportID = ActorTransportID("multiplexed")
         let firstEndpoint = ActorEndpoint("connection-a")
@@ -1754,6 +1795,161 @@ private final class BlockingSendActorTransport: ActorTransport, Sendable {
         }
         continuation?.resume()
         incomingContinuation.finish()
+    }
+}
+
+private final class RequestReplyDispatchActorTransport:
+    ActorTransportDispatchReporting,
+    Sendable
+{
+    private struct State: Sendable {
+        var invocationIsDispatched = false
+        var cancellationCount = 0
+        var stopped = false
+        var invocationContinuation: CheckedContinuation<Void, Never>?
+        var dispatchWaiters: [CheckedContinuation<Void, Never>] = []
+        var cancellationWaiters: [CheckedContinuation<Void, Never>] = []
+    }
+
+    let incoming: AsyncThrowingStream<ActorInboundFrame, Error>
+    private let incomingContinuation:
+        AsyncThrowingStream<ActorInboundFrame, Error>.Continuation
+    private let state = Mutex(State())
+
+    init() {
+        let stream = AsyncThrowingStream<ActorInboundFrame, Error>.makeStream()
+        self.incoming = stream.stream
+        self.incomingContinuation = stream.continuation
+    }
+
+    var cancellationCount: Int {
+        state.withLock { $0.cancellationCount }
+    }
+
+    func start() async throws {}
+
+    func send(_ frame: ActorFrame, to endpoint: ActorEndpoint) async throws {
+        _ = endpoint
+        guard case .cancellation = frame else {
+            throw ActorSystemError.invalidFrame(
+                ActorProtocolViolation("Expected an outbound cancellation frame")
+            )
+        }
+        let waiters = try state.withLock { state -> [CheckedContinuation<Void, Never>] in
+            guard !state.stopped else {
+                throw ActorSystemError.transportClosed
+            }
+            state.cancellationCount += 1
+            let waiters = state.cancellationWaiters
+            state.cancellationWaiters.removeAll(keepingCapacity: false)
+            return waiters
+        }
+        for waiter in waiters {
+            waiter.resume()
+        }
+    }
+
+    func send(
+        _ frame: ActorFrame,
+        to endpoint: ActorEndpoint,
+        onDispatched: @escaping @Sendable () -> Void
+    ) async throws {
+        _ = endpoint
+        guard case .invocation = frame else {
+            onDispatched()
+            return try await send(frame, to: endpoint)
+        }
+        onDispatched()
+        let waiters = try state.withLock { state -> [CheckedContinuation<Void, Never>] in
+            guard !state.stopped else {
+                throw ActorSystemError.transportClosed
+            }
+            state.invocationIsDispatched = true
+            let waiters = state.dispatchWaiters
+            state.dispatchWaiters.removeAll(keepingCapacity: false)
+            return waiters
+        }
+        for waiter in waiters {
+            waiter.resume()
+        }
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                let resumeImmediately = state.withLock { state -> Bool in
+                    guard !state.stopped else {
+                        return true
+                    }
+                    state.invocationContinuation = continuation
+                    return false
+                }
+                if resumeImmediately {
+                    continuation.resume()
+                }
+            }
+        } onCancel: {
+            releaseInvocation()
+        }
+        try state.withLock { state in
+            guard !state.stopped else {
+                throw ActorSystemError.transportClosed
+            }
+        }
+    }
+
+    func waitUntilInvocationIsDispatched() async {
+        await withCheckedContinuation { continuation in
+            let resumeImmediately = state.withLock { state -> Bool in
+                guard !state.invocationIsDispatched else {
+                    return true
+                }
+                state.dispatchWaiters.append(continuation)
+                return false
+            }
+            if resumeImmediately {
+                continuation.resume()
+            }
+        }
+    }
+
+    func waitUntilCancellationIsDispatched() async {
+        await withCheckedContinuation { continuation in
+            let resumeImmediately = state.withLock { state -> Bool in
+                guard state.cancellationCount == 0 else {
+                    return true
+                }
+                state.cancellationWaiters.append(continuation)
+                return false
+            }
+            if resumeImmediately {
+                continuation.resume()
+            }
+        }
+    }
+
+    func shutdown() async {
+        let waiters = state.withLock { state -> [CheckedContinuation<Void, Never>] in
+            guard !state.stopped else {
+                return []
+            }
+            state.stopped = true
+            let waiters = state.dispatchWaiters + state.cancellationWaiters
+            state.dispatchWaiters.removeAll(keepingCapacity: false)
+            state.cancellationWaiters.removeAll(keepingCapacity: false)
+            return waiters
+        }
+        releaseInvocation()
+        for waiter in waiters {
+            waiter.resume()
+        }
+        incomingContinuation.finish()
+    }
+
+    private func releaseInvocation() {
+        let continuation = state.withLock { state in
+            let continuation = state.invocationContinuation
+            state.invocationContinuation = nil
+            return continuation
+        }
+        continuation?.resume()
     }
 }
 

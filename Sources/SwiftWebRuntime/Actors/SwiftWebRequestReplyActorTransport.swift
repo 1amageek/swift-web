@@ -5,7 +5,11 @@ import Synchronization
 /// A bounded authorization-context registry gives equivalent requests the same
 /// Core endpoint. A separate stable peer identity routes cancellation across
 /// ordinary HTTP connection changes without weakening replay authorization.
-public final class SwiftWebRequestReplyActorTransport: ActorTransport, Sendable {
+public final class SwiftWebRequestReplyActorTransport:
+    ActorTransport,
+    ActorTransportDispatchReporting,
+    Sendable
+{
     private enum Phase: Sendable, Equatable {
         case initialized
         case running
@@ -42,6 +46,7 @@ public final class SwiftWebRequestReplyActorTransport: ActorTransport, Sendable 
 
     private struct State: Sendable {
         var phase = Phase.initialized
+        var requestClient: (any SwiftWebActorRequestClient)?
         var nextEndpoint: UInt64 = 0
         var nextWaiterID: UInt64 = 0
         var nextUse: UInt64 = 0
@@ -64,17 +69,23 @@ public final class SwiftWebRequestReplyActorTransport: ActorTransport, Sendable 
     private let maximumPendingRequests: Int
     private let maximumPeerEndpoints: Int
     private let maximumPeerIdentityBytes: Int
+    private let frameCodec: ActorFrameCodec
 
     public init(
         maximumPendingRequests: Int = 1_024,
         maximumBufferedFrames: Int = 64,
         maximumPeerEndpoints: Int = 1_024,
-        maximumPeerIdentityBytes: Int = 1_024
+        maximumPeerIdentityBytes: Int = 1_024,
+        maximumFrameBytes: Int = 1_048_576,
+        maximumPayloadBytes: Int = 1_000_000
     ) throws {
         guard maximumPendingRequests > 0,
               maximumBufferedFrames > 0,
               maximumPeerEndpoints > 0,
-              maximumPeerIdentityBytes > 0
+              maximumPeerIdentityBytes > 0,
+              maximumFrameBytes >= ActorFrameCodec.minimumFrameBytes,
+              maximumPayloadBytes >= 0,
+              maximumPayloadBytes <= maximumFrameBytes
         else {
             throw ActorSystemError.invalidFrame(
                 ActorProtocolViolation("HTTP actor transport configuration is invalid")
@@ -88,6 +99,26 @@ public final class SwiftWebRequestReplyActorTransport: ActorTransport, Sendable 
         self.maximumPendingRequests = maximumPendingRequests
         self.maximumPeerEndpoints = maximumPeerEndpoints
         self.maximumPeerIdentityBytes = maximumPeerIdentityBytes
+        self.frameCodec = ActorFrameCodec(
+            maximumFrameBytes: maximumFrameBytes,
+            maximumPayloadBytes: maximumPayloadBytes,
+            maximumIdentityBytes: maximumPeerIdentityBytes
+        )
+    }
+
+    @_spi(Hosting)
+    public func installRequestClient(
+        _ client: any SwiftWebActorRequestClient
+    ) throws {
+        try state.withLock { state in
+            guard state.phase == .initialized else {
+                throw ActorSystemError.alreadyStarted
+            }
+            guard state.requestClient == nil else {
+                throw ActorSystemError.alreadyStarted
+            }
+            state.requestClient = client
+        }
     }
 
     public func start() async throws {
@@ -255,12 +286,75 @@ public final class SwiftWebRequestReplyActorTransport: ActorTransport, Sendable 
         _ frame: ActorFrame,
         to endpoint: ActorEndpoint
     ) async throws {
-        guard case .result(let result) = frame else {
+        try await send(frame, to: endpoint, onDispatched: {})
+    }
+
+    public func send(
+        _ frame: ActorFrame,
+        to endpoint: ActorEndpoint,
+        onDispatched: @escaping @Sendable () -> Void
+    ) async throws {
+        if case .result(let result) = frame {
+            let continuation = try takeReplyContinuation(
+                result: result,
+                endpoint: endpoint
+            )
+            onDispatched()
+            continuation.resume(returning: frame)
+            return
+        }
+
+        let requestClient = try state.withLock { state -> any SwiftWebActorRequestClient in
+            guard state.phase == .running else {
+                throw ActorSystemError.transportClosed
+            }
+            guard let requestClient = state.requestClient else {
+                throw ActorSystemError.transportUnavailable(.swiftWebHTTP)
+            }
+            return requestClient
+        }
+        let encodedFrame = try frameCodec.encode(frame)
+        let encodedResponse = try await requestClient.requestActorFrame(
+            encodedFrame,
+            to: endpoint,
+            onDispatched: onDispatched
+        )
+        if case .cancellation = frame, encodedResponse == nil {
+            return
+        }
+        guard let encodedResponse else {
+            throw ActorSystemError.decodingFailed
+        }
+        let response = try frameCodec.decode(encodedResponse)
+        guard case .result = response else {
             throw ActorSystemError.invalidFrame(
-                ActorProtocolViolation("HTTP request transport can only send result replies")
+                ActorProtocolViolation("HTTP actor response is not a result frame")
             )
         }
-        let continuation = try state.withLock { state -> CheckedContinuation<ActorFrame, any Error> in
+        let result = incomingContinuation.yield(
+            ActorInboundFrame(
+                frame: response,
+                transport: .swiftWebHTTP,
+                replyEndpoint: endpoint
+            )
+        )
+        switch result {
+        case .enqueued:
+            return
+        case .dropped:
+            throw ActorSystemError.overloaded
+        case .terminated:
+            throw ActorSystemError.transportClosed
+        @unknown default:
+            throw ActorSystemError.transportClosed
+        }
+    }
+
+    private func takeReplyContinuation(
+        result: ActorResultFrame,
+        endpoint: ActorEndpoint
+    ) throws -> CheckedContinuation<ActorFrame, any Error> {
+        try state.withLock { state -> CheckedContinuation<ActorFrame, any Error> in
             guard state.phase == .running,
                   let peerIdentity = state.peerIdentitiesByEndpoint[endpoint],
                   var peer = state.peers[peerIdentity],
@@ -286,13 +380,15 @@ public final class SwiftWebRequestReplyActorTransport: ActorTransport, Sendable 
             state.pendingWaiterCount -= 1
             return waiter.continuation
         }
-        continuation.resume(returning: frame)
     }
 
     public func shutdown() async {
-        let continuations = state.withLock { state -> [CheckedContinuation<ActorFrame, any Error>] in
+        let shutdown = state.withLock { state -> (
+            [CheckedContinuation<ActorFrame, any Error>],
+            (any SwiftWebActorRequestClient)?
+        ) in
             guard state.phase != .stopped else {
-                return []
+                return ([], nil)
             }
             state.phase = .stopped
             let continuations = state.pending.values
@@ -306,10 +402,13 @@ public final class SwiftWebRequestReplyActorTransport: ActorTransport, Sendable 
             state.deferredCancellations.removeAll(keepingCapacity: false)
             state.peers.removeAll(keepingCapacity: false)
             state.peerIdentitiesByEndpoint.removeAll(keepingCapacity: false)
-            return continuations
+            let requestClient = state.requestClient
+            state.requestClient = nil
+            return (continuations, requestClient)
         }
         incomingContinuation.finish()
-        for continuation in continuations {
+        await shutdown.1?.shutdown()
+        for continuation in shutdown.0 {
             continuation.resume(throwing: ActorSystemError.transportClosed)
         }
     }

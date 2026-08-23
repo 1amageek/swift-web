@@ -34,6 +34,18 @@ struct ClientRuntimeJSONCodecTests {
                         identity: "counter-1"
                     )
                 ),
+            ],
+            actorRouteBindings: [
+                SwiftWebActorRouteBindingRecord(
+                    actorID: ActorAddress(
+                        type: ActorTypeID(high: 1, low: 2),
+                        identity: "counter-1"
+                    ),
+                    route: ActorRoute(
+                        transport: ActorTransportID("swiftweb.http"),
+                        endpoint: ActorEndpoint("https://counter.example.test/actors")
+                    )
+                ),
             ]
         )
 
@@ -155,6 +167,18 @@ struct ClientRuntimeJSONCodecTests {
                     actorID: ActorAddress(
                         type: ActorTypeID(high: UInt64.max, low: UInt64.max - 1),
                         identity: "counter-embedded"
+                    )
+                ),
+            ],
+            actorRouteBindings: [
+                SwiftWebActorRouteBindingRecord(
+                    actorID: ActorAddress(
+                        type: ActorTypeID(high: UInt64.max, low: UInt64.max - 1),
+                        identity: "counter-embedded"
+                    ),
+                    route: ActorRoute(
+                        transport: ActorTransportID("swiftweb.http"),
+                        endpoint: ActorEndpoint("https://counter.example.test/actors")
                     )
                 ),
             ]

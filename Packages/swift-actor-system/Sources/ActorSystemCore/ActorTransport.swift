@@ -8,6 +8,15 @@ public protocol ActorTransport: Sendable {
         to endpoint: ActorEndpoint
     ) async throws
 
+    /// Sends a frame and reports when it crosses the transport's dispatch
+    /// boundary. Request/reply transports override this requirement so
+    /// cancellation can distinguish an unsent call from an in-flight call.
+    func send(
+        _ frame: ActorFrame,
+        to endpoint: ActorEndpoint,
+        onDispatched: @escaping @Sendable () -> Void
+    ) async throws
+
     /// Installs an admission callback for partial endpoint failure.
     ///
     /// The callback returns after Core accepts or rejects ownership of cleanup;
@@ -20,11 +29,25 @@ public protocol ActorTransport: Sendable {
 }
 
 public extension ActorTransport {
+    func send(
+        _ frame: ActorFrame,
+        to endpoint: ActorEndpoint,
+        onDispatched: @escaping @Sendable () -> Void
+    ) async throws {
+        try await send(frame, to: endpoint)
+        onDispatched()
+    }
+
     func setEndpointTerminationHandler(
         _ handler: (@Sendable (ActorEndpoint, ActorSystemError) async -> Void)?
     ) async {
         _ = handler
     }
+}
+
+/// Reports when a frame has crossed the transport's dispatch boundary even if
+/// `send` remains suspended while waiting for a request/reply response.
+public protocol ActorTransportDispatchReporting: ActorTransport {
 }
 
 /// Reports partial link loss from a transport that keeps serving other

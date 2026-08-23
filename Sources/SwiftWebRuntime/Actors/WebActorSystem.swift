@@ -16,7 +16,9 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
     public typealias SerializationRequirement = Codable & Sendable
 
     private static let sharedConfiguration = ActorSystemConfiguration(
-        sessionIdentitySource: SwiftWebRandomActorSessionIdentitySource()
+        sessionIdentitySource: SwiftWebRandomActorSessionIdentitySource(),
+        maximumFrameBytes: SwiftWebActorMessageLimits.maximumFrameBytes,
+        maximumPayloadBytes: SwiftWebActorMessageLimits.maximumPayloadBytes
     )
     private static let sharedRequestTransport: SwiftWebRequestReplyActorTransport = {
         do {
@@ -24,7 +26,9 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
                 maximumPendingRequests: sharedConfiguration.maximumInFlightCalls,
                 maximumBufferedFrames: sharedConfiguration.maximumConcurrentInboundCalls,
                 maximumPeerEndpoints: sharedConfiguration.maximumTransportEndpoints,
-                maximumPeerIdentityBytes: sharedConfiguration.maximumIdentityBytes
+                maximumPeerIdentityBytes: sharedConfiguration.maximumIdentityBytes,
+                maximumFrameBytes: sharedConfiguration.maximumFrameBytes,
+                maximumPayloadBytes: sharedConfiguration.maximumPayloadBytes
             )
         } catch {
             preconditionFailure(
@@ -43,9 +47,11 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
             )
         }
     }()
+    private static let sharedRouteBindingRouter = SwiftWebActorBindingRouter()
     public static let shared: WebActorSystem = {
         do {
             return try WebActorSystem(
+                router: sharedRouteBindingRouter,
                 transports: [
                     .swiftWebHTTP: sharedRequestTransport,
                     .swiftWebWebSocket: sharedWebSocketTransport,
@@ -64,6 +70,8 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
     package let frameCodec: ActorFrameCodec
     public let distributedBackend: SwiftWebDistributedActorBackend
     package let hostingTransportCapability: SwiftWebActorHostingTransportCapability
+    private let routeBindingRouter: SwiftWebActorBindingRouter?
+    private let requestReplyTransport: SwiftWebRequestReplyActorTransport?
     private let implementation: SwiftActorSystem
     private let lifecycle: ActorSystemLifecycleCoordinator
 
@@ -188,6 +196,9 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
         self.hostingTransportCapability = SwiftWebActorHostingTransportCapability(
             transports: transports
         )
+        self.routeBindingRouter = router as? SwiftWebActorBindingRouter
+        self.requestReplyTransport = transports[.swiftWebHTTP]
+            as? SwiftWebRequestReplyActorTransport
         let implementation = SwiftActorSystem(
             codecRegistry: codecRegistry,
             actorIdentitySource: SwiftWebDistributedActorIdentitySource(
@@ -320,6 +331,35 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
         )
     }
 
+    /// Registers the construction policy for one virtually activated actor type.
+    ///
+    /// Hosting adapters use this SPI when they host actors without rendering a
+    /// SwiftWeb `App` or `Scene`. Actor registration remains owned by the actor
+    /// system, so adapters do not reach into `SwiftWebActorHost` internals.
+    @_spi(Hosting)
+    public func registerVirtualActor<ActorType>(
+        _ actorType: ActorType.Type,
+        authorization: SwiftWebActorAuthorization? = nil,
+        passivation: ActorPassivationPolicy? = nil,
+        factory: @escaping @Sendable (WebActorSystem) async throws -> ActorType
+    ) async throws where ActorType: ActorSystemReference,
+                         ActorType.ActorSystem == WebActorSystem {
+        try registerGeneratedBootstrapIfAvailable(for: actorType)
+        try await actorHost.register(
+            SwiftWebActorFactory(
+                actorType,
+                activate: { _ in
+                    try await factory(self)
+                },
+                passivate: { address in
+                    self.unregisterLocal(address)
+                }
+            ),
+            authorization: authorization,
+            passivation: passivation
+        )
+    }
+
     @available(*, deprecated, message: "Use distributedBackend.registerCodec(_:typeID:codec:)")
     public func registerCodec<Value: Codable & Sendable>(
         _ type: Value.Type,
@@ -338,12 +378,132 @@ public final class WebActorSystem: DistributedActorSystem, Sendable {
         try await lifecycle.start()
     }
 
+    public func installActorRouteBindings(
+        _ records: [SwiftWebActorRouteBindingRecord]
+    ) throws {
+        guard let routeBindingRouter else {
+            guard records.isEmpty else {
+                throw SwiftWebActorSystemConfigurationError.routeBindingsUnsupported
+            }
+            return
+        }
+        try routeBindingRouter.replaceRoutes(with: records)
+    }
+
+    package func mergeActorRouteBindings(
+        _ records: [SwiftWebActorRouteBindingRecord]
+    ) throws {
+        guard let routeBindingRouter else {
+            guard records.isEmpty else {
+                throw SwiftWebActorSystemConfigurationError.routeBindingsUnsupported
+            }
+            return
+        }
+        try routeBindingRouter.mergeRoutes(records)
+    }
+
+    @_spi(Hosting)
+    public func installActorRequestClient(
+        _ client: any SwiftWebActorRequestClient
+    ) throws {
+        guard let requestReplyTransport else {
+            throw SwiftWebActorSystemConfigurationError.routeBindingsUnsupported
+        }
+        try requestReplyTransport.installRequestClient(client)
+    }
+
+    /// Installs host-owned authorization, activation, and persistence policy.
+    /// Platform adapters must call this before the actor system starts.
+    public func configureHosting(
+        authorization: SwiftWebActorAuthorization,
+        activationPolicy: WebActorActivationPolicy,
+        persistentStore: (any WebActorPersistentStore)? = nil
+    ) async throws {
+        try await actorHost.installAuthorization(authorization)
+        try await actorHost.installActivationPolicy(activationPolicy)
+        if let persistentStore {
+            try await actorHost.installPersistentStore(persistentStore)
+        }
+    }
+
+    /// Submits one encoded request/reply frame to this actor host.
+    ///
+    /// Hosting adapters use this boundary when their native request primitive
+    /// is not HTTP, such as a Cloudflare Durable Object RPC binding. The
+    /// adapter supplies authenticated invocation context while SwiftWeb keeps
+    /// ownership of frame decoding, admission, authorization, dispatch, and
+    /// result encoding.
+    public func invokeActorFrame(
+        _ encodedFrame: ActorByteBuffer,
+        context: SwiftWebActorInvocationContext
+    ) async throws -> ActorByteBuffer? {
+        let frame = try frameCodec.decode(encodedFrame)
+        if let hostedIdentity = context.hostedActorIdentity,
+           case .invocation(let invocation) = frame,
+           invocation.invocation.recipient.identity != hostedIdentity {
+            throw ActorSystemError.unauthorized
+        }
+        let contextCodec = SwiftWebActorInvocationContextCodec(
+            maximumEncodedBytes: configuration.maximumIdentityBytes,
+            maximumFieldBytes: min(1_024, configuration.maximumIdentityBytes)
+        )
+        let metadata = try contextCodec.encode(context)
+        let peerIdentity = try actorPeerIdentity(for: context)
+        let response = try await hostingTransportCapability.submit(
+            frame,
+            metadata: metadata,
+            peerIdentity: peerIdentity,
+            authorizationIdentity: metadata
+        )
+        guard let response else {
+            return nil
+        }
+        return try frameCodec.encode(response)
+    }
+
+    /// Array-backed convenience for host ABIs that exchange JavaScript typed
+    /// arrays or other owned byte collections.
+    public func invokeActorFrame(
+        _ encodedBytes: [UInt8],
+        context: SwiftWebActorInvocationContext
+    ) async throws -> [UInt8]? {
+        try await invokeActorFrame(
+            ActorByteBuffer(encodedBytes),
+            context: context
+        )?.bytes
+    }
+
     public func requestShutdown() async -> ActorSystemTermination {
         await lifecycle.requestShutdown()
     }
 
     public func shutdown() async throws {
         try await lifecycle.shutdown()
+    }
+
+    private func actorPeerIdentity(
+        for context: SwiftWebActorInvocationContext
+    ) throws -> ActorByteBuffer {
+        var encoder = ActorPayloadEncoder()
+        if let peerID = context.peerID, !peerID.isEmpty {
+            try encoder.append(peerID, field: ActorFieldID(1))
+        } else if let sessionID = context.sessionID, !sessionID.isEmpty {
+            if let principalID = context.principalID, !principalID.isEmpty {
+                try encoder.append(principalID, field: ActorFieldID(2))
+            }
+            try encoder.append(sessionID, field: ActorFieldID(3))
+        } else {
+            throw ActorSystemError.invalidFrame(
+                ActorProtocolViolation(
+                    "A hosted actor frame requires a peer or session identity"
+                )
+            )
+        }
+        let identity = encoder.finish()
+        guard identity.count <= configuration.maximumIdentityBytes else {
+            throw ActorSystemError.encodingFailed
+        }
+        return identity
     }
 
     public func assignID<Act>(_ actorType: Act.Type) -> ActorID
@@ -430,11 +590,32 @@ import ActorSystemEmbedded
 public typealias WebActorSystem = EmbeddedActorSystem
 
 private enum SwiftWebEmbeddedActorSystemHolder {
+    static let configuration = ActorSystemConfiguration(
+        sessionIdentitySource: SwiftWebRandomActorSessionIdentitySource(),
+        maximumFrameBytes: SwiftWebActorMessageLimits.maximumFrameBytes,
+        maximumPayloadBytes: SwiftWebActorMessageLimits.maximumPayloadBytes
+    )
+    static let routeBindingRouter = SwiftWebActorBindingRouter()
+    static let requestTransport: SwiftWebRequestReplyActorTransport = {
+        do {
+            return try SwiftWebRequestReplyActorTransport(
+                maximumPendingRequests: configuration.maximumInFlightCalls,
+                maximumBufferedFrames: configuration.maximumConcurrentInboundCalls,
+                maximumPeerEndpoints: configuration.maximumTransportEndpoints,
+                maximumPeerIdentityBytes: configuration.maximumIdentityBytes,
+                maximumFrameBytes: configuration.maximumFrameBytes,
+                maximumPayloadBytes: configuration.maximumPayloadBytes
+            )
+        } catch {
+            _ = error
+            preconditionFailure("The Embedded HTTP actor transport configuration is invalid")
+        }
+    }()
     static let shared = EmbeddedActorSystem(
         identitySource: SwiftWebEmbeddedActorIdentitySource(),
-        configuration: ActorSystemConfiguration(
-            sessionIdentitySource: UnavailableActorSessionIdentitySource()
-        )
+        router: routeBindingRouter,
+        transports: [.swiftWebHTTP: requestTransport],
+        configuration: configuration
     )
 }
 
@@ -443,6 +624,42 @@ public extension EmbeddedActorSystem {
 
     static var shared: EmbeddedActorSystem {
         SwiftWebEmbeddedActorSystemHolder.shared
+    }
+
+    func installActorRouteBindings(
+        _ records: [SwiftWebActorRouteBindingRecord]
+    ) throws {
+        guard self === SwiftWebEmbeddedActorSystemHolder.shared else {
+            guard records.isEmpty else {
+                throw SwiftWebActorSystemConfigurationError.routeBindingsUnsupported
+            }
+            return
+        }
+        try SwiftWebEmbeddedActorSystemHolder.routeBindingRouter.replaceRoutes(
+            with: records
+        )
+    }
+
+    package func mergeActorRouteBindings(
+        _ records: [SwiftWebActorRouteBindingRecord]
+    ) throws {
+        guard self === SwiftWebEmbeddedActorSystemHolder.shared else {
+            guard records.isEmpty else {
+                throw SwiftWebActorSystemConfigurationError.routeBindingsUnsupported
+            }
+            return
+        }
+        try SwiftWebEmbeddedActorSystemHolder.routeBindingRouter.mergeRoutes(records)
+    }
+
+    @_spi(Hosting)
+    func installActorRequestClient(
+        _ client: any SwiftWebActorRequestClient
+    ) throws {
+        guard self === SwiftWebEmbeddedActorSystemHolder.shared else {
+            throw SwiftWebActorSystemConfigurationError.routeBindingsUnsupported
+        }
+        try SwiftWebEmbeddedActorSystemHolder.requestTransport.installRequestClient(client)
     }
 }
 #else

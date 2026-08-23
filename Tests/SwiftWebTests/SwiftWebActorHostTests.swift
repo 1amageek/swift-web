@@ -7,6 +7,50 @@ import Testing
 @Suite
 struct SwiftWebActorHostTests {
     @Test
+    func invocationContextIsTaskLocalToHostedExecution() async throws {
+        let host = SwiftWebActorHost(authorization: .allowAll)
+        let expected = SwiftWebActorInvocationContext(
+            principalID: "calendar-page-reader",
+            sessionID: "database-runtime-1",
+            tenantID: "calendar",
+            remoteAddress: "cloudflare-service-binding",
+            peerID: "page-runtime-1"
+        )
+        let metadata = try SwiftWebActorInvocationContextCodec().encode(expected)
+        let observed = Mutex<SwiftWebActorInvocationContext?>(nil)
+
+        #expect(SwiftWebActorInvocationContext.current == nil)
+        try await host.registerBound(
+            address: Self.fixtureInvocation(identity: "context").recipient
+        )
+        _ = try await host.intercept(
+            Self.fixtureInvocation(identity: "context"),
+            context: ActorInvocationContext(
+                callID: ActorCallID(
+                    session: ActorSessionID(500),
+                    sequence: 1
+                ),
+                origin: .remote(
+                    transport: .swiftWebHTTP,
+                    endpoint: ActorEndpoint("cloudflare-do://database")
+                ),
+                remainingTimeout: nil,
+                metadata: metadata
+            ),
+            execution: ActorInvocationExecution {
+                observed.withLock {
+                    $0 = SwiftWebActorInvocationContext.current
+                }
+                return ActorInvocationResult()
+            }
+        )
+
+        #expect(observed.withLock { $0 } == expected)
+        #expect(SwiftWebActorInvocationContext.current == nil)
+        try await host.shutdown()
+    }
+
+    @Test
     func factoryRejectsAnActorCreatedWithADifferentIdentity() async {
         let expected = ActorAddress(
             type: SwiftWebActorHostFixtureReference.actorTypeDescriptor.id,

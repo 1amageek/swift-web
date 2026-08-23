@@ -54,7 +54,7 @@ public struct RemoteActorMacro: AccessorMacro {
         return [
             """
             get {
-                SwiftWebActorBinding.resolve(
+                SwiftWebActorBinding.resolveActor(
                     (\(raw: serviceType)).self,
                     contract: SwiftWebActorContractKey((\(raw: serviceType)).self)
                 )

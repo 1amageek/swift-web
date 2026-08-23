@@ -8,6 +8,11 @@ and standard WASM. Embedded WASM consumes a generated semantic twin with the
 same actor identity, method surface, schema, payload, and error model. Actor
 code never selects HTTP, WebSocket, or another transport.
 
+An Actor connection is used only for an identity-scoped destination that
+satisfies Actor ownership and isolation. Ordinary remote servers and external
+APIs remain Server connections. A deployed Service application may expose
+either model or both; its deployment entry does not create an Actor contract.
+
 ## Responsibility
 
 | Area | Responsibility |
@@ -17,6 +22,7 @@ code never selects HTTP, WebSocket, or another transport.
 | Host policy | `SwiftWebActorHost` owns authorization, virtual activation, persistence, passivation, reminders, and remote state. |
 | Transport adapters | SwiftWeb HTTP and WebSocket adapters move bounded binary actor frames and authenticated metadata. |
 | Scene binding | `ActorGroup`, `.actor(...)`, and `@RemoteActor` bind concrete actor references without exposing transport handles. |
+| Service binding | Deployment-generated route templates are combined with the logical identity from `.actor(Type.self, identity:)`. |
 | Embedded projection | Generated actor twins use `EmbeddedActorSystem` without importing `Distributed`, `Codable`, or ActorRuntime. |
 | Compatibility | `LegacyWebActorSystem` and legacy JSON envelopes remain explicit deprecated migration paths. |
 
@@ -74,6 +80,19 @@ public struct CounterClient: ClientComponent {
 }
 ```
 
+An application binds an actor hosted by another Service application without a
+wrapper scene or service proxy:
+
+```swift
+CounterPage()
+    .actor(Counter.self, identity: "primary")
+```
+
+The modifier is available on both `PageRoute` and `Scene`. The project Service
+declaration names `Counter` as a concrete contract, while the deployment
+adapter supplies a structured route template. Neither manifest owns the
+logical identity.
+
 The actor type receives generated `ActorSystemReference` metadata. Applications
 do not author a service protocol, contract annotation, implementation
 annotation, method ID, wire layout, or transport binding.
@@ -110,6 +129,10 @@ after best-effort cleanup has completed.
 
 Server Actions are not actor stubs. Distributed actor calls do not fall back to
 Server Actions or to the legacy JSON actor endpoint.
+
+The complete connection classification, platform examples, and
+cross-application routing requirements are documented in
+[`docs/RemoteConnectionArchitecture.md`](../../../docs/RemoteConnectionArchitecture.md).
 
 ## Legacy Compatibility
 

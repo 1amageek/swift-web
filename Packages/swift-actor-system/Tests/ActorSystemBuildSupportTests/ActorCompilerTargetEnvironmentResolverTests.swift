@@ -22,6 +22,11 @@ struct ActorCompilerTargetEnvironmentResolverTests {
         #expect(wasiPreview.architecture == "wasm32")
         #expect(wasiPreview.operatingSystem == "WASI")
         #expect(wasiPreview.objectFormat == "wasm")
+
+        let macOSModuleTriple = try ParsedTargetTriple("arm64-apple-macos")
+        #expect(macOSModuleTriple.architecture == "arm64")
+        #expect(macOSModuleTriple.operatingSystem == "macOS")
+        #expect(macOSModuleTriple.objectFormat == "macho")
     }
 
     @Test

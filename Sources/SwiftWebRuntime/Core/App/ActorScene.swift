@@ -25,7 +25,18 @@ where ActorType.ActorSystem == WebActorSystem {
             actorSystem: context.actorSystem
         )
         #endif
-        try await SceneRenderer.render(content, in: context.adding(actor))
+        let scope = context.actorBindings.adding(actor)
+        let modified = context.replacing(
+            routes: ActorBindingRoutesBuilder(
+                base: context.routes,
+                scope: scope
+            ),
+            environment: context.environment,
+            actorBindings: scope
+        )
+        try await SwiftWebActorRenderContext.withValue(scope) {
+            try await SceneRenderer.render(content, in: modified)
+        }
     }
 }
 
@@ -34,4 +45,30 @@ public extension Scene {
     where ActorType.ActorSystem == WebActorSystem {
         ActorScene(content: self, actor: actor)
     }
+
+    #if SWIFTWEB_ACTORS || hasFeature(Embedded)
+    /// Binds one logical identity of a concrete actor type to this scene.
+    func actor<ActorType: ActorSystemReference>(
+        _ actorType: ActorType.Type,
+        identity: String
+    ) -> some Scene where ActorType.ActorSystem == WebActorSystem {
+        ActorReferenceScene(
+            content: self,
+            actorType: actorType,
+            identity: identity
+        )
+    }
+    #endif
 }
+
+#if SWIFTWEB_ACTORS || hasFeature(Embedded)
+public extension PageRoute {
+    /// Binds one logical identity of a concrete actor type to this page route.
+    func actor<ActorType: ActorSystemReference>(
+        _ actorType: ActorType.Type,
+        identity: String
+    ) -> some Scene where ActorType.ActorSystem == WebActorSystem {
+        PageRouteScene(self).actor(actorType, identity: identity)
+    }
+}
+#endif

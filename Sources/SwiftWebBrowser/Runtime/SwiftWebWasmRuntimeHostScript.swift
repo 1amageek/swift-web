@@ -769,7 +769,8 @@ package enum SwiftWebWasmRuntimeHostScript {
             search: window.location.search
           },
           mode: options.mode || undefined,
-          actorBindings: this.descriptor.actorBindings || []
+          actorBindings: this.descriptor.actorBindings || [],
+          actorRouteBindings: this.descriptor.actorRouteBindings || []
         }, instance);
         applyAtomicStyleRules(response && response.atomicStyleRules);
         if (response && response.commandBatch && response.appliesDOMCommandsInRuntime !== true) {
@@ -1708,7 +1709,8 @@ package enum SwiftWebWasmRuntimeHostScript {
             },
             mode: "hotReload",
             stateSnapshot,
-            actorBindings: this.descriptor.actorBindings || []
+            actorBindings: this.descriptor.actorBindings || [],
+            actorRouteBindings: this.descriptor.actorRouteBindings || []
           }, instance);
           return {
             bundleID,

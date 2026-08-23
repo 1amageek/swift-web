@@ -1,3 +1,5 @@
+@_exported import ActorSystemCore
+
 #if SWIFTWEB_ACTORS
 @_exported import Distributed
 #endif

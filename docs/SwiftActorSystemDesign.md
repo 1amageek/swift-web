@@ -1,10 +1,11 @@
 # Swift Actor System Design
 
 Status: accepted architecture; the primary source paths are implemented. Native
-behavioral verification and standard/Embedded WASM compilation and linking pass
-on the pinned baseline. Browser and board/RTOS runtime execution remain open.
+behavioral verification, standard/Embedded WASM compilation and linking, and a
+production Cloudflare Embedded browser-to-Durable-Object actor path pass on the
+pinned baseline. Standard browser runtime and board/RTOS execution remain open.
 
-Last updated: 2026-08-18.
+Last updated: 2026-08-24.
 
 This document defines the target architecture for `swift-actor-system` and its
 integration with SwiftWeb. The central decision is that a Swift
@@ -48,6 +49,9 @@ The implementation must preserve these invariants:
    WASM, and Embedded.
 7. Unsupported capabilities fail explicitly; they never produce a placeholder
    success value or silent legacy fallback.
+8. Only identity-scoped destinations that satisfy Actor ownership and isolation
+   use this system. Other remote destinations retain SwiftWeb's Server
+   connection model.
 
 ## Decision Summary
 
@@ -80,6 +84,8 @@ The accepted decisions are:
    passivation, persistence, reminders, and remote state in SwiftWeb.
 8. Retain `swift-actor-runtime` only through an explicit compatibility layer
    during migration.
+9. Keep deployment units orthogonal to programming models: a Service
+   application may expose Server routes, Actor endpoints, or both.
 
 ### Alternatives not selected
 
@@ -88,6 +94,8 @@ The accepted decisions are:
 | Add transport traits directly to `swift-actor-runtime` | Rejected as the target architecture | It preserves the old RPC/Codable/Distributed dependency center and creates divergent conditional runtimes |
 | Make RPC a pluggable application API | Rejected | Actors would still author and reason about a transport-shaped request API |
 | Introduce service protocols plus implementation annotations | Rejected | It creates a second contract, duplicates the Distributed Actor method surface, and weakens compiler integration |
+| Model every remote server or API as an Actor | Rejected | Endpoint-scoped APIs do not necessarily provide actor identity, single ownership, isolation, ordering, or activation |
+| Add `@ServiceClient` as a wrapper for actor references | Rejected | It hides the Distributed Actor surface and creates a second client abstraction for the same invocation |
 | Parse or hash `RemoteCallTarget.identifier` at runtime | Rejected | The identifier is compiler-owned and not a stable wire contract |
 | Use reflection for Embedded discovery | Rejected | Embedded does not provide the required runtime capabilities and failures would occur too late |
 | Reuse JSON as the common wire protocol | Rejected | It retains Foundation/Codable runtime requirements and cannot provide the bounded zero-copy-oriented Embedded path |
@@ -146,9 +154,9 @@ is between source implementation and verified behavior.
 | Build support | Exact compiler-target extraction, target-environment probing, and toolchain fingerprinting exist outside the source/schema generator | Verify extraction and target-environment fixtures with the pinned compiler and SDK |
 | Generation | Source scanning, reachable portable-type analysis, canonical cross-module value identities, schema reconciliation, four profile generators, schema moves, digest-owned staged output, declaration-level source projection, dependency-first client-module projection, linked dependency-schema discovery, profile-safe conformance validation, and transactional dependency-bootstrap traversal consume explicit toolchain and target-environment inputs | Verify generated artifacts and diamond dependency behavior on compiled modules |
 | Compatibility | The legacy JSON gateway is isolated in `ActorSystemCompatibility` | Route legacy traffic only through an explicit legacy endpoint or content type |
-| SwiftWeb runtime | `WebActorSystem`, `SwiftWebActorHost`, binary HTTP endpoint/client, concrete bindings, persistence, passivation, reminders, remote state, lifecycle ownership, a native NIO WebSocket host, and standard/Embedded browser binary channels exist as separate source paths | Verify the exact success/failure/race behavior on the compiled production paths |
-| WASM package generation | The generated manifest selects and mirrors `ActorSystemDistributed` or `ActorSystemEmbedded` by profile, installs projected actor sources, and both generated runtime profiles compile and link with the pinned snapshot | Execute the linked artifacts in their browser environments and verify transport behavior |
-| Embedded materialization | The CLI validates the selected profile against the matching SDK name, materializes an Embedded client package, injects the required Unicode data archive, and completes the generated Embedded WASM plus native server production build; `actor-system project --profile embeddedHost` emits host twins | Run the Embedded browser artifact end to end; provide and verify the board/RTOS-specific host transport when that deployment role is enabled |
+| SwiftWeb runtime | `WebActorSystem`, `SwiftWebActorHost`, binary HTTP endpoint/client, concrete bindings, persistence, passivation, reminders, remote state, lifecycle ownership, a native NIO WebSocket host, and standard/Embedded browser binary channels exist as separate source paths; the production Cloudflare Embedded request/reply path has executable lifecycle evidence | Verify the remaining standard-browser and WebSocket reconnect/HMR behavior on compiled production paths |
+| WASM package generation | The generated manifest selects and mirrors `ActorSystemDistributed` or `ActorSystemEmbedded` by profile, installs projected actor sources, and both generated runtime profiles compile and link with the pinned snapshot; a linked Embedded artifact executes through the production Cloudflare actor transport | Execute the remaining standard-browser artifact and verify its transport behavior |
+| Embedded materialization | The CLI validates the selected profile against the matching SDK name, materializes an Embedded client package, injects the required Unicode data archive, and completes the generated Embedded WASM plus native server production build; the Calendar production artifact calls its Durable Object actor end to end; `actor-system project --profile embeddedHost` emits host twins | Provide and verify the board/RTOS-specific host transport when that deployment role is enabled |
 
 Verification was repeated on 2026-08-18 with
 `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-08-14-a`, macOS toolchain identifier
@@ -165,8 +173,10 @@ standard and Embedded WASM SDKs:
 | Concrete CounterApp Embedded WASM materialization and final link | Passed with `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-08-14-a_wasm-embedded`; all 13 runtime ABI exports are present |
 | Legacy existential actor input on the new binary preparation path | Rejected with a typed generation failure and exit status 66; the prior generated package remained intact |
 
-Browser execution and a board/RTOS host remain separate runtime verification
-steps; compile and link success is not treated as proof of those semantics.
+The Calendar production lifecycle added Embedded browser request/reply execution
+evidence on 2026-08-24. Standard browser execution, WebSocket reconnect/HMR,
+and a board/RTOS host remain separate verification steps; compile and link
+success is not treated as proof of those semantics.
 
 The current-fact audit is traceable to these primary repository paths:
 
@@ -180,7 +190,7 @@ The current-fact audit is traceable to these primary repository paths:
 | Compiler mapping and target environment | `Packages/swift-actor-system/Sources/ActorSystemBuildSupport` | `Packages/swift-actor-system/Tests/ActorSystemBuildSupportTests` |
 | Legacy gateway | `Packages/swift-actor-system/Sources/ActorSystemCompatibility` | `Packages/swift-actor-system/Tests/ActorSystemCompatibilityTests` |
 | Current SwiftWeb host behavior | `Sources/SwiftWebRuntime/Actors/WebActorSystem.swift`, `SwiftWebActorHost.swift`, `SwiftWebRequestReplyActorTransport.swift`, `Core/App/ActorFrameInvocationEndpoint.swift`, `Sources/SwiftWebHTTPServer/Host/SwiftWebNIOHTTPServer.swift` | `Tests/SwiftWebTests/SwiftWebActorSystemTests.swift`, `SwiftWebRequestReplyActorTransportTests.swift`, `SwiftWebHTTPServerHostTests.swift`, `SwiftWebHostActorBinaryChannelTests.swift` |
-| Current browser binary behavior | `Sources/SwiftWebBrowser/ClientRuntime/BrowserSwiftWebActorBinaryChannel.swift`, `ClientRuntimeBridge.swift` | Standard and Embedded browser runtime verification remains required |
+| Current browser binary behavior | `Sources/SwiftWebBrowser/ClientRuntime/BrowserSwiftWebActorBinaryChannel.swift`, `ClientRuntimeBridge.swift` | Production Cloudflare Embedded HTTP request/reply execution passed; standard browser and WebSocket reconnect/HMR runtime verification remain required |
 | Current SwiftWeb generated WASM path | `Sources/SwiftWebDevelopment/PackageGeneration/SwiftWebGeneratedPackageMaterializer.swift`, `WasmPackageManifestFormat.swift`, `WasmRuntimeSourceMirror.swift` | `Tests/SwiftWebTests/SwiftWebGeneratedPackageMaterializerTests.swift` |
 
 ### Current package and execution boundary
@@ -329,6 +339,18 @@ public struct CounterClient: ClientComponent {
 `@RemoteActor` is not a wire contract, proxy declaration, or transport
 selection mechanism. It only obtains an actor reference from the current
 SwiftWeb scene binding scope.
+
+### Boundary with Server connections
+
+Distributed Actors are the application surface only for identity-scoped
+destinations that provide Actor semantics. Ordinary remote servers, stateless
+functions, external REST APIs, and Server Actions remain Server connections.
+A Service application is a build/deploy unit and may host either or both
+connection models; its manifest entry does not create an Actor contract.
+
+Cross-application routing, replicated-container ownership, browser peer,
+function executor, queue, and external API examples are defined in
+[Remote Connection Architecture](RemoteConnectionArchitecture.md).
 
 ### SwiftWeb export
 
@@ -2202,27 +2224,27 @@ path exists but does not satisfy the gate by itself.
 
 ### Remaining verification, dependency graph, and critical path
 
-Host-side source, build, link, and behavioral verification is complete for the
-current change set. The remaining work requires target runtime environments and
-is split into independently reviewable deliverables.
+Host-side source, build, link, behavioral verification, and the production
+Cloudflare Embedded request/reply path are complete for the current change set.
+The remaining work requires other target runtime environments and is split into
+independently reviewable deliverables.
 
 ```mermaid
 flowchart LR
-  H["Host source, tests, and package graph<br/>verified"] --> S["Standard browser runtime<br/>remote call + reconnect + HMR<br/>2-4 h"]
-  H --> E["Embedded browser runtime<br/>remote call + shutdown + HMR<br/>3-6 h"]
+  H["Host source, tests, and package graph<br/>verified"] --> E["Cloudflare Embedded HTTP runtime<br/>remote call + failure + shutdown<br/>verified 2026-08-24"]
+  H --> S["Standard browser runtime<br/>remote call + reconnect + HMR<br/>2-4 h"]
   H --> B["Board/RTOS host adapter<br/>deployment-specific<br/>3-6 h"]
   S --> A{"Runtime gates pass?"}
-  E --> A
   B --> A
+  E --> R["Runtime evidence record<br/>recorded"]
   A -->|"no: diagnose, fix, repeat<br/>1-4 h/iteration"| H
-  A -->|yes| R["Complete runtime evidence record<br/>1-2 h"]
+  A -->|yes| R
 ```
 
-The critical path is browser runtime execution for both profiles and the
-deployment-specific Embedded host adapter, followed by the runtime evidence
-record. The loop converges only when every verification-matrix row has
-target-appropriate evidence; reaching a time or iteration limit is not
-convergence.
+The remaining critical path is standard-browser runtime execution and the
+deployment-specific Embedded host adapter. The loop converges only when every
+applicable verification-matrix row has target-appropriate evidence; reaching a
+time or iteration limit is not convergence.
 
 ### Completion evidence record
 
@@ -2250,6 +2272,15 @@ artifact is a WebAssembly MVP module and contains `swiftweb_alloc`,
 `swiftweb_dispatch_event`, `swiftweb_snapshot_state`,
 `swiftweb_restore_state`, `swiftweb_response_len`, `swiftweb_response_copy`, and
 `swiftweb_response_free`.
+
+The 2026-08-24 Calendar production lifecycle materialized and linked the
+Embedded page and actor artifacts with the same pinned toolchain and SDK,
+executed the generated page runtime against its generated Cloudflare Durable
+Object actor service, and completed 122 typed actor calls. It also verified an
+identity mismatch, a malformed backing-service response, eight concurrent
+renders, runtime shutdown, adapter test suites, and Cloudflare compressed-size
+gates. This evidence is specific to the HTTP request/reply deployment path and
+does not claim standard-browser WebSocket reconnect/HMR or board/RTOS behavior.
 
 ## Final Architecture
 

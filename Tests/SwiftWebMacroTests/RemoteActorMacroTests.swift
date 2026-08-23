@@ -54,6 +54,29 @@ final class RemoteActorMacroTests: XCTestCase {
         )
     }
 
+    func testActorExpandsConcreteActorWithoutTypeErasure() {
+        assertMacroExpansion(
+            """
+            struct DatabaseClient {
+                @RemoteActor private var database: CalendarDatabaseActor
+            }
+            """,
+            expandedSource: """
+            struct DatabaseClient {
+                private var database: CalendarDatabaseActor {
+                    get {
+                        SwiftWebActorBinding.resolveActor(
+                            (CalendarDatabaseActor).self,
+                            contract: SwiftWebActorContractKey((CalendarDatabaseActor).self)
+                        )
+                    }
+                }
+            }
+            """,
+            macros: macros
+        )
+    }
+
     func testActorRequiresVarProperty() {
         assertMacroExpansion(
             """

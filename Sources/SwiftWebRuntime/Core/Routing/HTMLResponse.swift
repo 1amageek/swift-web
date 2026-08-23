@@ -62,7 +62,8 @@ extension HTMLDocument {
                 manifest: manifest,
                 wasm: wasmRuntime,
                 security: request.clientSecurityDescriptor,
-                actorBindings: SwiftWebActorRenderContext.currentScope.records
+                actorBindings: SwiftWebActorRenderContext.currentScope.records,
+                actorRouteBindings: SwiftWebActorRenderContext.currentScope.routeRecords
             )
             let annotatedHTML = developmentHooks.annotateClientRuntimeHTML(
                 renderedHTML,

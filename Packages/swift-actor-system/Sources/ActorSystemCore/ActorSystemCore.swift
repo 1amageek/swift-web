@@ -343,8 +343,13 @@ public final class ActorSystemCore: Sendable {
                         return
                     }
                     do {
-                        try await transport.send(frame, to: route.endpoint)
-                        outboundSend.markSent()
+                        try await transport.send(
+                            frame,
+                            to: route.endpoint,
+                            onDispatched: {
+                                outboundSend.markSent()
+                            }
+                        )
                     } catch {
                         outboundSend.markFailed()
                         self.pendingCalls.fail(callID: callID, error: error)

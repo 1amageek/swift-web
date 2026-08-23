@@ -54,6 +54,21 @@ struct SwiftWebClientActorPropertyExpanderTests {
   }
 
   @Test
+  func expandsConcreteActorThroughTypedResolution() throws {
+    let source = """
+      struct DatabaseClient {
+          @RemoteActor private var database: CalendarDatabaseActor
+      }
+      """
+    let expanded = try SwiftWebClientActorPropertyExpander.expandActorProperties(
+      inSource: source,
+      filePath: "DatabaseClient.swift"
+    )
+    #expect(expanded.contains("SwiftWebActorBinding.resolveActor("))
+    #expect(!expanded.contains("String(reflecting:"))
+  }
+
+  @Test
   func keepsSourceWithoutActorPropertiesUnchanged() throws {
     let source = """
       public struct ClientBadge: ClientComponent {

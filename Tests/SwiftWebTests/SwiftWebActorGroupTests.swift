@@ -44,6 +44,55 @@ struct SwiftWebActorGroupTests {
     }
 
     @Test
+    func pageActorModifierBindsIdentityAndDeploymentRouteWithoutClaimingHostOwnership() async throws {
+        let router = SwiftWebActorBindingRouter()
+        let system = try WebActorSystem(
+            router: router,
+            configuration: ActorSystemConfiguration(
+                sessionIdentitySource: FixedActorSessionIdentitySource(
+                    ActorSessionID(96)
+                )
+            )
+        )
+        let address = ActorAddress(
+            type: ConcreteActorGroupBootstrapFixture.descriptor.id,
+            identity: "remote-inventory"
+        )
+        let renderedApp = try await AppRenderer.render(
+            ActorTypeModifierFixtureApp(system: system),
+            in: AppRenderingContext(
+                actorServiceBindings: [
+                    SwiftWebActorServiceBinding(
+                        actorType: address.type,
+                        hostRoute: SwiftWebActorRouteTemplate(
+                            transport: ActorTransportID("swiftweb.http"),
+                            endpointPrefix: "https://inventory.example.test/actors/"
+                        )
+                    )
+                ]
+            )
+        )
+
+        do {
+            #expect(
+                try system.resolve(
+                    id: address,
+                    as: ConcreteActorGroupBootstrapFixtureActor.self
+                ) == nil
+            )
+            let route = try await router.route(to: address)
+            #expect(
+                route.endpoint.transportSpecificAddress
+                    == "https://inventory.example.test/actors/remote-inventory"
+            )
+        } catch {
+            try await renderedApp.shutdown()
+            throw error
+        }
+        try await renderedApp.shutdown()
+    }
+
+    @Test
     func customIdentitySourceRemainsFallbackDuringVirtualActivation() async throws {
         let identitySource = SwiftWebActorGroupIdentitySource()
         let host = SwiftWebActorHost(authorization: .allowAll)
@@ -891,6 +940,39 @@ private struct ConcreteActorGroupBootstrapFixtureApp: App {
     var body: some Scene {
         ActorGroup {
             ConcreteActorGroupBootstrapFixtureActor(actorSystem: $0)
+        }
+    }
+}
+
+private struct ActorTypeModifierFixtureApp: App {
+    let system: WebActorSystem
+
+    init() {
+        self.system = .shared
+    }
+
+    init(system: WebActorSystem) {
+        self.system = system
+    }
+
+    var actorSystem: WebActorSystem {
+        system
+    }
+
+    var body: some Scene {
+        ActorTypeModifierFixturePage()
+            .actor(
+                ConcreteActorGroupBootstrapFixtureActor.self,
+                identity: "remote-inventory"
+            )
+    }
+}
+
+@Page("/actor-modifier")
+private struct ActorTypeModifierFixturePage {
+    var document: some HTMLDocument {
+        PageDocument(title: "Actor modifier") {
+            main { "Actor modifier" }
         }
     }
 }

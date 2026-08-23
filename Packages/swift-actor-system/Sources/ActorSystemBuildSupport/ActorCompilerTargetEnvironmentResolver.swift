@@ -358,7 +358,7 @@ struct ParsedTargetTriple {
     ) throws -> String {
         let name = value.prefix { !$0.isNumber }
         switch name.lowercased() {
-        case "macosx", "darwin": return "macOS"
+        case "macos", "macosx", "darwin": return "macOS"
         case "ios": return "iOS"
         case "tvos": return "tvOS"
         case "watchos": return "watchOS"

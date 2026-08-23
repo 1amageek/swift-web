@@ -162,6 +162,7 @@ public final class ClientBundleRuntimeEntrypoint: Sendable {
     private let registrations: [ClientComponentRegistration]
     private let domHost: (any BrowserDOMHost)?
     private let actorSystem: WebActorSystem
+    private let actorRouteBindingRouter: SwiftWebActorBindingRouter?
     #if SWIFTWEB_LEGACY_ACTORS
     private let legacyActorSystem: LegacyWebActorSystem
     #endif
@@ -175,7 +176,9 @@ public final class ClientBundleRuntimeEntrypoint: Sendable {
         self.registrations = registrations
         self.domHost = Self.browserDOMHost()
         self.responseStorage = ClientRuntimeResponseStorage()
-        self.actorSystem = ClientRuntimeActorSystemFactory.makeActorSystem()
+        let actorInstallation = ClientRuntimeActorSystemFactory.makeActorSystem()
+        self.actorSystem = actorInstallation.actorSystem
+        self.actorRouteBindingRouter = actorInstallation.routeBindingRouter
         #if SWIFTWEB_LEGACY_ACTORS
         self.legacyActorSystem = ClientRuntimeActorSystemFactory.makeLegacyActorSystem()
         #endif
@@ -199,7 +202,9 @@ public final class ClientBundleRuntimeEntrypoint: Sendable {
         self.registrations = registrations
         self.domHost = domHost
         self.responseStorage = responseStorage
-        self.actorSystem = ClientRuntimeActorSystemFactory.makeActorSystem()
+        let actorInstallation = ClientRuntimeActorSystemFactory.makeActorSystem()
+        self.actorSystem = actorInstallation.actorSystem
+        self.actorRouteBindingRouter = actorInstallation.routeBindingRouter
         #if SWIFTWEB_LEGACY_ACTORS
         self.legacyActorSystem = ClientRuntimeActorSystemFactory.makeLegacyActorSystem()
         #endif
@@ -557,6 +562,9 @@ public final class ClientBundleRuntimeEntrypoint: Sendable {
             }
         }
         #endif
+        try actorRouteBindingRouter?.replaceRoutes(
+            with: request.actorRouteBindings
+        )
         var currentIndex = request.hydrationIndex
         var commands: [BrowserDOMCommand] = []
         var atomicStyleRules: [ClientRuntimeAtomicStyleRule] = []
@@ -581,7 +589,8 @@ public final class ClientBundleRuntimeEntrypoint: Sendable {
                     stateSnapshot: request.stateSnapshot.map {
                         Self.componentSnapshot($0, namespace: component.path)
                     },
-                    actorBindings: request.actorBindings
+                    actorBindings: request.actorBindings,
+                    actorRouteBindings: request.actorRouteBindings
                 )
                 let response = try runtime.bootstrap(componentRequest)
                 if let commandBatch = response.commandBatch {

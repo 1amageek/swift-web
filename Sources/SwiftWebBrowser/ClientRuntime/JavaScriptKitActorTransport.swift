@@ -17,7 +17,6 @@ public final class JavaScriptKitActorTransport: ActorTransport, Sendable {
     private let requestDriver: JavaScriptKitActorRequestDriver
     private let state = Mutex(Phase.initialized)
 
-    @MainActor
     public init(configuration: ActorSystemConfiguration) {
         let pair = AsyncThrowingStream<ActorInboundFrame, any Error>.makeStream(
             bufferingPolicy: .bufferingOldest(
@@ -133,10 +132,15 @@ private struct JavaScriptKitActorHTTPResponse: Sendable {
 }
 
 @MainActor
-private final class JavaScriptKitActorRequestDriver {
+private final class JavaScriptKitActorRequestDriver: Sendable {
     private var isAccepting = true
     private var nextRequestID: UInt64 = 0
     private var abortControllers: [UInt64: JSObject] = [:]
+    private let peerID: String
+
+    nonisolated init() {
+        self.peerID = "swiftweb-peer-\(UInt64.random(in: 1...UInt64.max))-\(UInt64.random(in: 1...UInt64.max))"
+    }
 
     func perform(
         endpoint: String,
@@ -151,8 +155,7 @@ private final class JavaScriptKitActorRequestDriver {
         guard nextRequestID < UInt64.max else {
             throw ActorSystemError.overloaded
         }
-        guard let fetch = JSObject.global.fetch.function,
-              let abortControllerConstructor = JSObject.global.AbortController.function,
+        guard let abortControllerConstructor = JSObject.global.AbortController.function,
               let objectConstructor = JSObject.global.Object.function
         else {
             throw ActorSystemError.transportUnavailable(.swiftWebHTTP)
@@ -175,6 +178,7 @@ private final class JavaScriptKitActorRequestDriver {
                 let headers = objectConstructor.new()
                 headers["Content-Type"] = "application/vnd.swift-actor-frame"
                 headers["Accept"] = "application/vnd.swift-actor-frame"
+                headers["X-SwiftWeb-Actor-Peer-ID"] = .string(JSString(peerID))
                 if let csrfHeader = csrfHeader() {
                     headers[csrfHeader.name] = .string(JSString(csrfHeader.value))
                 }
@@ -186,7 +190,20 @@ private final class JavaScriptKitActorRequestDriver {
                 options["body"] = JSUint8Array(body).jsValue
                 options["signal"] = abortController.signal
 
-                guard let responsePromise = JSPromise(from: fetch(endpoint, options)) else {
+                let responseInvocation: JSValue
+                if let hostRequest = JSObject.global.__swiftWebActorRequest.function {
+                    responseInvocation = hostRequest(
+                        endpoint,
+                        JSUint8Array(body).jsValue,
+                        abortController.signal,
+                        peerID
+                    )
+                } else if let fetch = JSObject.global.fetch.function {
+                    responseInvocation = fetch(endpoint, options)
+                } else {
+                    throw ActorSystemError.transportUnavailable(.swiftWebHTTP)
+                }
+                guard let responsePromise = JSPromise(from: responseInvocation) else {
                     throw ActorSystemError.transportClosed
                 }
                 let response = try await responsePromise.swiftActorValue

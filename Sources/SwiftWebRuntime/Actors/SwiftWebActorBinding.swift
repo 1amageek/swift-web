@@ -220,6 +220,7 @@ public struct SwiftWebActorResolverRegistry: Sendable {
 
 public struct SwiftWebActorBindingScope: Sendable {
     private let bindings: [String: SwiftWebActorBindingRecord]
+    private let routes: [ActorAddress: SwiftWebActorRouteBindingRecord]
     private let resolverRegistry: SwiftWebActorResolverRegistry
     private let actorSystems: [String: WebActorSystem]
     #if SWIFTWEB_LEGACY_ACTORS
@@ -233,6 +234,7 @@ public struct SwiftWebActorBindingScope: Sendable {
     #if SWIFTWEB_LEGACY_ACTORS
     public init(
         records: [SwiftWebActorBindingRecord] = [],
+        routeRecords: [SwiftWebActorRouteBindingRecord] = [],
         resolverRegistry: SwiftWebActorResolverRegistry = .empty,
         actorSystem: WebActorSystem = .shared,
         legacyActorSystem: LegacyWebActorSystem = .shared
@@ -241,8 +243,13 @@ public struct SwiftWebActorBindingScope: Sendable {
         for record in records {
             indexed[record.contractKey] = record
         }
+        var indexedRoutes: [ActorAddress: SwiftWebActorRouteBindingRecord] = [:]
+        for record in routeRecords {
+            indexedRoutes[record.actorID] = record
+        }
         self.init(
             bindings: indexed,
+            routes: indexedRoutes,
             resolverRegistry: resolverRegistry,
             actorSystem: actorSystem,
             legacyActorSystem: legacyActorSystem,
@@ -261,6 +268,7 @@ public struct SwiftWebActorBindingScope: Sendable {
     #else
     public init(
         records: [SwiftWebActorBindingRecord] = [],
+        routeRecords: [SwiftWebActorRouteBindingRecord] = [],
         resolverRegistry: SwiftWebActorResolverRegistry = .empty,
         actorSystem: WebActorSystem = .shared
     ) {
@@ -268,8 +276,13 @@ public struct SwiftWebActorBindingScope: Sendable {
         for record in records {
             indexed[record.contractKey] = record
         }
+        var indexedRoutes: [ActorAddress: SwiftWebActorRouteBindingRecord] = [:]
+        for record in routeRecords {
+            indexedRoutes[record.actorID] = record
+        }
         self.init(
             bindings: indexed,
+            routes: indexedRoutes,
             resolverRegistry: resolverRegistry,
             actorSystem: actorSystem,
             actorSystems: Dictionary(
@@ -284,6 +297,7 @@ public struct SwiftWebActorBindingScope: Sendable {
     #if SWIFTWEB_LEGACY_ACTORS
     private init(
         bindings: [String: SwiftWebActorBindingRecord],
+        routes: [ActorAddress: SwiftWebActorRouteBindingRecord],
         resolverRegistry: SwiftWebActorResolverRegistry,
         actorSystem: WebActorSystem,
         legacyActorSystem: LegacyWebActorSystem,
@@ -291,6 +305,7 @@ public struct SwiftWebActorBindingScope: Sendable {
         legacyActorSystems: [String: LegacyWebActorSystem]
     ) {
         self.bindings = bindings
+        self.routes = routes
         self.resolverRegistry = resolverRegistry
         self.actorSystem = actorSystem
         self.legacyActorSystem = legacyActorSystem
@@ -300,11 +315,13 @@ public struct SwiftWebActorBindingScope: Sendable {
     #else
     private init(
         bindings: [String: SwiftWebActorBindingRecord],
+        routes: [ActorAddress: SwiftWebActorRouteBindingRecord],
         resolverRegistry: SwiftWebActorResolverRegistry,
         actorSystem: WebActorSystem,
         actorSystems: [String: WebActorSystem]
     ) {
         self.bindings = bindings
+        self.routes = routes
         self.resolverRegistry = resolverRegistry
         self.actorSystem = actorSystem
         self.actorSystems = actorSystems
@@ -316,6 +333,18 @@ public struct SwiftWebActorBindingScope: Sendable {
     public var records: [SwiftWebActorBindingRecord] {
         bindings.values.sorted { left, right in
             left.contractKey < right.contractKey
+        }
+    }
+
+    public var routeRecords: [SwiftWebActorRouteBindingRecord] {
+        routes.values.sorted { left, right in
+            if left.actorID.type.high != right.actorID.type.high {
+                return left.actorID.type.high < right.actorID.type.high
+            }
+            if left.actorID.type.low != right.actorID.type.low {
+                return left.actorID.type.low < right.actorID.type.low
+            }
+            return left.actorID.identity < right.actorID.identity
         }
     }
 
@@ -350,6 +379,23 @@ public struct SwiftWebActorBindingScope: Sendable {
         #endif
     }
 
+    public func resolveActor<Service: ActorSystemReference>(
+        _ service: Service.Type,
+        contract: SwiftWebActorContractKey
+    ) throws -> Service where Service.ActorSystem == WebActorSystem {
+        let expectedContract = SwiftWebActorContractKey(service)
+        guard contract == expectedContract else {
+            throw SwiftWebActorBindingError.typeMismatch(
+                contract: contract.rawValue,
+                expected: expectedContract.rawValue,
+                actual: contract.rawValue
+            )
+        }
+        let binding = try binding(for: contract)
+        let system = actorSystems[contract.rawValue] ?? actorSystem
+        return try Service.resolve(id: binding.actorID, using: system)
+    }
+
     public func adding<ActorType: ActorSystemReference>(
         _ actor: ActorType
     ) -> SwiftWebActorBindingScope where ActorType.ActorSystem == WebActorSystem {
@@ -370,6 +416,7 @@ public struct SwiftWebActorBindingScope: Sendable {
         #if SWIFTWEB_LEGACY_ACTORS
         return SwiftWebActorBindingScope(
             bindings: records,
+            routes: routes,
             resolverRegistry: registry,
             actorSystem: actorSystem,
             legacyActorSystem: legacyActorSystem,
@@ -379,11 +426,23 @@ public struct SwiftWebActorBindingScope: Sendable {
         #else
         return SwiftWebActorBindingScope(
             bindings: records,
+            routes: routes,
             resolverRegistry: registry,
             actorSystem: actorSystem,
             actorSystems: systems
         )
         #endif
+    }
+
+    public func adding<ActorType: ActorSystemReference>(
+        _ actor: ActorType,
+        clientRoute: ActorRoute?
+    ) -> SwiftWebActorBindingScope where ActorType.ActorSystem == WebActorSystem {
+        let scope = adding(actor)
+        guard let clientRoute else {
+            return scope
+        }
+        return scope.routing(actor.id, through: clientRoute)
     }
 
     #if SWIFTWEB_LEGACY_ACTORS
@@ -407,6 +466,7 @@ public struct SwiftWebActorBindingScope: Sendable {
         systems[contract.rawValue] = actor.actorSystem
         return SwiftWebActorBindingScope(
             bindings: records,
+            routes: routes,
             resolverRegistry: registry,
             actorSystem: actorSystem,
             legacyActorSystem: legacyActorSystem,
@@ -414,7 +474,38 @@ public struct SwiftWebActorBindingScope: Sendable {
             legacyActorSystems: systems
         )
     }
+
     #endif
+
+    public func routing(
+        _ actorID: ActorAddress,
+        through route: ActorRoute
+    ) -> SwiftWebActorBindingScope {
+        var nextRoutes = routes
+        nextRoutes[actorID] = SwiftWebActorRouteBindingRecord(
+            actorID: actorID,
+            route: route
+        )
+        #if SWIFTWEB_LEGACY_ACTORS
+        return SwiftWebActorBindingScope(
+            bindings: bindings,
+            routes: nextRoutes,
+            resolverRegistry: resolverRegistry,
+            actorSystem: actorSystem,
+            legacyActorSystem: legacyActorSystem,
+            actorSystems: actorSystems,
+            legacyActorSystems: legacyActorSystems
+        )
+        #else
+        return SwiftWebActorBindingScope(
+            bindings: bindings,
+            routes: nextRoutes,
+            resolverRegistry: resolverRegistry,
+            actorSystem: actorSystem,
+            actorSystems: actorSystems
+        )
+        #endif
+    }
 }
 
 public enum SwiftWebActorBindingContext {
@@ -427,15 +518,33 @@ public enum SwiftWebActorBindingContext {
         try $current.withValue(value, operation: operation)
     }
 
-    public static func withValue<Result: Sendable>(
+    public static func withValue<Result>(
         _ value: SwiftWebActorBindingScope,
-        operation: @Sendable () async throws -> Result
+        operation: () async throws -> Result
     ) async rethrows -> Result {
         try await $current.withValue(value, operation: operation)
     }
 }
 
 public enum SwiftWebActorBinding {
+    public static func resolveActor<Service: ActorSystemReference>(
+        _ service: Service.Type,
+        contract: SwiftWebActorContractKey
+    ) -> Service where Service.ActorSystem == WebActorSystem {
+        guard let scope = SwiftWebActorBindingContext.current else {
+            preconditionFailure("@RemoteActor was accessed outside a SwiftWeb actor binding context")
+        }
+        do {
+            return try scope.resolveActor(service, contract: contract)
+        } catch {
+            #if hasFeature(Embedded)
+            preconditionFailure("@RemoteActor failed to resolve \(contract.rawValue)")
+            #else
+            preconditionFailure("@RemoteActor failed to resolve \(String(reflecting: Service.self)): \(error)")
+            #endif
+        }
+    }
+
     public static func resolve<Service: Sendable>(
         _ service: Service.Type,
         contract: SwiftWebActorContractKey

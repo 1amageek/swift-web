@@ -418,12 +418,13 @@ struct TemplateProject {
         }
         return """
         {
-          "schemaVersion": 2,
+          "schemaVersion": 3,
           "application": {
             "product": "\(appTypeName.jsonEscaped)",
             "module": "\(appTypeName.jsonEscaped)",
             "type": "\(appTypeName.jsonEscaped)"
           },
+          "services": {},
           "environments": {
             "local": {
               "host": "swift-web/http-server",

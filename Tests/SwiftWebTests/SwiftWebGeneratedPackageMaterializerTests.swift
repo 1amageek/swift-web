@@ -1206,7 +1206,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     )
     #expect(!copiedClientSample.contains("@RemoteActor"))
     #expect(copiedClientSample.contains("private var service: SampleService {"))
-    #expect(copiedClientSample.contains("SwiftWebActorBinding.resolve("))
+    #expect(copiedClientSample.contains("SwiftWebActorBinding.resolveActor("))
     #expect(
       copiedClientSample.contains(
         "SwiftWebActorContractKey((SampleService).self)"

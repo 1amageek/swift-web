@@ -120,4 +120,19 @@ public struct ActorByteBuffer: Hashable, Sendable {
             hasher.combine(self[index])
         }
     }
+
 }
+
+#if !hasFeature(Embedded)
+extension ActorByteBuffer: Codable {
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self.init(try container.decode([UInt8].self))
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(copyBytes())
+    }
+}
+#endif

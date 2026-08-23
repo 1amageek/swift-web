@@ -38,6 +38,10 @@ struct SwiftPackageDependencyGraphLoader: SwiftPackageDependencyGraphLoading {
         process.arguments = invocation.arguments(
             for: ["package", "show-dependencies", "--format", "json"]
         )
+        process.environment = ProcessInfo.processInfo.environment.merging(
+            ["SWIFTWEB_ADAPTER_DISCOVERY": "1"],
+            uniquingKeysWith: { _, discoveryValue in discoveryValue }
+        )
         process.currentDirectoryURL = packageDirectory
         process.standardOutput = standardOutput
         process.standardError = FileHandle.standardError

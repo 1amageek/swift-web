@@ -1,3 +1,6 @@
+import ActorSystemCore
+import SwiftWebActors
+
 /// Converts a declarative `App` into the routes, middleware, and request
 /// context a host needs to serve it.
 @_spi(Hosting)
@@ -7,6 +10,14 @@ public enum AppRenderer {
         in context: AppRenderingContext
     ) async throws -> RenderedApp {
         let actorSystem = app.actorSystem
+        #if SWIFTWEB_ACTORS || hasFeature(Embedded)
+        try actorSystem.installActorRouteBindings(context.actorRouteBindings)
+        #endif
+        let actorBindings = SwiftWebActorBindingScope(
+            records: context.actorBindings,
+            routeRecords: context.actorRouteBindings,
+            actorSystem: actorSystem
+        )
         #if SWIFTWEB_LEGACY_ACTORS
         let legacyActorSystem = app.legacyActorSystem
         let runtime = AppRuntime(
@@ -17,7 +28,9 @@ public enum AppRenderer {
         let sceneContext = SceneRenderingContext.root(
             runtime,
             actorSystem: actorSystem,
-            legacyActorSystem: legacyActorSystem
+            legacyActorSystem: legacyActorSystem,
+            actorBindings: actorBindings,
+            actorServiceBindings: context.actorServiceBindings
         )
         #else
         let runtime = AppRuntime(
@@ -26,7 +39,9 @@ public enum AppRenderer {
         )
         let sceneContext = SceneRenderingContext.root(
             runtime,
-            actorSystem: actorSystem
+            actorSystem: actorSystem,
+            actorBindings: actorBindings,
+            actorServiceBindings: context.actorServiceBindings
         )
         #endif
         let security = context.developmentHooks.configureSecurity(app.security)

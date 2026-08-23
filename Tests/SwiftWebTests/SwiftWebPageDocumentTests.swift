@@ -243,7 +243,17 @@ struct SwiftWebPageDocumentTests {
                     identity: "counter-1"
                 )
             )
-            let scope = SwiftWebActorBindingScope(records: [binding])
+            let routeBinding = SwiftWebActorRouteBindingRecord(
+                actorID: binding.actorID,
+                route: ActorRoute(
+                    transport: ActorTransportID("swiftweb.http"),
+                    endpoint: ActorEndpoint("https://counter.example.test/actors")
+                )
+            )
+            let scope = SwiftWebActorBindingScope(
+                records: [binding],
+                routeRecords: [routeBinding]
+            )
             let request = Request(runtime: runtime)
             let response = try await SwiftWebActorRenderContext.withValue(scope) {
                 try await PageDocument(title: "Runtime") {
@@ -255,6 +265,7 @@ struct SwiftWebPageDocumentTests {
             let descriptor = try clientRuntimeDescriptor(in: rendered)
 
             #expect(descriptor.actorBindings == [binding])
+            #expect(descriptor.actorRouteBindings == [routeBinding])
         }
     }
 

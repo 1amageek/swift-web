@@ -27,7 +27,7 @@ flowchart LR
 | `SwiftHTML` | HTML elements, reusable `Component` values, documents, and rendering |
 | `SwiftWeb` | Application scenes, pages, routing, request context, actions, and actors |
 | `SwiftWebUI` | Layout, controls, themes, modifiers, and client components |
-| `sweb` | Project generation, generated packages, development server, Storyboard, and production builds |
+| `sweb` | Project generation, generated packages, development server, independent services, Storyboard, and production builds |
 
 ## Requirements
 
@@ -145,6 +145,42 @@ try await installation.serve()
 
 `App.run()` is the command-line convenience over this same path. Host adapter
 authors should follow the [Host Rendering Contract](docs/HostRenderingContract.md).
+
+### Actor connections
+
+SwiftWeb uses Swift Distributed Actors for identity-scoped remote state. The
+concrete actor declaration remains the interface whether the actor is local or
+hosted by another Service application.
+
+```swift
+public distributed actor DatabaseActor {
+    public typealias ActorSystem = WebActorSystem
+
+    public distributed func execute(_ request: ActorByteBuffer) async throws
+        -> ActorByteBuffer
+    {
+        // Host-side implementation.
+    }
+}
+```
+
+Bind an externally hosted actor at the page or scene that consumes it:
+
+```swift
+DatabasePage()
+    .actor(DatabaseActor.self, identity: "production")
+```
+
+Client and server-side WASM code receives the same concrete reference through
+`@RemoteActor` and calls its `distributed func` directly. Swift code owns the
+type and logical identity. `sweb.json` selects the Service build/deploy unit,
+and the deployment adapter supplies transport and endpoint templates. URLs,
+credentials, adapter names, and artifact names do not enter the actor call
+site. Destinations without Actor ownership and isolation remain Server
+connections.
+
+See [Actor Injection](docs/ActorInjectionDesign.md) and
+[Remote Connections](docs/RemoteConnectionArchitecture.md).
 
 ### HTTPS and WSS
 
@@ -355,8 +391,9 @@ sweb xcode
 
 ## Production Builds and Deployment
 
-Build the complete selected environment. The Host adapter owns compilation and
-the Deployment adapter owns platform validation:
+Build the complete selected environment. Service adapters build independent
+service applications, the Host adapter owns primary application compilation,
+and the Deployment adapter owns platform validation:
 
 ```bash
 cd MyApp
@@ -370,7 +407,7 @@ sweb deploy --environment production
 ```
 
 `sweb deploy` reruns prepare and build before the deployment operation. Remote
-state changes remain isolated to the selected Deployment adapter's deploy
+state changes remain isolated to selected Service and Deployment adapter deploy
 tasks.
 
 The browser runtime profile is selected at the build boundary. Application
@@ -397,6 +434,7 @@ MyApp/
 └─ .swiftweb/                 generated; do not edit
    └─ generated/
       ├─ environments/<name>/workspace/
+      │  └─ services/<service-name>/
       ├─ dev/
       ├─ server/
       └─ wasm/
@@ -406,7 +444,7 @@ SwiftWeb itself is split into runtime, browser, UI, development, and host
 targets. The [documentation index](docs/README.md) maps each current contract
 to its owning area.
 
-## Host and Deployment Adapters
+## Host, Deployment, and Service Adapters
 
 Deployment integrations live outside the core package. `sweb new` adds the
 selected adapter as a SwiftPM dependency and writes its environment selection
@@ -418,14 +456,18 @@ sweb new App --adapter owner/repository --output .
 ```
 
 The adapter repository contract is documented in
-[Host and Deployment Adapter Contract](docs/AdapterContract.md).
+[Host, Deployment, and Service Adapter Contract](docs/AdapterContract.md).
+Service applications remain build/deploy units rather than Swift-facing
+interfaces. The Actor-versus-Server connection decision and cross-application
+Actor design are documented in
+[Remote Connection Architecture](docs/RemoteConnectionArchitecture.md).
 
 ## Examples
 
 | Example | Demonstrates |
 |---|---|
 | [HelloWorld](Examples/HelloWorld) | Minimal app, static `@Page`, SwiftHTML, and SwiftWebUI rendering |
-| [CounterApp](Examples/CounterApp) | Loaded pages, client state, hydration, server actions, and distributed actor RPC |
+| [CounterApp](Examples/CounterApp) | Loaded pages, client state, hydration, server actions, and same-application distributed actor binding |
 
 ```bash
 cd Examples/HelloWorld

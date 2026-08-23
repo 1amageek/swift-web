@@ -145,7 +145,7 @@ public enum CompilerTargetExtractor {
                 )
             }
             let targetLiterals = Array(Set(remoteCallFunctions.flatMap {
-                stringLiterals(in: $0.body)
+                compilerTargetLiterals(in: $0.body)
             })).sorted()
             guard targetLiterals.count == 1, let target = targetLiterals.first else {
                 if targetLiterals.isEmpty {
@@ -352,6 +352,12 @@ public enum CompilerTargetExtractor {
             literals.append(literal)
         }
         return literals
+    }
+
+    private static func compilerTargetLiterals(in functionBody: String) -> [String] {
+        let literals = stringLiterals(in: functionBody)
+        let swiftMangledTargets = literals.filter { $0.hasPrefix("$s") }
+        return swiftMangledTargets.isEmpty ? literals : swiftMangledTargets
     }
 }
 

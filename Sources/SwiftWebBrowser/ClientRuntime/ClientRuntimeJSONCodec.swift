@@ -32,6 +32,10 @@ enum ClientRuntimeJSONCodec {
             actorBindings: try actorBindings(
                 root["actorBindings"],
                 path: "$.actorBindings"
+            ),
+            actorRouteBindings: try actorRouteBindings(
+                root["actorRouteBindings"],
+                path: "$.actorRouteBindings"
             )
         )
     }
@@ -515,6 +519,48 @@ enum ClientRuntimeJSONCodec {
                     identity: try string(
                         try required(value, "actorIdentity", path: itemPath),
                         path: "\(itemPath).actorIdentity"
+                    )
+                )
+            )
+        }
+    }
+
+    private static func actorRouteBindings(
+        _ value: Any?,
+        path: String
+    ) throws -> [SwiftWebActorRouteBindingRecord] {
+        try array(value ?? [], path: path).enumerated().map { index, value in
+            let itemPath = "\(path)[\(index)]"
+            let value = try object(value, path: itemPath)
+            return SwiftWebActorRouteBindingRecord(
+                actorID: ActorAddress(
+                    type: ActorTypeID(
+                        high: try uint64(
+                            try required(value, "actorTypeHigh", path: itemPath),
+                            path: "\(itemPath).actorTypeHigh"
+                        ),
+                        low: try uint64(
+                            try required(value, "actorTypeLow", path: itemPath),
+                            path: "\(itemPath).actorTypeLow"
+                        )
+                    ),
+                    identity: try string(
+                        try required(value, "actorIdentity", path: itemPath),
+                        path: "\(itemPath).actorIdentity"
+                    )
+                ),
+                route: ActorRoute(
+                    transport: ActorTransportID(
+                        try string(
+                            try required(value, "transport", path: itemPath),
+                            path: "\(itemPath).transport"
+                        )
+                    ),
+                    endpoint: ActorEndpoint(
+                        try string(
+                            try required(value, "endpoint", path: itemPath),
+                            path: "\(itemPath).endpoint"
+                        )
                     )
                 )
             )

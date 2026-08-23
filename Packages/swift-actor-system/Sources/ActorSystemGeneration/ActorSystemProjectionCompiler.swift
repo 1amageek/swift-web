@@ -121,8 +121,24 @@ public extension ActorSystemCompiler {
             existing: existing
         )
         guard reconciled == existing else {
+            var changedSections: [String] = []
+            if reconciled.actors != existing.actors {
+                changedSections.append("actors")
+            }
+            if reconciled.valueTypes != existing.valueTypes {
+                changedSections.append("valueTypes")
+            }
+            if reconciled.reservedActorTypeIDs != existing.reservedActorTypeIDs {
+                changedSections.append("reservedActorTypeIDs")
+            }
+            if reconciled.reservedMethodIDs != existing.reservedMethodIDs {
+                changedSections.append("reservedMethodIDs")
+            }
+            if reconciled.reservedValueTypeIDs != existing.reservedValueTypeIDs {
+                changedSections.append("reservedValueTypeIDs")
+            }
             throw ActorGenerationError.schemaConflict(
-                reason: "Actor sources changed; run authoritative actor-system generation and commit ActorSchema.lock"
+                reason: "Actor sources changed in \(changedSections.joined(separator: ", ")); run authoritative actor-system generation and commit ActorSchema.lock"
             )
         }
         var sources = try ActorSourceGenerator.generate(

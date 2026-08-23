@@ -1,4 +1,4 @@
-#if SWIFTWEB_ACTORS
+#if SWIFTWEB_ACTORS || hasFeature(Embedded)
 import ActorSystemCore
 
 public struct SwiftWebRandomActorSessionIdentitySource: ActorSessionIdentitySource, Sendable {

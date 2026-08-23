@@ -35,13 +35,6 @@ enum ActorFrameInvocationEndpoint {
             guard let body = try await request.collectedBody(), !body.isEmpty else {
                 throw Abort(.badRequest, reason: "Actor frame body is missing")
             }
-            let frame: ActorFrame
-            do {
-                frame = try actorSystem.frameCodec.decode(ActorByteBuffer(body))
-            } catch {
-                throw Abort(.badRequest, reason: "Actor frame is malformed")
-            }
-
             guard let sessionID = request.session.id else {
                 throw Abort(
                     .unauthorized,
@@ -56,53 +49,37 @@ enum ActorFrameInvocationEndpoint {
                 sessionID: sessionID,
                 remoteAddress: request.remoteAddress
             )
-            let metadata: ActorByteBuffer
-            let peerIdentity: ActorByteBuffer
+            let responseBytes: ActorByteBuffer?
             do {
-                metadata = try SwiftWebActorInvocationContextCodec(
-                    maximumEncodedBytes: actorSystem.configuration.maximumIdentityBytes,
-                    maximumFieldBytes: min(
-                        1_024,
-                        actorSystem.configuration.maximumIdentityBytes
-                    )
-                ).encode(invocationContext)
-                peerIdentity = try makeHTTPPeerIdentity(
-                    principalID: principalID,
-                    sessionID: sessionID
-                )
-            } catch {
-                throw Abort(.badRequest, reason: "Actor request metadata exceeds its bounds")
-            }
-            let responseFrame: ActorFrame?
-            do {
-                responseFrame = try await actorSystem.hostingTransportCapability.submit(
-                    frame,
-                    metadata: metadata,
-                    peerIdentity: peerIdentity,
-                    authorizationIdentity: metadata
+                responseBytes = try await actorSystem.invokeActorFrame(
+                    ActorByteBuffer(body),
+                    context: invocationContext
                 )
             } catch ActorSystemError.overloaded {
                 throw Abort(.serviceUnavailable, reason: "Actor host is overloaded")
             } catch ActorSystemError.transportClosed {
                 throw Abort(.serviceUnavailable, reason: "Actor transport is unavailable")
             } catch ActorSystemError.invalidFrame {
-                throw Abort(.badRequest, reason: "Actor peer identity is invalid")
+                throw Abort(.badRequest, reason: "Actor frame or peer identity is invalid")
+            } catch ActorSystemError.decodingFailed {
+                throw Abort(.badRequest, reason: "Actor frame is malformed")
+            } catch ActorSystemError.encodingFailed {
+                throw Abort(.badRequest, reason: "Actor request metadata exceeds its bounds")
             } catch ActorSystemError.transportUnavailable {
                 throw Abort(
                     .internalServerError,
                     reason: "The SwiftWeb HTTP actor transport is not configured"
                 )
             }
-            guard let responseFrame else {
+            guard let responseBytes else {
                 return Response(status: .noContent)
             }
-            let encoded = try actorSystem.frameCodec.encode(responseFrame)
             var headers = HTTPFields()
             headers[.contentType] = mediaType
             return Response(
                 status: .ok,
                 headers: headers,
-                body: .init(bytes: encoded.bytes)
+                body: .init(bytes: responseBytes.bytes)
             )
         }
 
@@ -175,18 +152,6 @@ enum ActorFrameInvocationEndpoint {
             nextID += 1
             return endpoint
         }
-    }
-
-    private static func makeHTTPPeerIdentity(
-        principalID: String?,
-        sessionID: String
-    ) throws -> ActorByteBuffer {
-        var encoder = ActorPayloadEncoder()
-        if let principalID {
-            try encoder.append(principalID, field: ActorFieldID(1))
-        }
-        try encoder.append(sessionID, field: ActorFieldID(2))
-        return encoder.finish()
     }
 
     private static func requireBinaryMediaType(_ contentType: String?) throws {

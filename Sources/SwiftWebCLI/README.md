@@ -11,10 +11,10 @@ and WASM processing to the corresponding development targets.
 | `new` | CLI template writer plus `SwiftWebPackageGeneration` |
 | `prepare` | Adapter resolver, environment materializer, and lifecycle executor |
 | `xcode` | `SwiftWebPackageGeneration`, then the macOS `open` command |
-| `dev` | Selected Host and Deployment tasks; the native Host delegates to `SwiftWebDevServer` |
+| `dev` | Selected Service, Host, and Deployment tasks; persistent processes are supervised together |
 | `storyboard` | `SwiftWebStoryboardTooling` and, in development mode, `SwiftWebDevServer` |
-| `build` | Selected Host and Deployment build tasks |
-| `deploy` | Selected Deployment tasks after successful prepare and build |
+| `build` | Selected Service, Host, and Deployment build tasks |
+| `deploy` | Selected Service and Deployment tasks after successful prepare and build |
 | `clean` | `SwiftWebDevBuildArtifactCleaner` |
 
 The command grammar is defined by `CommandLineInterface` in `App.swift`:
@@ -52,8 +52,15 @@ and WASM launch products live below `.swiftweb/generated`.
 
 Deployment adapters are SwiftPM packages. The CLI reads `Adapter/sweb.json`
 from direct resolved dependencies, validates Host/Deployment artifact
-compatibility, materializes their templates, and executes their lifecycle task
-graph. See [Host and Deployment Adapter Contract](../../docs/AdapterContract.md).
+and Service compatibility, materializes their isolated templates, and executes
+their lifecycle task graph. See
+[Host, Deployment, and Service Adapter Contract](../../docs/AdapterContract.md).
+
+A Service manifest entry is an independent build/deploy unit. It does not
+select a Swift client programming model. Server connections keep their existing
+request/response surface; Actor connections retain concrete Swift Distributed
+Actor references as defined by
+[Remote Connection Architecture](../../docs/RemoteConnectionArchitecture.md).
 
 ## Generated Packages
 
@@ -62,7 +69,8 @@ graph. See [Host and Deployment Adapter Contract](../../docs/AdapterContract.md)
 | `.swiftweb/generated/server` | Production `app-server` package and launcher |
 | `.swiftweb/generated/dev` | Xcode/CLI development launchers and `<AppName>-dev` scheme |
 | `.swiftweb/generated/wasm` | Client-only source copies and browser runtime products |
-| `.swiftweb/generated/environments/<name>/workspace` | Materialized Host and Deployment workspace |
+| `.swiftweb/generated/environments/<name>/workspace` | Materialized primary Host and Deployment workspace |
+| `.swiftweb/generated/environments/<name>/workspace/services/<service>` | Isolated service workspace |
 
 `sweb prepare`, `sweb dev`, `sweb build`, and `sweb deploy` use the same adapter
 resolver and environment materializer. The native Host continues to use the
@@ -137,9 +145,9 @@ sweb build --environment production
 sweb deploy --environment production
 ```
 
-`deploy` always runs prepare and build first. Only Deployment deploy tasks may
-change remote state. Task IDs and dependencies are validated as a DAG before
-execution.
+`deploy` always runs prepare and build first. Only Service and Deployment tasks
+in the deploy operation may change remote state. Task IDs and dependencies are
+validated as a DAG before execution.
 
 `prepare`, `build`, and `deploy` carry one explicit WASM runtime profile through
 package projection, SDK selection, built-in build tasks, and adapter command

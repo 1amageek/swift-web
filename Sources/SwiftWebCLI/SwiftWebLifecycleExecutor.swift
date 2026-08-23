@@ -12,45 +12,72 @@ struct SwiftWebLifecycleExecutor: Sendable {
     }
 
     func execute(plan: SwiftWebExecutionPlan, context: Context) async throws {
-        for task in plan.tasks {
-            if try isFresh(task, context: context) {
-                print("Skipping \(task.id) (outputs are current)")
-                continue
+        let finiteTasks = plan.tasks.filter { $0.lifetime == .finite }
+        let persistentTasks = plan.tasks.filter { $0.lifetime == .persistent }
+        for task in finiteTasks {
+            try await execute(task, context: context)
+        }
+        guard !persistentTasks.isEmpty else {
+            return
+        }
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for task in persistentTasks {
+                group.addTask {
+                    try await self.execute(task, context: context)
+                    throw SwiftWebLifecycleError.persistentTaskExited(task.id)
+                }
             }
-            print("→ \(task.id)")
-            switch task.kind {
-            case .command:
-                try await runCommand(task, context: context)
-            case .prepareApplication:
-                try SwiftWebGeneratedPackagePreparer(
-                    packageDirectory: context.resolution.packageDirectory,
-                    product: "app-server",
-                    printsSummary: false,
-                    wasmRuntimeProfile: context.wasmRuntimeProfile
-                ).run()
-            case .buildServer:
-                try await SwiftWebGeneratedPackageBuilder(
-                    packageDirectory: context.resolution.packageDirectory,
-                    scratchDirectory: nil,
-                    product: nil,
-                    buildsWasmRuntime: false,
-                    swiftSDK: nil,
-                    configuration: nil,
-                    wasmRuntimeProfile: context.wasmRuntimeProfile
-                ).run()
-            case .buildBrowserRuntime:
-                try await SwiftWebGeneratedPackageBuilder(
-                    packageDirectory: context.resolution.packageDirectory,
-                    scratchDirectory: nil,
-                    product: nil,
-                    buildsWasmRuntime: true,
-                    swiftSDK: nil,
-                    configuration: nil,
-                    wasmRuntimeProfile: context.wasmRuntimeProfile
-                ).run()
-            case .runDevelopmentServer:
-                try await runDevelopmentServer(context: context)
+            do {
+                _ = try await group.next()
+                group.cancelAll()
+            } catch {
+                group.cancelAll()
+                throw error
             }
+        }
+    }
+
+    private func execute(
+        _ task: SwiftWebLifecycleTask,
+        context: Context
+    ) async throws {
+        if try isFresh(task, context: context) {
+            print("Skipping \(task.id) (outputs are current)")
+            return
+        }
+        print("→ \(task.id)")
+        switch task.kind {
+        case .command:
+            try await runCommand(task, context: context)
+        case .prepareApplication:
+            try SwiftWebGeneratedPackagePreparer(
+                packageDirectory: context.resolution.packageDirectory,
+                product: "app-server",
+                printsSummary: false,
+                wasmRuntimeProfile: context.wasmRuntimeProfile
+            ).run()
+        case .buildServer:
+            try await SwiftWebGeneratedPackageBuilder(
+                packageDirectory: context.resolution.packageDirectory,
+                scratchDirectory: nil,
+                product: nil,
+                buildsWasmRuntime: false,
+                swiftSDK: nil,
+                configuration: nil,
+                wasmRuntimeProfile: context.wasmRuntimeProfile
+            ).run()
+        case .buildBrowserRuntime:
+            try await SwiftWebGeneratedPackageBuilder(
+                packageDirectory: context.resolution.packageDirectory,
+                scratchDirectory: nil,
+                product: nil,
+                buildsWasmRuntime: true,
+                swiftSDK: nil,
+                configuration: nil,
+                wasmRuntimeProfile: context.wasmRuntimeProfile
+            ).run()
+        case .runDevelopmentServer:
+            try await runDevelopmentServer(context: context)
         }
     }
 
@@ -81,7 +108,8 @@ struct SwiftWebLifecycleExecutor: Sendable {
             process.arguments = task.arguments.map { render($0, context: context) }
         } else {
             process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-            process.arguments = [renderedExecutable]
+            process.arguments =
+                [renderedExecutable]
                 + task.arguments.map { render($0, context: context) }
         }
         process.currentDirectoryURL = try workingDirectory(task, context: context)

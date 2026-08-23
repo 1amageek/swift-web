@@ -1,4 +1,5 @@
 @_spi(ActorSystemLifecycleOwnership) import ActorSystemCore
+import ActorSystemEmbedded
 import SwiftWebActors
 @_spi(Hosting) import SwiftWebHost
 import Synchronization

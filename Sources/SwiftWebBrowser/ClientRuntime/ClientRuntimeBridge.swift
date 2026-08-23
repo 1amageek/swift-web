@@ -24,6 +24,7 @@ public struct ClientRuntimeBootstrapRequest: Sendable, Equatable {
     public let mode: ClientRuntimeBootstrapMode?
     public let stateSnapshot: ClientRuntimeStateSnapshot?
     public let actorBindings: [SwiftWebActorBindingRecord]
+    public let actorRouteBindings: [SwiftWebActorRouteBindingRecord]
 
     public init(
         hydrationIndex: BrowserHydrationIndex,
@@ -31,7 +32,8 @@ public struct ClientRuntimeBootstrapRequest: Sendable, Equatable {
         location: ClientRuntimeBootstrapLocation,
         mode: ClientRuntimeBootstrapMode? = nil,
         stateSnapshot: ClientRuntimeStateSnapshot? = nil,
-        actorBindings: [SwiftWebActorBindingRecord] = []
+        actorBindings: [SwiftWebActorBindingRecord] = [],
+        actorRouteBindings: [SwiftWebActorRouteBindingRecord] = []
     ) {
         self.hydrationIndex = hydrationIndex
         self.documentNodeIDUpperBound = documentNodeIDUpperBound
@@ -39,6 +41,7 @@ public struct ClientRuntimeBootstrapRequest: Sendable, Equatable {
         self.mode = mode
         self.stateSnapshot = stateSnapshot
         self.actorBindings = actorBindings
+        self.actorRouteBindings = actorRouteBindings
     }
 
 }
@@ -414,6 +417,7 @@ public final class ClientRuntimeBridge<Root: Component>: Sendable {
     private let stateStore: StateStore
     private let actorResolverRegistry: SwiftWebActorResolverRegistry
     private let actorSystem: WebActorSystem
+    private let actorRouteBindingRouter: SwiftWebActorBindingRouter?
     #if SWIFTWEB_LEGACY_ACTORS
     private let legacyActorSystem: LegacyWebActorSystem
     #endif
@@ -440,7 +444,14 @@ public final class ClientRuntimeBridge<Root: Component>: Sendable {
         self.domHost = domHost
         self.stateStore = stateStore
         self.actorResolverRegistry = actorResolverRegistry
-        self.actorSystem = actorSystem ?? ClientRuntimeActorSystemFactory.makeActorSystem()
+        let actorInstallation = actorSystem.map {
+            ClientRuntimeActorSystemFactory.Installation(
+                actorSystem: $0,
+                routeBindingRouter: nil
+            )
+        } ?? ClientRuntimeActorSystemFactory.makeActorSystem()
+        self.actorSystem = actorInstallation.actorSystem
+        self.actorRouteBindingRouter = actorInstallation.routeBindingRouter
         self.legacyActorSystem = legacyActorSystem
             ?? ClientRuntimeActorSystemFactory.makeLegacyActorSystem()
         #if os(WASI) && (SWIFTWEB_ACTORS || hasFeature(Embedded))
@@ -492,7 +503,14 @@ public final class ClientRuntimeBridge<Root: Component>: Sendable {
         self.domHost = domHost
         self.stateStore = stateStore
         self.actorResolverRegistry = actorResolverRegistry
-        self.actorSystem = actorSystem ?? ClientRuntimeActorSystemFactory.makeActorSystem()
+        let actorInstallation = actorSystem.map {
+            ClientRuntimeActorSystemFactory.Installation(
+                actorSystem: $0,
+                routeBindingRouter: nil
+            )
+        } ?? ClientRuntimeActorSystemFactory.makeActorSystem()
+        self.actorSystem = actorInstallation.actorSystem
+        self.actorRouteBindingRouter = actorInstallation.routeBindingRouter
         #if os(WASI) && (SWIFTWEB_ACTORS || hasFeature(Embedded))
         self.ownsActorSystem = actorSystem == nil
         #else
@@ -541,7 +559,14 @@ public final class ClientRuntimeBridge<Root: Component>: Sendable {
         self.domHost = domHost
         self.stateStore = stateStore
         self.actorResolverRegistry = actorResolverRegistry
-        self.actorSystem = actorSystem ?? ClientRuntimeActorSystemFactory.makeActorSystem()
+        let actorInstallation = actorSystem.map {
+            ClientRuntimeActorSystemFactory.Installation(
+                actorSystem: $0,
+                routeBindingRouter: nil
+            )
+        } ?? ClientRuntimeActorSystemFactory.makeActorSystem()
+        self.actorSystem = actorInstallation.actorSystem
+        self.actorRouteBindingRouter = actorInstallation.routeBindingRouter
         self.legacyActorSystem = legacyActorSystem
             ?? ClientRuntimeActorSystemFactory.makeLegacyActorSystem()
         #if os(WASI) && (SWIFTWEB_ACTORS || hasFeature(Embedded))
@@ -573,7 +598,14 @@ public final class ClientRuntimeBridge<Root: Component>: Sendable {
         self.domHost = domHost
         self.stateStore = stateStore
         self.actorResolverRegistry = actorResolverRegistry
-        self.actorSystem = actorSystem ?? ClientRuntimeActorSystemFactory.makeActorSystem()
+        let actorInstallation = actorSystem.map {
+            ClientRuntimeActorSystemFactory.Installation(
+                actorSystem: $0,
+                routeBindingRouter: nil
+            )
+        } ?? ClientRuntimeActorSystemFactory.makeActorSystem()
+        self.actorSystem = actorInstallation.actorSystem
+        self.actorRouteBindingRouter = actorInstallation.routeBindingRouter
         #if os(WASI) && (SWIFTWEB_ACTORS || hasFeature(Embedded))
         self.ownsActorSystem = actorSystem == nil
         #else
@@ -652,6 +684,9 @@ public final class ClientRuntimeBridge<Root: Component>: Sendable {
     public func bootstrap(_ request: ClientRuntimeBootstrapRequest) throws -> ClientRuntimeResponse {
         try accessGate.withExclusiveAccess {
             try requireActive()
+            try actorRouteBindingRouter?.replaceRoutes(
+                with: request.actorRouteBindings
+            )
             try actorResolverRegistry.install(in: actorSystem)
             #if SWIFTWEB_LEGACY_ACTORS
             let actorBindingScope = SwiftWebActorBindingScope(

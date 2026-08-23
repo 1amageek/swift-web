@@ -1,5 +1,5 @@
 import HTTPTypes
-#if canImport(Logging)
+#if !SWIFTWEB_PORTABLE_LOGGING
 import Logging
 #endif
 import SwiftHTML

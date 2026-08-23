@@ -1,8 +1,8 @@
 # CounterApp
 
 CounterApp is the end-to-end SwiftWeb sample. It combines a loaded page,
-SwiftWebUI, browser-owned state, server actions, and typed distributed actor
-calls.
+SwiftWebUI, browser-owned state, server actions, and a concrete distributed
+actor bound into the client rendering scope.
 
 ## Architecture
 
@@ -13,8 +13,9 @@ flowchart LR
   Page --> Load["CounterService.currentValue"]
   Page --> Client["ClientCounter"]
   Client --> State["browser @State"]
-  Client --> Remote["@RemoteActor"]
-  Remote --> Service["CounterService"]
+  Client --> Remote["@RemoteActor declaration"]
+  Remote -.-> Binding["actor binding metadata"]
+  Binding -.-> Service["CounterService reference"]
   Page --> Action["server action"]
   Action --> Service
 ```
@@ -23,8 +24,9 @@ flowchart LR
 |---|---|
 | `App.swift` | Redirects `/` and mounts the counter service and page in `ActorScene` |
 | `Routes/CounterPage.swift` | Loads server state and renders the complete document |
-| `ClientCounter.swift` | Owns browser `@State` and typed actor calls |
-| `Actions/CounterService.swift` | Declares the concrete distributed actor contract and implements server state, calls, and page-invalidating actions |
+| `ClientCounter.swift` | Owns browser `@State` and declares the concrete `@RemoteActor` binding used by generated client projection |
+| `Actions/CounterService.swift` | Declares the concrete distributed actor contract and implements server state and distributed calls |
+| `Actions/CounterActions.swift` | Maps page-local Server Actions to counter actor mutations and page invalidation |
 
 The user package remains a library. `sweb` owns concrete launch products under
 `.swiftweb/generated`:
@@ -43,10 +45,15 @@ The two counters intentionally have different owners:
 | Value | Owner | Update path |
 |---|---|---|
 | Client counter | `ClientCounter` in browser WASM | Local event handler mutates `@State` |
-| Server counter | `CounterService` distributed actor | Server action or typed RPC mutates actor state |
+| Server counter | `CounterService` distributed actor | Page loading reads it and Server Actions mutate it |
 
 A server action returns page invalidation. SwiftWeb fetches the current page,
 patches server-owned DOM, and preserves the client component's local state.
+
+This example verifies same-application actor hosting and binding. It does not
+claim a browser-originated remote actor invocation. Cross-application and
+multi-endpoint Actor examples are specified in
+[Remote Connection Architecture](../../docs/RemoteConnectionArchitecture.md).
 
 ## Run
 

@@ -1,6 +1,6 @@
 #if SWIFTWEB_ACTORS
 import ActorSystemCore
-import SwiftWebActors
+@_spi(Hosting) import SwiftWebActors
 
 /// Registers a concrete distributed actor factory for virtual activation.
 /// Actor methods continue to use their ordinary Distributed Actor call surface;
@@ -56,28 +56,21 @@ where ActorType.ActorSystem == WebActorSystem {
         }
         context.runtime.requireActorSystem()
         let actorSystem = context.actorSystem
-        try actorSystem.registerGeneratedBootstrapIfAvailable(for: ActorType.self)
         let environment = context.environment
         let factory = self.factory
-        try await actorSystem.actorHost.register(
-            SwiftWebActorFactory(
-                ActorType.self,
-                activate: { _ in
-                    #if !hasFeature(Embedded)
-                    return try await EnvironmentValues.withValue(environment) {
-                        try factory(actorSystem)
-                    }
-                    #else
-                    return try factory(actorSystem)
-                    #endif
-                },
-                passivate: { address in
-                    actorSystem.unregisterLocal(address)
-                }
-            ),
+        try await actorSystem.registerVirtualActor(
+            ActorType.self,
             authorization: scope?.swiftWebAuthorization(),
             passivation: passivationPolicy
-        )
+        ) { actorSystem in
+            #if !hasFeature(Embedded)
+            return try await EnvironmentValues.withValue(environment) {
+                try factory(actorSystem)
+            }
+            #else
+            return try factory(actorSystem)
+            #endif
+        }
         ActorFrameInvocationEndpoint.registerIfNeeded(
             in: context.runtime,
             actorSystem: actorSystem

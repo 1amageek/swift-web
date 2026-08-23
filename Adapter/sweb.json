@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "kind": "adapter",
   "id": "swift-web",
   "defaults": {
@@ -43,6 +43,7 @@
           {
             "id": "swift-web.run-development-server",
             "kind": "runDevelopmentServer",
+            "lifetime": "persistent",
             "stage": null,
             "executable": null,
             "arguments": [],
@@ -68,5 +69,6 @@
       "variables": {},
       "operations": {}
     }
-  }
+  },
+  "services": {}
 }

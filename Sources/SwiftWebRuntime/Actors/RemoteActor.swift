@@ -1,4 +1,4 @@
-#if SWIFTWEB_ACTORS
+#if SWIFTWEB_ACTORS || hasFeature(Embedded)
 #if SWIFTWEB_MACROS
 /// Injects the resolved distributed actor service for the declared contract type.
 ///

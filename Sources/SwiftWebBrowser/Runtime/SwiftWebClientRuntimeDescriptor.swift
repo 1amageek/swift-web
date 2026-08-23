@@ -9,6 +9,7 @@ public struct SwiftWebClientRuntimeDescriptor: Sendable, Equatable {
     public let wasm: SwiftWebWasmClientRuntime?
     public let security: ClientSecurityDescriptor?
     public let actorBindings: [SwiftWebActorBindingRecord]
+    public let actorRouteBindings: [SwiftWebActorRouteBindingRecord]
 
     public init(
         mode: SwiftWebClientRuntimeDescriptorMode,
@@ -17,7 +18,8 @@ public struct SwiftWebClientRuntimeDescriptor: Sendable, Equatable {
         manifest: ClientBundleManifest? = nil,
         wasm: SwiftWebWasmClientRuntime? = nil,
         security: ClientSecurityDescriptor? = nil,
-        actorBindings: [SwiftWebActorBindingRecord] = []
+        actorBindings: [SwiftWebActorBindingRecord] = [],
+        actorRouteBindings: [SwiftWebActorRouteBindingRecord] = []
     ) {
         self.mode = mode
         self.hydrationIndex = hydrationIndex
@@ -26,6 +28,7 @@ public struct SwiftWebClientRuntimeDescriptor: Sendable, Equatable {
         self.wasm = wasm
         self.security = security
         self.actorBindings = actorBindings
+        self.actorRouteBindings = actorRouteBindings
     }
 }
 

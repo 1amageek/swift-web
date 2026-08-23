@@ -284,11 +284,15 @@ public actor SwiftWebActorHost: ActorInboundInvocationInterceptor, ActorLocalInv
                 if activeActors[invocation.recipient] == nil {
                     try await activate(address: invocation.recipient)
                 }
-                let result = try await execute(
-                    invocation,
-                    context: context,
-                    execution: execution
-                )
+                let result = try await SwiftWebActorInvocationContext.$current.withValue(
+                    swiftWebContext
+                ) {
+                    try await execute(
+                        invocation,
+                        context: context,
+                        execution: execution
+                    )
+                }
                 finishInvocation()
                 return result
             } catch {

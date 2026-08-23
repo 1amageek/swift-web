@@ -26,6 +26,11 @@ let swiftWebCoreOnly =
     Context.environment["SWIFTWEB_CORE_ONLY"] == "1" || swiftWebHostedApplication
 
 let swiftHTMLDependency: Target.Dependency = .product(name: "SwiftHTML", package: "swift-html")
+let swiftHTMLLegacyActorDependency: Target.Dependency = .product(
+    name: "SwiftHTML",
+    package: "swift-html",
+    condition: .when(traits: ["LegacyActors"])
+)
 
 let swiftWebUIDependencies: [Target.Dependency] = [
     swiftHTMLDependency,
@@ -84,7 +89,7 @@ let actorSystemBuildSupportDependency: Target.Dependency = .product(
 
 let swiftWebActorsDependencies: [Target.Dependency] =
     [
-        swiftHTMLDependency,
+        swiftHTMLLegacyActorDependency,
         actorSystemCoreDependency,
         actorSystemDistributedDependency,
         actorSystemEmbeddedDependency,
@@ -207,7 +212,9 @@ let package = Package(
             dependencies: [
                 .product(name: "HTTPTypes", package: "swift-http-types"),
             ],
-            swiftSettings: swiftWebSwiftSettings
+            swiftSettings: swiftWebSwiftSettings + [
+                .define("SWIFTWEB_PORTABLE_LOGGING")
+            ]
         ),
         .target(
             name: "SwiftWebBrowserRuntime",
@@ -227,6 +234,7 @@ let package = Package(
                 swiftHTMLDependency,
                 "SwiftWebHost",
                 actorSystemCoreDependency,
+                actorSystemEmbeddedDependency,
                 actorSystemCompatibilityDependency,
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 "SwiftWebActors",
@@ -235,7 +243,9 @@ let package = Package(
             ],
             path: "Sources/SwiftWebRuntime/Core",
             exclude: ["README.md"],
-            swiftSettings: swiftWebSwiftSettings
+            swiftSettings: swiftWebSwiftSettings + [
+                .define("SWIFTWEB_PORTABLE_LOGGING")
+            ]
         ),
     ] + (swiftWebHostedApplication ? [
         .macro(

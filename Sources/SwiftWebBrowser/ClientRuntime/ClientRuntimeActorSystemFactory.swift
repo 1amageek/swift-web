@@ -5,7 +5,12 @@ import ActorSystemEmbedded
 import SwiftWebActors
 
 enum ClientRuntimeActorSystemFactory {
-    static func makeActorSystem() -> WebActorSystem {
+    struct Installation {
+        let actorSystem: WebActorSystem
+        let routeBindingRouter: SwiftWebActorBindingRouter?
+    }
+
+    static func makeActorSystem() -> Installation {
         #if os(WASI) && SWIFTWEB_ACTORS
         let configuration = ActorSystemConfiguration(
             sessionIdentitySource: JavaScriptKitActorSessionIdentitySource()
@@ -18,10 +23,23 @@ enum ClientRuntimeActorSystemFactory {
                 configuration: configuration,
                 channels: [(channel, ActorByteBuffer())]
             )
-            return try WebActorSystem(
-                router: SwiftWebWebSocketActorRouter(),
-                transports: [.swiftWebWebSocket: transport],
+            let routeBindingRouter = SwiftWebActorBindingRouter(
+                fallback: SwiftWebWebSocketActorRouter()
+            )
+            let requestTransport = JavaScriptKitActorTransport(
                 configuration: configuration
+            )
+            let actorSystem = try WebActorSystem(
+                router: routeBindingRouter,
+                transports: [
+                    .swiftWebHTTP: requestTransport,
+                    .swiftWebWebSocket: transport,
+                ],
+                configuration: configuration
+            )
+            return Installation(
+                actorSystem: actorSystem,
+                routeBindingRouter: routeBindingRouter
             )
         } catch {
             preconditionFailure(
@@ -40,10 +58,23 @@ enum ClientRuntimeActorSystemFactory {
                 configuration: configuration,
                 channels: [(channel, ActorByteBuffer())]
             )
-            return WebActorSystem(
-                router: SwiftWebWebSocketActorRouter(),
-                transports: [.swiftWebWebSocket: transport],
+            let routeBindingRouter = SwiftWebActorBindingRouter(
+                fallback: SwiftWebWebSocketActorRouter()
+            )
+            let requestTransport = JavaScriptKitActorTransport(
                 configuration: configuration
+            )
+            let actorSystem = WebActorSystem(
+                router: routeBindingRouter,
+                transports: [
+                    .swiftWebHTTP: requestTransport,
+                    .swiftWebWebSocket: transport,
+                ],
+                configuration: configuration
+            )
+            return Installation(
+                actorSystem: actorSystem,
+                routeBindingRouter: routeBindingRouter
             )
         } catch {
             _ = error
@@ -52,7 +83,10 @@ enum ClientRuntimeActorSystemFactory {
             )
         }
         #else
-        return WebActorSystem.shared
+        return Installation(
+            actorSystem: WebActorSystem.shared,
+            routeBindingRouter: nil
+        )
         #endif
     }
 
