@@ -6,12 +6,32 @@ import NIOPosix
 import SwiftHTML
 import TLS
 import SwiftWeb
-import SwiftWebHTTPServerHost
+@_spi(Hosting) import SwiftWebHost
+@testable import SwiftWebHTTPServerHost
 import Synchronization
 import Testing
 
 @Suite
 struct SwiftWebHTTPServerHostTests {
+    @Test
+    func nioWebSocketStorageReusesItsNativeOwner() throws {
+        var source = ByteBufferAllocator().buffer(capacity: 5)
+        source.writeBytes([0x00, 0x01, 0x02, 0x03, 0x04])
+        let storage = NIOWebSocketBinaryStorage(source)
+        let message = WebSocketBinaryBuffer(storage: storage)[1..<4]
+
+        let outbound = NIOWebSocketBinaryStorage.byteBuffer(for: message)
+        let sourceAddress = source.withUnsafeReadableBytes { bytes in
+            UInt(bitPattern: bytes.baseAddress!.advanced(by: 1))
+        }
+        let outboundAddress = outbound.withUnsafeReadableBytes { bytes in
+            UInt(bitPattern: bytes.baseAddress!)
+        }
+
+        #expect(outboundAddress == sourceAddress)
+        #expect(outbound.readableBytesView.elementsEqual([0x01, 0x02, 0x03]))
+    }
+
     @Test
     func endpointStringFormDeclaresCachePolicy() async throws {
         try await withHost(HostFixtureApp()) { client, base in
@@ -307,7 +327,7 @@ struct SwiftWebHTTPServerHostTests {
             }
             #expect(scheme == "https")
 
-            let expected = Data([0x00, 0x01, 0x7F, 0x80, 0xFF])
+            let expected = Data(repeating: 0xA5, count: 1_048_576)
             try await socket.send(.data(expected))
             let echoMessage = try await socket.receive()
             guard case .data(let received) = echoMessage else {

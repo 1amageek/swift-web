@@ -1,5 +1,6 @@
-import ActorSystemCore
+@_spi(Transport) import ActorSystemCore
 import SwiftWebActors
+@_spi(Hosting) import SwiftWebHost
 import Synchronization
 import Testing
 @testable import SwiftWebCore
@@ -27,6 +28,49 @@ struct SwiftWebHostActorBinaryChannelTests {
         await channel.shutdown()
         #expect(socket.isClosed)
         #expect(try await iterator.next() == nil)
+    }
+
+    @Test
+    func preservesNativeStorageAcrossAnActorRoundTrip() async throws {
+        let socket = TestWebSocketChannel()
+        let channel = try SwiftWebHostActorBinaryChannel(
+            endpoint: ActorEndpoint("zero-copy-connection"),
+            socket: socket,
+            maximumFrameBytes: 1_024,
+            maximumBufferedFrames: 2
+        )
+        try await channel.start()
+
+        let storage = TestWebSocketBinaryStorage([0x00, 0x01, 0x02, 0x03, 0x04])
+        let message = WebSocketBinaryBuffer(storage: storage)[1..<4]
+        var iterator = channel.incoming.makeAsyncIterator()
+        try await socket.receiveBinary(message)
+        let received = try #require(try await iterator.next())
+        try await channel.send(received)
+
+        let sent = try #require(socket.sentBinaryBuffers.last)
+        let retained = try #require(
+            sent.retainedStorage(as: TestWebSocketBinaryStorage.self)
+        )
+        #expect(retained.storage === storage)
+        #expect(retained.range == 1..<4)
+        #expect(sent.copyBytes() == [0x01, 0x02, 0x03])
+
+        await channel.shutdown()
+    }
+
+    @Test
+    func binaryBufferBorrowsPropagateErrors() {
+        #expect(throws: TestBorrowError.self) {
+            try WebSocketBinaryBuffer([0x01]).withUnsafeBytes { _ in
+                throw TestBorrowError.expected
+            }
+        }
+        #expect(throws: TestBorrowError.self) {
+            try ActorByteBuffer([0x02]).withUnsafeBytes { _ in
+                throw TestBorrowError.expected
+            }
+        }
     }
 
     @Test
@@ -465,9 +509,9 @@ private final class FailingStartActorBinaryChannel: SwiftWebActorBinaryChannel, 
 
 private final class TestWebSocketChannel: WebSocketChannel, Sendable {
     private struct State: Sendable {
-        var sentBinaryFrames: [[UInt8]] = []
+        var sentBinaryFrames: [WebSocketBinaryBuffer] = []
         var textHandler: (@Sendable (String) async throws -> Void)?
-        var binaryHandler: (@Sendable ([UInt8]) async throws -> Void)?
+        var binaryHandler: (@Sendable (WebSocketBinaryBuffer) async throws -> Void)?
         var closeHandler: (@Sendable () async -> Void)?
         var isClosed = false
     }
@@ -475,6 +519,10 @@ private final class TestWebSocketChannel: WebSocketChannel, Sendable {
     private let state = Mutex(State())
 
     var sentBinaryFrames: [[UInt8]] {
+        state.withLock { $0.sentBinaryFrames.map { $0.copyBytes() } }
+    }
+
+    var sentBinaryBuffers: [WebSocketBinaryBuffer] {
         state.withLock { $0.sentBinaryFrames }
     }
 
@@ -486,7 +534,7 @@ private final class TestWebSocketChannel: WebSocketChannel, Sendable {
         _ = text
     }
 
-    func send(_ bytes: [UInt8]) async throws {
+    func send(_ bytes: WebSocketBinaryBuffer) async throws {
         state.withLock { $0.sentBinaryFrames.append(bytes) }
     }
 
@@ -494,7 +542,9 @@ private final class TestWebSocketChannel: WebSocketChannel, Sendable {
         state.withLock { $0.textHandler = handler }
     }
 
-    func onBinary(_ handler: @Sendable @escaping ([UInt8]) async throws -> Void) {
+    func onBinary(
+        _ handler: @Sendable @escaping (WebSocketBinaryBuffer) async throws -> Void
+    ) {
         state.withLock { $0.binaryHandler = handler }
     }
 
@@ -514,9 +564,39 @@ private final class TestWebSocketChannel: WebSocketChannel, Sendable {
     }
 
     func receiveBinary(_ bytes: [UInt8]) async throws {
+        try await receiveBinary(WebSocketBinaryBuffer(bytes))
+    }
+
+    func receiveBinary(_ bytes: WebSocketBinaryBuffer) async throws {
         guard let handler = state.withLock({ $0.binaryHandler }) else {
             throw ActorSystemError.notStarted
         }
         try await handler(bytes)
     }
+}
+
+private final class TestWebSocketBinaryStorage: WebSocketBinaryStorage, Sendable {
+    private let bytes: [UInt8]
+
+    init(_ bytes: [UInt8]) {
+        self.bytes = bytes
+    }
+
+    var count: Int {
+        bytes.count
+    }
+
+    subscript(index: Int) -> UInt8 {
+        bytes[index]
+    }
+
+    func withUnsafeBytes(
+        _ body: (UnsafeRawBufferPointer) throws -> Void
+    ) rethrows {
+        try bytes.withUnsafeBytes(body)
+    }
+}
+
+private enum TestBorrowError: Error {
+    case expected
 }

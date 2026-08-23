@@ -13,8 +13,12 @@ public struct WebSocketContext: Sendable {
         try await channel.send(text)
     }
 
-    public func send(_ bytes: [UInt8]) async throws {
+    public func send(_ bytes: WebSocketBinaryBuffer) async throws {
         try await channel.send(bytes)
+    }
+
+    public func send(_ bytes: [UInt8]) async throws {
+        try await channel.send(WebSocketBinaryBuffer(bytes))
     }
 
     public func onText(_ handler: @Sendable @escaping (String) async throws -> Void) {
@@ -28,7 +32,9 @@ public struct WebSocketContext: Sendable {
         }
     }
 
-    public func onBinary(_ handler: @Sendable @escaping ([UInt8]) async throws -> Void) {
+    public func onBinary(
+        _ handler: @Sendable @escaping (WebSocketBinaryBuffer) async throws -> Void
+    ) {
         let logger = request.logger
         channel.onBinary { bytes in
             do {
@@ -36,6 +42,14 @@ public struct WebSocketContext: Sendable {
             } catch {
                 logger.error("WebSocket binary handler failed: \(RuntimeErrorText.of(error))")
             }
+        }
+    }
+
+    public func onBinaryBytes(
+        _ handler: @Sendable @escaping ([UInt8]) async throws -> Void
+    ) {
+        onBinary { buffer in
+            try await handler(buffer.copyBytes())
         }
     }
 

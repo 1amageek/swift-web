@@ -162,7 +162,7 @@ let package = Package(
         ),
         .package(
             url: "https://github.com/1amageek/swift-tls-nio.git",
-            revision: "008e384e81ba3eb328ed8ca41907c53389e90814"
+            revision: "b73f27372266595260994d3d45be29e9bcf63b9a"
         ),
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.6.0"),
         .package(url: "https://github.com/apple/swift-crypto.git", from: "4.0.0"),
@@ -360,6 +360,7 @@ let package = Package(
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "Logging", package: "swift-log"),
                 "SwiftWebCore",
+                "SwiftWebHost",
             ],
             path: "Sources/SwiftWebHTTPServer/Host",
             swiftSettings: swiftWebSwiftSettings

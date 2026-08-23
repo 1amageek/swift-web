@@ -1,5 +1,5 @@
 {
-  "originHash" : "caa0d8c638f491259fd8fe2289a00dbabf3188730d8f181bb556be321ebccef4",
+  "originHash" : "496f54215f152a3c90b0fa9a586ec02c10af7861725dd7e20730a73bc79ab742",
   "pins" : [
     {
       "identity" : "async-http-client",
@@ -283,7 +283,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/1amageek/swift-tls-nio.git",
       "state" : {
-        "revision" : "008e384e81ba3eb328ed8ca41907c53389e90814"
+        "revision" : "b73f27372266595260994d3d45be29e9bcf63b9a"
       }
     }
   ],

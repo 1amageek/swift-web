@@ -364,7 +364,7 @@ private struct NIOHTTPBodyWriter: BodyWriter {
 private final class NIOWebSocketChannel: WebSocketChannel, Sendable {
     private struct State: Sendable {
         var textHandler: (@Sendable (String) async throws -> Void)?
-        var binaryHandler: (@Sendable ([UInt8]) async throws -> Void)?
+        var binaryHandler: (@Sendable (WebSocketBinaryBuffer) async throws -> Void)?
         var closeHandler: (@Sendable () async -> Void)?
         var isClosed = false
         var deliveredClose = false
@@ -386,12 +386,14 @@ private final class NIOWebSocketChannel: WebSocketChannel, Sendable {
         )
     }
 
-    func send(_ bytes: [UInt8]) async throws {
+    func send(_ bytes: WebSocketBinaryBuffer) async throws {
         try requireOpen()
-        var buffer = ByteBuffer()
-        buffer.writeBytes(bytes)
         try await outbound.write(
-            WebSocketFrame(fin: true, opcode: .binary, data: buffer)
+            WebSocketFrame(
+                fin: true,
+                opcode: .binary,
+                data: NIOWebSocketBinaryStorage.byteBuffer(for: bytes)
+            )
         )
     }
 
@@ -404,7 +406,9 @@ private final class NIOWebSocketChannel: WebSocketChannel, Sendable {
         }
     }
 
-    func onBinary(_ handler: @Sendable @escaping ([UInt8]) async throws -> Void) {
+    func onBinary(
+        _ handler: @Sendable @escaping (WebSocketBinaryBuffer) async throws -> Void
+    ) {
         state.withLock { state in
             guard !state.isClosed else {
                 return
@@ -465,11 +469,14 @@ private final class NIOWebSocketChannel: WebSocketChannel, Sendable {
         from inbound: NIOAsyncChannelInboundStream<WebSocketFrame>
     ) async throws {
         do {
-            for try await frame in inbound {
+            for try await var frame in inbound {
                 switch frame.opcode {
                 case .text:
-                    let bytes = Self.bytes(in: frame)
-                    guard let text = String(validating: bytes, as: UTF8.self),
+                    let bytes = Self.takeUnmaskedData(from: &frame)
+                    guard let text = String(
+                        validating: bytes.readableBytesView,
+                        as: UTF8.self
+                    ),
                           let handler = state.withLock({ $0.textHandler })
                     else {
                         throw SwiftWebNIOHTTPServerError.invalidWebSocketMessage
@@ -479,20 +486,28 @@ private final class NIOWebSocketChannel: WebSocketChannel, Sendable {
                     guard let handler = state.withLock({ $0.binaryHandler }) else {
                         throw SwiftWebNIOHTTPServerError.invalidWebSocketMessage
                     }
-                    try await handler(Self.bytes(in: frame))
+                    try await handler(
+                        WebSocketBinaryBuffer(
+                            storage: NIOWebSocketBinaryStorage(
+                                Self.takeUnmaskedData(from: &frame)
+                            )
+                        )
+                    )
                 case .ping:
                     try requireOpen()
                     try await outbound.write(
                         WebSocketFrame(
                             fin: true,
                             opcode: .pong,
-                            data: frame.unmaskedData
+                            data: Self.takeUnmaskedData(from: &frame)
                         )
                     )
                 case .pong:
                     continue
                 case .connectionClose:
-                    try await replyToClose(frame)
+                    try await replyToClose(
+                        Self.takeUnmaskedData(from: &frame)
+                    )
                     await markClosedAndDeliver()
                     return
                 case .continuation:
@@ -508,7 +523,7 @@ private final class NIOWebSocketChannel: WebSocketChannel, Sendable {
         }
     }
 
-    private func replyToClose(_ frame: WebSocketFrame) async throws {
+    private func replyToClose(_ unmaskedData: ByteBuffer) async throws {
         let shouldReply = state.withLock { state -> Bool in
             guard !state.isClosed else {
                 return false
@@ -519,7 +534,7 @@ private final class NIOWebSocketChannel: WebSocketChannel, Sendable {
         guard shouldReply else {
             return
         }
-        var data = frame.unmaskedData
+        var data = unmaskedData
         let closeCode = data.readSlice(length: min(2, data.readableBytes)) ?? ByteBuffer()
         try await outbound.write(
             WebSocketFrame(
@@ -564,8 +579,19 @@ private final class NIOWebSocketChannel: WebSocketChannel, Sendable {
         }
     }
 
-    private static func bytes(in frame: WebSocketFrame) -> [UInt8] {
-        let data = frame.unmaskedData
-        return data.getBytes(at: data.readerIndex, length: data.readableBytes) ?? []
+    private static func takeUnmaskedData(
+        from frame: inout WebSocketFrame
+    ) -> ByteBuffer {
+        let maskKey = frame.maskKey
+        let indexOffset = (frame.extensionData?.readableBytes ?? 0) % 4
+        // Client frames require unmasking. Move the buffer out first so the
+        // required mutation can retain unique NIO storage instead of forcing
+        // an avoidable COW copy through WebSocketFrame's convenience getter.
+        var data = frame.data
+        frame.data = ByteBuffer()
+        if let maskKey {
+            data.webSocketUnmask(maskKey, indexOffset: indexOffset)
+        }
+        return data
     }
 }

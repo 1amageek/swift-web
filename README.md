@@ -183,6 +183,11 @@ Browser clients should derive WebSocket URLs from the page origin. An HTTPS
 page therefore resolves its socket endpoint to `wss://`; HTTP continues to use
 `ws://` for explicitly plaintext development listeners.
 
+Binary callbacks receive `WebSocketBinaryBuffer`, an immutable owner plus a
+readable range. Slicing and forwarding that value retain adapter-native storage
+without materializing `[UInt8]`; `withUnsafeBytes` provides a scoped borrow and
+`copyBytes()` is the explicit conversion for APIs that require an array.
+
 A static page returns a complete `HTMLDocument`:
 
 ```swift

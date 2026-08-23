@@ -1,5 +1,5 @@
 #if SWIFTWEB_ACTORS
-import ActorSystemCore
+@_spi(Transport) import ActorSystemCore
 import SwiftWebActors
 import Synchronization
 @_spi(Hosting) import SwiftWebHost
@@ -70,7 +70,16 @@ final class SwiftWebHostActorBinaryChannel: SwiftWebActorBinaryChannel, Sendable
             )
         }
         try requireRunning()
-        try await socket.send(bytes.bytes)
+        if let retained = bytes.retainedStorage(as: SwiftWebActorBinaryStorage.self),
+           case .webSocket(let source) = retained.storage.source {
+            try await socket.send(source[retained.range])
+        } else {
+            try await socket.send(
+                WebSocketBinaryBuffer(
+                    storage: SwiftWebActorBinaryStorage(source: .actor(bytes))
+                )
+            )
+        }
     }
 
     func shutdown() async {
@@ -92,7 +101,7 @@ final class SwiftWebHostActorBinaryChannel: SwiftWebActorBinaryChannel, Sendable
         }
     }
 
-    private func receive(_ bytes: [UInt8]) throws {
+    private func receive(_ bytes: WebSocketBinaryBuffer) throws {
         try requireRunning()
         guard bytes.count <= maximumFrameBytes else {
             let error = ActorSystemError.invalidFrame(
@@ -101,7 +110,10 @@ final class SwiftWebHostActorBinaryChannel: SwiftWebActorBinaryChannel, Sendable
             incomingContinuation.finish(throwing: error)
             throw error
         }
-        switch incomingContinuation.yield(ActorByteBuffer(bytes)) {
+        let ownedBytes = ActorByteBuffer(
+            storage: SwiftWebActorBinaryStorage(source: .webSocket(bytes))
+        )
+        switch incomingContinuation.yield(ownedBytes) {
         case .enqueued:
             return
         case .dropped:

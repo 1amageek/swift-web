@@ -1899,8 +1899,8 @@ The native WebSocket path is one production path, not a second actor protocol:
 
 ```mermaid
 flowchart LR
-  Upgrade["NIO HTTP/1.1 upgrade"] --> Socket["WebSocketChannel<br/>text + binary + close"]
-  Socket --> HostChannel["SwiftWebHostActorBinaryChannel<br/>bounded owned bytes"]
+  Upgrade["NIO HTTP/1.1 upgrade"] --> Socket["WebSocketChannel<br/>text + owned binary views + close"]
+  Socket --> HostChannel["SwiftWebHostActorBinaryChannel<br/>bounded owner-preserving frames"]
   HostChannel --> Multiplexer["SwiftWebWebSocketActorTransport"]
   Multiplexer --> Core["ActorSystemCore"]
 ```
@@ -1911,7 +1911,12 @@ and an upgrade route may intentionally share a path. Fragment aggregation and
 message size are bounded before bytes enter SwiftWeb. `NIOWebSocketChannel`
 owns control-frame handling, UTF-8 validation, binary delivery, close
 notification, and outbound backpressure. The host-neutral
-`WebSocketChannel` exposes text and binary operations; actor code sees neither.
+`WebSocketChannel` exposes text and `WebSocketBinaryBuffer` operations; actor
+code sees neither NIO nor WebSocket types. Native binary frames retain the NIO
+owner through the host and actor views, so forwarding does not materialize an
+intermediate array. Locally produced actor frames copy directly into the final
+NIO owner once; browser JavaScript interop materializes at the JS ownership
+boundary.
 
 The actor endpoint at `/_swiftweb/actors/socket` validates the request origin,
 loads the request session, assigns a unique connection endpoint, and encodes

@@ -118,7 +118,8 @@ public actor BrowserSwiftWebActorBinaryChannel: SwiftWebActorBinaryChannel {
                 ActorProtocolViolation("Actor WebSocket frame exceeds its limit")
             )
         }
-        try await driver.send(bytes.bytes)
+        // JavaScript takes ownership of a typed array at this boundary.
+        try await driver.send(bytes.copyBytes())
     }
 
     public func shutdown() async {
