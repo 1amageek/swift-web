@@ -27,7 +27,6 @@ try {
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const swiftWebRoot = path.resolve(scriptDirectory, "../..");
-const expectedSwiftWebVersion = "0.11.0";
 const expectedSwiftHTMLVersion = "0.15.0";
 const exampleAppRoot = path.join(swiftWebRoot, "Examples", "CounterApp");
 const timeoutMs = Number(process.env.SWIFTWEB_E2E_TIMEOUT_MS || 600_000);
@@ -294,9 +293,7 @@ async function prepareAppCopy(root) {
   const packageFile = path.join(appRoot, "Package.swift");
   let manifest = await readFile(packageFile, "utf8");
   manifest = manifest.replace(
-    new RegExp(
-      `\\.package\\(url:\\s*"https:\\/\\/github\\.com\\/1amageek\\/swift-web\\.git",\\s*from:\\s*"${expectedSwiftWebVersion.replaceAll(".", "\\.")}"\\),`
-    ),
+    '.package(path: "../.."),',
     `.package(path: "${swiftStringLiteral(swiftWebRoot)}"),`
   );
   const expectedSwiftHTMLDependency = `.package(url: "https://github.com/1amageek/swift-html.git", from: "${expectedSwiftHTMLVersion}")`;

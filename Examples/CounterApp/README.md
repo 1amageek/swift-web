@@ -78,23 +78,14 @@ sweb xcode
 Open the generated `CounterApp-dev` scheme. It runs the same development
 reconciler used by `sweb dev`.
 
-## Production Builds
-
-Build the native server:
+## Build
 
 ```bash
-sweb build
+sweb build --environment local --runtime standard
 ```
 
-Build optimized browser runtimes and compression sidecars:
-
-```bash
-sweb build \
-  --wasm \
-  --runtime standard \
-  --swift-sdk swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-08-14-a_wasm \
-  -c release
-```
+The selected Host lifecycle builds the native server, browser runtime, and
+compression sidecars before verifying the local deployment.
 
 CounterApp is the fixture used by the real Chromium development-server gate in
 [Development Reconciler Verification](../../docs/DevServerReconcilerVerification.md).

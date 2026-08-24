@@ -2,6 +2,9 @@
 
 HelloWorld is the minimal SwiftWeb example. It mounts a single page at `/` and renders a static SwiftWebUI view.
 
+Its package manifest uses the SwiftWeb checkout at the repository root, so the
+example exercises the current lifecycle and adapter schema.
+
 ## Structure
 
 ```text
@@ -37,8 +40,8 @@ http://127.0.0.1:3000/
 ## Build
 
 ```bash
-"$SWIFT_WEB_HOST_SWIFT" build
+sweb build --environment local
 ```
 
-HelloWorld has no client island, so its lifecycle builds the server and skips
-the optional browser WASM runtime.
+The lifecycle builds the server and verifies the selected local deployment.
+HelloWorld has no client island, so it skips the optional browser WASM runtime.

@@ -16,6 +16,10 @@ export SWIFT_WEB_WASM_SWIFT="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
 export SWIFT_WEB_WASM_TOOLCHAIN_BIN="$SWIFT_WEB_TOOLCHAIN_BIN"
 ```
 
+Their package manifests resolve SwiftWeb from the repository root. This keeps
+the examples on the same runtime, adapter schema, and generated-package
+contract as the checkout being developed.
+
 Run the hello world sample:
 
 ```bash
