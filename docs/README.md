@@ -23,8 +23,7 @@ the archive for those records.
 |---|---|
 | [Client Bundle Loading](ClientBundleLoadingDesign.md) | Implemented browser bundle and loading contract |
 | [Client Navigation](ClientNavigationDesign.md) | Implemented progressive navigation contract |
-| [Actor Injection](ActorInjectionDesign.md) | Current local and deployment-bound concrete actor binding, `.actor(Type.self, identity:)`, and `@RemoteActor` contract |
-| [Remote Connections](RemoteConnectionArchitecture.md) | Actor-versus-Server boundary, implemented cross-application request/reply slice, platform samples, and remaining adapter requirements |
+| [Actor Runtime](../Sources/SwiftWebRuntime/Actors/README.md) | Current concrete actor, `.actor(Type.self, identity:)`, `@RemoteActor`, transport, and compatibility contract |
 | [SwiftWebUI Core](SwiftWebUICoreDesign.md) | Current component, property, modifier, and environment model |
 | [SwiftWebUI Style](SwiftWebUIStyleDesign.md) | Current styling responsibility and resolution rules |
 | [Atomic Styling](AtomicStyling.md) | Current class generation, collection, and emission contract |
@@ -33,17 +32,9 @@ the archive for those records.
 
 | Document | Decision |
 |---|---|
-| [Swift Actor System](SwiftActorSystemDesign.md) | A concrete `distributed actor` declaration is the single source of truth; Native uses Swift Distributed Actors and Embedded uses generated semantic twins over one transport-neutral core |
-| [Remote Connections](RemoteConnectionArchitecture.md) | Actor connections preserve Swift Distributed Actor semantics; non-Actor destinations remain Server connections |
 | [Browser Runtime JavaScriptKit](BrowserRuntimeJavaScriptKitDecision.md) | JavaScriptKit is the internal browser adapter; SwiftWebUI remains the public UI API |
 | [Host, Deployment, and Service Adapter Contract](AdapterContract.md) | Hosts, deployments, and independent service applications are separate adapter components discovered through SwiftPM |
 | [Host Rendering Contract](HostRenderingContract.md) | Hosts own platform lifecycle and consume one common SwiftWeb rendering result |
-
-## Release Evidence
-
-| Document | Scope |
-|---|---|
-| [Production Review](ProductionReview.md) | SwiftWeb 0.8.0 P0/P1 sign-off and measured release gates |
 
 ## Documentation Rules
 

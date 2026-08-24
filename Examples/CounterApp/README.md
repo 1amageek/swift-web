@@ -52,8 +52,8 @@ patches server-owned DOM, and preserves the client component's local state.
 
 This example verifies same-application actor hosting and binding. It does not
 claim a browser-originated remote actor invocation. Cross-application and
-multi-endpoint Actor examples are specified in
-[Remote Connection Architecture](../../docs/RemoteConnectionArchitecture.md).
+multi-endpoint Actor bindings use the same concrete reference contract described
+in the [Actor runtime documentation](../../Sources/SwiftWebRuntime/Actors/README.md).
 
 ## Run
 

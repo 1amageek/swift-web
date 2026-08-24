@@ -130,9 +130,9 @@ after best-effort cleanup has completed.
 Server Actions are not actor stubs. Distributed actor calls do not fall back to
 Server Actions or to the legacy JSON actor endpoint.
 
-The complete connection classification, platform examples, and
-cross-application routing requirements are documented in
-[`docs/RemoteConnectionArchitecture.md`](../../../docs/RemoteConnectionArchitecture.md).
+Actor connections require identity, ownership, and isolation. Destinations
+without those properties remain Server connections and do not enter this
+runtime.
 
 ## Legacy Compatibility
 
@@ -154,5 +154,5 @@ legacy path.
 | Component state and DOM patching | `SwiftWebUIRuntime` |
 | Board-specific UART, BLE, TCP, ISR, or DMA adaptation | Deployment-provided `ActorTransport` |
 
-The authoritative architecture and completion gates are recorded in
-[`docs/SwiftActorSystemDesign.md`](../../../docs/SwiftActorSystemDesign.md).
+This implementation-adjacent document and the executable actor tests are the
+authoritative runtime contract.

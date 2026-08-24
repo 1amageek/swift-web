@@ -171,8 +171,8 @@ flowchart LR
   Route --> Generated
 ```
 
-The full admission contract is defined in
-[Remote Connection Architecture](RemoteConnectionArchitecture.md).
+The Swift-facing binding and admission contract is defined beside the runtime
+in the [Actor runtime contract](../Sources/SwiftWebRuntime/Actors/README.md).
 
 ## Templates and generated state
 

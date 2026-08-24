@@ -179,8 +179,8 @@ credentials, adapter names, and artifact names do not enter the actor call
 site. Destinations without Actor ownership and isolation remain Server
 connections.
 
-See [Actor Injection](docs/ActorInjectionDesign.md) and
-[Remote Connections](docs/RemoteConnectionArchitecture.md).
+See the [Actor runtime contract](Sources/SwiftWebRuntime/Actors/README.md) and
+the [adapter contract](docs/AdapterContract.md).
 
 ### HTTPS and WSS
 
@@ -458,9 +458,9 @@ sweb new App --adapter owner/repository --output .
 The adapter repository contract is documented in
 [Host, Deployment, and Service Adapter Contract](docs/AdapterContract.md).
 Service applications remain build/deploy units rather than Swift-facing
-interfaces. The Actor-versus-Server connection decision and cross-application
-Actor design are documented in
-[Remote Connection Architecture](docs/RemoteConnectionArchitecture.md).
+interfaces. Actor connections retain the concrete Swift Distributed Actor
+surface described by the
+[Actor runtime contract](Sources/SwiftWebRuntime/Actors/README.md).
 
 ## Examples
 

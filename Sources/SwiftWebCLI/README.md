@@ -60,7 +60,7 @@ A Service manifest entry is an independent build/deploy unit. It does not
 select a Swift client programming model. Server connections keep their existing
 request/response surface; Actor connections retain concrete Swift Distributed
 Actor references as defined by
-[Remote Connection Architecture](../../docs/RemoteConnectionArchitecture.md).
+[the Actor runtime contract](../SwiftWebRuntime/Actors/README.md).
 
 ## Generated Packages
 

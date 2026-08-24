@@ -44,11 +44,10 @@ transport selector. For a concrete actor property it resolves the generated
 `ActorSystemReference` metadata from the current scene binding scope. It does
 not create another proxy protocol or expose HTTP/WebSocket selection.
 
-The current actor architecture is documented in
-[`../../docs/SwiftActorSystemDesign.md`](../../docs/SwiftActorSystemDesign.md).
-The older protocol-based contract remains documented in
-[`../../docs/ActorInjectionDesign.md`](../../docs/ActorInjectionDesign.md) as a
-legacy migration path.
+The current actor contract is documented beside the runtime in
+[`../SwiftWebRuntime/Actors/README.md`](../SwiftWebRuntime/Actors/README.md).
+Legacy protocol-based declarations remain isolated behind the explicit
+`LegacyActors` trait and are not a second authoring model.
 
 ## Server Action Lowering
 
