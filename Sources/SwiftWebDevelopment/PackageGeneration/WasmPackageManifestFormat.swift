@@ -179,6 +179,8 @@ struct WasmPackageManifestFormat {
       supportTargets: [
         "cJavaScriptKitTarget",
         "javaScriptKitTarget",
+        "cJavaScriptEventLoopTarget",
+        "javaScriptEventLoopTarget",
         "actorSystemCoreTarget",
         "actorSystemRuntimeTarget",
         "swiftHTMLTarget",
@@ -346,6 +348,7 @@ struct WasmPackageManifestFormat {
         name: "\(targetName)",
         dependencies: [
             "\(appProductName)",
+            "JavaScriptEventLoop",
             "SwiftWebActors",
             "SwiftHTML",
             "SwiftWebUI",
@@ -374,6 +377,21 @@ struct WasmPackageManifestFormat {
         swiftSettings: [
             .enableExperimentalFeature("Extern"),
         ]
+    )
+
+    let cJavaScriptEventLoopTarget = Target.target(
+        name: "_CJavaScriptEventLoop",
+        path: "Sources/_CJavaScriptEventLoop"
+    )
+
+    let javaScriptEventLoopTarget = Target.target(
+        name: "JavaScriptEventLoop",
+        dependencies: [
+            "JavaScriptKit",
+            "_CJavaScriptEventLoop",
+        ],
+        path: "Sources/JavaScriptEventLoop",
+        swiftSettings: swiftSettings
     )
     """
   }
@@ -405,6 +423,7 @@ struct WasmPackageManifestFormat {
       "ActorSystemCore",
       runtimeTargetName,
       "JavaScriptKit",
+      "JavaScriptEventLoop",
       "SwiftHTML",
       "SwiftWebActors",
       "SwiftWebStyle",

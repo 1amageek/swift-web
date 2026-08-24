@@ -9,6 +9,7 @@ import Logging
 import NIOCore
 import NIOHTTP1
 import NIOHTTPServer
+import SwiftWebBrowserRuntime
 import SwiftWebDevelopmentHooks
 
 struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
@@ -29,6 +30,7 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
     private let devToken: String
     private let eventLog: SwiftWebDevEventLog
     private let workerRegistry: SwiftWebDevWorkerRegistry
+    private let packageDirectory: URL
     private let publishedWasmRoot: URL
     private let logger: Logger
 
@@ -36,12 +38,14 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
         devToken: String,
         eventLog: SwiftWebDevEventLog,
         workerRegistry: SwiftWebDevWorkerRegistry,
+        packageDirectory: URL,
         publishedWasmRoot: URL,
         logger: Logger
     ) {
         self.devToken = devToken
         self.eventLog = eventLog
         self.workerRegistry = workerRegistry
+        self.packageDirectory = packageDirectory
         self.publishedWasmRoot = publishedWasmRoot
         self.logger = logger
     }
@@ -82,6 +86,17 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
             return try await sendStatus(responseSender: responseSender)
         case SwiftWebDevHotReload.clientScriptPath:
             return try await sendClientScript(responseSender: responseSender)
+        case SwiftWebWasmRuntimeRoutes.hostScriptPath:
+            return try await sendBrowserRuntimeScript(
+                request: request,
+                source: SwiftWebWasmRuntimeHostScript.source,
+                responseSender: responseSender
+            )
+        case SwiftWebWasmRuntimeRoutes.javaScriptKitRuntimePath:
+            return try await sendJavaScriptKitRuntimeScript(
+                request: request,
+                responseSender: responseSender
+            )
         case "/__swiftweb/dev/events", "/__dev/events":
             return try await sendDevEvents(target: target, responseSender: responseSender)
         case "/__swiftweb/dev/reload":
@@ -211,6 +226,57 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
             status: .ok,
             headers: SwiftWebDevHotReload.clientScriptHeaders(),
             bytes: Array(SwiftWebDevHotReload.clientScript().utf8),
+            responseSender: responseSender
+        )
+    }
+
+    private func sendJavaScriptKitRuntimeScript(
+        request: HTTPRequest,
+        responseSender: consuming sending NIOHTTPServer.ResponseSender
+    ) async throws {
+        let source: String
+        do {
+            source = try SwiftWebJavaScriptKitRuntimeScript.load(
+                packageDirectory: packageDirectory
+            )
+        } catch {
+            return try await Self.sendBytes(
+                status: .internalServerError,
+                headers: [
+                    .contentType: "text/plain; charset=utf-8",
+                    .cacheControl: "no-cache, no-transform",
+                ],
+                bytes: Array("SwiftWeb JavaScriptKit runtime is unavailable: \(error)".utf8),
+                responseSender: responseSender
+            )
+        }
+        try await sendBrowserRuntimeScript(
+            request: request,
+            source: source,
+            responseSender: responseSender
+        )
+    }
+
+    private func sendBrowserRuntimeScript(
+        request: HTTPRequest,
+        source: String,
+        responseSender: consuming sending NIOHTTPServer.ResponseSender
+    ) async throws {
+        guard request.method == .get else {
+            return try await Self.sendBytes(
+                status: .methodNotAllowed,
+                headers: [.cacheControl: "no-cache, no-transform"],
+                bytes: [],
+                responseSender: responseSender
+            )
+        }
+        try await Self.sendBytes(
+            status: .ok,
+            headers: [
+                .contentType: "text/javascript; charset=utf-8",
+                .cacheControl: "no-cache, no-transform",
+            ],
+            bytes: Array(source.utf8),
             responseSender: responseSender
         )
     }

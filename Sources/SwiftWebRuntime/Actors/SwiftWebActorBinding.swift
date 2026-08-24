@@ -614,8 +614,14 @@ extension SwiftWebActorBindingRecord: Codable {
             contractKey: contractKey,
             actorID: ActorAddress(
                 type: ActorTypeID(
-                    high: try container.decode(UInt64.self, forKey: .actorTypeHigh),
-                    low: try container.decode(UInt64.self, forKey: .actorTypeLow)
+                    high: try SwiftWebActorTypeIDWireCoding.decode(
+                        from: container,
+                        forKey: .actorTypeHigh
+                    ),
+                    low: try SwiftWebActorTypeIDWireCoding.decode(
+                        from: container,
+                        forKey: .actorTypeLow
+                    )
                 ),
                 identity: try container.decode(String.self, forKey: .actorIdentity)
             )
@@ -625,8 +631,16 @@ extension SwiftWebActorBindingRecord: Codable {
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(contractKey, forKey: .contractKey)
-        try container.encode(actorID.type.high, forKey: .actorTypeHigh)
-        try container.encode(actorID.type.low, forKey: .actorTypeLow)
+        try SwiftWebActorTypeIDWireCoding.encode(
+            actorID.type.high,
+            to: &container,
+            forKey: .actorTypeHigh
+        )
+        try SwiftWebActorTypeIDWireCoding.encode(
+            actorID.type.low,
+            to: &container,
+            forKey: .actorTypeLow
+        )
         try container.encode(actorID.identity, forKey: .actorIdentity)
     }
 }

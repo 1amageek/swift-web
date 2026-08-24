@@ -148,7 +148,10 @@ let package = Package(
         .trait(name: "LegacyActors", enabledTraits: ["Actors"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/1amageek/swift-html.git", from: "0.15.0"),
+        .package(
+            url: "https://github.com/1amageek/swift-html.git",
+            revision: "0d2fb652a4ff36d6ad63d91d04db3aee5094986e"
+        ),
         .package(url: "https://github.com/1amageek/JavaScriptKit.git", from: "0.57.0"),
         .package(path: "Packages/swift-actor-system"),
         .package(url: "https://github.com/apple/swift-http-types", from: "1.0.0"),
@@ -436,6 +439,7 @@ let package = Package(
                 .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "NIOHTTP1", package: "swift-nio"),
                 .product(name: "NIOHTTPServer", package: "swift-http-server"),
+                "SwiftWebBrowserRuntime",
                 "SwiftWebCore",
                 "SwiftWebDevelopmentHooks",
                 "SwiftWebPackageGeneration",

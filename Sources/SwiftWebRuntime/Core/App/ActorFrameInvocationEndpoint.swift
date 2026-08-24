@@ -7,6 +7,7 @@ import Synchronization
 
 enum ActorFrameInvocationEndpoint {
     static let mediaType = "application/vnd.swift-actor-frame"
+    static let peerIDHeaderName = HTTPField.Name("X-SwiftWeb-Actor-Peer-ID")!
     static let webSocketPath: [PathComponent] = [
         "_swiftweb",
         "actors",
@@ -35,20 +36,7 @@ enum ActorFrameInvocationEndpoint {
             guard let body = try await request.collectedBody(), !body.isEmpty else {
                 throw Abort(.badRequest, reason: "Actor frame body is missing")
             }
-            guard let sessionID = request.session.id else {
-                throw Abort(
-                    .unauthorized,
-                    reason: "The SwiftWeb HTTP actor transport requires a session identity"
-                )
-            }
-            let principalID = request.session.isAuthenticated
-                ? request.session.userID
-                : nil
-            let invocationContext = SwiftWebActorInvocationContext(
-                principalID: principalID,
-                sessionID: sessionID,
-                remoteAddress: request.remoteAddress
-            )
+            let invocationContext = try invocationContext(for: request)
             let responseBytes: ActorByteBuffer?
             do {
                 responseBytes = try await actorSystem.invokeActorFrame(
@@ -140,6 +128,28 @@ enum ActorFrameInvocationEndpoint {
                     }
                 }
             }
+        )
+    }
+
+    static func invocationContext(
+        for request: Request
+    ) throws -> SwiftWebActorInvocationContext {
+        let sessionID = request.session.id
+        let suppliedPeerID = request.headers[peerIDHeaderName]
+        let peerID = suppliedPeerID.flatMap { $0.isEmpty ? nil : $0 }
+        guard sessionID != nil || peerID != nil else {
+            throw Abort(
+                .unauthorized,
+                reason: "The SwiftWeb HTTP actor transport requires a peer or session identity"
+            )
+        }
+        return SwiftWebActorInvocationContext(
+            principalID: request.session.isAuthenticated
+                ? request.session.userID
+                : nil,
+            sessionID: sessionID,
+            remoteAddress: request.remoteAddress,
+            peerID: peerID
         )
     }
 

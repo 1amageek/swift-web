@@ -4,6 +4,8 @@ import SwiftWebUI
 public struct ClientCounter: ClientComponent {
     @RemoteActor private var counter: CounterService
     @State private var value = 0
+    @State private var isRequestPending = false
+    @State private var failureMessage: String?
 
     public init() {}
 
@@ -12,7 +14,7 @@ public struct ClientCounter: ClientComponent {
             VStack(spacing: .large) {
                 Text("Client Counter").as(.h2)
                 Text(
-                    "This state is owned by a ClientComponent running in WASM."
+                    "This ClientComponent calls the distributed actor directly and mirrors its returned value in WASM state."
                 )
                 .foregroundStyle(.secondary)
                 VStack(spacing: .xsmall) {
@@ -25,16 +27,56 @@ public struct ClientCounter: ClientComponent {
                 }
                 LazyHStack(spacing: .small) {
                     Button("Decrement") {
-                        value -= 1
+                        decrement()
                     }
+                    .disabled(isRequestPending)
                     Spacer()
                     Button("Increment") {
-                        value += 1
+                        increment()
                     }
+                    .disabled(isRequestPending)
+                }
+                if let failureMessage {
+                    Text("Actor request failed: \(failureMessage)")
+                        .accessibilityIdentifier("actor-error")
                 }
             }
         }
         .accessibilityIdentifier("client-counter")
         .frame(maxWidth: .infinity, alignment: .top)
+    }
+
+    private func increment() {
+        guard !isRequestPending else {
+            return
+        }
+        let counter = self.counter
+        isRequestPending = true
+        Task { @MainActor in
+            defer { isRequestPending = false }
+            do {
+                value = try await counter.increment()
+                failureMessage = nil
+            } catch {
+                failureMessage = String(describing: error)
+            }
+        }
+    }
+
+    private func decrement() {
+        guard !isRequestPending else {
+            return
+        }
+        let counter = self.counter
+        isRequestPending = true
+        Task { @MainActor in
+            defer { isRequestPending = false }
+            do {
+                value = try await counter.decrement()
+                failureMessage = nil
+            } catch {
+                failureMessage = String(describing: error)
+            }
+        }
     }
 }

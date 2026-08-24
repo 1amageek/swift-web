@@ -12,6 +12,8 @@ extension SwiftWebWasmRuntimeProfile {
       appProductName,
       "_CJavaScriptKit",
       "JavaScriptKit",
+      "_CJavaScriptEventLoop",
+      "JavaScriptEventLoop",
       "ActorSystemCore",
       actorRuntimeTarget,
       "SwiftHTML",

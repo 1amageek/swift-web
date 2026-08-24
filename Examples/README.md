@@ -3,7 +3,7 @@
 | Example | Purpose |
 |---|---|
 | `HelloWorld` | Minimal `@Page` and SwiftWebUI rendering example. |
-| `CounterApp` | Canonical sample for `@Page`, SwiftWebUI layout, client `@State`, WASM hydration, server actions, and same-application distributed actor binding. |
+| `CounterApp` | Canonical `.actor(Type.self, identity:)` sample with local Actor hosting, server and browser `@RemoteActor` calls, WASM hydration, and Server Actions. |
 
 Both examples use the pinned Swift 6.4 snapshot documented in
 [Toolchain](../docs/Toolchain.md). Configure

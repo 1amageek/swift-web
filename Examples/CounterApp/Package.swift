@@ -12,7 +12,10 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../.."),
-        .package(url: "https://github.com/1amageek/swift-html.git", from: "0.15.0"),
+        .package(
+            url: "https://github.com/1amageek/swift-html.git",
+            revision: "0d2fb652a4ff36d6ad63d91d04db3aee5094986e"
+        ),
     ],
     targets: [
         .target(

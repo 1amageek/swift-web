@@ -301,8 +301,18 @@ package enum SwiftWebJavaScriptKitRuntimeScript {
 
     package static func load() throws -> String {
         let fileManager = FileManager.default
+        return try load(
+            packageDirectory: URL(fileURLWithPath: fileManager.currentDirectoryPath),
+            fileManager: fileManager
+        )
+    }
+
+    package static func load(
+        packageDirectory: URL,
+        fileManager: FileManager = .default
+    ) throws -> String {
         let candidates = scriptCandidates(
-            currentDirectory: URL(fileURLWithPath: fileManager.currentDirectoryPath),
+            currentDirectory: packageDirectory,
             sourceFile: URL(fileURLWithPath: #filePath),
             fileManager: fileManager
         )

@@ -109,6 +109,9 @@ public struct ClientRuntimeResponse: Sendable, Equatable {
 public enum ClientRuntimeBridgeError: Error, Sendable, CustomStringConvertible {
     case notBootstrapped
     case shutDown
+    case actorSystemStarting
+    case actorSystemStartupFailed
+    case asynchronousUpdateFailed(String)
     case componentMountNotFound(String)
     case duplicateStateSlot(String)
 
@@ -118,6 +121,12 @@ public enum ClientRuntimeBridgeError: Error, Sendable, CustomStringConvertible {
             "SwiftHTML browser runtime was not bootstrapped"
         case .shutDown:
             "SwiftHTML browser runtime was shut down"
+        case .actorSystemStarting:
+            "SwiftHTML browser actor system is starting"
+        case .actorSystemStartupFailed:
+            "SwiftHTML browser actor system startup failed"
+        case .asynchronousUpdateFailed(let message):
+            "SwiftHTML browser asynchronous update failed: \(message)"
         case .componentMountNotFound(let typeName):
             "SwiftHTML browser component mount was not found for \(typeName)"
         case .duplicateStateSlot(let slotID):
@@ -400,6 +409,14 @@ public final class ClientRuntimeBridge<Root: Component>: Sendable {
         var actorBindingScope: SwiftWebActorBindingScope?
         var isShutdown = false
         var termination: ActorSystemTermination?
+    }
+
+    private struct MountedRuntimeSnapshot {
+        var session: HydrationRuntimeSession<Root>?
+        var mountedHydrationIndex: BrowserHydrationIndex?
+        var mountedNodeMap: NodeMap
+        var mountedToLocalNodeMap: NodeMap
+        var documentNodeIDUpperBound: Int?
     }
 
     public typealias RootFactory = @Sendable (ClientRuntimeBootstrapRequest) throws -> Root
@@ -893,18 +910,43 @@ public final class ClientRuntimeBridge<Root: Component>: Sendable {
         }
     }
 
+    func flushStateChanges() throws -> ClientRuntimeResponse {
+        try accessGate.withExclusiveAccess {
+            try requireActive()
+            let actorBindingScope = runtimeState.withLock { state in
+                state.actorBindingScope
+            } ?? .empty
+            return try SwiftWebActorBindingContext.withValue(actorBindingScope) {
+                try reconcileWithCurrentActorBindings { session, _ in
+                    try session.flush()
+                }
+            }
+        }
+    }
+
     private func dispatchWithCurrentActorBindings(
         _ request: ClientRuntimeEventRequest
     ) throws -> ClientRuntimeResponse {
-        let state = runtimeState.withLock { state in
-            (
-                session: state.session,
-                mountedHydrationIndex: state.mountedHydrationIndex,
-                mountedNodeMap: state.mountedNodeMap,
-                mountedToLocalNodeMap: state.mountedToLocalNodeMap,
-                documentNodeIDUpperBound: state.documentNodeIDUpperBound
+        try reconcileWithCurrentActorBindings { session, state in
+            try session.invoke(
+                handlerID: translatedHandlerID(
+                    request.handlerID,
+                    in: session,
+                    mountedHydrationIndex: state.mountedHydrationIndex,
+                    mountedToLocalNodeMap: state.mountedToLocalNodeMap
+                ),
+                event: request.event
             )
         }
+    }
+
+    private func reconcileWithCurrentActorBindings(
+        _ updateSession: (
+            inout HydrationRuntimeSession<Root>,
+            MountedRuntimeSnapshot
+        ) throws -> HydrationRuntimeUpdate
+    ) throws -> ClientRuntimeResponse {
+        let state = mountedRuntimeSnapshot()
         guard var session = state.session else {
             throw ClientRuntimeBridgeError.notBootstrapped
         }
@@ -918,15 +960,7 @@ public final class ClientRuntimeBridge<Root: Component>: Sendable {
         let styleRegistry = StyleRegistry()
         let update = try StyleRegistry.withCurrent(styleRegistry) {
             try Transaction.$current.withValue(transaction) {
-                try session.invoke(
-                    handlerID: translatedHandlerID(
-                        request.handlerID,
-                        in: session,
-                        mountedHydrationIndex: state.mountedHydrationIndex,
-                        mountedToLocalNodeMap: state.mountedToLocalNodeMap
-                    ),
-                    event: request.event
-                )
+                try updateSession(&session, state)
             }
         }
         let atomicStyleRules = styleRegistry.rules().map {
@@ -1001,6 +1035,18 @@ public final class ClientRuntimeBridge<Root: Component>: Sendable {
             atomicStyleRules: atomicStyleRules,
             appliesDOMCommandsInRuntime: domHost != nil
         )
+    }
+
+    private func mountedRuntimeSnapshot() -> MountedRuntimeSnapshot {
+        runtimeState.withLock { state in
+            MountedRuntimeSnapshot(
+                session: state.session,
+                mountedHydrationIndex: state.mountedHydrationIndex,
+                mountedNodeMap: state.mountedNodeMap,
+                mountedToLocalNodeMap: state.mountedToLocalNodeMap,
+                documentNodeIDUpperBound: state.documentNodeIDUpperBound
+            )
+        }
     }
 
     private func requireActive() throws {
@@ -1205,6 +1251,8 @@ public final class ClientRuntimeBridge<Root: Component>: Sendable {
         }
         return index.components.first { component in
             component.typeName == mount.typeName
+                || component.typeName.hasSuffix(".\(mount.typeName)")
+                || mount.typeName.hasSuffix(".\(component.typeName)")
         }
     }
 

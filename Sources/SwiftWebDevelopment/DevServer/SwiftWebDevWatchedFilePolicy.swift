@@ -43,7 +43,11 @@ package enum SwiftWebDevWatchedFilePolicy {
     ]
 
     package static func isExcludedDirectory(named name: String) -> Bool {
-        excludedDirectoryNames.contains(name)
+        if excludedDirectoryNames.contains(name) || name == "ActorSystemGenerated" {
+            return true
+        }
+        return name.hasPrefix(".swiftweb-native-staging-")
+            || name.hasPrefix(".ActorSystemGenerated.backup-")
     }
 
     package static func isWatchedFile(_ url: URL) -> Bool {

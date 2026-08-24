@@ -706,6 +706,8 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
       "swiftWebUITarget",
       "cJavaScriptKitTarget",
       "javaScriptKitTarget",
+      "cJavaScriptEventLoopTarget",
+      "javaScriptEventLoopTarget",
       "actorSystemCoreTarget",
       "actorSystemRuntimeTarget",
       "swiftWebUIRuntimeTarget",
@@ -921,6 +923,8 @@ public struct SwiftWebGeneratedPackageMaterializer: Sendable {
       "SwiftWebUIRuntime",
       "JavaScriptKit",
       "_CJavaScriptKit",
+      "JavaScriptEventLoop",
+      "_CJavaScriptEventLoop",
     ]
     if let collision = dependencyModules
       .map({ $0.schema.moduleName })

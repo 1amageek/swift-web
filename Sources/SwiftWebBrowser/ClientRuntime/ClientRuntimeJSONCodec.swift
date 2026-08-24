@@ -928,6 +928,11 @@ enum ClientRuntimeJSONCodec {
     }
 
     private static func uint64(_ value: Any, path: String) throws -> UInt64 {
+        if let encodedValue = value as? String,
+           let integer = UInt64(encodedValue)
+        {
+            return integer
+        }
         if let number = value as? NSNumber,
            !isJSONBoolean(number),
            let integer = UInt64(number.stringValue)
@@ -936,7 +941,7 @@ enum ClientRuntimeJSONCodec {
         }
         throw ClientRuntimeJSONCodecError.invalidValue(
             path: path,
-            expected: "unsigned integer"
+            expected: "unsigned integer string or number"
         )
     }
 

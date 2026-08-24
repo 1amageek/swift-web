@@ -1410,14 +1410,23 @@ enum ClientRuntimeEmbeddedJSONCodec {
         _ input: ClientRuntimeEmbeddedJSONValue,
         path: String
     ) throws -> UInt64 {
-        guard case .number(let value) = input,
-              !value.contains("."),
-              !value.contains("e"),
-              !value.contains("E"),
-              let integer = UInt64(value) else {
+        let encodedValue: String
+        switch input {
+        case .string(let value):
+            encodedValue = value
+        case .number(let value)
+            where !value.contains(".") && !value.contains("e") && !value.contains("E"):
+            encodedValue = value
+        default:
             throw ClientRuntimeJSONCodecError.invalidValue(
                 path: path,
-                expected: "unsigned integer"
+                expected: "unsigned integer string or number"
+            )
+        }
+        guard let integer = UInt64(encodedValue) else {
+            throw ClientRuntimeJSONCodecError.invalidValue(
+                path: path,
+                expected: "unsigned integer string or number"
             )
         }
         return integer

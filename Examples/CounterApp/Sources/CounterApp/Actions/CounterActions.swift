@@ -1,11 +1,7 @@
 import SwiftWeb
 
 actor CounterActions: PageOwnedServerActions {
-    private let counterService: CounterService
-
-    init(counterService: CounterService) {
-        self.counterService = counterService
-    }
+    @RemoteActor private var counterService: CounterService
 
     @ServerAction(.post, "increment")
     func increment(_ input: NoActionInput, context: ActionInvocationContext) async throws -> ActionResult {

@@ -42,6 +42,10 @@ flowchart LR
 
 The portable frame and payload formats end at `ActorTransport`. HTTP,
 WebSocket, UART, BLE, and application-defined links do not become actor APIs.
+Browser-originated request/reply calls use the same-origin HTTP frame transport
+by default. WebSocket remains a separate transport capability for bidirectional
+connections; neither choice changes the concrete Distributed Actor call
+surface.
 
 ## Authoring Model
 

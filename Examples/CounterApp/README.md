@@ -1,32 +1,38 @@
 # CounterApp
 
 CounterApp is the end-to-end SwiftWeb sample. It combines a loaded page,
-SwiftWebUI, browser-owned state, server actions, and a concrete distributed
-actor bound into the client rendering scope.
+SwiftWebUI, browser state, server actions, and direct distributed actor calls
+through the same identity-scoped interface used for a remote Service Actor.
+The sample is intentionally public: its app-wide actor policy and its
+caller-addressed actor scope both declare `.allowAll`. Production apps should
+replace either layer with their authentication and identity policy.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-  App["CounterApp"] --> ActorScene["ActorScene"]
-  ActorScene --> Page["CounterPage"]
-  Page --> Load["CounterService.currentValue"]
+  App["CounterApp"] --> Host["ActorGroup host policy"]
+  Host --> Actor["CounterService"]
+  App --> Bind["CounterPage.actor<br/>identity: primary"]
+  Bind --> Page["CounterPage"]
+  Page --> Load["server @RemoteActor"]
+  Page --> Action["Server Actions"]
   Page --> Client["ClientCounter"]
-  Client --> State["browser @State"]
-  Client --> Remote["@RemoteActor declaration"]
-  Remote -.-> Binding["actor binding metadata"]
-  Binding -.-> Service["CounterService reference"]
-  Page --> Action["server action"]
-  Action --> Service
+  Client --> Remote["browser @RemoteActor"]
+  Remote --> Actor
+  Load --> Actor
+  Action --> Actor
+  Client --> State["browser @State mirror"]
 ```
 
 | Source | Responsibility |
 |---|---|
-| `App.swift` | Redirects `/` and mounts the counter service and page in `ActorScene` |
-| `Routes/CounterPage.swift` | Loads server state and renders the complete document |
-| `ClientCounter.swift` | Owns browser `@State` and declares the concrete `@RemoteActor` binding used by generated client projection |
+| `App.swift` | Registers the public demo actor's addressed authorization and construction policy, then binds `CounterPage` to the logical `primary` identity with the Scene modifier |
+| `Actions/CounterServiceIdentity.swift` | Owns the logical identity selected by Swift code |
+| `Routes/CounterPage.swift` | Resolves the bound actor, loads its current value, and renders the complete document |
+| `ClientCounter.swift` | Calls the concrete actor from browser WASM and mirrors successful results in local `@State` |
 | `Actions/CounterService.swift` | Declares the concrete distributed actor contract and implements server state and distributed calls |
-| `Actions/CounterActions.swift` | Maps page-local Server Actions to counter actor mutations and page invalidation |
+| `Actions/CounterActions.swift` | Resolves the same actor and maps page-local Server Actions to mutations and page invalidation |
 
 The user package remains a library. `sweb` owns concrete launch products under
 `.swiftweb/generated`:
@@ -40,20 +46,26 @@ The user package remains a library. `sweb` owns concrete launch products under
 
 ## State Ownership
 
-The two counters intentionally have different owners:
+The displayed values have distinct storage owners, but both mutation paths use
+the same actor:
 
 | Value | Owner | Update path |
 |---|---|---|
-| Client counter | `ClientCounter` in browser WASM | Local event handler mutates `@State` |
-| Server counter | `CounterService` distributed actor | Page loading reads it and Server Actions mutate it |
+| Actor value | `CounterService` distributed actor | Browser `@RemoteActor` calls and Server Actions mutate it |
+| Client display | `ClientCounter` in browser WASM | Successful actor results replace the local `@State` mirror |
+| Server display | Rendered page document | Page loading reads the actor after invalidation |
 
 A server action returns page invalidation. SwiftWeb fetches the current page,
 patches server-owned DOM, and preserves the client component's local state.
 
-This example verifies same-application actor hosting and binding. It does not
-claim a browser-originated remote actor invocation. Cross-application and
-multi-endpoint Actor bindings use the same concrete reference contract described
-in the [Actor runtime documentation](../../Sources/SwiftWebRuntime/Actors/README.md).
+The local environment uses `ActorGroup` to host `CounterService` in the same
+application. Because this is a public counter demo, its caller-addressed
+identity explicitly uses `allowAll`; production applications should select an
+authorization policy that matches ownership of their actor identity. The caller
+remains `CounterPage().actor(CounterService.self, identity: ...)`; a
+Service-enabled environment can supply a transport route for that binding
+without changing the page, `@RemoteActor`, or distributed method surface. See
+the [Actor runtime documentation](../../Sources/SwiftWebRuntime/Actors/README.md).
 
 ## Run
 

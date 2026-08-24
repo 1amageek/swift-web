@@ -13,6 +13,7 @@ import SwiftWebActors
 
 public struct ClientComponentRegistration: Sendable {
     public let typeName: String
+    private let installActorResolvers: @Sendable (WebActorSystem) throws -> Void
     #if SWIFTWEB_LEGACY_ACTORS
     private let makeRuntime: @Sendable (
         ComponentID,
@@ -55,11 +56,15 @@ public struct ClientComponentRegistration: Sendable {
         rootFactory: @escaping ClientRuntimeBridge<Root>.RootFactory
     ) {
         self.typeName = registeredTypeName
+        self.installActorResolvers = { actorSystem in
+            try actorResolverRegistry.install(in: actorSystem)
+        }
         #if SWIFTWEB_LEGACY_ACTORS
         self.makeRuntime = { componentID, stateStore, domHost, actorSystem, legacyActorSystem in
             ClientRegisteredRuntime(
                 typeName: registeredTypeName,
                 componentID: componentID,
+                stateStore: stateStore,
                 bridge: ClientRuntimeBridge(
                     environmentRegistry: environmentRegistry,
                     componentMount: ClientComponentMount(
@@ -80,6 +85,7 @@ public struct ClientComponentRegistration: Sendable {
             ClientRegisteredRuntime(
                 typeName: registeredTypeName,
                 componentID: componentID,
+                stateStore: stateStore,
                 bridge: ClientRuntimeBridge(
                     environmentRegistry: environmentRegistry,
                     componentMount: ClientComponentMount(
@@ -95,6 +101,10 @@ public struct ClientComponentRegistration: Sendable {
             )
         }
         #endif
+    }
+
+    fileprivate func installActorResolvers(in actorSystem: WebActorSystem) throws {
+        try installActorResolvers(actorSystem)
     }
 
     #if SWIFTWEB_LEGACY_ACTORS
@@ -123,6 +133,10 @@ public struct ClientComponentRegistration: Sendable {
         makeRuntime(componentID, stateStore, domHost, actorSystem)
     }
     #endif
+}
+
+protocol ClientRuntimeAtomicStyleHost: BrowserDOMHost {
+    func applyAtomicStyleRules(_ rules: [ClientRuntimeAtomicStyleRule]) throws
 }
 
 public final class ClientBundleRuntimeEntrypoint: Sendable {
@@ -155,6 +169,7 @@ public final class ClientBundleRuntimeEntrypoint: Sendable {
         var startTask: Task<Void, Never>?
         var shutdownPhase = ShutdownPhase.idle
         var shutdownCompletion: ActorSystemTermination?
+        var asynchronousFailureDescription: String?
     }
 
     private let accessGate = ClientRuntimeAccessGate()
@@ -557,8 +572,16 @@ public final class ClientBundleRuntimeEntrypoint: Sendable {
     func bootstrap(_ request: ClientRuntimeBootstrapRequest) throws -> ClientRuntimeResponse {
         #if SWIFTWEB_ACTORS || hasFeature(Embedded)
         if ownsActorSystem {
-            guard runtimeState.withLock({ $0.startPhase == .succeeded }) else {
-                throw ActorSystemError.notStarted
+            switch runtimeState.withLock({ $0.startPhase }) {
+            case .idle, .succeeded:
+                break
+            case .pending:
+                throw ClientRuntimeBridgeError.actorSystemStarting
+            case .failed:
+                throw ClientRuntimeBridgeError.actorSystemStartupFailed
+            }
+            for registration in registrations {
+                try registration.installActorResolvers(in: actorSystem)
             }
         }
         #endif
@@ -625,6 +648,7 @@ public final class ClientBundleRuntimeEntrypoint: Sendable {
             state.runtimeEntries = runtimeEntries
             state.runtimeIndexByHandlerID = runtimeIndexByHandlerID
             state.hydrationIndex = currentIndex
+            state.asynchronousFailureDescription = nil
             return previousEntries
         }
         try retire(previousEntries)
@@ -641,8 +665,12 @@ public final class ClientBundleRuntimeEntrypoint: Sendable {
             (
                 runtimeEntries: state.runtimeEntries,
                 runtimeIndexByHandlerID: state.runtimeIndexByHandlerID,
-                hydrationIndex: state.hydrationIndex
+                hydrationIndex: state.hydrationIndex,
+                asynchronousFailureDescription: state.asynchronousFailureDescription
             )
+        }
+        if let failureDescription = state.asynchronousFailureDescription {
+            throw ClientRuntimeBridgeError.asynchronousUpdateFailed(failureDescription)
         }
         guard let runtimeIndex = Self.resolveRuntimeIndex(
             for: request,
@@ -699,22 +727,104 @@ public final class ClientBundleRuntimeEntrypoint: Sendable {
         guard let registration = registration(for: component.typeName) else {
             throw ClientRuntimeBridgeError.componentMountNotFound(component.typeName)
         }
+        let stateStore = StateStore()
+        let runtime: any RegisteredClientRuntime
         #if SWIFTWEB_LEGACY_ACTORS
-        return registration.runtime(
+        runtime = registration.runtime(
             componentID: component.id,
-            stateStore: StateStore(),
+            stateStore: stateStore,
             domHost: domHost,
             actorSystem: actorSystem,
             legacyActorSystem: legacyActorSystem
         )
         #else
-        return registration.runtime(
+        runtime = registration.runtime(
             componentID: component.id,
-            stateStore: StateStore(),
+            stateStore: stateStore,
             domHost: domHost,
             actorSystem: actorSystem
         )
         #endif
+        runtime.installAsynchronousUpdateHandler { [weak self] componentID, response in
+            guard let self else {
+                throw ClientRuntimeBridgeError.shutDown
+            }
+            try await self.applyAsynchronousUpdate(
+                from: componentID,
+                response: response
+            )
+        }
+        return runtime
+    }
+
+    private func applyAsynchronousUpdate(
+        from componentID: ComponentID,
+        response: ClientRuntimeResponse
+    ) async throws {
+        while !Task.isCancelled {
+            do {
+                try accessGate.withExclusiveAccess {
+                    try applyAsynchronousUpdateWithExclusiveAccess(
+                        from: componentID,
+                        response: response
+                    )
+                }
+                return
+            } catch ClientRuntimeAccessError.concurrentOperation {
+                await Task.yield()
+            }
+        }
+    }
+
+    private func applyAsynchronousUpdateWithExclusiveAccess(
+        from componentID: ComponentID,
+        response: ClientRuntimeResponse
+    ) throws {
+        let state = runtimeState.withLock { state in
+            (
+                runtimeEntries: state.runtimeEntries,
+                hydrationIndex: state.hydrationIndex,
+                shutdownPhase: state.shutdownPhase
+            )
+        }
+        guard state.shutdownPhase == .idle,
+              state.runtimeEntries.contains(where: { $0.componentID == componentID })
+        else {
+            throw ClientRuntimeBridgeError.shutDown
+        }
+        if let failureDescription = response.error {
+            runtimeState.withLock { state in
+                state.asynchronousFailureDescription = failureDescription
+            }
+            try responseStorage.store(response)
+            #if os(WASI)
+            JavaScriptKitBrowserRuntime.reportAsynchronousUpdateFailure(failureDescription)
+            #endif
+            return
+        }
+        if let domHost, !response.atomicStyleRules.isEmpty {
+            guard let styleHost = domHost as? any ClientRuntimeAtomicStyleHost else {
+                throw ClientRuntimeBridgeError.asynchronousUpdateFailed(
+                    "The DOM host cannot apply atomic style rules"
+                )
+            }
+            try styleHost.applyAtomicStyleRules(response.atomicStyleRules)
+        }
+        if let domHost,
+           let commandBatch = response.commandBatch,
+           !commandBatch.commands.isEmpty {
+            try domHost.apply(commandBatch, currentIndex: state.hydrationIndex)
+        }
+        if let nextIndex = response.hydrationIndex {
+            let runtimeIndexByHandlerID = Self.handlerIndex(
+                hydrationIndex: nextIndex,
+                runtimeEntries: state.runtimeEntries
+            )
+            runtimeState.withLock { state in
+                state.hydrationIndex = nextIndex
+                state.runtimeIndexByHandlerID = runtimeIndexByHandlerID
+            }
+        }
     }
 
     private func componentsForRegisteredTypes(
@@ -937,6 +1047,9 @@ public final class ClientBundleRuntimeEntrypoint: Sendable {
 
 fileprivate protocol RegisteredClientRuntime: AnyObject, Sendable {
     var componentID: ComponentID { get }
+    func installAsynchronousUpdateHandler(
+        _ handler: @escaping @Sendable (ComponentID, ClientRuntimeResponse) async throws -> Void
+    )
     func bootstrap(_ request: ClientRuntimeBootstrapRequest) throws -> ClientRuntimeResponse
     func dispatch(_ request: ClientRuntimeEventRequest) throws -> ClientRuntimeResponse
     func snapshotState() throws -> ClientRuntimeStateSnapshot
@@ -945,37 +1058,163 @@ fileprivate protocol RegisteredClientRuntime: AnyObject, Sendable {
 }
 
 private final class ClientRegisteredRuntime<Root: Component>: RegisteredClientRuntime {
+    typealias AsynchronousUpdateHandler = @Sendable (
+        ComponentID,
+        ClientRuntimeResponse
+    ) async throws -> Void
+
+    private struct UpdateState: Sendable {
+        var handler: AsynchronousUpdateHandler?
+        var task: Task<Void, Never>?
+        var failureDescription: String?
+        var isShutdown = false
+    }
+
     let componentID: ComponentID
     private let typeName: String
+    private let stateStore: StateStore
     private let bridge: ClientRuntimeBridge<Root>
+    private let updateState = Mutex(UpdateState())
 
     init(
         typeName: String,
         componentID: ComponentID,
+        stateStore: StateStore,
         bridge: ClientRuntimeBridge<Root>
     ) {
         self.typeName = typeName
         self.componentID = componentID
+        self.stateStore = stateStore
         self.bridge = bridge
     }
 
+    func installAsynchronousUpdateHandler(
+        _ handler: @escaping AsynchronousUpdateHandler
+    ) {
+        updateState.withLock { state in
+            state.handler = handler
+        }
+    }
+
     func bootstrap(_ request: ClientRuntimeBootstrapRequest) throws -> ClientRuntimeResponse {
-        try bridge.bootstrap(request)
+        try requireNoAsynchronousFailure()
+        let response = try bridge.bootstrap(request)
+        stateStore.setInvalidationHandler { [weak self] _ in
+            self?.stateStoreDidInvalidate()
+        }
+        return response
     }
 
     func dispatch(_ request: ClientRuntimeEventRequest) throws -> ClientRuntimeResponse {
-        try bridge.dispatch(request)
+        try requireNoAsynchronousFailure()
+        return try bridge.dispatch(request)
     }
 
     func snapshotState() throws -> ClientRuntimeStateSnapshot {
-        try bridge.snapshotState()
+        try requireNoAsynchronousFailure()
+        return try bridge.snapshotState()
     }
 
     func restoreState(_ snapshot: ClientRuntimeStateSnapshot) throws {
+        try requireNoAsynchronousFailure()
         try bridge.restoreState(snapshot)
     }
 
     func requestShutdown() throws -> ActorSystemTermination? {
-        try bridge.requestShutdown()
+        stateStore.setInvalidationHandler(nil)
+        let updateTask = updateState.withLock { state -> Task<Void, Never>? in
+            guard !state.isShutdown else {
+                return state.task
+            }
+            state.isShutdown = true
+            state.handler = nil
+            let task = state.task
+            state.task = nil
+            return task
+        }
+        updateTask?.cancel()
+        guard let updateTask else {
+            return try bridge.requestShutdown()
+        }
+        let bridge = bridge
+        return ActorSystemTermination(operation: {
+            await updateTask.value
+            try await bridge.shutdown()
+        })
+    }
+
+    private func requireNoAsynchronousFailure() throws {
+        if let failureDescription = updateState.withLock({ $0.failureDescription }) {
+            throw ClientRuntimeBridgeError.asynchronousUpdateFailed(failureDescription)
+        }
+    }
+
+    private func stateStoreDidInvalidate() {
+        updateState.withLock { state in
+            guard !state.isShutdown, state.task == nil else {
+                return
+            }
+            state.task = Task { [weak self] in
+                await Task.yield()
+                await self?.performScheduledUpdate()
+            }
+        }
+    }
+
+    private func performScheduledUpdate() async {
+        guard !Task.isCancelled else {
+            finishScheduledUpdate(rescheduleIfDirty: false)
+            return
+        }
+        guard !stateStore.dirtyComponents().isEmpty else {
+            finishScheduledUpdate(rescheduleIfDirty: true)
+            return
+        }
+        do {
+            let response = try bridge.flushStateChanges()
+            let handler = updateState.withLock { $0.handler }
+            guard let handler else {
+                throw ClientRuntimeBridgeError.asynchronousUpdateFailed(
+                    "No asynchronous update owner is installed for \(typeName)"
+                )
+            }
+            try await handler(componentID, response)
+            finishScheduledUpdate(rescheduleIfDirty: true)
+        } catch ClientRuntimeAccessError.concurrentOperation {
+            finishScheduledUpdate(rescheduleIfDirty: true)
+        } catch {
+            #if hasFeature(Embedded)
+            let failureDescription = "SwiftHTML Embedded WASM asynchronous update failed"
+            #else
+            let failureDescription = String(describing: error)
+            #endif
+            let handler = updateState.withLock { state -> AsynchronousUpdateHandler? in
+                state.failureDescription = failureDescription
+                return state.handler
+            }
+            if let handler {
+                do {
+                    try await handler(
+                        componentID,
+                        ClientRuntimeResponse(error: failureDescription)
+                    )
+                } catch {
+                    // The original failure remains stored and is surfaced by the
+                    // next runtime operation; shutdown may concurrently detach
+                    // the host before this diagnostic response is delivered.
+                }
+            }
+            finishScheduledUpdate(rescheduleIfDirty: false)
+        }
+    }
+
+    private func finishScheduledUpdate(rescheduleIfDirty: Bool) {
+        let shouldReschedule = updateState.withLock { state -> Bool in
+            state.task = nil
+            return rescheduleIfDirty && !state.isShutdown
+        }
+        if shouldReschedule, !stateStore.dirtyComponents().isEmpty {
+            stateStoreDidInvalidate()
+        }
     }
 }

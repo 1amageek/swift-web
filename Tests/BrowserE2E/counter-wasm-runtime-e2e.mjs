@@ -27,7 +27,7 @@ try {
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const swiftWebRoot = path.resolve(scriptDirectory, "../..");
-const expectedSwiftHTMLVersion = "0.15.0";
+const expectedSwiftHTMLRevision = "0d2fb652a4ff36d6ad63d91d04db3aee5094986e";
 const exampleAppRoot = path.join(swiftWebRoot, "Examples", "CounterApp");
 const timeoutMs = Number(process.env.SWIFTWEB_E2E_TIMEOUT_MS || 600_000);
 const hmrTimeoutMs = Number(process.env.SWIFTWEB_E2E_HMR_TIMEOUT_MS || 300_000);
@@ -296,9 +296,12 @@ async function prepareAppCopy(root) {
     '.package(path: "../.."),',
     `.package(path: "${swiftStringLiteral(swiftWebRoot)}"),`
   );
-  const expectedSwiftHTMLDependency = `.package(url: "https://github.com/1amageek/swift-html.git", from: "${expectedSwiftHTMLVersion}")`;
-  if (!manifest.includes(swiftStringLiteral(swiftWebRoot)) || !manifest.includes(expectedSwiftHTMLDependency)) {
-    throw new Error("Failed to use local swift-web with the released swift-html dependency.");
+  const expectedSwiftHTMLURL = 'url: "https://github.com/1amageek/swift-html.git"';
+  const expectedSwiftHTMLRevisionDeclaration = `revision: "${expectedSwiftHTMLRevision}"`;
+  if (!manifest.includes(swiftStringLiteral(swiftWebRoot))
+    || !manifest.includes(expectedSwiftHTMLURL)
+    || !manifest.includes(expectedSwiftHTMLRevisionDeclaration)) {
+    throw new Error("Failed to use local swift-web with the pinned swift-html dependency.");
   }
   await writeFile(packageFile, manifest);
 
@@ -556,9 +559,15 @@ public struct ClientEnvironmentBadge: ClientComponent, Sendable {
 
   const appFile = path.join(appRoot, "Sources", "CounterApp", "App.swift");
   const appSource = await readFile(appFile, "utf8");
+  const actorBinding = `CounterPage()
+            .actor(
+                CounterService.self,
+                identity: CounterServiceIdentity.primary
+            )`;
   const updatedAppSource = appSource.replace(
-    /ActorScene\(counterService\) \{\n(\s*)CounterPage\(counterService: counterService\)\n(\s*)\}/,
-    'ActorScene(counterService) {\n$1CounterPage(counterService: counterService)\n$2}\n$2.environment(\\.sceneGreeting, "scene-injected")'
+    actorBinding,
+    `${actorBinding}
+            .environment(\\.sceneGreeting, "scene-injected")`
   );
   if (updatedAppSource === appSource) {
     throw new Error("Failed to attach .environment to the CounterApp scene.");
@@ -619,7 +628,7 @@ struct CounterPageE2EComponents: Component {
   return appRoot;
 }
 
-async function launchDevServer(appRoot, scratchRoot, port, host) {
+async function launchDevServer(appRoot, port, host) {
   const swiftWebExecutable = await resolveSwiftWebExecutable();
   const wasmSwiftSDK = process.env.SWIFT_WEB_WASM_SDK || "swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-08-14-a_wasm";
   const hostSwiftExecutable = process.env.SWIFT_WEB_HOST_SWIFT
@@ -653,8 +662,6 @@ async function launchDevServer(appRoot, scratchRoot, port, host) {
       "dev",
       "--package-path",
       appRoot,
-      "--scratch-path",
-      scratchRoot,
       "--host",
       host,
       "--port",
@@ -1405,7 +1412,7 @@ async function runBrowserAssertions(baseURL, appRoot) {
 
     recordPhase("server.increment.invalidate");
     await page.locator(componentSelector("server-counter")).getByRole("button", { name: "Increment" }).click();
-    await expectCounterValue(page, componentSelector("server-counter"), 1);
+    await expectCounterValue(page, componentSelector("server-counter"), 2);
     await expectCounterValue(page, componentSelector("client-counter"), 1);
     const markerAfterServer = await page.evaluate(() => window.__swiftWebE2EMarker);
     if (markerAfterServer !== initialMarker) {
@@ -1893,8 +1900,6 @@ try {
     tempRoot = await mkdtemp(path.join(tempParent, "counter-"));
   }
   const appRoot = await prepareAppCopy(tempRoot);
-  const scratchRoot = path.join(tempRoot, "scratch");
-  await mkdir(scratchRoot, { recursive: true });
   const port = await availablePort();
   const baseURL = `http://127.0.0.1:${port}`;
   report.tempRoot = tempRoot;
@@ -1903,7 +1908,7 @@ try {
   report.bindHost = bindHost;
 
   recordPhase("server.start", { baseURL, bindHost });
-  devServer = await launchDevServer(appRoot, scratchRoot, port, bindHost);
+  devServer = await launchDevServer(appRoot, port, bindHost);
   await verifyInitialBuildEdit(baseURL, appRoot);
   await waitForHTTP(`${baseURL}/counter`, Date.now() + timeoutMs);
   await waitForDevStatus(

@@ -1,4 +1,3 @@
-import Distributed
 import Foundation
 import SwiftHTML
 import SwiftWeb
@@ -6,13 +5,8 @@ import SwiftWebUI
 
 @Page("/counter")
 struct CounterPage {
-    private let counterService: CounterService
-    private let counterActions: CounterActions
-
-    init(counterService: CounterService = CounterService(actorSystem: .shared)) {
-        self.counterService = counterService
-        self.counterActions = CounterActions(counterService: counterService)
-    }
+    @RemoteActor private var counterService: CounterService
+    private let counterActions = CounterActions()
 
     var cache: CachePolicy {
         .noStore

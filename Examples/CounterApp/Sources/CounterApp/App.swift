@@ -1,16 +1,27 @@
 import SwiftWeb
 
 public struct CounterApp: SwiftWeb.App {
-    private let counterService: CounterService
+    public init() {}
 
-    public init() {
-        self.counterService = CounterService(actorSystem: .shared)
+    public var security: SecurityConfiguration {
+        var configuration = SecurityConfiguration.defaults
+        configuration.actors = .allowAll
+        return configuration
     }
 
     public var body: some Scene {
         Redirect("/", to: "/counter")
-        ActorScene(counterService) {
-            CounterPage(counterService: counterService)
+
+        ActorGroup(
+            scope: .addressed(authorization: .allowAll)
+        ) { actorSystem in
+            CounterService(actorSystem: actorSystem)
         }
+
+        CounterPage()
+            .actor(
+                CounterService.self,
+                identity: CounterServiceIdentity.primary
+            )
     }
 }

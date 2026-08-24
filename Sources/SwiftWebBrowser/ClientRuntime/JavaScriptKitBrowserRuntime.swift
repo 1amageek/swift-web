@@ -8,7 +8,7 @@ import JavaScriptKit
 import SwiftHTML
 import Synchronization
 
-public struct JavaScriptKitBrowserDOMHost: BrowserDOMHost {
+public struct JavaScriptKitBrowserDOMHost: BrowserDOMHost, ClientRuntimeAtomicStyleHost {
     public init() {}
 
     public func apply(
@@ -25,10 +25,46 @@ public struct JavaScriptKitBrowserDOMHost: BrowserDOMHost {
     ) {
         JavaScriptKitBrowserRuntime.apply(batch, hydrationIndex: currentIndex, animation: animation)
     }
+
+    func applyAtomicStyleRules(_ rules: [ClientRuntimeAtomicStyleRule]) {
+        JavaScriptKitBrowserRuntime.applyAtomicStyleRules(rules)
+    }
 }
 
 public enum JavaScriptKitBrowserRuntime {
     public static func installExecutor() {
+    }
+
+    public static func applyAtomicStyleRules(_ rules: [ClientRuntimeAtomicStyleRule]) {
+        guard !rules.isEmpty else {
+            return
+        }
+        let element: JSObject
+        if let existingElement = document.getElementById("swui-atomic").object {
+            element = existingElement
+        } else {
+            element = document.createElement("style").object!
+            _ = element.setAttribute!("id", "swui-atomic")
+            _ = document.head.appendChild(element)
+        }
+        let existing = element.textContent.string ?? ""
+        var addition = ""
+        for rule in rules {
+            let prefix = ".\(rule.className) "
+            guard !existing.contains(prefix), !addition.contains(prefix) else {
+                continue
+            }
+            addition += ".\(rule.className) { \(rule.body) }"
+        }
+        if !addition.isEmpty {
+            element.textContent = .string(existing + addition)
+        }
+    }
+
+    public static func reportAsynchronousUpdateFailure(_ message: String) {
+        _ = JSObject.global.console.error(
+            "[SwiftWebUI] asynchronous component update failed: \(message)"
+        )
     }
 
     public static func apply(

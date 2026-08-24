@@ -65,6 +65,7 @@ struct WasmRuntimeEntrypointFormat {
     .joined(separator: ",\n")
     return """
       import \(appProductName)
+      import JavaScriptEventLoop
       import SwiftHTML
       import SwiftWebActors
       import SwiftWebUI
@@ -163,7 +164,9 @@ struct WasmRuntimeEntrypointFormat {
 
       @main
       struct \(target.targetName)Main {
-          static func main() {}
+          static func main() {
+              JavaScriptEventLoop.installGlobalExecutor()
+          }
       }
       """
   }

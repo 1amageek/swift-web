@@ -58,11 +58,16 @@ enum TestRequestError: Error {
 
 /// An in-memory session backing a test request.
 final class TestSessionStore: Sendable {
+    private let identifier: String?
     private let values = Mutex<[String: String]>([:])
+
+    init(identifier: String? = "test-session") {
+        self.identifier = identifier
+    }
 
     var webSession: RequestSession {
         RequestSession(
-            identifierReader: { "test-session" },
+            identifierReader: { self.identifier },
             valuesReader: { self.values.withLock { $0 } },
             valueReader: { key in self.values.withLock { $0[key] } },
             valueWriter: { key, value in self.values.withLock { $0[key] = value } },
@@ -80,7 +85,8 @@ extension Request {
         headers: HTTPFields = [:],
         cookies: [String: String] = [:],
         remoteAddress: String? = nil,
-        securityContext: RequestSecurityContext? = nil
+        securityContext: RequestSecurityContext? = nil,
+        sessionID: String? = "test-session"
     ) {
         self.init(
             method: method,
@@ -100,7 +106,7 @@ extension Request {
                 }
             ),
             collectBody: { nil },
-            session: TestSessionStore().webSession,
+            session: TestSessionStore(identifier: sessionID).webSession,
             hasSession: false,
             logger: Logger(label: "swiftweb.tests.request"),
             runtimeContext: runtime.requestContext,

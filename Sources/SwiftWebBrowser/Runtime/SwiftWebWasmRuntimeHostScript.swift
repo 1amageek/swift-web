@@ -132,7 +132,7 @@ package enum SwiftWebWasmRuntimeHostScript {
         this.publishStatus(false, "bootstrapping");
         const bootstrapStartedAt = this.now();
         this.recordMetric("bootstrap.start");
-        this.bootstrapBundle(this.primaryBundleID, this.primaryInstance);
+        await this.bootstrapBundle(this.primaryBundleID, this.primaryInstance);
         this.updateSummary({
           bootstrapMs: this.durationSince(bootstrapStartedAt)
         });
@@ -510,7 +510,13 @@ package enum SwiftWebWasmRuntimeHostScript {
           if (!swiftRuntime) {
             throw new Error(`SwiftWeb WASM runtime ${bundleID} has no physical runtime owner`);
           }
-          record = { instance, swiftRuntime, aliases: new Set() };
+          record = {
+            instance,
+            swiftRuntime,
+            aliases: new Set(),
+            isStarted: false,
+            startPromise: null
+          };
           this.runtimeRecords.set(instance, record);
         }
         record.aliases.add(bundleID);
@@ -519,7 +525,13 @@ package enum SwiftWebWasmRuntimeHostScript {
       }
 
       async startOwnedRuntime(instance, swiftRuntime, operation) {
-        const record = { instance, swiftRuntime, aliases: new Set() };
+        const record = {
+          instance,
+          swiftRuntime,
+          aliases: new Set(),
+          isStarted: false,
+          startPromise: null
+        };
         this.runtimeRecords.set(instance, record);
         try {
           await operation();
@@ -660,7 +672,6 @@ package enum SwiftWebWasmRuntimeHostScript {
             } else {
               swiftRuntime.main();
             }
-            await this.startRuntime(instance);
           });
           bundleMetrics.startMs = this.durationSince(startStartedAt);
           bundleMetrics.totalMs = this.durationSince(startedAt);
@@ -740,10 +751,11 @@ package enum SwiftWebWasmRuntimeHostScript {
         throw new Error("SwiftWeb WASM runtime bundle was not loaded");
       }
 
-      bootstrapBundle(bundleID, instance, options = {}) {
+      async bootstrapBundle(bundleID, instance, options = {}) {
         const rawBundleID = rawValue(bundleID);
         if (!options.force && this.bootstrappedBundleIDs.has(rawBundleID)) {
           this.recordMetric("bundle.bootstrap.cacheHit", { bundleID: rawBundleID });
+          await this.ensureRuntimeStarted(instance);
           return null;
         }
         const assetPath = this.assetPathForBundleID(rawBundleID);
@@ -754,6 +766,7 @@ package enum SwiftWebWasmRuntimeHostScript {
             bundleID: rawBundleID,
             sourceBundleID: bootstrappedAliasBundleID
           });
+          await this.ensureRuntimeStarted(instance);
           return null;
         }
         if (!instance || typeof instance.exports.swiftweb_bootstrap !== "function") {
@@ -792,6 +805,7 @@ package enum SwiftWebWasmRuntimeHostScript {
         this.updateSummary({
           bootstrappedBundleIDs: Array.from(this.bootstrappedBundleIDs)
         });
+        await this.ensureRuntimeStarted(instance);
         return response;
       }
 
@@ -1283,7 +1297,7 @@ package enum SwiftWebWasmRuntimeHostScript {
           if (!instance) {
             continue;
           }
-          this.bootstrapBundle(rawBundleID, instance, {
+          await this.bootstrapBundle(rawBundleID, instance, {
             force: true,
             mode
           });
@@ -1512,7 +1526,7 @@ package enum SwiftWebWasmRuntimeHostScript {
         const bundleID = rawValue(component.bundleID);
         const instance = this.instances.get(bundleID);
         if (instance && typeof instance.exports.swiftweb_dispatch_event === "function") {
-          this.bootstrapBundle(bundleID, instance);
+          await this.bootstrapBundle(bundleID, instance);
           return instance;
         }
         return this.primaryInstance;
@@ -1712,6 +1726,7 @@ package enum SwiftWebWasmRuntimeHostScript {
             actorBindings: this.descriptor.actorBindings || [],
             actorRouteBindings: this.descriptor.actorRouteBindings || []
           }, instance);
+          await this.ensureRuntimeStarted(instance);
           return {
             bundleID,
             update,
@@ -1746,7 +1761,9 @@ package enum SwiftWebWasmRuntimeHostScript {
               {
                 instance: record.instance,
                 swiftRuntime: record.swiftRuntime,
-                aliases: new Set(record.aliases)
+                aliases: new Set(record.aliases),
+                isStarted: record.isStarted,
+                startPromise: record.startPromise
               }
             ])
           ),
@@ -1911,6 +1928,31 @@ package enum SwiftWebWasmRuntimeHostScript {
         }
       }
 
+      async ensureRuntimeStarted(instance) {
+        const record = this.runtimeRecords.get(instance);
+        if (!record) {
+          throw new Error("SwiftWeb WASM runtime has no physical runtime owner");
+        }
+        if (record.isStarted) {
+          return;
+        }
+        if (record.startPromise) {
+          await record.startPromise;
+          return;
+        }
+
+        const startPromise = this.startRuntime(instance);
+        record.startPromise = startPromise;
+        try {
+          await startPromise;
+          record.isStarted = true;
+        } finally {
+          if (record.startPromise === startPromise) {
+            record.startPromise = null;
+          }
+        }
+      }
+
       async shutdownRuntime(instance) {
         if (!instance || !instance.exports || typeof instance.exports.swiftweb_shutdown !== "function") {
           const error = new Error("SwiftWeb WASM runtime does not export swiftweb_shutdown");
@@ -1925,12 +1967,13 @@ package enum SwiftWebWasmRuntimeHostScript {
 
         const exports = instance.exports;
         let status = exports.swiftweb_shutdown();
+        while (status === 2) {
+          await new Promise((resolve) => setTimeout(resolve, 0));
+          status = exports.swiftweb_shutdown();
+        }
         while (status === 3) {
           await new Promise((resolve) => setTimeout(resolve, 0));
           status = exports.swiftweb_shutdown_status();
-        }
-        if (status === 2) {
-          throw new Error("SwiftWeb WASM runtime rejected concurrent or re-entrant access: swiftweb_shutdown");
         }
         const response = this.readResponse(exports);
         if (status !== 0) {

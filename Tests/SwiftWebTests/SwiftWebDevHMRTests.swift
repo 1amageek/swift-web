@@ -12,6 +12,7 @@ import Testing
 
 @testable import SwiftWebDevelopmentHooks
 @testable import SwiftWebDevServer
+@testable import SwiftWebBrowserRuntime
 @testable import SwiftWebPackageGeneration
 @testable import SwiftWebWasmBuild
 
@@ -29,6 +30,41 @@ struct SwiftWebDevHMRTests {
     #expect(wasmScratch?.path == "/tmp/swiftweb-generated/wasm-build/server")
     #expect(!(wasmScratch?.path.hasPrefix(serverScratch.path + "/") ?? true))
     #expect(!(wasmScratch?.path.hasPrefix("/tmp/swiftweb-generated/.build/") ?? true))
+  }
+
+  @Test
+  func devHostServesPublishedWasmFromTheServerBuildScratchDirectory() {
+    let publicConfiguration = SwiftWebDevRuntimeConfiguration(
+      packageDirectory: URL(fileURLWithPath: "/tmp/swiftweb-app", isDirectory: true),
+      host: "127.0.0.1",
+      port: 4_321,
+      readinessTimeout: 17,
+      buildTimeout: 29,
+      processTerminationGracePeriod: 3
+    )
+    let serverConfiguration = SwiftWebDevRuntimeConfiguration(
+      packageDirectory: URL(fileURLWithPath: "/tmp/swiftweb-generated/dev", isDirectory: true),
+      scratchDirectory: URL(
+        fileURLWithPath: "/tmp/swiftweb-generated/.build/server",
+        isDirectory: true
+      ),
+      product: "counter-app-dev"
+    )
+
+    let hostConfiguration = SwiftWebDevRuntime.devHostConfiguration(
+      acceptingRequestsWith: publicConfiguration,
+      servingArtifactsFrom: serverConfiguration
+    )
+
+    #expect(hostConfiguration.packageDirectory == publicConfiguration.packageDirectory)
+    #expect(hostConfiguration.host == publicConfiguration.host)
+    #expect(hostConfiguration.port == publicConfiguration.port)
+    #expect(hostConfiguration.readinessTimeout == publicConfiguration.readinessTimeout)
+    #expect(hostConfiguration.buildTimeout == publicConfiguration.buildTimeout)
+    #expect(
+      SwiftWebDevPublishedWasmArtifacts.rootDirectory(for: hostConfiguration)
+        == SwiftWebDevPublishedWasmArtifacts.rootDirectory(for: serverConfiguration)
+    )
   }
 
   @Test
@@ -991,6 +1027,63 @@ struct SwiftWebDevHMRTests {
 
       let proxied = try await fetch("http://127.0.0.1:\(publicPort)/hello")
       #expect(String(decoding: proxied, as: UTF8.self) == "worker-ok")
+    } catch {
+      await host.stop()
+      throw error
+    }
+
+    await host.stop()
+    #expect(!SwiftWebDevPortProbe.isListening(host: "127.0.0.1", port: publicPort))
+  }
+
+  @Test(.timeLimit(.minutes(1)))
+  func devHostServesBrowserRuntimeScriptsWithoutAnApplicationWorker() async throws {
+    let publicPort = try SwiftWebDevPortAllocator.allocateLoopbackPort()
+    let root = FileManager.default.temporaryDirectory
+      .appendingPathComponent("SwiftWebDevHostRuntimeTests-\(UUID().uuidString)", isDirectory: true)
+    defer {
+      do {
+        try FileManager.default.removeItem(at: root)
+      } catch {
+        Issue.record("SwiftWeb dev host runtime test cleanup failed: \(String(describing: error))")
+      }
+    }
+
+    let applicationRuntimeSource = "export const swiftWebApplicationRuntime = true;"
+    let applicationRuntimeURL = root
+      .appendingPathComponent(".build/checkouts/JavaScriptKit/Plugins/PackageToJS/Templates")
+      .appendingPathComponent("runtime.mjs")
+    try FileManager.default.createDirectory(
+      at: applicationRuntimeURL.deletingLastPathComponent(),
+      withIntermediateDirectories: true
+    )
+    try Data(applicationRuntimeSource.utf8).write(to: applicationRuntimeURL)
+
+    let eventLog = SwiftWebDevEventLog(fileURL: root.appendingPathComponent("events.jsonl"))
+    try eventLog.reset()
+    let host = SwiftWebDevHost(
+      configuration: SwiftWebDevRuntimeConfiguration(
+        packageDirectory: root,
+        host: "127.0.0.1",
+        port: publicPort,
+        readinessTimeout: 2
+      ),
+      devToken: "test-token",
+      eventLog: eventLog,
+      workerRegistry: SwiftWebDevWorkerRegistry(),
+      logger: Logger(label: "codes.swiftweb.tests.dev-host-runtime")
+    )
+    try await host.start()
+    do {
+      let hostScript = try await fetch(
+        "http://127.0.0.1:\(publicPort)\(SwiftWebWasmRuntimeRoutes.versionedHostScriptPath)"
+      )
+      #expect(String(decoding: hostScript, as: UTF8.self) == SwiftWebWasmRuntimeHostScript.source)
+
+      let javaScriptKitRuntime = try await fetch(
+        "http://127.0.0.1:\(publicPort)\(SwiftWebWasmRuntimeRoutes.versionedJavaScriptKitRuntimePath)"
+      )
+      #expect(String(decoding: javaScriptKitRuntime, as: UTF8.self) == applicationRuntimeSource)
     } catch {
       await host.stop()
       throw error

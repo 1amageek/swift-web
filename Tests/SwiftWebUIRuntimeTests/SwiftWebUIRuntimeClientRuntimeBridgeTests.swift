@@ -681,6 +681,34 @@ struct SwiftWebUIRuntimeClientRuntimeBridgeTests {
     }
 
     @Test
+    func bridgeMatchesGeneratedUnqualifiedMountToQualifiedComponentType() throws {
+        let serverIndex = WasmBridgeMountedRoot().renderArtifact().browserHydrationIndex()
+        let mountedComponent = try #require(serverIndex.components.first { component in
+            component.typeName == String(reflecting: WasmBridgeCounter.self)
+        })
+        let bridge = ClientRuntimeBridge<WasmBridgeCounter>(
+            componentMount: ClientComponentMount(
+                typeName: "WasmBridgeCounter",
+                componentID: mountedComponent.id
+            )
+        ) { _ in
+            WasmBridgeCounter()
+        }
+
+        let bootstrap = try bridge.bootstrap(
+            ClientRuntimeBootstrapRequest(
+                hydrationIndex: serverIndex,
+                location: ClientRuntimeBootstrapLocation(
+                    href: "http://127.0.0.1:8080/counter",
+                    search: ""
+                )
+            )
+        )
+
+        #expect(bootstrap.hydrationIndex == serverIndex)
+    }
+
+    @Test
     func bridgeTranslatesMountedHandlerIDsWhenServerPageHasEarlierHandlers() throws {
         let serverArtifact = WasmBridgeMountedRootWithEarlierHandler().renderArtifact()
         let serverIndex = serverArtifact.browserHydrationIndex()

@@ -59,6 +59,7 @@ final class SwiftWebDevHost: Sendable {
             devToken: devToken,
             eventLog: eventLog,
             workerRegistry: workerRegistry,
+            packageDirectory: configuration.packageDirectory,
             publishedWasmRoot: SwiftWebDevPublishedWasmArtifacts.rootDirectory(
                 for: configuration
             ),

@@ -16,25 +16,15 @@ enum ClientRuntimeActorSystemFactory {
             sessionIdentitySource: JavaScriptKitActorSessionIdentitySource()
         )
         do {
-            let channel = try BrowserSwiftWebActorBinaryChannel(
-                configuration: configuration
-            )
-            let transport = try SwiftWebWebSocketActorTransport(
-                configuration: configuration,
-                channels: [(channel, ActorByteBuffer())]
-            )
             let routeBindingRouter = SwiftWebActorBindingRouter(
-                fallback: SwiftWebWebSocketActorRouter()
+                fallback: SwiftWebHTTPActorRouter()
             )
             let requestTransport = JavaScriptKitActorTransport(
                 configuration: configuration
             )
             let actorSystem = try WebActorSystem(
                 router: routeBindingRouter,
-                transports: [
-                    .swiftWebHTTP: requestTransport,
-                    .swiftWebWebSocket: transport,
-                ],
+                transports: [.swiftWebHTTP: requestTransport],
                 configuration: configuration
             )
             return Installation(
@@ -51,25 +41,15 @@ enum ClientRuntimeActorSystemFactory {
             sessionIdentitySource: JavaScriptKitActorSessionIdentitySource()
         )
         do {
-            let channel = try BrowserSwiftWebActorBinaryChannel(
-                configuration: configuration
-            )
-            let transport = try SwiftWebWebSocketActorTransport(
-                configuration: configuration,
-                channels: [(channel, ActorByteBuffer())]
-            )
             let routeBindingRouter = SwiftWebActorBindingRouter(
-                fallback: SwiftWebWebSocketActorRouter()
+                fallback: SwiftWebHTTPActorRouter()
             )
             let requestTransport = JavaScriptKitActorTransport(
                 configuration: configuration
             )
             let actorSystem = WebActorSystem(
                 router: routeBindingRouter,
-                transports: [
-                    .swiftWebHTTP: requestTransport,
-                    .swiftWebWebSocket: transport,
-                ],
+                transports: [.swiftWebHTTP: requestTransport],
                 configuration: configuration
             )
             return Installation(

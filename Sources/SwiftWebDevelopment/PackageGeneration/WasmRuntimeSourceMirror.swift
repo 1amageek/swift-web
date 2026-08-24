@@ -423,6 +423,40 @@ struct WasmRuntimeSourceMirror: Sendable {
       relativePath: "",
       shouldSkip: { _ in false }
     )
+
+    let javaScriptEventLoopSourceDirectory = sourceRoot.appendingPathComponent(
+      "JavaScriptEventLoop", isDirectory: true)
+    let javaScriptEventLoopDestinationDirectory = sourcesDirectory.appendingPathComponent(
+      "JavaScriptEventLoop",
+      isDirectory: true
+    )
+    try FileManager.default.createDirectory(
+      at: javaScriptEventLoopDestinationDirectory,
+      withIntermediateDirectories: true
+    )
+    try fileWriter.mirrorDirectoryContents(
+      from: javaScriptEventLoopSourceDirectory,
+      to: javaScriptEventLoopDestinationDirectory,
+      relativePath: "",
+      shouldSkip: { _ in false }
+    )
+
+    let cJavaScriptEventLoopSourceDirectory = sourceRoot.appendingPathComponent(
+      "_CJavaScriptEventLoop", isDirectory: true)
+    let cJavaScriptEventLoopDestinationDirectory = sourcesDirectory.appendingPathComponent(
+      "_CJavaScriptEventLoop",
+      isDirectory: true
+    )
+    try FileManager.default.createDirectory(
+      at: cJavaScriptEventLoopDestinationDirectory,
+      withIntermediateDirectories: true
+    )
+    try fileWriter.mirrorDirectoryContents(
+      from: cJavaScriptEventLoopSourceDirectory,
+      to: cJavaScriptEventLoopDestinationDirectory,
+      relativePath: "",
+      shouldSkip: { _ in false }
+    )
   }
 
   private func javaScriptKitSourceRoot(swiftWebPackageDirectory: URL) throws -> URL {
@@ -471,14 +505,26 @@ struct WasmRuntimeSourceMirror: Sendable {
       "JavaScriptKit", isDirectory: true)
     let cJavaScriptKitDirectory = sourceRoot.appendingPathComponent(
       "_CJavaScriptKit", isDirectory: true)
+    let javaScriptEventLoopDirectory = sourceRoot.appendingPathComponent(
+      "JavaScriptEventLoop", isDirectory: true)
+    let cJavaScriptEventLoopDirectory = sourceRoot.appendingPathComponent(
+      "_CJavaScriptEventLoop", isDirectory: true)
     let jsObjectSource =
       javaScriptKitDirectory
       .appendingPathComponent("FundamentalObjects/JSObject.swift")
     let cHeader =
       cJavaScriptKitDirectory
       .appendingPathComponent("include/_CJavaScriptKit.h")
+    let eventLoopSource =
+      javaScriptEventLoopDirectory
+      .appendingPathComponent("JavaScriptEventLoop.swift")
+    let eventLoopCHeader =
+      cJavaScriptEventLoopDirectory
+      .appendingPathComponent("include/_CJavaScriptEventLoop.h")
     return FileManager.default.fileExists(atPath: jsObjectSource.path)
       && FileManager.default.fileExists(atPath: cHeader.path)
+      && FileManager.default.fileExists(atPath: eventLoopSource.path)
+      && FileManager.default.fileExists(atPath: eventLoopCHeader.path)
   }
 
   private static func shouldSkipJavaScriptKitRuntimeSource(relativePath: String) -> Bool {

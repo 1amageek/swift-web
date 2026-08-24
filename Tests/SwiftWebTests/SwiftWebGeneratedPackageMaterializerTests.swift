@@ -611,7 +611,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     )
     let sharedRegistration = try #require(
       launcherSource.range(
-        of: "try WebActorSystem.shared.registerGeneratedBootstrap(SampleAppActorSystemBootstrap.self)"
+        of: "try WebActorSystem.shared.distributedBackend.registerGeneratedBootstrap(SampleAppActorSystemBootstrap.self)"
       )
     )
     let appInitialization = try #require(
@@ -619,7 +619,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     )
     let appRegistration = try #require(
       launcherSource.range(
-        of: "try app.actorSystem.registerGeneratedBootstrap(SampleAppActorSystemBootstrap.self)"
+        of: "try app.actorSystem.distributedBackend.registerGeneratedBootstrap(SampleAppActorSystemBootstrap.self)"
       )
     )
     #expect(sharedRegistration.lowerBound < appInitialization.lowerBound)
@@ -1099,11 +1099,15 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     #expect(wasmPackageSwift.contains("let swiftWebUIThemeTarget = Target.target("))
     #expect(wasmPackageSwift.contains("let cJavaScriptKitTarget = Target.target("))
     #expect(wasmPackageSwift.contains("let javaScriptKitTarget = Target.target("))
+    #expect(wasmPackageSwift.contains("let cJavaScriptEventLoopTarget = Target.target("))
+    #expect(wasmPackageSwift.contains("let javaScriptEventLoopTarget = Target.target("))
     #expect(wasmPackageSwift.contains("let swiftWebUIRuntimeTarget = Target.target("))
     #expect(wasmPackageSwift.contains("path: \"Sources/SwiftWebUITheme\""))
     #expect(wasmPackageSwift.contains("path: \"Sources/SwiftWebUIRuntime\""))
     #expect(wasmPackageSwift.contains("path: \"Sources/JavaScriptKit\""))
     #expect(wasmPackageSwift.contains("path: \"Sources/_CJavaScriptKit\""))
+    #expect(wasmPackageSwift.contains("path: \"Sources/JavaScriptEventLoop\""))
+    #expect(wasmPackageSwift.contains("path: \"Sources/_CJavaScriptEventLoop\""))
     #expect(wasmPackageSwift.contains("\"JavaScriptKit\""))
     #expect(
       wasmPackageSwift.contains(
@@ -1255,16 +1259,28 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     )
     #expect(serverLauncher.contains("SWIFTWEB_WASM_SCRATCH_PATH"))
     #expect(serverLauncher.contains("import SwiftWebHTTPServerHost"))
+    #expect(serverLauncher.contains("let wasmPackageManifestPath = URL(fileURLWithPath: #filePath)"))
+    #expect(serverLauncher.contains("anchorFile: wasmPackageManifestPath"))
+    #expect(!serverLauncher.contains(".generated.staging-"))
     #expect(serverLauncher.contains("scratchDirectory: wasmScratchDirectory"))
     #expect(!serverLauncher.contains("SwiftWebDevelopmentHooksRuntime.install()"))
     #expect(developmentServerLauncher.contains("import SwiftWebHTTPServerHost"))
     #expect(developmentServerLauncher.contains("import SwiftWebDevelopmentHooks"))
+    #expect(
+      developmentServerLauncher.contains(
+        "let wasmPackageManifestPath = URL(fileURLWithPath: #filePath)"
+      )
+    )
+    #expect(developmentServerLauncher.contains("anchorFile: wasmPackageManifestPath"))
+    #expect(!developmentServerLauncher.contains(".generated.staging-"))
     #expect(developmentServerLauncher.contains("SwiftWebDevelopmentHooksRuntime.install()"))
     #expect(developmentLauncher.contains("SWIFT_WEB_DEV_PRODUCT"))
     #expect(developmentLauncher.contains("\"app-server\""))
     #expect(!developmentLauncher.contains("\"app-server-dev\""))
     #expect(!developmentLauncher.contains("app-server-dev-dev"))
     #expect(wasmEntrypoint.contains("import SwiftWebActors"))
+    #expect(wasmEntrypoint.contains("import JavaScriptEventLoop"))
+    #expect(wasmEntrypoint.contains("JavaScriptEventLoop.installGlobalExecutor()"))
     #expect(
       wasmEntrypoint.contains("SwiftWebGeneratedActorResolvers.sampleAppWasmRuntime()")
     )
@@ -1328,6 +1344,18 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     #expect(
       FileManager.default.fileExists(
         atPath: wasmSources.appendingPathComponent("_CJavaScriptKit/include/_CJavaScriptKit.h").path
+      ))
+    #expect(
+      FileManager.default.fileExists(
+        atPath: wasmSources.appendingPathComponent(
+          "JavaScriptEventLoop/JavaScriptEventLoop.swift"
+        ).path
+      ))
+    #expect(
+      FileManager.default.fileExists(
+        atPath: wasmSources.appendingPathComponent(
+          "_CJavaScriptEventLoop/include/_CJavaScriptEventLoop.h"
+        ).path
       ))
     #expect(
       !FileManager.default.fileExists(
@@ -2541,6 +2569,18 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     try write(
       "#pragma once",
       to: sourceRoot.appendingPathComponent("_CJavaScriptKit/include/_CJavaScriptKit.h")
+    )
+    try write(
+      "public enum JavaScriptEventLoop {}",
+      to: sourceRoot.appendingPathComponent(
+        "JavaScriptEventLoop/JavaScriptEventLoop.swift"
+      )
+    )
+    try write(
+      "#pragma once",
+      to: sourceRoot.appendingPathComponent(
+        "_CJavaScriptEventLoop/include/_CJavaScriptEventLoop.h"
+      )
     )
   }
 

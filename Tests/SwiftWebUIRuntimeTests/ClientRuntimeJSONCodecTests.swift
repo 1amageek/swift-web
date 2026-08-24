@@ -185,9 +185,81 @@ struct ClientRuntimeJSONCodecTests {
         )
 
         let bytes = Array(try JSONEncoder().encode(request))
+        let json = String(decoding: bytes, as: UTF8.self)
         let decoded = try ClientRuntimeEmbeddedJSONCodec.decodeBootstrapRequest(from: bytes)
 
         #expect(decoded == request)
+        #expect(json.contains(#""actorTypeHigh":"18446744073709551615""#))
+        #expect(json.contains(#""actorTypeLow":"18446744073709551614""#))
+    }
+
+    @Test
+    func actorTypeWireDecoderAcceptsLegacyNumericValues() throws {
+        let request = ClientRuntimeBootstrapRequest(
+            hydrationIndex: hydrationIndex(),
+            location: ClientRuntimeBootstrapLocation(
+                href: "https://example.test/counter",
+                search: ""
+            ),
+            actorBindings: [
+                SwiftWebActorBindingRecord(
+                    contractKey: "CounterService",
+                    actorID: ActorAddress(
+                        type: ActorTypeID(high: 1, low: 2),
+                        identity: "counter-legacy"
+                    )
+                ),
+            ]
+        )
+        let encoded = String(decoding: try JSONEncoder().encode(request), as: UTF8.self)
+        let legacyEncoded = encoded
+            .replacingOccurrences(of: #""actorTypeHigh":"1""#, with: #""actorTypeHigh":1"#)
+            .replacingOccurrences(of: #""actorTypeLow":"2""#, with: #""actorTypeLow":2"#)
+        let data = Data(legacyEncoded.utf8)
+
+        let decoded = try ClientRuntimeJSONCodec.decodeBootstrapRequest(from: data)
+        let embeddedDecoded = try ClientRuntimeEmbeddedJSONCodec.decodeBootstrapRequest(
+            from: Array(data)
+        )
+
+        #expect(decoded.actorBindings.first?.actorID.type == ActorTypeID(high: 1, low: 2))
+        #expect(embeddedDecoded.actorBindings.first?.actorID.type == ActorTypeID(high: 1, low: 2))
+    }
+
+    @Test
+    func actorTypeWireDecoderRejectsInvalidIntegerStrings() throws {
+        let request = ClientRuntimeBootstrapRequest(
+            hydrationIndex: hydrationIndex(),
+            location: ClientRuntimeBootstrapLocation(
+                href: "https://example.test/counter",
+                search: ""
+            ),
+            actorBindings: [
+                SwiftWebActorBindingRecord(
+                    contractKey: "CounterService",
+                    actorID: ActorAddress(
+                        type: ActorTypeID(high: 1, low: 2),
+                        identity: "counter-invalid"
+                    )
+                ),
+            ]
+        )
+        let encoded = String(decoding: try JSONEncoder().encode(request), as: UTF8.self)
+        let invalidEncoded = encoded.replacingOccurrences(
+            of: #""actorTypeHigh":"1""#,
+            with: #""actorTypeHigh":"not-an-integer""#
+        )
+        let data = Data(invalidEncoded.utf8)
+
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(ClientRuntimeBootstrapRequest.self, from: data)
+        }
+        #expect(throws: ClientRuntimeJSONCodecError.self) {
+            try ClientRuntimeJSONCodec.decodeBootstrapRequest(from: data)
+        }
+        #expect(throws: ClientRuntimeJSONCodecError.self) {
+            try ClientRuntimeEmbeddedJSONCodec.decodeBootstrapRequest(from: Array(data))
+        }
     }
 
     @Test

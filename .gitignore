@@ -29,6 +29,7 @@ xcuserdata/
 /Packages/swift-actor-system/.build/
 /Packages/swift-actor-system/.swiftpm/
 /SwiftWebUI Storyboard.html
+Examples/*/Package.resolved
 
 # IDE
 .vscode/

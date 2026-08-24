@@ -25,6 +25,128 @@ private final class ReentrantBrowserDOMHost: BrowserDOMHost {
     }
 }
 
+private final class AsynchronousUpdateRecordingHost: BrowserDOMHost {
+    private let batches = Mutex<[BrowserDOMCommandBatch]>([])
+
+    func apply(
+        _ batch: BrowserDOMCommandBatch,
+        currentIndex: BrowserHydrationIndex
+    ) {
+        batches.withLock { batches in
+            batches.append(batch)
+        }
+    }
+
+    func reset() {
+        batches.withLock { batches in
+            batches.removeAll(keepingCapacity: true)
+        }
+    }
+
+    func containsUpdatedText(_ value: String) -> Bool {
+        batches.withLock { batches in
+            batches.contains { batch in
+                batch.commands.contains { command in
+                    if case .updateText(_, let updatedValue) = command {
+                        return updatedValue == value
+                    }
+                    return false
+                }
+            }
+        }
+    }
+
+    func updatedTexts() -> [String] {
+        batches.withLock { batches in
+            batches.flatMap { batch in
+                batch.commands.compactMap { command in
+                    if case .updateText(_, let updatedValue) = command {
+                        return updatedValue
+                    }
+                    return nil
+                }
+            }
+        }
+    }
+
+    func recordedCommands() -> [String] {
+        batches.withLock { batches in
+            batches.flatMap { batch in
+                batch.commands.map { String(describing: $0) }
+            }
+        }
+    }
+}
+
+private enum AsynchronousUpdateHostError: Error {
+    case rejectedUpdate
+}
+
+private final class AsynchronousUpdateRejectingHost: BrowserDOMHost {
+    private let rejectsUpdates = Mutex(false)
+
+    func apply(
+        _ batch: BrowserDOMCommandBatch,
+        currentIndex: BrowserHydrationIndex
+    ) throws {
+        if rejectsUpdates.withLock({ $0 }) {
+            throw AsynchronousUpdateHostError.rejectedUpdate
+        }
+    }
+
+    func rejectUpdates() {
+        rejectsUpdates.withLock { $0 = true }
+    }
+}
+
+private actor AsynchronousStateMutationGate {
+    private var isOpen = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func wait() async {
+        guard !isOpen else {
+            return
+        }
+        await withCheckedContinuation { continuation in
+            waiters.append(continuation)
+        }
+    }
+
+    func open() {
+        isOpen = true
+        let waiting = waiters
+        waiters.removeAll(keepingCapacity: false)
+        for waiter in waiting {
+            waiter.resume()
+        }
+    }
+}
+
+private struct AsynchronousRuntimeCounter: ClientComponent {
+    let gate: AsynchronousStateMutationGate
+    @State private var count = 0
+
+    var content: some Component {
+        button(.onClick {
+            let gate = gate
+            Task {
+                await gate.wait()
+                count += 1
+            }
+        }) {
+            "async:\(count)"
+        }
+    }
+}
+
+private struct AsynchronousRuntimePage: Component {
+    let gate: AsynchronousStateMutationGate
+
+    var content: some Component {
+        AsynchronousRuntimeCounter(gate: gate)
+    }
+}
+
 private struct ReentrantRuntimeCounter: ClientComponent {
     @State private var count = 0
 
@@ -130,6 +252,148 @@ private struct RepeatedRuntimePage: Component {
 
 @Suite(.serialized)
 struct ClientRuntimeConcurrencyTests {
+    @Test(.timeLimit(.minutes(1)))
+    func bundleFlushesStateChangedAfterTheDispatchReturns() async throws {
+        let gate = AsynchronousStateMutationGate()
+        let serverIndex = AsynchronousRuntimePage(gate: gate)
+            .renderArtifact()
+            .browserHydrationIndex()
+        let mountedComponent = try #require(serverIndex.components.first { component in
+            component.typeName.hasSuffix("AsynchronousRuntimeCounter")
+        })
+        let handler = try #require(serverIndex.handlers.first)
+        let host = AsynchronousUpdateRecordingHost()
+        let entrypoint = ClientBundleRuntimeEntrypoint(
+            registrations: [
+                ClientComponentRegistration(AsynchronousRuntimeCounter.self) { _ in
+                    AsynchronousRuntimeCounter(gate: gate)
+                },
+            ],
+            domHost: host
+        )
+        _ = try entrypoint.bootstrap(
+            ClientRuntimeBootstrapRequest(
+                hydrationIndex: serverIndex,
+                location: ClientRuntimeBootstrapLocation(href: "/", search: "")
+            )
+        )
+        host.reset()
+
+        let synchronousResponse = try entrypoint.dispatch(
+            ClientRuntimeEventRequest(
+                handlerID: handler.handlerID,
+                event: DOMEvent(),
+                componentID: mountedComponent.id
+            )
+        )
+        #expect(synchronousResponse.commandBatch?.commands.isEmpty == true)
+
+        await gate.open()
+        let deadline = ContinuousClock.now + .seconds(5)
+        while !host.containsUpdatedText("async:1"), ContinuousClock.now < deadline {
+            await Task.yield()
+        }
+        if !host.containsUpdatedText("async:1") {
+            do {
+                let snapshot = try entrypoint.snapshotStateValue()
+                let values = snapshot.values.values.map(\.encodedValue).sorted()
+                let message: String = "Asynchronous DOM update was not applied; "
+                    + "state snapshot values: \(values); host commands: \(host.recordedCommands())"
+                Issue.record("\(message)")
+            } catch {
+                Issue.record("Asynchronous DOM update failed: \(error)")
+            }
+        }
+        #expect(host.containsUpdatedText("async:1"))
+
+        var shutdownResult = entrypoint.shutdown()
+        let shutdownDeadline = ContinuousClock.now + .seconds(5)
+        while shutdownResult == 2, ContinuousClock.now < shutdownDeadline {
+            await Task.yield()
+            shutdownResult = entrypoint.shutdown()
+        }
+        #expect(shutdownResult == 3)
+        guard shutdownResult == 3 else {
+            return
+        }
+        while entrypoint.shutdownStatus() == 3 {
+            await Task.yield()
+        }
+        #expect(entrypoint.shutdownStatus() == 0)
+    }
+
+    @Test(.timeLimit(.minutes(1)))
+    func asynchronousDOMFailureIsSurfacedByLaterRuntimeOperations() async throws {
+        let gate = AsynchronousStateMutationGate()
+        let serverIndex = AsynchronousRuntimePage(gate: gate)
+            .renderArtifact()
+            .browserHydrationIndex()
+        let mountedComponent = try #require(serverIndex.components.first { component in
+            component.typeName.hasSuffix("AsynchronousRuntimeCounter")
+        })
+        let handler = try #require(serverIndex.handlers.first)
+        let host = AsynchronousUpdateRejectingHost()
+        let entrypoint = ClientBundleRuntimeEntrypoint(
+            registrations: [
+                ClientComponentRegistration(AsynchronousRuntimeCounter.self) { _ in
+                    AsynchronousRuntimeCounter(gate: gate)
+                },
+            ],
+            domHost: host
+        )
+        _ = try entrypoint.bootstrap(
+            ClientRuntimeBootstrapRequest(
+                hydrationIndex: serverIndex,
+                location: ClientRuntimeBootstrapLocation(href: "/", search: "")
+            )
+        )
+        _ = try entrypoint.dispatch(
+            ClientRuntimeEventRequest(
+                handlerID: handler.handlerID,
+                event: DOMEvent(),
+                componentID: mountedComponent.id
+            )
+        )
+
+        host.rejectUpdates()
+        await gate.open()
+        let deadline = ContinuousClock.now + .seconds(5)
+        var observedFailure: ClientRuntimeBridgeError?
+        while ContinuousClock.now < deadline {
+            do {
+                _ = try entrypoint.snapshotStateValue()
+            } catch let error as ClientRuntimeBridgeError {
+                observedFailure = error
+                break
+            } catch ClientRuntimeAccessError.concurrentOperation {
+                await Task.yield()
+                continue
+            }
+            await Task.yield()
+        }
+
+        guard case .asynchronousUpdateFailed(let description) = observedFailure else {
+            Issue.record("Asynchronous DOM failure was not surfaced")
+            return
+        }
+        #expect(description.contains("rejectedUpdate"))
+
+        var shutdownResult = entrypoint.shutdown()
+        let shutdownDeadline = ContinuousClock.now + .seconds(5)
+        while shutdownResult == 2, ContinuousClock.now < shutdownDeadline {
+            await Task.yield()
+            shutdownResult = entrypoint.shutdown()
+        }
+        #expect(shutdownResult == 3)
+        guard shutdownResult == 3 else {
+            return
+        }
+        while entrypoint.shutdownStatus() == 3 {
+            await Task.yield()
+        }
+        #expect(entrypoint.shutdownStatus() == 0)
+    }
+
     @Test
     func actorFetchFailureNormalizationHonorsCancellationAndShutdown() {
         struct AdapterFailure: Error {}

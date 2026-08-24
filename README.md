@@ -467,7 +467,7 @@ surface described by the
 | Example | Demonstrates |
 |---|---|
 | [HelloWorld](Examples/HelloWorld) | Minimal app, static `@Page`, SwiftHTML, and SwiftWebUI rendering |
-| [CounterApp](Examples/CounterApp) | Loaded pages, client state, hydration, server actions, and same-application distributed actor binding |
+| [CounterApp](Examples/CounterApp) | `.actor(Type.self, identity:)`, local Actor hosting, browser and server `@RemoteActor` calls, hydration, and Server Actions |
 
 ```bash
 cd Examples/HelloWorld

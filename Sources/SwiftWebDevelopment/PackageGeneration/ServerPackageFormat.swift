@@ -40,9 +40,9 @@ struct ServerPackageFormat: GeneratedPackageFormat {
     let runReceiver: String
     if let bootstrapTypeName = context.nativeActorBootstrapTypeName {
       appInitialization = """
-                try WebActorSystem.shared.registerGeneratedBootstrap(\(bootstrapTypeName).self)
+                try WebActorSystem.shared.distributedBackend.registerGeneratedBootstrap(\(bootstrapTypeName).self)
                 let app = \(context.appProductName)()
-                try app.actorSystem.registerGeneratedBootstrap(\(bootstrapTypeName).self)
+                try app.actorSystem.distributedBackend.registerGeneratedBootstrap(\(bootstrapTypeName).self)
 
         """
       runReceiver = "app"
@@ -70,10 +70,6 @@ struct ServerPackageFormat: GeneratedPackageFormat {
     let assetPath = GeneratedPackageNameFormatter.assetPath(
       forWasmRuntimeTarget: runtimeTarget.targetName
     )
-    let wasmPackageManifestPath =
-      context.layout.wasmPackageDirectory
-      .appendingPathComponent("Package.swift")
-      .path
     let additionalBundles = context.wasmRuntimeTargets.dropFirst().flatMap { target in
       target.bundleArtifacts.map { bundleArtifact in
         let componentTypeNames = bundleArtifact.componentTypeNames
@@ -85,7 +81,7 @@ struct ServerPackageFormat: GeneratedPackageFormat {
                                   componentTypeNames: [\(componentTypeNames)],
                                   assetPath: "\(GeneratedPackageNameFormatter.assetPath(forWasmRuntimeTarget: target.targetName))",
                                   artifact: SwiftPMWasmArtifact.location(
-                                      anchorFile: "\(GeneratedPackageNameFormatter.swiftStringLiteral(wasmPackageManifestPath))",
+                                      anchorFile: wasmPackageManifestPath,
                                       target: "\(target.targetName)",
                                       artifactName: "\(GeneratedPackageNameFormatter.productName(forWasmRuntimeTarget: target.targetName))",
                                       scratchDirectory: wasmScratchDirectory
@@ -107,7 +103,15 @@ struct ServerPackageFormat: GeneratedPackageFormat {
       @main
       struct AppServerLauncher {
           static func main() async throws {
-      \(developmentInstall)\(appInitialization)        let wasmScratchDirectory = ProcessInfo.processInfo.environment["SWIFTWEB_WASM_SCRATCH_PATH"].map {
+      \(developmentInstall)\(appInitialization)        let wasmPackageManifestPath = URL(fileURLWithPath: #filePath)
+                  .deletingLastPathComponent()
+                  .deletingLastPathComponent()
+                  .deletingLastPathComponent()
+                  .deletingLastPathComponent()
+                  .appendingPathComponent("wasm", isDirectory: true)
+                  .appendingPathComponent("Package.swift")
+                  .path
+              let wasmScratchDirectory = ProcessInfo.processInfo.environment["SWIFTWEB_WASM_SCRATCH_PATH"].map {
                   URL(fileURLWithPath: $0, isDirectory: true)
               }
 
@@ -116,7 +120,7 @@ struct ServerPackageFormat: GeneratedPackageFormat {
                       id: "\(productName)",
                       assetPath: "\(assetPath)",
                       artifact: SwiftPMWasmArtifact.location(
-                          anchorFile: "\(GeneratedPackageNameFormatter.swiftStringLiteral(wasmPackageManifestPath))",
+                          anchorFile: wasmPackageManifestPath,
                           target: "\(runtimeTarget.targetName)",
                           artifactName: "\(productName)",
                           scratchDirectory: wasmScratchDirectory

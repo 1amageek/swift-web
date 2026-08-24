@@ -64,6 +64,24 @@ struct SwiftWebDevSourceFingerprintTests {
     try write("gen", to: root.appendingPathComponent(".swiftweb/generated/Package.swift"))
     try write("pin", to: root.appendingPathComponent(".swiftpm/state.json"))
     try write("cache", to: root.appendingPathComponent("DerivedData/index.json"))
+    try write(
+      "generated",
+      to: root.appendingPathComponent(
+        "Sources/App/ActorSystemGenerated/ActorCodecs.generated.swift"
+      )
+    )
+    try write(
+      "staged",
+      to: root.appendingPathComponent(
+        "Sources/App/.swiftweb-native-staging-fixture/ActorSystemGenerated/ActorCodecs.generated.swift"
+      )
+    )
+    try write(
+      "backup",
+      to: root.appendingPathComponent(
+        "Sources/App/.ActorSystemGenerated.backup-fixture/ActorCodecs.generated.swift"
+      )
+    )
 
     let after = scanner.fingerprint()
 
@@ -152,6 +170,18 @@ struct SwiftWebDevSourceFingerprintTests {
     #expect(SwiftWebDevWatchedFilePolicy.isExcludedDirectory(named: ".swiftweb"))
     #expect(SwiftWebDevWatchedFilePolicy.isExcludedDirectory(named: ".swiftpm"))
     #expect(SwiftWebDevWatchedFilePolicy.isExcludedDirectory(named: "DerivedData"))
+    #expect(SwiftWebDevWatchedFilePolicy.isExcludedDirectory(named: "ActorSystemGenerated"))
+    #expect(
+      SwiftWebDevWatchedFilePolicy.isExcludedDirectory(
+        named: ".swiftweb-native-staging-fixture"
+      )
+    )
+    #expect(
+      SwiftWebDevWatchedFilePolicy.isExcludedDirectory(
+        named: ".ActorSystemGenerated.backup-fixture"
+      )
+    )
+    #expect(!SwiftWebDevWatchedFilePolicy.isExcludedDirectory(named: "ActorSystemGeneratedInput"))
     #expect(!SwiftWebDevWatchedFilePolicy.isExcludedDirectory(named: "Sources"))
   }
 

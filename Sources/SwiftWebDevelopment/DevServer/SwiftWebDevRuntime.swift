@@ -66,8 +66,12 @@ public struct SwiftWebDevRuntime: Sendable {
     try eventLog.reset()
     let devToken = UUID().uuidString
     let workerRegistry = SwiftWebDevWorkerRegistry()
+    let devHostConfiguration = Self.devHostConfiguration(
+      acceptingRequestsWith: configuration,
+      servingArtifactsFrom: serverConfiguration
+    )
     let devHost = SwiftWebDevHost(
-      configuration: configuration,
+      configuration: devHostConfiguration,
       devToken: devToken,
       eventLog: eventLog,
       workerRegistry: workerRegistry,
@@ -575,6 +579,23 @@ public struct SwiftWebDevRuntime: Sendable {
       .appendingPathComponent(".build", isDirectory: true)
       .appendingPathComponent("server", isDirectory: true)
       .standardizedFileURL
+  }
+
+  static func devHostConfiguration(
+    acceptingRequestsWith publicConfiguration: SwiftWebDevRuntimeConfiguration,
+    servingArtifactsFrom serverConfiguration: SwiftWebDevRuntimeConfiguration
+  ) -> SwiftWebDevRuntimeConfiguration {
+    SwiftWebDevRuntimeConfiguration(
+      packageDirectory: publicConfiguration.packageDirectory,
+      scratchDirectory: serverConfiguration.scratchDirectory,
+      product: publicConfiguration.product,
+      host: publicConfiguration.host,
+      port: publicConfiguration.port,
+      readinessTimeout: publicConfiguration.readinessTimeout,
+      buildTimeout: publicConfiguration.buildTimeout,
+      processTerminationGracePeriod: publicConfiguration.processTerminationGracePeriod,
+      hostSwiftExecutableURL: publicConfiguration.hostSwiftExecutableURL
+    )
   }
 
   private var url: String {
