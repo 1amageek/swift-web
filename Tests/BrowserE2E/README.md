@@ -1,6 +1,8 @@
 # SwiftWeb Browser E2E
 
-These tests exercise the real browser WASM runtime. They are opt-in because they start a SwiftWeb dev server, build the ClientComponent WASM bundle, and launch a browser.
+These opt-in tests exercise the real browser. The development-loop tests build
+and run the browser WASM runtime; the Service Actor test below isolates the
+same-origin HTTP boundary without rebuilding the browser WASM bundle.
 
 ```bash
 cd Tests/BrowserE2E
@@ -83,6 +85,30 @@ Environment variables:
 | `SWIFTWEB_E2E_BROWSER_EXECUTABLE_PATH` | Use a specific Chromium-compatible browser executable. |
 | `SWIFTWEB_E2E_REQUIRE_WEBKIT` | Set to `1` to fail when the optional WebKit smoke cannot run. |
 | `SWIFTWEB_E2E_KEEP_STORYBOARD` | Set to `1` to keep the generated `.swiftweb/storyboard` package after Storyboard navigation E2E. |
+
+## Service Actor HTTP Boundary
+
+`SwiftWebServiceActorBrowserTests` starts independent native Main and Service
+hosts. Only the Service owns the concrete distributed actor. Chromium sends
+Actor frames to Main's standard same-origin endpoint; `.actor` and `hostRoute`
+must deliver the successful call without a local factory, `clientRoute`, or
+application relay. Authorization rejection and an unbound identity must leave
+the Service invocation count unchanged. CSRF and origin checks stay enabled.
+This is browser HTTP-boundary evidence, not a Swift-WASM hydration test.
+
+After configuring the pinned executable above, run from the repository root:
+
+```bash
+npm ci --prefix Tests/BrowserE2E
+scripts/swift-test-timeout.sh 1200 -- "$SWIFTWEB_E2E_HOST_SWIFT_EXECUTABLE" build --build-tests -j 2
+SWIFTWEB_BROWSER_E2E=1 scripts/swift-test-timeout.sh 120 -- "$SWIFTWEB_E2E_HOST_SWIFT_EXECUTABLE" test --skip-build --filter SwiftWebServiceActorBrowserTests
+```
+
+Install Playwright Chromium or point the existing
+`SWIFTWEB_E2E_BROWSER_EXECUTABLE_PATH` at an installed Chromium-compatible
+browser. The Swift test owns both hosts and the browser subprocess and has a
+one-minute limit. Browser startup and each HTTP request also have bounded
+timeouts.
 
 ## Stability Gates
 
