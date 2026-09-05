@@ -51,8 +51,13 @@ import SwiftWebHTTPServerHost
 
 let host = HTTPServerHost(hostname: "127.0.0.1", port: 8080)
 let installation = try await host.render(MyApp())
-defer { installation.shutdown() }
-try await installation.serve()
+do {
+    try await installation.serve()
+} catch {
+    try await installation.shutdown()
+    throw error
+}
+try await installation.shutdown()
 ```
 
 `App.run()` remains a convenience over the same host and rendering path. It

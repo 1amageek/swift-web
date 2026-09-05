@@ -19,7 +19,7 @@ scene `.environment()` value travels SSR snapshot → wasm hydration →
 `@Environment` after a client-side state change:
 
 ```bash
-node env-badge-smoke.mjs http://127.0.0.1:<port>
+node env-badge-smoke.mjs "http://127.0.0.1:<port>"
 ```
 
 For the stronger local stability gate, install WebKit and require the smoke pass:
@@ -96,17 +96,39 @@ application relay. Authorization rejection and an unbound identity must leave
 the Service invocation count unchanged. CSRF and origin checks stay enabled.
 This is browser HTTP-boundary evidence, not a Swift-WASM hydration test.
 
-After configuring the pinned executable above, run from the repository root:
+After configuring the pinned executable above, install the JavaScript test
+dependencies from the repository root:
 
 ```bash
 npm ci --prefix Tests/BrowserE2E
+```
+
+Install the Chromium build expected by the resolved Playwright version:
+
+```bash
+./Tests/BrowserE2E/node_modules/.bin/playwright install chromium
+```
+
+Alternatively, select an existing Chromium-compatible executable explicitly
+before running the test, for example on macOS with Google Chrome installed:
+
+```bash
+export SWIFTWEB_E2E_BROWSER_EXECUTABLE_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+```
+
+With the browser available, build and run from the repository root:
+
+```bash
 scripts/swift-test-timeout.sh 1200 -- "$SWIFTWEB_E2E_HOST_SWIFT_EXECUTABLE" build --build-tests -j 2
 SWIFTWEB_BROWSER_E2E=1 scripts/swift-test-timeout.sh 120 -- "$SWIFTWEB_E2E_HOST_SWIFT_EXECUTABLE" test --skip-build --filter SwiftWebServiceActorBrowserTests
 ```
 
-Install Playwright Chromium or point the existing
-`SWIFTWEB_E2E_BROWSER_EXECUTABLE_PATH` at an installed Chromium-compatible
-browser. The Swift test owns both hosts and the browser subprocess and has a
+A cached browser from another Playwright version is not selected automatically;
+an `Executable doesn't exist` launch error is a missing test prerequisite, not
+an Actor forwarding result. After correcting the executable, rerun the browser
+test without rebuilding unchanged Swift sources.
+
+The Swift test owns both hosts and the browser subprocess and has a
 one-minute limit. Browser startup and each HTTP request also have bounded
 timeouts.
 

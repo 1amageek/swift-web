@@ -7,6 +7,10 @@
 | HTTPS and WSS | Adds host-owned TLS transport configuration backed by `swift-tls-nio`, with one TLS session per accepted NIO channel and secure request-scheme propagation through HTTP and WebSocket upgrades. |
 | Configuration | Validates server identity and HTTP/1.1 ALPN compatibility before binding; unsupported protocols fail with `HTTPServerTransportConfigurationError`. |
 | Validation | Exercises HTTPS request translation and a real WSS binary round trip while retaining the existing plaintext HTTP/WS path. |
+| Service adapters | Adds schema-version-3 Service applications and concrete Actor contract selections; deployment supplies route templates while Swift owns logical identity. |
+| Actor authoring | Adds `.actor(Type.self, identity:)` for pages and scenes, reusing concrete `distributed actor` types and `@RemoteActor` without a separate Service client API. |
+| Service Actor routing | Forwards authorized browser calls from the same-origin endpoint to `hostRoute` when no `clientRoute` is provided; only scene-bound addresses are eligible, and conflicting local hosting is rejected. Core retains timeout, cancellation, correlation, failure, and shutdown ownership. |
+| Verification scope | Adds host/Scene regression tests and a Chromium HTTP-boundary gate with separate Main and Service hosts. The latter uses pre-encoded Actor frames and does not claim generated Swift-WASM or Embedded end-to-end coverage. |
 
 ## 0.11.0 - 2026-08-15
 

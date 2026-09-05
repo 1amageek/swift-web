@@ -47,6 +47,8 @@ by default. WebSocket remains a separate transport capability for bidirectional
 connections; neither choice changes the concrete Distributed Actor call
 surface.
 
+## Browser Service Routing
+
 When the selected actor is hosted by another Service and the deployment does
 not supply a `clientRoute`, the same-origin frame endpoint is the browser
 gateway for that exact scene-bound actor address:
@@ -78,17 +80,16 @@ system starts, independent of scene order.
 | Execution claim | `ActorInvocationExecutionState.claim()`; retained by the invocation | `Mutex<Bool>` | The same `Mutex<Bool>` |
 | Forwarding addresses | `SwiftWebActorHost`; pre-seal registration, isolated lookup, cleared after shutdown drains | Actor-isolated `Set<ActorAddress>` | No inbound HTTP host is provided |
 
-The Core execution tests cover the shared claim. Host and scene tests cover
-authorization, exact binding, ownership conflicts, failure, timeout,
-cancellation, and shutdown. The browser acceptance gate exercises the real
-same-origin HTTP boundary; it is distinct from Swift-WASM hydration and
-Embedded execution.
+See [Verification](#verification) for the evidence owned by each boundary.
 
 ## Authoring Model
 
 An application declares one concrete actor:
 
 ```swift
+import Distributed
+import SwiftWeb
+
 public distributed actor Counter {
     public typealias ActorSystem = WebActorSystem
 
@@ -133,6 +134,26 @@ The modifier is available on both `PageRoute` and `Scene`. The project Service
 declaration names `Counter` as a concrete contract, while the deployment
 adapter supplies a structured route template. Neither manifest owns the
 logical identity.
+
+The application that hosts the actor registers its construction policy:
+
+```swift
+ActorGroup { actorSystem in
+    Counter(actorSystem: actorSystem)
+}
+```
+
+When moving that actor to a Service, move its hosting registration out of the
+primary application and into the Service application. The caller keeps its
+`.actor` modifier and `@RemoteActor` property. Configure authorization on the
+host and gateway for the intended callers; registration does not grant access.
+
+`@RemoteActor` is a context-bound accessor, not a stored connection. A missing
+binding or access outside a binding context is a programmer error and traps;
+communication failures from the distributed method are thrown. Resolve the
+reference within the bound handler before handing it to work that does not
+inherit that context. See [ClientCounter](../../../Examples/CounterApp/Sources/CounterApp/ClientCounter.swift)
+for asynchronous event handling and error display.
 
 The actor type receives generated `ActorSystemReference` metadata. Applications
 do not author a service protocol, contract annotation, implementation
@@ -184,6 +205,19 @@ links only the binary runtime; only `ActorSystemCompatibility` imports the old
 `ActorRuntime` module. Legacy and binary traffic use separate endpoints or
 media types. Failure on the concrete actor path never retries through the
 legacy path.
+
+## Verification
+
+| Evidence | What it checks | Boundary |
+|---|---|---|
+| [Core execution tests](../../../Packages/swift-actor-system/Tests/ActorSystemCoreTests/ActorSystemCoreBehaviorTests.swift) | Local execution and forwarding share an exactly-once claim; missing forwarding capability fails | Core behavior, not browser integration |
+| [Actor host tests](../../../Tests/SwiftWebTests/SwiftWebActorHostTests.swift) and [Scene binding tests](../../../Tests/SwiftWebTests/SwiftWebActorGroupTests.swift) | Exact-address admission, authorization, ownership conflicts, direct-route isolation, timeout, cancellation, failure, and shutdown | Native host and in-process transport fixtures |
+| [Service Actor browser test](../../../Tests/SwiftWebTests/SwiftWebServiceActorBrowserTests.swift) | Chromium calls Main's real HTTP endpoint; only the authorized, bound call reaches an Actor on a separate Service host | Two native HTTP hosts; pre-encoded browser frames, not generated Swift-WASM calls |
+| [CounterApp development gate](../../../Tests/BrowserE2E/counter-wasm-runtime-e2e.mjs) | Swift-WASM events, actor calls, state, Server Actions, and development updates | The Actor is hosted in the same application |
+
+Follow the [browser test runbook](../../../Tests/BrowserE2E/README.md#service-actor-http-boundary)
+for prerequisites and commands. These gates do not establish a complete
+generated Swift-WASM-to-separate-Service deployment or Embedded runtime E2E.
 
 ## Not Responsible For
 

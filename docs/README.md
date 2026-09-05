@@ -10,11 +10,12 @@ the archive for those records.
 | Document | Audience | Purpose |
 |---|---|---|
 | [Project README](../README.md) | Application developers | Installation, first app, authoring, CLI, and production builds |
-| [Changelog](../CHANGELOG.md) | All users | Tagged release changes and compatibility notes |
+| [Changelog](../CHANGELOG.md) | All users | Unreleased changes, tagged releases, and compatibility notes |
 | [Toolchain](Toolchain.md) | All contributors | Exact Swift 6.4 host and WASM build contract |
 | [HTML Authoring Model](HTMLAuthoringModel.md) | Application and framework developers | `Component`, `HTMLDocument`, and `Page` boundaries |
 | [Host Rendering Contract](HostRenderingContract.md) | Host adapter and framework developers | `AppRenderer`, `RenderedApp`, request translation, and lifecycle ownership |
 | [Development Reconciler Verification](DevServerReconcilerVerification.md) | Maintainers | Real `sweb dev` and Chromium release gate |
+| [Service Actor HTTP Boundary](../Tests/BrowserE2E/README.md#service-actor-http-boundary) | Maintainers and adapter developers | Browser-to-Main-to-Service forwarding, authorization, and exact identity checks; separate from WASM hydration |
 | [Host, Deployment, and Service Adapter Contract](AdapterContract.md) | Application and adapter developers | SwiftPM discovery, environments, independent services, artifacts, templates, and lifecycle tasks |
 
 ## Public Runtime Contracts
@@ -23,7 +24,7 @@ the archive for those records.
 |---|---|
 | [Client Bundle Loading](ClientBundleLoadingDesign.md) | Implemented browser bundle and loading contract |
 | [Client Navigation](ClientNavigationDesign.md) | Implemented progressive navigation contract |
-| [Actor Runtime](../Sources/SwiftWebRuntime/Actors/README.md) | Current concrete actor, `.actor(Type.self, identity:)`, `@RemoteActor`, transport, and compatibility contract |
+| [Actor Runtime](../Sources/SwiftWebRuntime/Actors/README.md) | Concrete actor authoring, hosting versus references, same-origin Service routing, failure semantics, and verification boundaries |
 | [SwiftWebUI Core](SwiftWebUICoreDesign.md) | Current component, property, modifier, and environment model |
 | [SwiftWebUI Style](SwiftWebUIStyleDesign.md) | Current styling responsibility and resolution rules |
 | [Atomic Styling](AtomicStyling.md) | Current class generation, collection, and emission contract |
@@ -38,7 +39,8 @@ the archive for those records.
 
 ## Documentation Rules
 
-- Describe shipped behavior in the present tense.
+- Describe implemented behavior in the present tense and identify unreleased
+  changes separately from tagged releases.
 - Mark a document as proposed only when it defines a concrete future decision;
   do not mix proposals into user-facing setup instructions.
 - Keep commands aligned with the pinned values in [Toolchain](Toolchain.md).

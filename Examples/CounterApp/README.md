@@ -62,10 +62,18 @@ The local environment uses `ActorGroup` to host `CounterService` in the same
 application. Because this is a public counter demo, its caller-addressed
 identity explicitly uses `allowAll`; production applications should select an
 authorization policy that matches ownership of their actor identity. The caller
-remains `CounterPage().actor(CounterService.self, identity: ...)`; a
-Service-enabled environment can supply a transport route for that binding
-without changing the page, `@RemoteActor`, or distributed method surface. See
-the [Actor runtime documentation](../../Sources/SwiftWebRuntime/Actors/README.md).
+remains `CounterPage().actor(CounterService.self, identity: ...)` when hosting
+moves to a Service. In that configuration, move the `ActorGroup` registration
+into the Service application and supply its deployment route; do not retain a
+local factory for the forwarded address. The page, `@RemoteActor`, and
+distributed methods keep the same interface. The routing and authorization
+requirements are defined in the
+[Actor runtime contract](../../Sources/SwiftWebRuntime/Actors/README.md#browser-service-routing).
+
+This example demonstrates local hosting and Swift-WASM interaction, not a
+separately deployed Service. The
+[Service Actor HTTP boundary test](../../Tests/BrowserE2E/README.md#service-actor-http-boundary)
+uses two native hosts and a real browser to verify that separate boundary.
 
 ## Run
 

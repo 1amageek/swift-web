@@ -5,9 +5,10 @@ optional Swift WASM browser runtime. Applications describe routes and complete
 HTML documents in Swift, use SwiftWebUI for higher-level components, and opt
 individual client components into hydration, local state, and browser events.
 
-> SwiftWeb 0.8 is a developer preview. It requires the pinned Swift 6.4
-> development snapshot because its HTTP host uses the current lifetime-aware
-> Swift server APIs.
+> SwiftWeb is a developer preview requiring the pinned Swift 6.4 development
+> snapshot. This README describes `main`, including the unreleased Service
+> Actor routing changes. The release quick start below uses 0.11.0; it does not
+> include those changes. See [Unreleased](CHANGELOG.md#unreleased).
 
 ## What You Build
 
@@ -57,6 +58,8 @@ test -x "$SWIFT_WEB_WASM_TOOLCHAIN_BIN/wasm-ld"
 See [Toolchain](docs/Toolchain.md) for the complete host and WASM setup.
 
 ## Quick Start
+
+### Release 0.11.0
 
 Install the `sweb` executable from the 0.11.0 release with
 [Mint](https://github.com/yonaskolb/Mint):
@@ -111,6 +114,23 @@ let package = Package(
 )
 ```
 
+### Try the current implementation
+
+To try the unreleased Actor and adapter APIs, build the CLI and run the example
+from the same checkout instead of mixing a released CLI with `main`:
+
+```bash
+git clone https://github.com/1amageek/swift-web.git
+cd swift-web
+"$SWIFT_WEB_HOST_SWIFT" build --product sweb --jobs 2
+export PATH="$PWD/.build/debug:$PATH"
+cd Examples/CounterApp
+sweb dev
+```
+
+The bundled examples resolve SwiftWeb from the repository root. See
+[CounterApp](Examples/CounterApp/README.md) for its local hosting model.
+
 ## Authoring Model
 
 ### Application and routes
@@ -138,9 +158,7 @@ common rendering boundary:
 import SwiftWebHTTPServerHost
 
 let host = HTTPServerHost(hostname: "127.0.0.1", port: 8080)
-let installation = try await host.render(MyApp())
-defer { installation.shutdown() }
-try await installation.serve()
+try await host.run(MyApp())
 ```
 
 `App.run()` is the command-line convenience over this same path. Host adapter
@@ -153,13 +171,17 @@ concrete actor declaration remains the interface whether the actor is local or
 hosted by another Service application.
 
 ```swift
-public distributed actor DatabaseActor {
-    public typealias ActorSystem = WebActorSystem
+import Distributed
+import SwiftWeb
 
-    public distributed func execute(_ request: ActorByteBuffer) async throws
-        -> ActorByteBuffer
-    {
-        // Host-side implementation.
+distributed actor CounterService {
+    typealias ActorSystem = WebActorSystem
+
+    private var value = 0
+
+    distributed func increment() async throws -> Int {
+        value += 1
+        return value
     }
 }
 ```
@@ -167,17 +189,34 @@ public distributed actor DatabaseActor {
 Bind an externally hosted actor at the page or scene that consumes it:
 
 ```swift
-DatabasePage()
-    .actor(DatabaseActor.self, identity: "production")
+CounterPage()
+    .actor(CounterService.self, identity: "primary")
 ```
 
-Client and server-side WASM code receives the same concrete reference through
-`@RemoteActor` and calls its `distributed func` directly. Swift code owns the
-type and logical identity. `sweb.json` selects the Service build/deploy unit,
-and the deployment adapter supplies transport and endpoint templates. URLs,
+Inside a bound page, Server Action, or client component, resolve and call the
+same concrete type:
+
+```swift
+@RemoteActor private var counter: CounterService
+
+func increment() async throws -> Int {
+    try await counter.increment()
+}
+```
+
+`ActorGroup` registers construction and hosting policy in the application that
+owns the actor; `.actor(Type.self, identity:)` selects a reference in the caller.
+Swift code owns the type and logical identity. `sweb.json` selects the Service
+build/deploy unit, and the deployment adapter supplies transport and endpoint templates. URLs,
 credentials, adapter names, and artifact names do not enter the actor call
 site. Destinations without Actor ownership and isolation remain Server
 connections.
+
+When the deployment supplies only a `hostRoute`, browser calls go through the
+primary application's same-origin Actor endpoint and authorization before the
+Service hop. An explicit `clientRoute` selects direct browser routing. See
+[browser Service routing](Sources/SwiftWebRuntime/Actors/README.md#browser-service-routing)
+for the binding, authorization, and ownership requirements.
 
 See the [Actor runtime contract](Sources/SwiftWebRuntime/Actors/README.md) and
 the [adapter contract](docs/AdapterContract.md).
@@ -223,6 +262,8 @@ Binary callbacks receive `WebSocketBinaryBuffer`, an immutable owner plus a
 readable range. Slicing and forwarding that value retain adapter-native storage
 without materializing `[UInt8]`; `withUnsafeBytes` provides a scoped borrow and
 `copyBytes()` is the explicit conversion for APIs that require an array.
+
+### Page documents
 
 A static page returns a complete `HTMLDocument`:
 
@@ -482,23 +523,19 @@ architecture decisions, and verification runbooks.
 
 ## Contributing
 
-Use the pinned toolchain for every validation command. Native tests run through
-Xcode with a timeout guard:
+Use the pinned toolchain for every validation command. Run the non-Metal
+Native tests with SwiftPM. Bound compilation separately so a cold build does
+not consume the test execution budget:
 
 ```bash
-TOOLCHAINS=org.swift.64202608141a \
-scripts/swift-test-hang-guard.sh \
-  --repeats 1 \
-  --timeout 1200 \
-  --build-timeout 1200 \
-  -- xcodebuild test \
-    -scheme swift-web-Package \
-    -destination platform=macOS \
-    -jobs 2 \
-    -parallel-testing-enabled NO
+scripts/swift-test-timeout.sh 1200 -- "$SWIFT_WEB_HOST_SWIFT" build --build-tests --jobs 2
+scripts/swift-test-timeout.sh 120 -- "$SWIFT_WEB_HOST_SWIFT" test --skip-build
 ```
 
-The complete browser-visible development path is verified separately:
+Use `--filter <SuiteOrTestName>` for focused runs. Browser tests are opt-in;
+the [Service Actor HTTP boundary gate](Tests/BrowserE2E/README.md#service-actor-http-boundary)
+checks forwarding between two native hosts through Chromium. It is separate
+from the Swift-WASM hydration and development-loop gate:
 
 ```bash
 cd Tests/BrowserE2E
