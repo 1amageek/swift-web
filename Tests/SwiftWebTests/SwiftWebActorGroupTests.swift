@@ -12,7 +12,7 @@ import Testing
 import ActorSystemCore
 import ActorSystemDistributed
 #endif
-@testable import SwiftWebActors
+@_spi(Hosting) @testable import SwiftWebActors
 @_spi(Hosting) @testable import SwiftWebCore
 
 @Suite
@@ -43,11 +43,15 @@ struct SwiftWebActorGroupTests {
         try await renderedApp.shutdown()
     }
 
-    @Test
-    func pageActorModifierBindsIdentityAndDeploymentRouteWithoutClaimingHostOwnership() async throws {
+    @Test(arguments: [true, false], [true, false])
+    func pageActorModifierBindsIdentityAndDeploymentRouteWithoutClaimingHostOwnership(
+        permitsRemoteCalls: Bool,
+        hasClientRoute: Bool
+    ) async throws {
         let router = SwiftWebActorBindingRouter()
         let system = try WebActorSystem(
             router: router,
+            transports: [.swiftWebHTTP: SwiftWebRequestReplyActorTransport()],
             configuration: ActorSystemConfiguration(
                 sessionIdentitySource: FixedActorSessionIdentitySource(
                     ActorSessionID(96)
@@ -58,8 +62,10 @@ struct SwiftWebActorGroupTests {
             type: ConcreteActorGroupBootstrapFixture.descriptor.id,
             identity: "remote-inventory"
         )
+        let client = ActorServiceRouteProbe(codec: system.frameCodec)
+        try system.installActorRequestClient(client)
         let renderedApp = try await AppRenderer.render(
-            ActorTypeModifierFixtureApp(system: system),
+            ActorTypeModifierFixtureApp(system: system, permitsRemoteCalls: permitsRemoteCalls),
             in: AppRenderingContext(
                 actorServiceBindings: [
                     SwiftWebActorServiceBinding(
@@ -67,7 +73,11 @@ struct SwiftWebActorGroupTests {
                         hostRoute: SwiftWebActorRouteTemplate(
                             transport: ActorTransportID("swiftweb.http"),
                             endpointPrefix: "https://inventory.example.test/actors/"
-                        )
+                        ),
+                        clientRoute: hasClientRoute ? SwiftWebActorRouteTemplate(
+                            transport: .swiftWebHTTP,
+                            endpointPrefix: "https://public-inventory.example.test/actors/"
+                        ) : nil
                     )
                 ]
             )
@@ -85,11 +95,124 @@ struct SwiftWebActorGroupTests {
                 route.endpoint.transportSpecificAddress
                     == "https://inventory.example.test/actors/remote-inventory"
             )
+            #expect(await system.actorHost.claimsLocalInvocation(for: address) == false)
+            for bound in [true, false] {
+                let request = Self.serviceInvocation(
+                    identity: bound ? address.identity : "unbound-inventory",
+                    sequence: bound ? 1 : 2
+                )
+                let response = try #require(try await system.invokeActorFrame(
+                    system.frameCodec.encode(.invocation(request)),
+                    context: SwiftWebActorInvocationContext(peerID: "browser-peer")
+                ))
+                let outcome: ActorInvocationOutcome = !permitsRemoteCalls
+                    ? .systemFailure(ActorSystemFailure(code: .unauthorized))
+                    : bound && !hasClientRoute
+                        ? .success(ActorInvocationResult(payload: ActorByteBuffer([42])))
+                        : .systemFailure(ActorSystemFailure(code: .activationFailed))
+                let decoded = try system.frameCodec.decode(response)
+                #expect(decoded == .result(ActorResultFrame(callID: request.callID, outcome: outcome)))
+            }
+            let forwarded = permitsRemoteCalls && !hasClientRoute
+            #expect(client.requests.withLock { $0.map(\.endpoint) } == (forwarded ? [route.endpoint] : []))
+            #expect(client.requests.withLock { $0.allSatisfy { $0.frame.callID.session == ActorSessionID(96) } })
         } catch {
             try await renderedApp.shutdown()
             throw error
         }
         try await renderedApp.shutdown()
+    }
+
+    @Test(arguments: ["timeout", "cancel", "shutdown", "failure"])
+    func forwardedInvocationPreservesCoreTerminationAndFailure(_ termination: String) async throws {
+        let serviceFailure = ActorInvocationOutcome.applicationFailure(ActorApplicationFailure(
+            typeID: ActorTypeID(high: 102, low: 1),
+            payload: ActorByteBuffer([7])
+        ))
+        let system = try WebActorSystem(
+            router: SwiftWebActorBindingRouter(),
+            transports: [.swiftWebHTTP: SwiftWebRequestReplyActorTransport()],
+            configuration: ActorSystemConfiguration(
+                sessionIdentitySource: FixedActorSessionIdentitySource(ActorSessionID(101))
+            )
+        )
+        let client = ActorServiceRouteProbe(
+            codec: system.frameCodec,
+            delaysResponse: termination != "failure",
+            outcome: serviceFailure
+        )
+        try system.installActorRequestClient(client)
+        let rendered = try await AppRenderer.render(
+            ActorTypeModifierFixtureApp(system: system, permitsRemoteCalls: true),
+            in: AppRenderingContext(actorServiceBindings: [SwiftWebActorServiceBinding(
+                actorType: ConcreteActorGroupBootstrapFixture.descriptor.id,
+                hostRoute: SwiftWebActorRouteTemplate(
+                    transport: .swiftWebHTTP,
+                    endpointPrefix: "https://inventory.example.test/actors/"
+                )
+            )])
+        )
+        let request = Self.serviceInvocation(
+            identity: "remote-inventory",
+            sequence: 3,
+            timeout: termination == "timeout" ? 100_000_000 : 5_000_000_000
+        )
+        let call = Task {
+            try await system.invokeActorFrame(
+                system.frameCodec.encode(.invocation(request)),
+                context: SwiftWebActorInvocationContext(peerID: "browser-peer")
+            )
+        }
+        do {
+            for _ in 0..<200 where client.requests.withLock({ $0.isEmpty }) {
+                try await Task.sleep(for: .milliseconds(5))
+            }
+            #expect(client.requests.withLock { $0.count } == 1)
+            if termination == "cancel" { call.cancel() }
+            if termination == "shutdown" { try await rendered.shutdown() }
+            if termination == "timeout" || termination == "failure" {
+                let response = try #require(try await call.value)
+                let decoded = try system.frameCodec.decode(response)
+                #expect(decoded == .result(ActorResultFrame(
+                    callID: request.callID,
+                    outcome: termination == "timeout"
+                        ? .systemFailure(ActorSystemFailure(code: .timeout)) : serviceFailure
+                )))
+            } else {
+                do {
+                    _ = try await call.value
+                    Issue.record("The terminated browser request must fail")
+                } catch let error as ActorSystemError {
+                    #expect(termination == "cancel" ? error.code == .cancelled
+                        : [.shuttingDown, .transportClosed].contains(error.code))
+                }
+            }
+        } catch {
+            call.cancel()
+            try await rendered.shutdown()
+            _ = await call.result
+            throw error
+        }
+        try await rendered.shutdown()
+        #expect(client.didShutdown.withLock { $0 })
+        #expect(client.wasCancelled.withLock { $0 } == (termination != "failure"))
+    }
+
+    private static func serviceInvocation(
+        identity: String,
+        sequence: UInt64,
+        timeout: UInt64 = 2_000_000_000
+    ) -> ActorInvocationFrame {
+        ActorInvocationFrame(
+            callID: ActorCallID(session: ActorSessionID(97), sequence: sequence),
+            invocation: ActorInvocation(
+                recipient: ActorAddress(type: ConcreteActorGroupBootstrapFixture.descriptor.id, identity: identity),
+                method: ActorMethodID(1),
+                schemaFingerprint: ConcreteActorGroupBootstrapFixture.descriptor.schemaFingerprint,
+                payload: ActorByteBuffer([42])
+            ),
+            remainingTimeoutNanoseconds: timeout
+        )
     }
 
     @Test
@@ -946,17 +1069,28 @@ private struct ConcreteActorGroupBootstrapFixtureApp: App {
 
 private struct ActorTypeModifierFixtureApp: App {
     let system: WebActorSystem
+    let permitsRemoteCalls: Bool
 
     init() {
         self.system = .shared
+        self.permitsRemoteCalls = false
     }
 
-    init(system: WebActorSystem) {
+    init(system: WebActorSystem, permitsRemoteCalls: Bool = false) {
         self.system = system
+        self.permitsRemoteCalls = permitsRemoteCalls
     }
 
     var actorSystem: WebActorSystem {
         system
+    }
+
+    var security: SecurityConfiguration {
+        var configuration = SecurityConfiguration.defaults
+        if permitsRemoteCalls {
+            configuration.actors = .allowAll
+        }
+        return configuration
     }
 
     var body: some Scene {
@@ -965,6 +1099,49 @@ private struct ActorTypeModifierFixtureApp: App {
                 ConcreteActorGroupBootstrapFixtureActor.self,
                 identity: "remote-inventory"
             )
+    }
+}
+
+private final class ActorServiceRouteProbe: SwiftWebActorRequestClient {
+    let requests = Mutex<[(endpoint: ActorEndpoint, frame: ActorInvocationFrame)]>([])
+    let wasCancelled = Mutex(false)
+    let didShutdown = Mutex(false)
+    let codec: ActorFrameCodec
+    let delaysResponse: Bool
+    let outcome: ActorInvocationOutcome?
+
+    init(codec: ActorFrameCodec, delaysResponse: Bool = false, outcome: ActorInvocationOutcome? = nil) {
+        self.codec = codec
+        self.delaysResponse = delaysResponse
+        self.outcome = outcome
+    }
+
+    func requestActorFrame(
+        _ encodedFrame: ActorByteBuffer,
+        to endpoint: ActorEndpoint,
+        onDispatched: @escaping @Sendable () -> Void
+    ) async throws -> ActorByteBuffer? {
+        guard case .invocation(let frame) = try codec.decode(encodedFrame) else {
+            return nil
+        }
+        requests.withLock { $0.append((endpoint, frame)) }
+        onDispatched()
+        if delaysResponse {
+            do {
+                try await Task.sleep(for: .seconds(30))
+            } catch {
+                wasCancelled.withLock { $0 = true }
+                throw error
+            }
+        }
+        return try codec.encode(.result(ActorResultFrame(
+            callID: frame.callID,
+            outcome: outcome ?? .success(ActorInvocationResult(payload: frame.invocation.payload))
+        )))
+    }
+
+    func shutdown() async {
+        didShutdown.withLock { $0 = true }
     }
 }
 

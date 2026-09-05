@@ -161,6 +161,15 @@ The adapter manifest cannot provide identity or an arbitrary Swift expression.
 When a selected Service declares actors, `sweb` requires exactly one accepted
 artifact binding and fails resolution otherwise.
 
+If `clientRoute` is absent, browser calls use the primary application's
+same-origin Actor frame endpoint. The runtime admits that gateway only for the
+exact `.actor(Type.self, identity:)` address associated with this `hostRoute`,
+applies the primary application's Actor authorization, and then uses the
+deployment-owned `hostRoute` for the Service hop. If `clientRoute` is present,
+it is serialized for direct browser routing and the same-origin gateway is not
+enabled for that binding. Neither form delegates browser credentials to the
+Service; Service-hop authentication remains adapter-owned.
+
 ```mermaid
 flowchart LR
   Swift[".actor(Type.self, identity:)"] --> Identity["logical identity"]

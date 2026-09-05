@@ -54,6 +54,55 @@ struct ActorSystemCoreBehaviorTests {
     }
 
     @Test
+    func localAndForwardExecutionShareExactlyOnceClaim() async throws {
+        let counter = Mutex(0)
+        let execute: @Sendable () async throws -> ActorInvocationResult = {
+            counter.withLock { $0 += 1 }
+            return ActorInvocationResult()
+        }
+        let forward: @Sendable () async throws -> ActorInvocationResult = {
+            counter.withLock { $0 += 10 }
+            return ActorInvocationResult()
+        }
+        let forwardFirst = ActorInvocationExecution(
+            execute: execute,
+            forward: forward
+        )
+
+        _ = try await forwardFirst.forward()
+        await #expect(throws: ActorSystemError.self) {
+            _ = try await forwardFirst()
+        }
+        #expect(counter.withLock { $0 } == 10)
+
+        let localFirst = ActorInvocationExecution(
+            execute: execute,
+            forward: forward
+        )
+        _ = try await localFirst()
+        await #expect(throws: ActorSystemError.self) {
+            _ = try await localFirst.forward()
+        }
+        #expect(counter.withLock { $0 } == 11)
+    }
+
+    @Test
+    func missingForwardCapabilityFailsWithTypedError() async throws {
+        let execution = ActorInvocationExecution {
+            ActorInvocationResult()
+        }
+
+        do {
+            _ = try await execution.forward()
+            Issue.record("Expected forwarding without a capability to fail")
+        } catch let error as ActorSystemError {
+            #expect(error.code == .invalidFrame)
+        } catch {
+            Issue.record("Unexpected forwarding error: \(error)")
+        }
+    }
+
+    @Test
     func shutdownUnblocksATransportThatIsStillStarting() async throws {
         let transport = BlockingStartActorTransport()
         let transportID = ActorTransportID("blocking-start")

@@ -732,7 +732,7 @@ public final class ActorSystemCore: Sendable {
                 remainingTimeout: timeout,
                 metadata: inbound.metadata
             )
-            let execution = ActorInvocationExecution {
+            let execution = ActorInvocationExecution(execute: {
                 guard let target = self.directory.target(
                     for: frame.invocation.recipient
                 ) else {
@@ -740,7 +740,12 @@ public final class ActorSystemCore: Sendable {
                 }
                 try self.validate(frame.invocation, against: target)
                 return try await target.invoke(frame.invocation, context: context)
-            }
+            }, forward: {
+                try await self.invoke(
+                    frame.invocation,
+                    options: ActorCallOptions(timeout: timeout)
+                )
+            })
             let invoke: @Sendable () async throws -> ActorInvocationResult = {
                 try await self.configuration.inboundInterceptor.intercept(
                     frame.invocation,

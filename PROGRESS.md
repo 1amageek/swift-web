@@ -1,16 +1,11 @@
 # Progress
 
-- [x] Sprint 1: Examples dependency and CLI contract
-  - [x] Align example package dependencies with the current SwiftWeb adapter schema
-  - [x] Replace obsolete example build commands with the current lifecycle interface
-  - [x] Review, verify, and commit the dependency and CLI contract changes
-- [x] Sprint 2: Canonical Service Actor example
-  - [x] Define the final CounterApp caller and Counter service application surfaces
-  - [x] Bind the logical identity through the Scene modifier and keep transport in the adapter
-  - [x] Propagate asynchronous StateStore invalidation through the client runtime
-  - [x] Exercise a real distributed actor invocation in browser or host behavior tests
-  - [x] Review, verify, and commit the Service Actor example changes
-- [x] Integration verification
-  - [x] Build every example through the documented current CLI path
-  - [x] Run the affected lifecycle, actor binding, generation, and browser behavior tests
-  - [x] Confirm documentation, generated-state ownership, worktree state, commits, and upstream integration
+- [ ] BAR-01 Complete the standard same-origin Actor forwarding runtime without changing the Distributed Actor, `.actor(_:identity:)`, `ActorGroup`, or `@RemoteActor` APIs; forwarding is limited to the exact scene-bound address that has a `hostRoute` and no `clientRoute`, Main authorization and admission run before forwarding, local Actor ownership keeps precedence by rejecting conflicting configuration, and Core remains the owner of correlation, timeout, cancellation, transport lifecycle, and failure conversion; generic inbound Core traffic, direct `clientRoute` traffic, credential delegation, an Embedded HTTP host, and a second RPC system are non-goals `depends:none` `parallel:none`
+  - [x] BAR-01.1 Add failing focused tests proving that an inbound frame for an external scene-bound address currently reaches local activation instead of its `hostRoute`, while unauthorized and unbound addresses remain rejected `depends:none` `parallel:none`
+  - [x] BAR-01.2 Add the smallest reusable forwarding execution to `ActorSystemCore` with local and forward operations sharing one exactly-once claim, keep the default `execution()` local-only, make `SwiftWebActorHost` admit and authorize only pre-seal registered exact forwarding addresses without claiming or activating them, reject forwarding/local-factory or bound-address ownership conflicts regardless of scene registration order, register that address from `ActorReferenceScene` only for `hostRoute` plus absent `clientRoute`, preserve the inbound context for Main policy evaluation, and use the existing outbound Core call for the Service hop `depends:BAR-01.1` `parallel:none`
+  - [ ] BAR-01.3 Update the Actor and adapter contract documents, run the focused Core/host/scene success, authorization, conflict, timeout, cancellation, shutdown, and failure-propagation tests, compile and link the changed common source with the exact pinned standard-WASM and Embedded-WASM SDKs without claiming an Embedded inbound HTTP host or runtime execution, obtain the original task designer's conformance review, and commit this coherent runtime sprint `depends:BAR-01.2` `parallel:none`
+- [ ] BAR-02 Prove the repaired path at the real browser HTTP boundary without adding a public host API, application proxy, or sample-only relay `depends:BAR-01` `parallel:none`
+  - [ ] BAR-02.1 Add one bounded browser acceptance fixture using the existing testable HTTP host and browser-test infrastructure: Main has `.actor(Type.self, identity:)`, `hostRoute`, no local factory, no `clientRoute`, and an installed test transport adapter; a separate Service hosts the concrete distributed actor `depends:BAR-01` `parallel:none`
+  - [ ] BAR-02.2 From real Chromium, send a valid Actor frame to Main's same-origin `/_swiftweb/actors/frame` and prove the concrete Service actor result returns; also prove Main authorization rejection and an unbound address never reach the Service, with bounded startup, request, cancellation, and process cleanup `depends:BAR-02.1` `parallel:none`
+  - [ ] BAR-02.3 Run the focused browser acceptance plus the existing default browser-router/bootstrap regressions, distinguish this evidence from a full Swift-WASM hydration run, obtain the original task designer's conformance review, and commit the acceptance sprint `depends:BAR-02.2` `parallel:none`
+- [ ] BAR-03 Verify and integrate the complete fix at the pinned Swift 6.4 snapshot: run the affected Native/standard-host tests with build and test timeouts separated, reuse BAR-01's standard-WASM and Embedded-WASM compile/link evidence while the common source and pinned toolchain inputs remain unchanged, rerun only evidence invalidated by later edits, confirm no incomplete marker or unrelated source change was introduced, review the final diff and executable evidence against BAR-01 and BAR-02, and commit/push the scoped task only when branch/upstream and unrelated-commit checks permit `depends:BAR-01,BAR-02` `parallel:none`

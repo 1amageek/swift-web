@@ -38,6 +38,11 @@ where ActorType.ActorSystem == WebActorSystem {
         )
         let serviceRoutes = try context.actorServiceRoutes(for: address)
         if let hostRoute = serviceRoutes.host {
+            #if SWIFTWEB_ACTORS
+            if serviceRoutes.client == nil {
+                try await context.actorSystem.actorHost.registerForwarding(address: address)
+            }
+            #endif
             try context.actorSystem.mergeActorRouteBindings([
                 SwiftWebActorRouteBindingRecord(
                     actorID: address,

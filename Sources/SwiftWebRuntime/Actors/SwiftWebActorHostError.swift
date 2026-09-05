@@ -7,6 +7,7 @@ public enum SwiftWebActorHostError: Error, Sendable, Equatable {
     case authorizationConfigurationLocked
     case configurationLocked
     case duplicateActiveActor(ActorAddress)
+    case conflictingActorOwnership(ActorAddress)
     case actorIsBound(ActorAddress)
     case actorBusy(ActorAddress)
     case duplicatePersistentStorageKey(actorID: String)

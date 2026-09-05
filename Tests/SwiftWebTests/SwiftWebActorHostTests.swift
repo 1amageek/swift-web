@@ -51,6 +51,126 @@ struct SwiftWebActorHostTests {
     }
 
     @Test
+    func forwardingRegistrationRejectsLocalOwnershipRegardlessOfOrder() async throws {
+        let address = Self.fixtureInvocation(identity: "forwarded").recipient
+
+        let forwardingFirst = SwiftWebActorHost(authorization: .allowAll)
+        try await forwardingFirst.registerForwarding(address: address)
+        await #expect(
+            throws: SwiftWebActorHostError.conflictingActorOwnership(address)
+        ) {
+            try await forwardingFirst.registerBound(address: address)
+        }
+        try await forwardingFirst.shutdown()
+
+        let boundFirst = SwiftWebActorHost(authorization: .allowAll)
+        try await boundFirst.registerBound(address: address)
+        await #expect(
+            throws: SwiftWebActorHostError.conflictingActorOwnership(address)
+        ) {
+            try await boundFirst.registerForwarding(address: address)
+        }
+        try await boundFirst.shutdown()
+
+        let forwardingBeforeFactory = SwiftWebActorHost(authorization: .allowAll)
+        try await forwardingBeforeFactory.registerForwarding(address: address)
+        await #expect(
+            throws: SwiftWebActorHostError.conflictingActorOwnership(address)
+        ) {
+            try await forwardingBeforeFactory.register(Self.fixtureFactory())
+        }
+        try await forwardingBeforeFactory.shutdown()
+
+        let localFactoryFirst = SwiftWebActorHost(authorization: .allowAll)
+        try await localFactoryFirst.register(Self.fixtureFactory())
+        await #expect(
+            throws: SwiftWebActorHostError.conflictingActorOwnership(address)
+        ) {
+            try await localFactoryFirst.registerForwarding(address: address)
+        }
+        try await localFactoryFirst.shutdown()
+    }
+
+    @Test
+    func forwardingRegistrationSealsAndDoesNotClaimLocalOwnership() async throws {
+        let host = SwiftWebActorHost(authorization: .allowAll)
+        let address = Self.fixtureInvocation(identity: "sealed-forwarding").recipient
+        try await host.registerForwarding(address: address)
+
+        #expect(await !host.claimsLocalInvocation(for: address))
+        try await host.sealConfiguration()
+        await #expect(throws: SwiftWebActorHostError.configurationLocked) {
+            try await host.registerForwarding(
+                address: Self.fixtureInvocation(identity: "late-forwarding").recipient
+            )
+        }
+        try await host.shutdown()
+    }
+
+    @Test
+    func forwardingAuthorizationPrecedesCallbackAndPreservesTaskLocalContext() async throws {
+        let address = Self.fixtureInvocation(identity: "authorization-order").recipient
+        let remoteOrigin = ActorInvocationOrigin.remote(
+            transport: .swiftWebHTTP,
+            endpoint: ActorEndpoint("browser-peer")
+        )
+        let deniedHost = SwiftWebActorHost()
+        try await deniedHost.registerForwarding(address: address)
+        let callbackCalled = Mutex(false)
+
+        await #expect(throws: ActorSystemError.unauthorized) {
+            _ = try await deniedHost.intercept(
+                Self.fixtureInvocation(identity: address.identity),
+                context: ActorInvocationContext(
+                    callID: ActorCallID(session: ActorSessionID(501), sequence: 1),
+                    origin: remoteOrigin,
+                    remainingTimeout: nil
+                ),
+                execution: ActorInvocationExecution(
+                    execute: { ActorInvocationResult() },
+                    forward: {
+                        callbackCalled.withLock { $0 = true }
+                        return ActorInvocationResult()
+                    }
+                )
+            )
+        }
+        #expect(!callbackCalled.withLock { $0 })
+        try await deniedHost.shutdown()
+
+        let expected = SwiftWebActorInvocationContext(
+            principalID: "calendar-page-reader",
+            sessionID: "database-runtime-1",
+            tenantID: "calendar",
+            remoteAddress: "cloudflare-service-binding",
+            peerID: "page-runtime-1"
+        )
+        let metadata = try SwiftWebActorInvocationContextCodec().encode(expected)
+        let observed = Mutex<SwiftWebActorInvocationContext?>(nil)
+        let allowedHost = SwiftWebActorHost(authorization: .allowAll)
+        try await allowedHost.registerForwarding(address: address)
+        _ = try await allowedHost.intercept(
+            Self.fixtureInvocation(identity: address.identity),
+            context: ActorInvocationContext(
+                callID: ActorCallID(session: ActorSessionID(501), sequence: 2),
+                origin: remoteOrigin,
+                remainingTimeout: nil,
+                metadata: metadata
+            ),
+            execution: ActorInvocationExecution(
+                execute: { ActorInvocationResult() },
+                forward: {
+                    observed.withLock { $0 = SwiftWebActorInvocationContext.current }
+                    return ActorInvocationResult()
+                }
+            )
+        )
+        #expect(observed.withLock { $0 } == expected)
+        #expect(SwiftWebActorInvocationContext.current == nil)
+        try await allowedHost.shutdown()
+    }
+
+    @Test
     func factoryRejectsAnActorCreatedWithADifferentIdentity() async {
         let expected = ActorAddress(
             type: SwiftWebActorHostFixtureReference.actorTypeDescriptor.id,
@@ -569,6 +689,16 @@ struct SwiftWebActorHostTests {
             schemaFingerprint: SwiftWebActorHostFixtureReference
                 .actorTypeDescriptor.schemaFingerprint,
             payload: ActorByteBuffer()
+        )
+    }
+
+    private static func fixtureFactory() -> SwiftWebActorFactory {
+        SwiftWebActorFactory(
+            SwiftWebActorHostFixtureReference.self,
+            activate: { address in
+                SwiftWebActorHostFixtureReference(id: address)
+            },
+            passivate: { _ in }
         )
     }
 }

@@ -2,22 +2,50 @@ import Synchronization
 
 public struct ActorInvocationExecution: Sendable {
     private let executeValue: @Sendable () async throws -> ActorInvocationResult
+    private let forwardValue: (@Sendable () async throws -> ActorInvocationResult)?
     private let state: ActorInvocationExecutionState
 
     public init(
         _ execute: @escaping @Sendable () async throws -> ActorInvocationResult
     ) {
         self.executeValue = execute
+        self.forwardValue = nil
+        self.state = ActorInvocationExecutionState()
+    }
+
+    public init(
+        execute: @escaping @Sendable () async throws -> ActorInvocationResult,
+        forward: @escaping @Sendable () async throws -> ActorInvocationResult
+    ) {
+        self.executeValue = execute
+        self.forwardValue = forward
         self.state = ActorInvocationExecutionState()
     }
 
     public func callAsFunction() async throws -> ActorInvocationResult {
+        try claim()
+        return try await executeValue()
+    }
+
+    /// Starts a routed outbound call instead of executing the local target.
+    /// Authorization belongs to the interceptor selecting this operation.
+    /// Local execution and forwarding share the same exactly-once claim.
+    public func forward() async throws -> ActorInvocationResult {
+        try claim()
+        guard let forwardValue else {
+            throw ActorSystemError.invalidFrame(
+                ActorProtocolViolation("Forwarding is unavailable for this invocation")
+            )
+        }
+        return try await forwardValue()
+    }
+
+    private func claim() throws {
         guard state.claim() else {
             throw ActorSystemError.invalidFrame(
                 ActorProtocolViolation("An inbound invocation execution was called more than once")
             )
         }
-        return try await executeValue()
     }
 }
 

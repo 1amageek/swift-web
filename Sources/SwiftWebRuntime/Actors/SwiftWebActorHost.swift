@@ -47,6 +47,7 @@ public actor SwiftWebActorHost: ActorInboundInvocationInterceptor, ActorLocalInv
     private let persistentState = ActorPersistentStateRegistry()
     private var factories: [ActorTypeID: FactoryRegistration] = [:]
     private var activeActors: [ActorAddress: HostedActor] = [:]
+    private var forwardingAddresses: Set<ActorAddress> = []
     private var passivatingActors: [ActorAddress: HostedActor] = [:]
     private var activationTasks: [ActorAddress: Task<SwiftWebActivatedActor, any Error>] = [:]
     private var activationReservations: Set<ActorAddress> = []
@@ -144,6 +145,9 @@ public actor SwiftWebActorHost: ActorInboundInvocationInterceptor, ActorLocalInv
             throw SwiftWebActorHostError.configurationLocked
         }
         let actorType = factory.descriptor.id
+        if let address = forwardingAddresses.first(where: { $0.type == actorType }) {
+            throw SwiftWebActorHostError.conflictingActorOwnership(address)
+        }
         guard factories[actorType] == nil else {
             throw SwiftWebActorHostError.duplicateFactory(actorType)
         }
@@ -159,6 +163,9 @@ public actor SwiftWebActorHost: ActorInboundInvocationInterceptor, ActorLocalInv
         guard phase == .accepting, !configurationSealed else {
             throw SwiftWebActorHostError.configurationLocked
         }
+        guard !forwardingAddresses.contains(address) else {
+            throw SwiftWebActorHostError.conflictingActorOwnership(address)
+        }
         if let existing = activeActors[address] {
             guard existing.activation == nil else {
                 throw SwiftWebActorHostError.duplicateActiveActor(address)
@@ -171,6 +178,16 @@ public actor SwiftWebActorHost: ActorInboundInvocationInterceptor, ActorLocalInv
             lastAccess: Date(),
             pendingInvocations: 0
         )
+    }
+
+    package func registerForwarding(address: ActorAddress) throws {
+        guard phase == .accepting, !configurationSealed else {
+            throw SwiftWebActorHostError.configurationLocked
+        }
+        guard factories[address.type] == nil, activeActors[address] == nil else {
+            throw SwiftWebActorHostError.conflictingActorOwnership(address)
+        }
+        forwardingAddresses.insert(address)
     }
 
     public func unregister(actorType: ActorTypeID) async throws {
@@ -281,7 +298,8 @@ public actor SwiftWebActorHost: ActorInboundInvocationInterceptor, ActorLocalInv
                 if let scopedAuthorization = factories[invocation.recipient.type]?.authorization {
                     try await scopedAuthorization.authorize(authorizationRequest)
                 }
-                if activeActors[invocation.recipient] == nil {
+                if activeActors[invocation.recipient] == nil,
+                   !forwardingAddresses.contains(invocation.recipient) {
                     try await activate(address: invocation.recipient)
                 }
                 let result = try await SwiftWebActorInvocationContext.$current.withValue(
@@ -485,6 +503,7 @@ public actor SwiftWebActorHost: ActorInboundInvocationInterceptor, ActorLocalInv
 
         let registrations = factories
         factories.removeAll(keepingCapacity: false)
+        forwardingAddresses.removeAll(keepingCapacity: false)
         var actors = activeActors
         for (address, hosted) in failedPassivations {
             actors[address] = hosted
@@ -533,6 +552,17 @@ public actor SwiftWebActorHost: ActorInboundInvocationInterceptor, ActorLocalInv
         context: ActorInvocationContext,
         execution: ActorInvocationExecution
     ) async throws -> ActorInvocationResult {
+        if forwardingAddresses.contains(invocation.recipient) {
+            do {
+                try await policy.willInvoke(invocation, context: context)
+                let result = try await execution.forward()
+                try await policy.didInvoke(invocation, result: result, context: context)
+                return result
+            } catch {
+                await policy.invocationFailed(invocation, error: error, context: context)
+                throw error
+            }
+        }
         guard var hosted = activeActors[invocation.recipient] else {
             throw ActorSystemError.actorNotFound(invocation.recipient)
         }

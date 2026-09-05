@@ -47,6 +47,43 @@ by default. WebSocket remains a separate transport capability for bidirectional
 connections; neither choice changes the concrete Distributed Actor call
 surface.
 
+When the selected actor is hosted by another Service and the deployment does
+not supply a `clientRoute`, the same-origin frame endpoint is the browser
+gateway for that exact scene-bound actor address:
+
+```mermaid
+flowchart LR
+  Browser["browser Distributed Actor call"] --> Main["same-origin frame endpoint"]
+  Main --> Admission["Main admission and Actor authorization"]
+  Admission --> Forward["ActorSystemCore outbound call"]
+  Forward --> HostRoute["deployment hostRoute"]
+  HostRoute --> Service["Service Actor host"]
+```
+
+The gateway forwards only an address produced by `.actor(Type.self,
+identity:)` that resolved to a deployment `hostRoute` with no `clientRoute`.
+An unbound address is not a forwarding destination. Main authorization and
+host policy run before the Service hop; the default `trustedOnly` policy still
+rejects browser traffic. Forwarding uses Core's normal correlation, timeout,
+cancellation, failure, and lifecycle path. It does not copy browser
+credentials into Service authority: the deployment adapter continues to own
+authentication of the Service hop, while the Service validates its hosted
+actor identity. A `clientRoute` remains a direct browser route and does not
+enable this same-origin gateway. One address cannot be both locally hosted and
+forwarded; scene registration rejects that ownership conflict before the actor
+system starts, independent of scene order.
+
+| Gateway state | Owner and access | Native / standard WASM | Embedded WASM |
+|---|---|---|---|
+| Execution claim | `ActorInvocationExecutionState.claim()`; retained by the invocation | `Mutex<Bool>` | The same `Mutex<Bool>` |
+| Forwarding addresses | `SwiftWebActorHost`; pre-seal registration, isolated lookup, cleared after shutdown drains | Actor-isolated `Set<ActorAddress>` | No inbound HTTP host is provided |
+
+The Core execution tests cover the shared claim. Host and scene tests cover
+authorization, exact binding, ownership conflicts, failure, timeout,
+cancellation, and shutdown. The browser acceptance gate exercises the real
+same-origin HTTP boundary; it is distinct from Swift-WASM hydration and
+Embedded execution.
+
 ## Authoring Model
 
 An application declares one concrete actor:
