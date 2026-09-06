@@ -63,7 +63,9 @@ The runner starts `sweb dev` and validates:
 
 Chromium retains the full development/HMR suite above. WebKit then uses the
 same server, reads its current Actor value, increments through the hydrated
-client, and verifies the persisted value after reload. Neither engine may skip.
+client, and verifies the persisted value after reload. It waits for eager
+hydration and the scheduled idle bundle before mutation/reload, then repeats
+that readiness after reload before reporting and closing. Neither engine may skip.
 
 The E2E uses separate host and WASM processes under one Swift 6.4 snapshot
 contract:
