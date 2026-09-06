@@ -42,6 +42,7 @@ flowchart TD
   Core --> Clock["ActorClock"]
   Clock --> Binding["Embedded shared-system binding"]
   Binding --> Platform["Host-supplied ActorClock"]
+  Options["ActorCallOptions task scope"] --> Facade
   Generator["Package generation"] --> Projection["Profile-specific Actor source mirror"]
   Projection --> Standard["Standard Distributed target"]
   Projection --> Embedded["Embedded target"]
@@ -57,8 +58,9 @@ Actor package owns the transport-neutral runtime beneath it.
 | Authoring | The concrete Distributed Actor type remains the caller's interface on local and remote paths. |
 | Identity | Logical actor identity is selected by Swift code; transports and deployment routes do not replace it. |
 | Ownership | One actor address is either locally hosted or forwarded; conflicting ownership is rejected. |
-| Profile projection | Generated standard clients use Core plus Distributed; Embedded clients use Core plus Embedded. |
+| Profile projection | One actor source authored with `ActorSystem = WebActorSystem` and one schema lock produce a Native authored actor plus generated registration, and an Embedded generated client. Native `WebActorSystem` delegates registration and invocation to its `SwiftActorSystem` backend; on Embedded, `WebActorSystem` aliases the generated client's `EmbeddedActorSystem`. Actor type, method, error type, and schema fingerprint identities remain equal even though the Swift actor types differ. |
 | Embedded deadline clock | `WebActorSystem.installActorClock(_:)` returns `true` after binding the platform clock for the default Embedded system before the first deadline-clock use, and `false` for a custom system whose configuration is left untouched. A deadline-free call keeps the binding window open; the first clock sleep seals it. Repeated and late installation throw typed configuration errors. |
+| Call options | `ActorCallOptions.withValue(_:operation:)` scopes options to an asynchronous task. The active scope, including `.defaults` with no timeout, wins over the actor system's initializer default; nested scopes restore and parallel scopes remain isolated without mutating the shared Embedded system. |
 | Failure | Actor invocation failures remain typed/observable and do not silently retry through the legacy JSON path. |
 | Source ownership | SwiftWeb imports Actor products from the resolved standalone checkout and mirrors source only from that checkout for generated WASM packages. Unreleased cross-repository development may consume an exact immutable upstream revision; branch and local-path overrides are not part of the published graph. |
 
@@ -74,6 +76,13 @@ rendering. The default shared system keeps that binding available through
 deadline-free calls; the first deadline sleep selects the installed clock and
 closes the installation window. An unavailable default sleep is terminal for
 the binding window and remains an explicit `ActorClockUnavailable` failure.
+
+An application can surround an ordinary generated call with
+`ActorCallOptions.withValue(_:operation:)`. The Embedded facade reads that
+task-local value, encodes its timeout in the outbound invocation frame, and
+uses the host-installed clock for the caller-side deadline. Scope restoration
+does not reinterpret the call's typed application, system, or cancellation
+failure.
 
 Generated WASM clients receive source projections for the active profile. The
 standard browser flow is separately validated by the real counter E2E; the
@@ -91,14 +100,17 @@ owner.
 | State | Owner | Isolation | Read and mutation | Release |
 |---|---|---|---|---|
 | `SwiftWebActorClockBinding.State` | One `SwiftWebActorClockBinding` reference held by the shared Embedded system holder | One `Synchronization.Mutex<State>` on every target | `install` and the first `sleep` transition use `withLock`; the selected clock is retained locally before awaiting outside the lock | The shared holder owns the binding for its lifetime; custom system configuration clocks are not replaced |
+| Active call options | Current task context in swift-actor-system | Immutable `TaskLocal` dynamic scope on every supported target | Each facade selects the active scoped value or its immutable initializer default before invoking Core | Normal return, thrown error, cancellation, and nested-scope exit restore the predecessor automatically |
 
 ## Failure, Concurrency, and Constraints
 
 Actor calls cross an explicit asynchronous boundary and preserve the runtime's
 correlation, cancellation, and shutdown contracts. Shared state remains behind
 the runtime's common synchronization contract on Native, standard WASM, and
-Embedded targets. Browser and Service gates have bounded request and process
-lifetimes. Cloud deployment is outside this release's verified runtime scope.
+Embedded targets. A task-scoped call policy is not shared mutable system state;
+it must not leak across parallel requests or survive failure/cancellation.
+Browser and Service gates have bounded request and process lifetimes. Cloud
+deployment is outside this release's verified runtime scope.
 
 ## Verification and Change Impact
 
@@ -110,7 +122,10 @@ The module's focused evidence includes
 standalone Actor package's own tests establish its lower-level contracts. The
 real `counter-wasm` gate proves generated standard-WASM browser execution and
 state mutation; generated Embedded compile/link and the standalone Embedded
-runtime validation do not claim full Embedded browser or cloud E2E.
+runtime validation do not claim full Embedded browser or cloud E2E. A generated
+Cloudflare page-worker deadline gate must originate in an ordinary generated
+Embedded actor call under `ActorCallOptions.withValue`; injecting a deadline
+only at a Native service's inbound Core boundary does not prove this path.
 
 Changes to the facade or host policy require rechecking this contract and the
 parent package design. Changes to the standalone Actor package are reviewed in

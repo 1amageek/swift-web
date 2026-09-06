@@ -66,6 +66,7 @@ exist.
 | Actor dependency | The resolved package exposes `ActorSystemCore` and the selected profile target | The generated package contains exactly those Actor source targets; lookup does not re-rank the dependency checkout relative to the application context. |
 | Standard profile | The browser target supports Distributed Actor code | `ActorSystemDistributed` is mirrored and `ActorSystemEmbedded` is absent. |
 | Embedded profile | The browser target supports Embedded Actor code | `ActorSystemEmbedded` is mirrored and `ActorSystemDistributed` is absent. |
+| Actor projection identity | Native service and Embedded client projections come from the same authored `WebActorSystem` actor source and schema lock | Native keeps the authored actor declaration and adds registration for the `SwiftActorSystem` backend wrapped by `WebActorSystem`; Embedded replaces that declaration with a generated `EmbeddedActorSystem` client. Both preserve the same actor type, method, portable error type, and schema fingerprint IDs without sharing one Swift actor type. |
 | Generated output | Existing output may contain build state | Staging/rollback preserves unrelated state and commits a complete generated root atomically. |
 
 The source mirror copies the selected source bytes and does not silently fall
@@ -81,6 +82,11 @@ back to a different profile, an empty directory, or a legacy Actor runtime.
 4. Mirror application client sources and runtime sources into the WASM package.
 5. Render manifests and launchers, synchronize lockfiles, and commit the staged
    package transaction.
+
+The Native service-host registration and Embedded client replacement are
+generated separately from the same declaration and lock. Runtime compatibility
+is the stable wire/schema identity, not equality of their target-specific Swift
+actor types. The Native generator does not replace the authored actor body.
 
 ## State, Ownership, and Lifecycle
 

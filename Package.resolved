@@ -33,8 +33,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/1amageek/swift-actor-system.git",
       "state" : {
-        "revision" : "f3f80a00e2e4c02f873e1468322c39b0f05bb75e",
-        "version" : "0.1.0"
+        "revision" : "cdbca08b3a08d3cd5620ae16b5c33c372aff1ad3"
       }
     },
     {

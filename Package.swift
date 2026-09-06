@@ -153,7 +153,10 @@ let package = Package(
             revision: "573aba6454604780c07ad8a7aabd0e153423fe4b"
         ),
         .package(url: "https://github.com/1amageek/JavaScriptKit.git", from: "0.57.0"),
-        .package(url: "https://github.com/1amageek/swift-actor-system.git", from: "0.1.0"),
+        .package(
+            url: "https://github.com/1amageek/swift-actor-system.git",
+            revision: "cdbca08b3a08d3cd5620ae16b5c33c372aff1ad3"
+        ),
         .package(url: "https://github.com/apple/swift-http-types", from: "1.0.0"),
     ] + (swiftWebHostedApplication ? [
         .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "603.0.2"),

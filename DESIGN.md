@@ -72,6 +72,7 @@ profile from the resolved checkouts; they do not link the host-only graph.
 | Toolchain | The pinned Swift 6.4 snapshot and matching SDKs are selected | Host, standard WASM, and Embedded WASM evidence is attributed only to that tuple. |
 | Actor source ownership | SwiftPM resolves `swift-actor-system` | SwiftWeb has no vendored Actor source tree; generation mirrors the resolved checkout. |
 | WASM projection | The selected profile supplies its required actor targets | Standard uses `ActorSystemCore` plus `ActorSystemDistributed`; Embedded uses `ActorSystemCore` plus `ActorSystemEmbedded`. |
+| Actor call policy | swift-actor-system supplies immutable initializer defaults and task-scoped `ActorCallOptions` | A scoped value can drive a generated call deadline without mutating SwiftWeb's shared Embedded actor system; `.defaults`, nesting, parallel requests, errors, and cancellation preserve the lower-level scope contract. |
 | Public surface | The release changes package ownership and dependency versions only | Existing Distributed Actor, scene binding, `ActorGroup`, `@RemoteActor`, HTTP, WSS, and generated-package APIs remain unchanged. |
 
 An absent runtime source or an invalid resolved graph is a materialization
