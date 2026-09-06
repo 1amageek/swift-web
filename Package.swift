@@ -162,7 +162,7 @@ let package = Package(
         .package(url: "https://github.com/swift-server/async-http-client.git", from: "1.35.0"),
         .package(url: "https://github.com/swift-server/swift-http-server", from: "0.1.0"),
         .package(url: "https://github.com/apple/swift-http-api-proposal.git", from: "0.2.0"),
-        .package(url: "https://github.com/apple/swift-nio.git", from: "2.102.0"),
+        .package(url: "https://github.com/apple/swift-nio.git", from: "2.82.0"),
         .package(url: "https://github.com/apple/swift-nio-extras.git", from: "1.34.1"),
         .package(
             url: "https://github.com/1amageek/swift-tls.git",
