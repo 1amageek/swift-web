@@ -1,6 +1,15 @@
 import Foundation
 
 struct SwiftWebEnvironmentMaterializer: Sendable {
+    private struct SwiftModuleReferences: Sendable {
+        let aliases: [String: String]
+        let compilerFlags: String
+
+        func reference(for module: String) -> String {
+            aliases[module] ?? module
+        }
+    }
+
     struct MaterializedEnvironment: Sendable {
         let environment: SwiftWebProjectResolution.Environment
         let rootDirectory: URL
@@ -178,6 +187,11 @@ struct SwiftWebEnvironmentMaterializer: Sendable {
         workspaceDirectory: URL
     ) throws -> [String: String] {
         let application = resolution.manifest.application
+        let applicationModule = application.module ?? application.product
+        let moduleReferences = makeSwiftModuleReferences(
+            application: application,
+            services: environment.services
+        )
         var values: [String: String] = [
             "project.root": resolution.packageDirectory.path,
             "generated.root": rootDirectory.path,
@@ -185,7 +199,9 @@ struct SwiftWebEnvironmentMaterializer: Sendable {
             "environment.name": environment.name,
             "application.packageIdentity": resolution.package.identity,
             "application.product": application.product,
-            "application.module": application.module ?? application.product,
+            "application.module": applicationModule,
+            "application.swiftImport":
+                "import \(moduleReferences.reference(for: applicationModule))",
             "application.type": application.type,
             "application.kebabName": Self.kebabCase(application.product),
         ]
@@ -233,16 +249,65 @@ struct SwiftWebEnvironmentMaterializer: Sendable {
         let actors = try actorSubstitutions(
             resolution: resolution,
             environment: environment,
-            substitutions: values
+            substitutions: values,
+            moduleReferences: moduleReferences
         )
         values.merge(actors) { _, actor in actor }
+        values["actors.swiftCompilerFlags"] = moduleReferences.compilerFlags
         return values
+    }
+
+    private func makeSwiftModuleReferences(
+        application: SwiftWebProjectManifest.Application,
+        services: [SwiftWebProjectResolution.Service]
+    ) -> SwiftModuleReferences {
+        let applicationModule = application.module ?? application.product
+        var importedModules: Set<String> = [applicationModule]
+        var knownModuleNames = importedModules
+        var typeNames = [application.type]
+        for service in services {
+            knownModuleNames.insert(
+                service.project.application.module ?? service.project.application.product
+            )
+            typeNames.append(service.project.application.type)
+            for actor in service.project.actors {
+                let module = actor.module ?? actor.product
+                knownModuleNames.insert(module)
+                typeNames.append(actor.type)
+                if service.actorBinding != nil { importedModules.insert(module) }
+            }
+        }
+        let knownTypeNames = Set(typeNames.map { String($0.prefix { $0 != "." }) })
+        let collidingModules = importedModules
+            .filter { knownTypeNames.contains($0) }
+            .sorted()
+
+        var occupiedNames = knownModuleNames.union(knownTypeNames)
+        var aliases: [String: String] = [:]
+        var nextAlias = 1
+        for module in collidingModules {
+            var alias = "SwiftWebGeneratedActorModule\(nextAlias)"
+            while occupiedNames.contains(alias) {
+                nextAlias += 1
+                alias = "SwiftWebGeneratedActorModule\(nextAlias)"
+            }
+            aliases[module] = alias
+            occupiedNames.insert(alias)
+            nextAlias += 1
+        }
+
+        let compilerFlags = collidingModules.map { module in
+            let alias = aliases[module]!
+            return "\"-module-alias\", \"\(alias)=\(module)\""
+        }.joined(separator: ", ")
+        return SwiftModuleReferences(aliases: aliases, compilerFlags: compilerFlags)
     }
 
     private func actorSubstitutions(
         resolution: SwiftWebProjectResolution,
         environment: SwiftWebProjectResolution.Environment,
-        substitutions: [String: String]
+        substitutions: [String: String],
+        moduleReferences: SwiftModuleReferences
     ) throws -> [String: String] {
         var imports = Set<String>()
         var productDependencies = Set<String>()
@@ -278,12 +343,12 @@ struct SwiftWebEnvironmentMaterializer: Sendable {
                     )
                 }
                 let expression = swiftServiceBinding(
-                    module: module,
+                    module: moduleReferences.reference(for: module),
                     type: actor.type,
                     hostRoute: hostRoute,
                     clientRoute: clientRoute
                 )
-                imports.insert("import \(module)")
+                imports.insert("import \(moduleReferences.reference(for: module))")
                 if actor.product != resolution.manifest.application.product {
                     productDependencies.insert(
                         ".product(name: \"\(swiftString(actor.product))\", package: \"\(swiftString(resolution.package.identity))\")"

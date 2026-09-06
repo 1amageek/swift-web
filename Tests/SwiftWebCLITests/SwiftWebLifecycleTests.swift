@@ -879,6 +879,14 @@ final class SwiftWebLifecycleTests: XCTestCase {
                 materialized.substitutions["actors.swiftImports"],
                 "import CalendarActorContract"
             )
+            XCTAssertEqual(
+                materialized.substitutions["application.swiftImport"],
+                "import Calendar"
+            )
+            XCTAssertEqual(
+                materialized.substitutions["actors.swiftCompilerFlags"],
+                ""
+            )
             let actorBindings = try XCTUnwrap(
                 materialized.substitutions["actors.swiftServiceBindings"]
             )
@@ -917,6 +925,218 @@ final class SwiftWebLifecycleTests: XCTestCase {
                 developmentPlan.tasks.map(\.lifetime),
                 [.finite, .persistent, .persistent]
             )
+        }
+    }
+
+    func testMaterializerQualifiesCollidingActorModulesWithLauncherAliases() async throws {
+        try await withTemporaryDirectory { root in
+            let app = root.appendingPathComponent("App", isDirectory: true)
+            let cloud = root.appendingPathComponent("cloud", isDirectory: true)
+            try FileManager.default.createDirectory(
+                at: app,
+                withIntermediateDirectories: true
+            )
+            try FileManager.default.createDirectory(
+                at: cloud,
+                withIntermediateDirectories: true
+            )
+
+            let adapterManifest = SwiftWebAdapterManifest(
+                schemaVersion: 3,
+                kind: "adapter",
+                id: "cloud",
+                defaults: .init(host: "worker", deployment: "workers"),
+                hosts: [
+                    "worker": .init(produces: ["swiftweb.wasm"])
+                ],
+                deployments: [
+                    "workers": .init(
+                        accepts: ["swiftweb.wasm"],
+                        acceptsServiceArtifacts: ["cloudflare.external-service"],
+                        actorBindings: [
+                            "cloudflare.external-service": .init(
+                                hostRoute: .init(
+                                    transport: "swiftweb.http",
+                                    endpointPrefix: "cloudflare-do://{{service.name}}/"
+                                )
+                            )
+                        ]
+                    )
+                ],
+                services: [
+                    "actors": .init(produces: ["cloudflare.external-service"])
+                ]
+            )
+            let adapterPackage = SwiftPackageDependencyGraph.Package(
+                identity: "cloud",
+                name: "Cloud",
+                url: cloud.path,
+                version: "1.0.0",
+                path: cloud.path,
+                dependencies: []
+            )
+            let adapter = SwiftWebProjectResolution.Adapter(
+                package: adapterPackage,
+                directory: cloud,
+                manifest: adapterManifest
+            )
+            let actorBinding = try XCTUnwrap(
+                adapterManifest.deployments["workers"]?.actorBindings[
+                    "cloudflare.external-service"
+                ]
+            )
+            let serviceProject = SwiftWebProjectManifest.Service(
+                application: .init(
+                    product: "Service",
+                    module: "Service",
+                    type: "SwiftWebGeneratedActorModule1"
+                ),
+                adapter: "cloud/actors",
+                actors: [
+                    .init(product: "CollisionActors", module: "Collision", type: "ProbeActor"),
+                    .init(product: "OtherActors", module: "ProbeActor", type: "ProbeActor"),
+                ]
+            )
+            let service = SwiftWebProjectResolution.Service(
+                name: "actors",
+                project: serviceProject,
+                adapter: adapter,
+                componentName: "actors",
+                component: try XCTUnwrap(adapterManifest.services["actors"]),
+                actorBinding: actorBinding
+            )
+            let projectManifest = SwiftWebProjectManifest(
+                schemaVersion: 3,
+                application: .init(
+                    product: "CollisionApp",
+                    module: "Collision",
+                    type: "Collision"
+                ),
+                services: ["actors": serviceProject],
+                environments: [
+                    "production": .init(
+                        host: "cloud/worker",
+                        deployment: "cloud/workers",
+                        services: ["actors"]
+                    )
+                ],
+                defaults: .init(build: "production", dev: nil, deploy: "production")
+            )
+            let package = SwiftPackageDependencyGraph.Package(
+                identity: "collision-app",
+                name: "CollisionApp",
+                url: app.path,
+                version: "unspecified",
+                path: app.path,
+                dependencies: [adapterPackage]
+            )
+            let resolution = SwiftWebProjectResolution(
+                packageDirectory: app,
+                package: package,
+                manifest: projectManifest,
+                adapters: ["cloud": adapter]
+            )
+            let environment = SwiftWebProjectResolution.Environment(
+                name: "production",
+                project: try XCTUnwrap(projectManifest.environments["production"]),
+                hostAdapter: adapter,
+                hostName: "worker",
+                host: try XCTUnwrap(adapterManifest.hosts["worker"]),
+                deploymentAdapter: adapter,
+                deploymentName: "workers",
+                deployment: try XCTUnwrap(adapterManifest.deployments["workers"]),
+                services: [service]
+            )
+
+            let materialized = try SwiftWebEnvironmentMaterializer().materialize(
+                resolution: resolution,
+                environment: environment
+            )
+
+            XCTAssertEqual(
+                materialized.substitutions["application.swiftImport"],
+                "import SwiftWebGeneratedActorModule2"
+            )
+            XCTAssertEqual(
+                materialized.substitutions["actors.swiftImports"],
+                "import SwiftWebGeneratedActorModule2\nimport SwiftWebGeneratedActorModule3"
+            )
+            XCTAssertEqual(
+                materialized.substitutions["actors.swiftCompilerFlags"],
+                "\"-module-alias\", \"SwiftWebGeneratedActorModule2=Collision\", \"-module-alias\", \"SwiftWebGeneratedActorModule3=ProbeActor\""
+            )
+            let bindings = try XCTUnwrap(
+                materialized.substitutions["actors.swiftServiceBindings"]
+            )
+            XCTAssertTrue(
+                bindings.contains(
+                    "SwiftWebGeneratedActorModule2.ProbeActor.actorTypeDescriptor.id"
+                )
+            )
+            XCTAssertTrue(bindings.contains("SwiftWebGeneratedActorModule3.ProbeActor.actorTypeDescriptor.id"))
+            XCTAssertFalse(bindings.contains("actorType: .ProbeActor.actorTypeDescriptor.id"))
+
+            // Compile the materializer's actual references against unchanged
+            // modules, including two distinct actors with the same type name.
+            let packageRoot = URL(fileURLWithPath: #filePath)
+                .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            let swiftc = try SwiftBuildInvocation.host(packageDirectory: packageRoot)
+                .executableURL.deletingLastPathComponent().appendingPathComponent("swiftc")
+            let sdkQuery = Process()
+            sdkQuery.executableURL = URL(fileURLWithPath: "/usr/bin/xcrun")
+            sdkQuery.arguments = ["--sdk", "macosx", "--show-sdk-path"]
+            let sdkOutput = Pipe()
+            sdkQuery.standardOutput = sdkOutput
+            let sdkStatus = try await SwiftWebLifecycleCommandRunner().run(sdkQuery)
+            XCTAssertEqual(sdkStatus, 0)
+            let sdk = String(decoding: sdkOutput.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            func run(_ executable: URL, _ arguments: [String]) async throws {
+                let process = Process()
+                process.executableURL = executable
+                process.arguments = executable == swiftc ? ["-sdk", sdk] + arguments : arguments
+                process.currentDirectoryURL = root
+                process.standardInput = FileHandle.nullDevice
+                let status = try await SwiftWebLifecycleCommandRunner().run(process)
+                guard status == 0 else {
+                    throw NSError(domain: "ModuleReferenceCompilerRegression", code: Int(status))
+                }
+            }
+            for (module, value) in [("Collision", 42), ("ProbeActor", 7)] {
+                let application = module == "Collision"
+                    ? "public struct Collision { public init() {} }" : ""
+                try """
+                    \(application)
+                    public enum ProbeActor {
+                        public struct Descriptor { public let id: Int }
+                        public static let actorTypeDescriptor = Descriptor(id: \(value))
+                    }
+                    """.write(to: root.appendingPathComponent("\(module).swift"), atomically: true, encoding: .utf8)
+                try await run(swiftc, [
+                    "-parse-as-library", "-emit-module", "-emit-object", "-module-name", module,
+                    "\(module).swift", "-o", "\(module).o",
+                ])
+            }
+            let expressions = bindings.split(separator: "\n").compactMap { line -> String? in
+                let field = line.trimmingCharacters(in: .whitespaces)
+                guard field.hasPrefix("actorType: ") else { return nil }
+                return String(field.dropFirst("actorType: ".count).dropLast())
+            }
+            XCTAssertEqual(expressions.count, 2)
+            let imports = try XCTUnwrap(materialized.substitutions["actors.swiftImports"])
+            let applicationImport = try XCTUnwrap(materialized.substitutions["application.swiftImport"])
+            try """
+                \(applicationImport)
+                \(imports)
+                let application = Collision()
+                precondition([\(expressions.joined(separator: ", "))] == [42, 7])
+                """.write(to: root.appendingPathComponent("Launcher.swift"), atomically: true, encoding: .utf8)
+            let flags = try XCTUnwrap(materialized.substitutions["actors.swiftCompilerFlags"])
+            let compilerArguments = try JSONDecoder().decode([String].self, from: Data("[\(flags)]".utf8))
+            try await run(swiftc, compilerArguments + [
+                "-I", root.path, "Launcher.swift", "Collision.o", "ProbeActor.o", "-o", "launcher",
+            ])
+            try await run(root.appendingPathComponent("launcher"), [])
         }
     }
 

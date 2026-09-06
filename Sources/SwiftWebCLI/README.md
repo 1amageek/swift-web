@@ -77,6 +77,11 @@ resolver and environment materializer. The native Host continues to use the
 existing generated package materializer. Generated output is replaceable build
 state and is not an application authoring location.
 
+Adapter launchers consume the collision-safe Swift module imports and
+launcher-only compiler aliases defined by the
+[adapter contract](../../docs/AdapterContract.md). The environment materializer
+does not rename application or service modules in their package graphs.
+
 Production and development server launchers import `SwiftWebHTTPServerHost`.
 Development workers also import `SwiftWebDevelopmentHooks`; they do not import
 the watcher, proxy, package materializer, or process supervisor.

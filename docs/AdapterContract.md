@@ -208,11 +208,13 @@ Text templates may use:
 | `{{application.packageIdentity}}` | Resolved SwiftPM package identity |
 | `{{application.product}}` | Application library product |
 | `{{application.module}}` | Application module |
+| `{{application.swiftImport}}` | Application import using its collision-safe launcher module reference |
 | `{{application.type}}` | Concrete `App` type |
 | `{{application.kebabName}}` | Product name converted to kebab case |
 | `{{adapter.<id>.root}}` | Resolved adapter package root |
 | `{{adapter.<id>.swiftPackageRequirement}}` | Resolved SwiftPM remote URL with an exact version or immutable revision, or an explicit local-development path |
 | `{{actors.swiftImports}}` | Imports for concrete Actor contracts selected by the environment |
+| `{{actors.swiftCompilerFlags}}` | Comma-separated quoted Swift arguments for the launcher's `.unsafeFlags([...])`, or empty when no module alias is needed |
 | `{{actors.swiftProductDependencies}}` | SwiftPM product dependencies required by generated Actor descriptors |
 | `{{actors.swiftServiceBindings}}` | Typed `SwiftWebActorServiceBinding` values for the host launcher |
 | `{{actors.deploymentBindingsJSON}}` | Structured deployment bindings for the platform request bridge |
@@ -243,6 +245,32 @@ A local adapter selected intentionally during development continues to render
 "{{project.root}}")` is also retained because it composes the authored
 application sources into their generated host; it is not an external adapter
 dependency or a substitute for source-control provenance.
+
+Swift source permits an imported module qualifier to be shadowed by an
+in-scope type with the same identifier. Before rendering Swift imports and
+Actor binding expressions, the materializer compares every qualifier only with
+the known top-level application and service type identifiers. This collision
+set contains the first Swift path component of `application.type`, every
+`service.application.type`, and every declared `service.actors[].type`. Module
+identifiers do not cause collisions with themselves; they belong only to the
+alias name reservation set. A colliding module is assigned the first unused
+`SwiftWebGeneratedActorModule<N>` alias in sorted original-module order. The
+chosen alias must not equal a known module, known type, or previously selected
+alias.
+
+`{{application.swiftImport}}` and `{{actors.swiftImports}}` import the selected
+reference, and `{{actors.swiftServiceBindings}}` qualifies each Actor type with
+that same reference. `{{actors.swiftCompilerFlags}}` supplies the quoted
+`"-module-alias", "Alias=Original"` argument pair for each collision, joined
+for direct insertion inside the launcher target's `.unsafeFlags([...])`; it is
+empty when no alias exists and does not render a complete `SwiftSetting`. The
+application and service packages are not rebuilt with SwiftPM `moduleAliases`,
+and their recorded module names, ABI names, Actor IDs, and schema fingerprints
+do not change.
+Non-colliding rendered imports and binding expressions retain their existing
+meaning. Actor types with the same name in different modules remain module
+qualified; the materializer never resolves this collision by emitting an
+unqualified Actor type.
 
 The selected components, resolved package paths, and concrete Actor contract
 types are recorded in schema-version-3 `plan.lock.json`. Logical identities and

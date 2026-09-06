@@ -68,6 +68,7 @@ profile from the resolved checkouts; they do not link the host-only graph.
 | Boundary | Assumption | Guarantee |
 |---|---|---|
 | SwiftPM graph | SwiftPM provides the dependency topology and checkout paths, and `Package.resolved` provides source-control pins | Remote adapter requirements materialize as exact versions or exact immutable revisions, never silently as checkout paths. Local paths remain limited to explicit local development and the generated application's own root composition. |
+| Adapter Swift module references | A generated launcher may import a module whose identifier is shadowed by an application or service type | The adapter materializer applies the collision-only launcher alias contract from [Adapter contract](docs/AdapterContract.md); original package/module identity, Actor/schema identity, and non-colliding source semantics remain unchanged. |
 | Platform | The host is macOS 26.2 or newer | The package and generated host consumers use the same minimum platform. |
 | Toolchain | The pinned Swift 6.4 snapshot and matching SDKs are selected | Host, standard WASM, and Embedded WASM evidence is attributed only to that tuple. |
 | Actor source ownership | SwiftPM resolves `swift-actor-system` | SwiftWeb has no vendored Actor source tree; generation mirrors the resolved checkout. |
@@ -85,7 +86,8 @@ failure. It is never replaced with an empty or pseudo-runtime source set.
    graph with their source-control pins from `Package.resolved`. Separately, the
    package-generation materializer discovers the resolved SwiftWeb and SwiftHTML
    roots and locates the Actor targets from that dependency context.
-3. The materializer writes isolated server, development, and profile-specific
+3. The adapter materializer renders collision-safe launcher module references;
+   package generation writes isolated server, development, and profile-specific
    WASM packages.
 4. Native hosts serve rendered documents; standard WASM performs browser
    hydration and state reconciliation; Embedded WASM uses the generated actor
