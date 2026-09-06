@@ -317,7 +317,7 @@ struct WasmRuntimeSourceMirror: Sendable {
         to: destinationDirectory,
         relativePath: "",
         shouldSkip: { relativePath in
-          relativePath == "README.md"
+          relativePath == "README.md" || relativePath == "DESIGN.md"
         }
       )
     }
@@ -354,7 +354,7 @@ struct WasmRuntimeSourceMirror: Sendable {
         from: sourceDirectory,
         to: destinationDirectory,
         relativePath: "",
-        shouldSkip: { $0 == "README.md" }
+        shouldSkip: { $0 == "README.md" || $0 == "DESIGN.md" }
       )
     }
   }
@@ -363,14 +363,10 @@ struct WasmRuntimeSourceMirror: Sendable {
     swiftWebPackageDirectory: URL,
     targetNames: [String]
   ) throws -> URL {
-    let compiledPackageDirectory = PackageGenerationSourceLocator
-      .packageDirectoryContainingThisFile()
-    let candidates = [
-      swiftWebPackageDirectory
-        .appendingPathComponent("Packages/swift-actor-system/Sources", isDirectory: true),
-      compiledPackageDirectory
-        .appendingPathComponent("Packages/swift-actor-system/Sources", isDirectory: true),
-    ]
+    let candidates = Self.actorSystemSourceRootCandidates(
+      appPackageDirectory: appPackageDirectory,
+      swiftWebPackageDirectory: swiftWebPackageDirectory
+    )
     for candidate in candidates where targetNames.allSatisfy({ targetName in
       FileManager.default.fileExists(
         atPath: candidate.appendingPathComponent(targetName, isDirectory: true).path
@@ -381,6 +377,34 @@ struct WasmRuntimeSourceMirror: Sendable {
     throw SwiftWebGeneratedPackageMaterializerError.actorSystemRuntimeSourcesNotFound(
       candidates
     )
+  }
+
+  private static func actorSystemSourceRootCandidates(
+    appPackageDirectory: URL,
+    swiftWebPackageDirectory: URL
+  ) -> [URL] {
+    let compiledPackageDirectory = PackageGenerationSourceLocator
+      .packageDirectoryContainingThisFile()
+    let checkoutParents = [
+      appPackageDirectory.appendingPathComponent(".build/checkouts", isDirectory: true),
+      swiftWebPackageDirectory.appendingPathComponent(".build/checkouts", isDirectory: true),
+      swiftWebPackageDirectory.deletingLastPathComponent(),
+      compiledPackageDirectory.appendingPathComponent(".build/checkouts", isDirectory: true),
+      compiledPackageDirectory.deletingLastPathComponent(),
+    ]
+
+    var seen = Set<String>()
+    return checkoutParents.compactMap { parent in
+      let candidate = parent.appendingPathComponent(
+        "swift-actor-system/Sources",
+        isDirectory: true
+      )
+      let path = candidate.standardizedFileURL.path
+      guard seen.insert(path).inserted else {
+        return nil
+      }
+      return candidate
+    }
   }
 
   private func copyJavaScriptKitRuntimeSources(

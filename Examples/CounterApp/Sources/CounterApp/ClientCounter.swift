@@ -58,7 +58,11 @@ public struct ClientCounter: ClientComponent {
                 value = try await counter.increment()
                 failureMessage = nil
             } catch {
+#if hasFeature(Embedded)
+                failureMessage = "Actor request failed"
+#else
                 failureMessage = String(describing: error)
+#endif
             }
         }
     }
@@ -75,7 +79,11 @@ public struct ClientCounter: ClientComponent {
                 value = try await counter.decrement()
                 failureMessage = nil
             } catch {
+#if hasFeature(Embedded)
+                failureMessage = "Actor request failed"
+#else
                 failureMessage = String(describing: error)
+#endif
             }
         }
     }

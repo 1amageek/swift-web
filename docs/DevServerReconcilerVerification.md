@@ -12,12 +12,21 @@ Unit-test success alone does not satisfy T8.
 |---|---|
 | Swift toolchain | `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-08-14-a` |
 | Standard WASM SDK | `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-08-14-a_wasm` |
-| `swift-html` | released package `0.15.0` |
+| `swift-html` | released package `0.16.0` |
 | Browser | Playwright Chromium; WebKit is an optional additional smoke |
 
 The E2E rewrites only the `swift-web` dependency to the local checkout. It
 keeps `swift-html` as a remote versioned dependency so unpublished sibling
 repository changes cannot make the verification pass.
+
+The standard browser gate below is independent from the generated Embedded
+profile gate. The Embedded gate compiles and links the generated CounterApp
+package with `ActorSystemCore` plus `ActorSystemEmbedded` under the matching
+`_wasm-embedded` SDK; it does not claim Embedded browser or cloud execution.
+The pinned snapshot's debug-only SIL verifier diagnostic for the unchanged
+`Optional<String>` failure state is recorded in the [toolchain
+contract](Toolchain.md), while the release-profile compile/link gate remains
+the accepted Embedded evidence.
 
 ## Automated gate
 

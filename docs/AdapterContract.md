@@ -6,9 +6,9 @@ dependencies. `sweb` discovers their `Adapter/sweb.json` manifests from the
 resolved package graph; it has no Cloudflare, Vapor, or other platform-specific
 command implementation.
 
-This document describes the schema-version-3 implementation on `main`. Use a
-CLI, SwiftWeb dependency, and adapter manifests with that same schema contract;
-the 0.11.0 release does not contain these Service Actor changes.
+This document describes the schema-version-3 implementation released in
+SwiftWeb 0.12.0. Use a CLI, SwiftWeb dependency, and adapter manifests with
+that same schema contract.
 
 ```mermaid
 flowchart LR

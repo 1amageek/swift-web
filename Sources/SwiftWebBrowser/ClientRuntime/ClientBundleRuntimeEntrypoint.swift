@@ -139,7 +139,15 @@ protocol ClientRuntimeAtomicStyleHost: BrowserDOMHost {
     func applyAtomicStyleRules(_ rules: [ClientRuntimeAtomicStyleRule]) throws
 }
 
-public final class ClientBundleRuntimeEntrypoint: Sendable {
+extension ClientRuntimeAtomicStyleHost {
+    func applyAtomicStyleRules(_ rules: [ClientRuntimeAtomicStyleRule]) throws {
+        throw ClientRuntimeBridgeError.asynchronousUpdateFailed(
+            "The DOM host cannot apply atomic style rules"
+        )
+    }
+}
+
+private final class ClientBundleRuntimeEntrypointState: Sendable {
     private enum StartPhase: Sendable, Equatable {
         case idle
         case pending
@@ -175,7 +183,7 @@ public final class ClientBundleRuntimeEntrypoint: Sendable {
     private let accessGate = ClientRuntimeAccessGate()
     private let responseStorage: ClientRuntimeResponseStorage
     private let registrations: [ClientComponentRegistration]
-    private let domHost: (any BrowserDOMHost)?
+    private let domHost: (any ClientRuntimeAtomicStyleHost)?
     private let actorSystem: WebActorSystem
     private let actorRouteBindingRouter: SwiftWebActorBindingRouter?
     #if SWIFTWEB_LEGACY_ACTORS
@@ -187,7 +195,7 @@ public final class ClientBundleRuntimeEntrypoint: Sendable {
     #endif
     private let runtimeState = Mutex(RuntimeState())
 
-    public init(registrations: [ClientComponentRegistration]) {
+    init(registrations: [ClientComponentRegistration]) {
         self.registrations = registrations
         self.domHost = Self.browserDOMHost()
         self.responseStorage = ClientRuntimeResponseStorage()
@@ -211,7 +219,7 @@ public final class ClientBundleRuntimeEntrypoint: Sendable {
 
     init(
         registrations: [ClientComponentRegistration],
-        domHost: (any BrowserDOMHost)?,
+        domHost: (any ClientRuntimeAtomicStyleHost)?,
         responseStorage: ClientRuntimeResponseStorage = ClientRuntimeResponseStorage()
     ) {
         self.registrations = registrations
@@ -235,7 +243,31 @@ public final class ClientBundleRuntimeEntrypoint: Sendable {
         #endif
     }
 
-    private static func browserDOMHost() -> (any BrowserDOMHost)? {
+    func detach() {
+        let entries = runtimeState.withLock { state -> [RuntimeEntry] in
+            let entries = state.runtimeEntries
+            state.runtimeEntries.removeAll(keepingCapacity: false)
+            state.runtimeIndexByHandlerID = HandlerRuntimeMap()
+            state.hydrationIndex = .empty
+            state.retiringTerminations.removeAll(keepingCapacity: false)
+            state.startTask?.cancel()
+            state.startTask = nil
+            state.shutdownCompletion = nil
+            if state.shutdownPhase == .idle {
+                state.shutdownPhase = .pending
+            }
+            return entries
+        }
+        for entry in entries {
+            entry.runtime.detach()
+        }
+    }
+
+    deinit {
+        detach()
+    }
+
+    private static func browserDOMHost() -> (any ClientRuntimeAtomicStyleHost)? {
         #if os(WASI)
         JavaScriptKitBrowserDOMHost()
         #else
@@ -243,7 +275,7 @@ public final class ClientBundleRuntimeEntrypoint: Sendable {
         #endif
     }
 
-    public func allocate(byteCount: UInt32) -> UInt32 {
+    func allocate(byteCount: UInt32) -> UInt32 {
         let pointer = UnsafeMutableRawPointer.allocate(
             byteCount: Int(byteCount),
             alignment: MemoryLayout<UInt8>.alignment
@@ -251,14 +283,14 @@ public final class ClientBundleRuntimeEntrypoint: Sendable {
         return UInt32(UInt(bitPattern: pointer))
     }
 
-    public func deallocate(pointer: UInt32, byteCount: UInt32) {
+    func deallocate(pointer: UInt32, byteCount: UInt32) {
         guard let rawPointer = UnsafeMutableRawPointer(bitPattern: Int(pointer)) else {
             return
         }
         rawPointer.deallocate()
     }
 
-    public func bootstrap(pointer: UInt32, length: UInt32) -> UInt32 {
+    func bootstrap(pointer: UInt32, length: UInt32) -> UInt32 {
         performOperation {
             #if os(WASI)
             let request = try ClientRuntimeJSONCodec.decodeBootstrapRequest(
@@ -276,7 +308,7 @@ public final class ClientBundleRuntimeEntrypoint: Sendable {
         }
     }
 
-    public func dispatchEvent(pointer: UInt32, length: UInt32) -> UInt32 {
+    func dispatchEvent(pointer: UInt32, length: UInt32) -> UInt32 {
         performOperation {
             #if os(WASI)
             let request = try ClientRuntimeJSONCodec.decodeEventRequest(
@@ -294,7 +326,7 @@ public final class ClientBundleRuntimeEntrypoint: Sendable {
         }
     }
 
-    public func snapshotState() -> UInt32 {
+    func snapshotState() -> UInt32 {
         performOperation {
             try responseStorage.store(try snapshotStateValue())
         }
@@ -321,7 +353,7 @@ public final class ClientBundleRuntimeEntrypoint: Sendable {
         )
     }
 
-    public func restoreState(pointer: UInt32, length: UInt32) -> UInt32 {
+    func restoreState(pointer: UInt32, length: UInt32) -> UInt32 {
         performOperation {
             #if os(WASI)
             let snapshot = try ClientRuntimeJSONCodec.decodeStateSnapshot(
@@ -346,19 +378,19 @@ public final class ClientBundleRuntimeEntrypoint: Sendable {
         }
     }
 
-    public func responseLength() -> UInt32 {
+    func responseLength() -> UInt32 {
         responseStorage.responseLength()
     }
 
-    public func copyResponse(pointer: UInt32, capacity: UInt32) -> UInt32 {
+    func copyResponse(pointer: UInt32, capacity: UInt32) -> UInt32 {
         responseStorage.copyResponse(pointer: pointer, capacity: capacity)
     }
 
-    public func freeResponse() {
+    func freeResponse() {
         responseStorage.free()
     }
 
-    public func start() -> UInt32 {
+    func start() -> UInt32 {
         do {
             return try accessGate.withExclusiveAccess {
                 switch runtimeState.withLock({ $0.startPhase }) {
@@ -412,7 +444,7 @@ public final class ClientBundleRuntimeEntrypoint: Sendable {
         }
     }
 
-    public func startStatus() -> UInt32 {
+    func startStatus() -> UInt32 {
         switch runtimeState.withLock({ $0.startPhase }) {
         case .idle, .pending:
             return 3
@@ -423,7 +455,7 @@ public final class ClientBundleRuntimeEntrypoint: Sendable {
         }
     }
 
-    public func shutdown() -> UInt32 {
+    func shutdown() -> UInt32 {
         do {
             return try accessGate.withExclusiveAccess {
                 let existingPhase = runtimeState.withLock { $0.shutdownPhase }
@@ -526,7 +558,7 @@ public final class ClientBundleRuntimeEntrypoint: Sendable {
 
     /// Returns 3 while shutdown is pending, 0 after cleanup completed, 1 after
     /// cleanup failed, and 2 when the synchronous ABI access gate rejects reentry.
-    public func shutdownStatus() -> UInt32 {
+    func shutdownStatus() -> UInt32 {
         switch runtimeState.withLock({ $0.shutdownPhase }) {
         case .idle, .pending:
             return 3
@@ -570,6 +602,9 @@ public final class ClientBundleRuntimeEntrypoint: Sendable {
     }
 
     func bootstrap(_ request: ClientRuntimeBootstrapRequest) throws -> ClientRuntimeResponse {
+        guard runtimeState.withLock({ $0.shutdownPhase == .idle }) else {
+            throw ClientRuntimeBridgeError.shutDown
+        }
         #if SWIFTWEB_ACTORS || hasFeature(Embedded)
         if ownsActorSystem {
             switch runtimeState.withLock({ $0.startPhase }) {
@@ -745,10 +780,7 @@ public final class ClientBundleRuntimeEntrypoint: Sendable {
             actorSystem: actorSystem
         )
         #endif
-        runtime.installAsynchronousUpdateHandler { [weak self] componentID, response in
-            guard let self else {
-                throw ClientRuntimeBridgeError.shutDown
-            }
+        runtime.installAsynchronousUpdateHandler { componentID, response in
             try await self.applyAsynchronousUpdate(
                 from: componentID,
                 response: response
@@ -803,12 +835,7 @@ public final class ClientBundleRuntimeEntrypoint: Sendable {
             return
         }
         if let domHost, !response.atomicStyleRules.isEmpty {
-            guard let styleHost = domHost as? any ClientRuntimeAtomicStyleHost else {
-                throw ClientRuntimeBridgeError.asynchronousUpdateFailed(
-                    "The DOM host cannot apply atomic style rules"
-                )
-            }
-            try styleHost.applyAtomicStyleRules(response.atomicStyleRules)
+            try domHost.applyAtomicStyleRules(response.atomicStyleRules)
         }
         if let domHost,
            let commandBatch = response.commandBatch,
@@ -1045,6 +1072,106 @@ public final class ClientBundleRuntimeEntrypoint: Sendable {
     }
 }
 
+public final class ClientBundleRuntimeEntrypoint: Sendable {
+    private let state: ClientBundleRuntimeEntrypointState
+
+    public init(registrations: [ClientComponentRegistration]) {
+        self.state = ClientBundleRuntimeEntrypointState(registrations: registrations)
+    }
+
+    init(
+        registrations: [ClientComponentRegistration],
+        domHost: (any ClientRuntimeAtomicStyleHost)?,
+        responseStorage: ClientRuntimeResponseStorage = ClientRuntimeResponseStorage()
+    ) {
+        self.state = ClientBundleRuntimeEntrypointState(
+            registrations: registrations,
+            domHost: domHost,
+            responseStorage: responseStorage
+        )
+    }
+
+    deinit {
+        state.detach()
+    }
+
+    public func allocate(byteCount: UInt32) -> UInt32 {
+        state.allocate(byteCount: byteCount)
+    }
+
+    public func deallocate(pointer: UInt32, byteCount: UInt32) {
+        state.deallocate(pointer: pointer, byteCount: byteCount)
+    }
+
+    public func bootstrap(pointer: UInt32, length: UInt32) -> UInt32 {
+        state.bootstrap(pointer: pointer, length: length)
+    }
+
+    public func dispatchEvent(pointer: UInt32, length: UInt32) -> UInt32 {
+        state.dispatchEvent(pointer: pointer, length: length)
+    }
+
+    public func snapshotState() -> UInt32 {
+        state.snapshotState()
+    }
+
+    func snapshotStateValue() throws -> ClientRuntimeStateSnapshot {
+        try state.snapshotStateValue()
+    }
+
+    public func restoreState(pointer: UInt32, length: UInt32) -> UInt32 {
+        state.restoreState(pointer: pointer, length: length)
+    }
+
+    public func responseLength() -> UInt32 {
+        state.responseLength()
+    }
+
+    public func copyResponse(pointer: UInt32, capacity: UInt32) -> UInt32 {
+        state.copyResponse(pointer: pointer, capacity: capacity)
+    }
+
+    public func freeResponse() {
+        state.freeResponse()
+    }
+
+    public func start() -> UInt32 {
+        state.start()
+    }
+
+    public func startStatus() -> UInt32 {
+        state.startStatus()
+    }
+
+    public func shutdown() -> UInt32 {
+        state.shutdown()
+    }
+
+    public func shutdownStatus() -> UInt32 {
+        state.shutdownStatus()
+    }
+
+    func bootstrapStatus(_ request: ClientRuntimeBootstrapRequest) -> UInt32 {
+        state.bootstrapStatus(request)
+    }
+
+    func dispatchStatus(_ request: ClientRuntimeEventRequest) -> UInt32 {
+        state.dispatchStatus(request)
+    }
+
+    func copyResponse(to destination: UnsafeMutableRawPointer, capacity: Int) -> Int {
+        state.copyResponse(to: destination, capacity: capacity)
+    }
+
+    func bootstrap(_ request: ClientRuntimeBootstrapRequest) throws -> ClientRuntimeResponse {
+        try state.bootstrap(request)
+    }
+
+    func dispatch(_ request: ClientRuntimeEventRequest) throws -> ClientRuntimeResponse {
+        try state.dispatch(request)
+    }
+}
+
 fileprivate protocol RegisteredClientRuntime: AnyObject, Sendable {
     var componentID: ComponentID { get }
     func installAsynchronousUpdateHandler(
@@ -1054,10 +1181,11 @@ fileprivate protocol RegisteredClientRuntime: AnyObject, Sendable {
     func dispatch(_ request: ClientRuntimeEventRequest) throws -> ClientRuntimeResponse
     func snapshotState() throws -> ClientRuntimeStateSnapshot
     func restoreState(_ snapshot: ClientRuntimeStateSnapshot) throws
+    func detach()
     func requestShutdown() throws -> ActorSystemTermination?
 }
 
-private final class ClientRegisteredRuntime<Root: Component>: RegisteredClientRuntime {
+private final class ClientRegisteredRuntimeState<Root: Component>: Sendable {
     typealias AsynchronousUpdateHandler = @Sendable (
         ComponentID,
         ClientRuntimeResponse
@@ -1099,8 +1227,8 @@ private final class ClientRegisteredRuntime<Root: Component>: RegisteredClientRu
     func bootstrap(_ request: ClientRuntimeBootstrapRequest) throws -> ClientRuntimeResponse {
         try requireNoAsynchronousFailure()
         let response = try bridge.bootstrap(request)
-        stateStore.setInvalidationHandler { [weak self] _ in
-            self?.stateStoreDidInvalidate()
+        stateStore.setInvalidationHandler { _ in
+            self.stateStoreDidInvalidate()
         }
         return response
     }
@@ -1121,18 +1249,7 @@ private final class ClientRegisteredRuntime<Root: Component>: RegisteredClientRu
     }
 
     func requestShutdown() throws -> ActorSystemTermination? {
-        stateStore.setInvalidationHandler(nil)
-        let updateTask = updateState.withLock { state -> Task<Void, Never>? in
-            guard !state.isShutdown else {
-                return state.task
-            }
-            state.isShutdown = true
-            state.handler = nil
-            let task = state.task
-            state.task = nil
-            return task
-        }
-        updateTask?.cancel()
+        let updateTask = detach()
         guard let updateTask else {
             return try bridge.requestShutdown()
         }
@@ -1141,6 +1258,29 @@ private final class ClientRegisteredRuntime<Root: Component>: RegisteredClientRu
             await updateTask.value
             try await bridge.shutdown()
         })
+    }
+
+    func detach() -> Task<Void, Never>? {
+        stateStore.setInvalidationHandler(nil)
+        let updateTask = updateState.withLock { state -> Task<Void, Never>? in
+            guard !state.isShutdown else {
+                state.handler = nil
+                let task = state.task
+                state.task = nil
+                return task
+            }
+            state.isShutdown = true
+            state.handler = nil
+            let task = state.task
+            state.task = nil
+            return task
+        }
+        updateTask?.cancel()
+        return updateTask
+    }
+
+    deinit {
+        _ = detach()
     }
 
     private func requireNoAsynchronousFailure() throws {
@@ -1154,9 +1294,9 @@ private final class ClientRegisteredRuntime<Root: Component>: RegisteredClientRu
             guard !state.isShutdown, state.task == nil else {
                 return
             }
-            state.task = Task { [weak self] in
+            state.task = Task {
                 await Task.yield()
-                await self?.performScheduledUpdate()
+                await self.performScheduledUpdate()
             }
         }
     }
@@ -1216,5 +1356,61 @@ private final class ClientRegisteredRuntime<Root: Component>: RegisteredClientRu
         if shouldReschedule, !stateStore.dirtyComponents().isEmpty {
             stateStoreDidInvalidate()
         }
+    }
+}
+
+private final class ClientRegisteredRuntime<Root: Component>: RegisteredClientRuntime {
+    private let state: ClientRegisteredRuntimeState<Root>
+
+    init(
+        typeName: String,
+        componentID: ComponentID,
+        stateStore: StateStore,
+        bridge: ClientRuntimeBridge<Root>
+    ) {
+        self.state = ClientRegisteredRuntimeState(
+            typeName: typeName,
+            componentID: componentID,
+            stateStore: stateStore,
+            bridge: bridge
+        )
+    }
+
+    deinit {
+        _ = state.detach()
+    }
+
+    var componentID: ComponentID {
+        state.componentID
+    }
+
+    func installAsynchronousUpdateHandler(
+        _ handler: @escaping @Sendable (ComponentID, ClientRuntimeResponse) async throws -> Void
+    ) {
+        state.installAsynchronousUpdateHandler(handler)
+    }
+
+    func bootstrap(_ request: ClientRuntimeBootstrapRequest) throws -> ClientRuntimeResponse {
+        try state.bootstrap(request)
+    }
+
+    func dispatch(_ request: ClientRuntimeEventRequest) throws -> ClientRuntimeResponse {
+        try state.dispatch(request)
+    }
+
+    func snapshotState() throws -> ClientRuntimeStateSnapshot {
+        try state.snapshotState()
+    }
+
+    func restoreState(_ snapshot: ClientRuntimeStateSnapshot) throws {
+        try state.restoreState(snapshot)
+    }
+
+    func detach() {
+        _ = state.detach()
+    }
+
+    func requestShutdown() throws -> ActorSystemTermination? {
+        try state.requestShutdown()
     }
 }

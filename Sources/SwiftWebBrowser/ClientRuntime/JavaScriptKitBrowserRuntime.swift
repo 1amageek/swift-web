@@ -1,3 +1,13 @@
+@inline(__always)
+func clientRuntimeContainsSubstring(_ text: String, _ target: String) -> Bool {
+    guard !target.isEmpty else {
+        return true
+    }
+    return text.indices.contains { index in
+        text[index...].starts(with: target)
+    }
+}
+
 #if os(WASI)
 #if canImport(FoundationEssentials)
 import FoundationEssentials
@@ -51,7 +61,8 @@ public enum JavaScriptKitBrowserRuntime {
         var addition = ""
         for rule in rules {
             let prefix = ".\(rule.className) "
-            guard !existing.contains(prefix), !addition.contains(prefix) else {
+            guard !clientRuntimeContainsSubstring(existing, prefix),
+                  !clientRuntimeContainsSubstring(addition, prefix) else {
                 continue
             }
             addition += ".\(rule.className) { \(rule.body) }"

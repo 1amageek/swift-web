@@ -150,10 +150,10 @@ let package = Package(
     dependencies: [
         .package(
             url: "https://github.com/1amageek/swift-html.git",
-            revision: "0d2fb652a4ff36d6ad63d91d04db3aee5094986e"
+            from: "0.16.0"
         ),
         .package(url: "https://github.com/1amageek/JavaScriptKit.git", from: "0.57.0"),
-        .package(path: "Packages/swift-actor-system"),
+        .package(url: "https://github.com/1amageek/swift-actor-system.git", from: "0.1.0"),
         .package(url: "https://github.com/apple/swift-http-types", from: "1.0.0"),
     ] + (swiftWebHostedApplication ? [
         .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "603.0.2"),
@@ -162,15 +162,15 @@ let package = Package(
         .package(url: "https://github.com/swift-server/async-http-client.git", from: "1.35.0"),
         .package(url: "https://github.com/swift-server/swift-http-server", from: "0.1.0"),
         .package(url: "https://github.com/apple/swift-http-api-proposal.git", from: "0.2.0"),
-        .package(url: "https://github.com/apple/swift-nio.git", from: "2.82.0"),
+        .package(url: "https://github.com/apple/swift-nio.git", from: "2.102.0"),
         .package(url: "https://github.com/apple/swift-nio-extras.git", from: "1.34.1"),
         .package(
             url: "https://github.com/1amageek/swift-tls.git",
-            revision: "f6c84c5a72d476eb0a0450418f736360cd03a42a"
+            from: "2.1.0"
         ),
         .package(
             url: "https://github.com/1amageek/swift-tls-nio.git",
-            revision: "b73f27372266595260994d3d45be29e9bcf63b9a"
+            from: "0.1.0"
         ),
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.6.0"),
         .package(url: "https://github.com/apple/swift-crypto.git", from: "4.0.0"),
@@ -194,7 +194,7 @@ let package = Package(
             name: "SwiftWebActors",
             dependencies: swiftWebActorsDependencies,
             path: "Sources/SwiftWebRuntime/Actors",
-            exclude: ["README.md"],
+            exclude: ["README.md", "DESIGN.md"],
             swiftSettings: swiftWebActorsSwiftSettings
         ),
         .target(
@@ -208,6 +208,7 @@ let package = Package(
             name: "SwiftWebUIRuntime",
             dependencies: swiftWebUIRuntimeDependencies,
             path: "Sources/SwiftWebBrowser/ClientRuntime",
+            exclude: ["DESIGN.md"],
             swiftSettings: swiftWebSwiftSettings
         ),
         .target(
@@ -304,7 +305,7 @@ let package = Package(
             name: "SwiftWebActors",
             dependencies: swiftWebActorsDependencies,
             path: "Sources/SwiftWebRuntime/Actors",
-            exclude: ["README.md"],
+            exclude: ["README.md", "DESIGN.md"],
             swiftSettings: swiftWebActorsSwiftSettings
         ),
         .target(
@@ -389,6 +390,7 @@ let package = Package(
             name: "SwiftWebUIRuntime",
             dependencies: swiftWebUIRuntimeDependencies,
             path: "Sources/SwiftWebBrowser/ClientRuntime",
+            exclude: ["DESIGN.md"],
             swiftSettings: swiftWebSwiftSettings
         ),
         .target(
@@ -423,6 +425,7 @@ let package = Package(
                 "SwiftWebWasmBuild",
             ],
             path: "Sources/SwiftWebDevelopment/PackageGeneration",
+            exclude: ["DESIGN.md"],
             swiftSettings: swiftWebSwiftSettings
         ),
         .target(

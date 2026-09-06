@@ -839,6 +839,7 @@ struct SwiftWebGeneratedPackageMaterializerTests {
       """,
       to: appPackage.appendingPathComponent("Sources/SampleApp/ClientExtensionBox.swift")
     )
+    try writeActorSystemRuntimeCheckout(in: appPackage, marker: "application-checkout")
     let sampleActorSourceDirectory = appPackage.appendingPathComponent(
       "Sources/SampleApp",
       isDirectory: true
@@ -1176,6 +1177,11 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     let serverSources = generatedPackage.packageDirectory.appendingPathComponent("Sources")
     let devSources = generatedPackage.devPackageDirectory.appendingPathComponent("Sources")
     let wasmSources = generatedPackage.wasmPackageDirectory.appendingPathComponent("Sources")
+    let actorSourceMarker = try String(
+      contentsOf: wasmSources.appendingPathComponent("ActorSystemCore/ActorSystemCore.swift"),
+      encoding: .utf8
+    )
+    #expect(actorSourceMarker.contains("application-checkout"))
     #expect(
       FileManager.default.fileExists(
         atPath: serverSources.appendingPathComponent("AppServerLauncher/ServerLauncher.swift").path
@@ -1376,6 +1382,22 @@ struct SwiftWebGeneratedPackageMaterializerTests {
     #expect(
       !FileManager.default.fileExists(
         atPath: wasmSources.appendingPathComponent("SwiftWebUIRuntime/README.md").path
+      ))
+    #expect(
+      !FileManager.default.fileExists(
+        atPath: wasmSources.appendingPathComponent("SwiftWebUIRuntime/DESIGN.md").path
+      ))
+    #expect(
+      !FileManager.default.fileExists(
+        atPath: wasmSources.appendingPathComponent("SwiftWebActors/DESIGN.md").path
+      ))
+    #expect(
+      !FileManager.default.fileExists(
+        atPath: wasmSources.appendingPathComponent("ActorSystemCore/DESIGN.md").path
+      ))
+    #expect(
+      !FileManager.default.fileExists(
+        atPath: wasmSources.appendingPathComponent("ActorSystemEmbedded/DESIGN.md").path
       ))
     #expect(
       !FileManager.default.fileExists(
@@ -2582,6 +2604,38 @@ struct SwiftWebGeneratedPackageMaterializerTests {
         "_CJavaScriptEventLoop/include/_CJavaScriptEventLoop.h"
       )
     )
+    try writeActorSystemRuntimeCheckout(in: swiftWebPackage)
+  }
+
+  private func writeActorSystemRuntimeCheckout(
+    in packageDirectory: URL,
+    marker: String = "swift-web"
+  ) throws {
+    let sourceRoot = packageDirectory.appendingPathComponent(
+      ".build/checkouts/swift-actor-system/Sources",
+      isDirectory: true
+    )
+    for targetName in ["ActorSystemCore", "ActorSystemDistributed", "ActorSystemEmbedded"] {
+      let fileName: String
+      switch targetName {
+      case "ActorSystemCore":
+        fileName = "ActorSystemCore.swift"
+      case "ActorSystemDistributed":
+        fileName = "SwiftActorSystem.swift"
+      case "ActorSystemEmbedded":
+        fileName = "EmbeddedActorSystem.swift"
+      default:
+        continue
+      }
+      try write(
+        "public enum \(targetName)FixtureModule { public static let source = \"\(marker)\" }",
+        to: sourceRoot.appendingPathComponent("\(targetName)/\(fileName)")
+      )
+      try write(
+        "# Fixture design",
+        to: sourceRoot.appendingPathComponent("\(targetName)/DESIGN.md")
+      )
+    }
   }
 
   private func writeSwiftHTMLRuntimeSources(in swiftHTMLPackage: URL) throws {
@@ -2619,6 +2673,12 @@ struct SwiftWebGeneratedPackageMaterializerTests {
           "Sources/\(targetName)/Fixture.swift"
         )
       )
+      if targetName == "SwiftWebActors" || targetName == "SwiftWebUIRuntime" {
+        try write(
+          "# Fixture design",
+          to: swiftWebPackage.appendingPathComponent("Sources/\(targetName)/DESIGN.md")
+        )
+      }
     }
     try write(
       "import SwiftHTML\npublic struct StyleRegistry { public init() {} }",

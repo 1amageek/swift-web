@@ -5,7 +5,7 @@ import Synchronization
 @testable import SwiftWebUIRuntime
 import Testing
 
-private final class ReentrantBrowserDOMHost: BrowserDOMHost {
+private final class ReentrantBrowserDOMHost: ClientRuntimeAtomicStyleHost {
     private let operation = Mutex<(@Sendable () throws -> Void)?>(nil)
 
     func setOperation(_ operation: (@Sendable () throws -> Void)?) {
@@ -25,7 +25,26 @@ private final class ReentrantBrowserDOMHost: BrowserDOMHost {
     }
 }
 
-private final class AsynchronousUpdateRecordingHost: BrowserDOMHost {
+private final class AtomicStyleRecordingHost: ClientRuntimeAtomicStyleHost {
+    private let batches = Mutex<[[ClientRuntimeAtomicStyleRule]]>([])
+
+    func apply(
+        _ batch: BrowserDOMCommandBatch,
+        currentIndex: BrowserHydrationIndex
+    ) throws {}
+
+    func applyAtomicStyleRules(_ rules: [ClientRuntimeAtomicStyleRule]) {
+        batches.withLock { batches in
+            batches.append(rules)
+        }
+    }
+
+    func recordedStyleRules() -> [[ClientRuntimeAtomicStyleRule]] {
+        batches.withLock { $0 }
+    }
+}
+
+private final class AsynchronousUpdateRecordingHost: ClientRuntimeAtomicStyleHost {
     private let batches = Mutex<[BrowserDOMCommandBatch]>([])
 
     func apply(
@@ -82,7 +101,7 @@ private enum AsynchronousUpdateHostError: Error {
     case rejectedUpdate
 }
 
-private final class AsynchronousUpdateRejectingHost: BrowserDOMHost {
+private final class AsynchronousUpdateRejectingHost: ClientRuntimeAtomicStyleHost {
     private let rejectsUpdates = Mutex(false)
 
     func apply(
@@ -102,6 +121,8 @@ private final class AsynchronousUpdateRejectingHost: BrowserDOMHost {
 private actor AsynchronousStateMutationGate {
     private var isOpen = false
     private var waiters: [CheckedContinuation<Void, Never>] = []
+    private var didMutate = false
+    private var mutationWaiters: [CheckedContinuation<Void, Never>] = []
 
     func wait() async {
         guard !isOpen else {
@@ -120,6 +141,24 @@ private actor AsynchronousStateMutationGate {
             waiter.resume()
         }
     }
+
+    func recordMutation() {
+        didMutate = true
+        let waiting = mutationWaiters
+        mutationWaiters.removeAll(keepingCapacity: false)
+        for waiter in waiting {
+            waiter.resume()
+        }
+    }
+
+    func waitForMutation() async {
+        guard !didMutate else {
+            return
+        }
+        await withCheckedContinuation { continuation in
+            mutationWaiters.append(continuation)
+        }
+    }
 }
 
 private struct AsynchronousRuntimeCounter: ClientComponent {
@@ -132,6 +171,7 @@ private struct AsynchronousRuntimeCounter: ClientComponent {
             Task {
                 await gate.wait()
                 count += 1
+                await gate.recordMutation()
             }
         }) {
             "async:\(count)"
@@ -246,6 +286,28 @@ private struct RepeatedRuntimePage: Component {
         div {
             RepeatedRuntimeCounter()
             RepeatedRuntimeCounter()
+        }
+    }
+}
+
+private final class RuntimeLifetimeSentinel: Sendable {
+    private let onDeinit: @Sendable () -> Void
+
+    init(onDeinit: @escaping @Sendable () -> Void) {
+        self.onDeinit = onDeinit
+    }
+
+    deinit {
+        onDeinit()
+    }
+}
+
+private struct RuntimeLifetimeCounter: ClientComponent {
+    let sentinel: RuntimeLifetimeSentinel
+
+    var content: some Component {
+        button {
+            "lifetime"
         }
     }
 }
@@ -428,6 +490,57 @@ struct ClientRuntimeConcurrencyTests {
     }
 
     @Test
+    func atomicStyleSubstringMatcherPreservesExactCharacterBoundaries() {
+        #expect(clientRuntimeContainsSubstring(
+            ".counter { color: red }",
+            ".counter "
+        ))
+        #expect(clientRuntimeContainsSubstring(
+            "prefix .counter { color: red } suffix",
+            ".counter"
+        ))
+        #expect(!clientRuntimeContainsSubstring(
+            ".counter { color: red }",
+            ".counters "
+        ))
+        #expect(!clientRuntimeContainsSubstring(
+            "x.counter{ color: red }",
+            ".counter "
+        ))
+        #expect(clientRuntimeContainsSubstring(
+            "本文 .カウンター { color: red }",
+            ".カウンター "
+        ))
+        #expect(clientRuntimeContainsSubstring("", ""))
+    }
+
+    @Test
+    func atomicStyleHostWitnessesPreserveSupportedRulesAndRejectUnsupportedHosts() throws {
+        let rules = [
+            ClientRuntimeAtomicStyleRule(className: "counter", body: "color: red")
+        ]
+        let supported = AtomicStyleRecordingHost()
+        let supportedExistential: any ClientRuntimeAtomicStyleHost = supported
+        try supportedExistential.applyAtomicStyleRules(rules)
+        #expect(supported.recordedStyleRules() == [rules])
+
+        let unsupportedExistential: any ClientRuntimeAtomicStyleHost = ReentrantBrowserDOMHost()
+        do {
+            try unsupportedExistential.applyAtomicStyleRules(rules)
+            Issue.record("An unsupported DOM host unexpectedly applied atomic style rules")
+        } catch let error as ClientRuntimeBridgeError {
+            switch error {
+            case .asynchronousUpdateFailed(let message):
+                #expect(message == "The DOM host cannot apply atomic style rules")
+            default:
+                Issue.record("Unexpected atomic style host error: \(error)")
+            }
+        } catch {
+            Issue.record("Unexpected atomic style host error: \(error)")
+        }
+    }
+
+    @Test
     func bridgeShutdownIsTerminal() async throws {
         let index = RepeatedRuntimeCounter().renderArtifact().browserHydrationIndex()
         let request = ClientRuntimeBootstrapRequest(
@@ -468,6 +581,143 @@ struct ClientRuntimeConcurrencyTests {
             await Task.yield()
         }
         #expect(entrypoint.shutdownStatus() == 0)
+
+        #expect(entrypoint.bootstrapStatus(
+            ClientRuntimeBootstrapRequest(
+                hydrationIndex: index,
+                location: ClientRuntimeBootstrapLocation(href: "/", search: "")
+            )
+        ) == 1)
+        #expect(entrypoint.dispatchStatus(
+            ClientRuntimeEventRequest(
+                handlerID: HandlerID("post-shutdown"),
+                event: DOMEvent()
+            )
+        ) == 1)
+    }
+
+    @Test(.timeLimit(.minutes(1)))
+    func bundleShutdownRejectsLateStateInvalidation() async throws {
+        let gate = AsynchronousStateMutationGate()
+        let index = AsynchronousRuntimePage(gate: gate)
+            .renderArtifact()
+            .browserHydrationIndex()
+        let mountedComponent = try #require(index.components.first { component in
+            component.typeName.hasSuffix("AsynchronousRuntimeCounter")
+        })
+        let handler = try #require(index.handlers.first)
+        let host = AsynchronousUpdateRecordingHost()
+        let entrypoint = ClientBundleRuntimeEntrypoint(
+            registrations: [
+                ClientComponentRegistration(AsynchronousRuntimeCounter.self) { _ in
+                    AsynchronousRuntimeCounter(gate: gate)
+                },
+            ],
+            domHost: host
+        )
+        _ = try entrypoint.bootstrap(
+            ClientRuntimeBootstrapRequest(
+                hydrationIndex: index,
+                location: ClientRuntimeBootstrapLocation(href: "/", search: "")
+            )
+        )
+        _ = try entrypoint.dispatch(
+            ClientRuntimeEventRequest(
+                handlerID: handler.handlerID,
+                event: DOMEvent(),
+                componentID: mountedComponent.id
+            )
+        )
+
+        #expect(entrypoint.shutdown() == 3)
+        await gate.open()
+        await gate.waitForMutation()
+        while entrypoint.shutdownStatus() == 3 {
+            await Task.yield()
+        }
+        for _ in 0..<8 {
+            await Task.yield()
+        }
+        #expect(entrypoint.shutdownStatus() == 0)
+        #expect(host.updatedTexts().isEmpty)
+    }
+
+    @Test(.timeLimit(.minutes(1)))
+    func bundleDropRejectsLateStateInvalidation() async throws {
+        let gate = AsynchronousStateMutationGate()
+        let index = AsynchronousRuntimePage(gate: gate)
+            .renderArtifact()
+            .browserHydrationIndex()
+        let mountedComponent = try #require(index.components.first { component in
+            component.typeName.hasSuffix("AsynchronousRuntimeCounter")
+        })
+        let handler = try #require(index.handlers.first)
+        let host = AsynchronousUpdateRecordingHost()
+        var entrypoint: ClientBundleRuntimeEntrypoint? = ClientBundleRuntimeEntrypoint(
+            registrations: [
+                ClientComponentRegistration(AsynchronousRuntimeCounter.self) { _ in
+                    AsynchronousRuntimeCounter(gate: gate)
+                },
+            ],
+            domHost: host
+        )
+        weak var weakEntrypoint: ClientBundleRuntimeEntrypoint?
+        weakEntrypoint = entrypoint
+        _ = try entrypoint?.bootstrap(
+            ClientRuntimeBootstrapRequest(
+                hydrationIndex: index,
+                location: ClientRuntimeBootstrapLocation(href: "/", search: "")
+            )
+        )
+        _ = try entrypoint?.dispatch(
+            ClientRuntimeEventRequest(
+                handlerID: handler.handlerID,
+                event: DOMEvent(),
+                componentID: mountedComponent.id
+            )
+        )
+
+        entrypoint = nil
+        #expect(weakEntrypoint == nil)
+        await gate.open()
+        await gate.waitForMutation()
+        for _ in 0..<8 {
+            await Task.yield()
+        }
+        #expect(host.updatedTexts().isEmpty)
+    }
+
+    @Test
+    func bundleDropWithoutShutdownReleasesPrivateCallbackOwners() throws {
+        let released = Mutex(false)
+        weak var weakEntrypoint: ClientBundleRuntimeEntrypoint?
+
+        do {
+            let sentinel = RuntimeLifetimeSentinel {
+                released.withLock { $0 = true }
+            }
+            let index = RuntimeLifetimeCounter(sentinel: sentinel)
+                .renderArtifact()
+                .browserHydrationIndex()
+            let entrypoint = ClientBundleRuntimeEntrypoint(
+                registrations: [
+                    ClientComponentRegistration(RuntimeLifetimeCounter.self) { _ in
+                        RuntimeLifetimeCounter(sentinel: sentinel)
+                    },
+                ],
+                domHost: nil
+            )
+            weakEntrypoint = entrypoint
+            _ = try entrypoint.bootstrap(
+                ClientRuntimeBootstrapRequest(
+                    hydrationIndex: index,
+                    location: ClientRuntimeBootstrapLocation(href: "/", search: "")
+                )
+            )
+        }
+
+        #expect(weakEntrypoint == nil)
+        #expect(released.withLock { $0 })
     }
 
     @Test

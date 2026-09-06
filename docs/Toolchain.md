@@ -19,6 +19,21 @@ versioned contract.
 Embedded WASM is installed for capability validation. SwiftWeb's public browser
 runtime uses the standard WASM SDK only.
 
+## Generated Embedded verification
+
+The generated CounterApp Embedded package is a profile-specific compile/link
+gate, separate from the standard browser E2E and the standalone Actor runtime
+execution. With this pinned snapshot and the `_wasm-embedded` SDK, the 0.12.0
+candidate compiles and links its generated `ActorSystemCore` plus
+`ActorSystemEmbedded` runtime in `-c release` while preserving the
+application's `Optional<String>` failure state.
+
+The same source in `-c debug` reaches a Swift 6.4 SIL verifier diagnostic in
+SwiftHTML's `StateStore.install` Optional specialization (`Ill formed
+store_borrow scope`). This is recorded as snapshot/compiler triage evidence;
+application failure-state semantics must not be changed to hide it. Release
+compile/link does not claim Embedded browser execution.
+
 ```mermaid
 flowchart LR
   Snapshot["Swift 6.4 snapshot"] --> Host["host compiler"]

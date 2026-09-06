@@ -11,11 +11,8 @@ let package = Package(
         .library(name: "HelloWorld", targets: ["HelloWorld"]),
     ],
     dependencies: [
-        .package(path: "../.."),
-        .package(
-            url: "https://github.com/1amageek/swift-html.git",
-            revision: "0d2fb652a4ff36d6ad63d91d04db3aee5094986e"
-        ),
+        .package(url: "https://github.com/1amageek/swift-web.git", from: "0.12.0"),
+        .package(url: "https://github.com/1amageek/swift-html.git", from: "0.16.0"),
     ],
     targets: [
         .target(

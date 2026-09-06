@@ -27,7 +27,7 @@ try {
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const swiftWebRoot = path.resolve(scriptDirectory, "../..");
-const expectedSwiftHTMLRevision = "0d2fb652a4ff36d6ad63d91d04db3aee5094986e";
+const expectedSwiftHTMLVersion = "0.16.0";
 const exampleAppRoot = path.join(swiftWebRoot, "Examples", "CounterApp");
 const timeoutMs = Number(process.env.SWIFTWEB_E2E_TIMEOUT_MS || 600_000);
 const hmrTimeoutMs = Number(process.env.SWIFTWEB_E2E_HMR_TIMEOUT_MS || 300_000);
@@ -292,16 +292,20 @@ async function prepareAppCopy(root) {
 
   const packageFile = path.join(appRoot, "Package.swift");
   let manifest = await readFile(packageFile, "utf8");
+  const expectedSwiftWebDependency =
+    '.package(url: "https://github.com/1amageek/swift-web.git", from: "0.12.0")';
+  if (!manifest.includes(expectedSwiftWebDependency)) {
+    throw new Error("CounterApp does not declare the released SwiftWeb 0.12.0 dependency.");
+  }
   manifest = manifest.replace(
-    '.package(path: "../.."),',
+    /\.package\(\s*url:\s*"https:\/\/github\.com\/1amageek\/swift-web\.git",\s*from:\s*"[^"]+"\s*\),?/,
     `.package(path: "${swiftStringLiteral(swiftWebRoot)}"),`
   );
-  const expectedSwiftHTMLURL = 'url: "https://github.com/1amageek/swift-html.git"';
-  const expectedSwiftHTMLRevisionDeclaration = `revision: "${expectedSwiftHTMLRevision}"`;
+  const expectedSwiftHTMLDependency =
+    `.package(url: "https://github.com/1amageek/swift-html.git", from: "${expectedSwiftHTMLVersion}")`;
   if (!manifest.includes(swiftStringLiteral(swiftWebRoot))
-    || !manifest.includes(expectedSwiftHTMLURL)
-    || !manifest.includes(expectedSwiftHTMLRevisionDeclaration)) {
-    throw new Error("Failed to use local swift-web with the pinned swift-html dependency.");
+    || !manifest.includes(expectedSwiftHTMLDependency)) {
+    throw new Error("Failed to use local swift-web with the released swift-html dependency.");
   }
   await writeFile(packageFile, manifest);
 

@@ -278,7 +278,7 @@ struct TemplateProject {
             ],
             dependencies: [
                 \(SwiftWebPackageReference.packageDependencyDeclaration),
-                .package(url: "https://github.com/1amageek/swift-html.git", from: "0.15.0"),
+                .package(url: "https://github.com/1amageek/swift-html.git", from: "0.16.0"),
         \(adapterPackageDependencyLine)
             ],
             targets: [

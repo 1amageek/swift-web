@@ -1,7 +1,8 @@
 # SwiftWebActors
 
 SwiftWebActors is SwiftWeb's application-facing integration for the
-transport-neutral actor runtime in `Packages/swift-actor-system`.
+transport-neutral [swift-actor-system](https://github.com/1amageek/swift-actor-system)
+package.
 
 The concrete `distributed actor` declaration is the actor contract on Native
 and standard WASM. Embedded WASM consumes a generated semantic twin with the
@@ -210,7 +211,7 @@ legacy path.
 
 | Evidence | What it checks | Boundary |
 |---|---|---|
-| [Core execution tests](../../../Packages/swift-actor-system/Tests/ActorSystemCoreTests/ActorSystemCoreBehaviorTests.swift) | Local execution and forwarding share an exactly-once claim; missing forwarding capability fails | Core behavior, not browser integration |
+| [Core execution tests](https://github.com/1amageek/swift-actor-system/blob/0.1.0/Tests/ActorSystemCoreTests/ActorSystemCoreBehaviorTests.swift) | Local execution and forwarding share an exactly-once claim; missing forwarding capability fails | Core behavior, not browser integration |
 | [Actor host tests](../../../Tests/SwiftWebTests/SwiftWebActorHostTests.swift) and [Scene binding tests](../../../Tests/SwiftWebTests/SwiftWebActorGroupTests.swift) | Exact-address admission, authorization, ownership conflicts, direct-route isolation, timeout, cancellation, failure, and shutdown | Native host and in-process transport fixtures |
 | [Service Actor browser test](../../../Tests/SwiftWebTests/SwiftWebServiceActorBrowserTests.swift) | Chromium calls Main's real HTTP endpoint; only the authorized, bound call reaches an Actor on a separate Service host | Two native HTTP hosts; pre-encoded browser frames, not generated Swift-WASM calls |
 | [CounterApp development gate](../../../Tests/BrowserE2E/counter-wasm-runtime-e2e.mjs) | Swift-WASM events, actor calls, state, Server Actions, and development updates | The Actor is hosted in the same application |

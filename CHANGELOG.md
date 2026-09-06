@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.12.0 - 2026-09-06
 
 | Area | Change |
 |---|---|
@@ -10,7 +10,9 @@
 | Service adapters | Adds schema-version-3 Service applications and concrete Actor contract selections; deployment supplies route templates while Swift owns logical identity. |
 | Actor authoring | Adds `.actor(Type.self, identity:)` for pages and scenes, reusing concrete `distributed actor` types and `@RemoteActor` without a separate Service client API. |
 | Service Actor routing | Forwards authorized browser calls from the same-origin endpoint to `hostRoute` when no `clientRoute` is provided; only scene-bound addresses are eligible, and conflicting local hosting is rejected. Core retains timeout, cancellation, correlation, failure, and shutdown ownership. |
-| Verification scope | Adds host/Scene regression tests and a Chromium HTTP-boundary gate with separate Main and Service hosts. The latter uses pre-encoded Actor frames and does not claim generated Swift-WASM or Embedded end-to-end coverage. |
+| Dependencies | Resolves released SwiftHTML `0.16.0`, ActorSystem `0.1.0`, TLS `2.1.0`, and TLSNIO `0.1.0` packages; ActorSystem runtime sources are owned by the standalone package. |
+| Client runtime lifecycle | Keeps drop-without-shutdown cleanup through private callback owners and synchronous detachment; explicit shutdown retains awaited termination and failure reporting across Native, standard WASM, and Embedded profiles. |
+| Verification scope | Adds host/Scene regression tests, a real standard-WASM Counter state/Actor flow, the generated Embedded Counter compile/link gate, the standalone Actor WASI loopback proof, and a Chromium HTTP-boundary gate with separate Main and Service hosts. These remain distinct evidence and do not claim Embedded browser or cloud end-to-end coverage; the pinned debug-only SIL verifier limitation is recorded in the toolchain contract. |
 
 ## 0.11.0 - 2026-08-15
 
