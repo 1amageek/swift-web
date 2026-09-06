@@ -590,10 +590,12 @@ import ActorSystemEmbedded
 public typealias WebActorSystem = EmbeddedActorSystem
 
 private enum SwiftWebEmbeddedActorSystemHolder {
+    static let clockBinding = SwiftWebActorClockBinding()
     static let configuration = ActorSystemConfiguration(
         sessionIdentitySource: SwiftWebRandomActorSessionIdentitySource(),
         maximumFrameBytes: SwiftWebActorMessageLimits.maximumFrameBytes,
-        maximumPayloadBytes: SwiftWebActorMessageLimits.maximumPayloadBytes
+        maximumPayloadBytes: SwiftWebActorMessageLimits.maximumPayloadBytes,
+        clock: clockBinding
     )
     static let routeBindingRouter = SwiftWebActorBindingRouter()
     static let requestTransport: SwiftWebRequestReplyActorTransport = {
@@ -650,6 +652,16 @@ public extension EmbeddedActorSystem {
             return
         }
         try SwiftWebEmbeddedActorSystemHolder.routeBindingRouter.mergeRoutes(records)
+    }
+
+    @_spi(Hosting)
+    @discardableResult
+    func installActorClock(_ clock: any ActorClock) throws -> Bool {
+        guard self === SwiftWebEmbeddedActorSystemHolder.shared else {
+            return false
+        }
+        try SwiftWebEmbeddedActorSystemHolder.clockBinding.install(clock)
+        return true
     }
 
     @_spi(Hosting)

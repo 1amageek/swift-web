@@ -39,6 +39,9 @@ flowchart TD
   Host --> Scene["ActorGroup / .actor / @RemoteActor"]
   Core --> HTTP["HTTP or WSS adapter"]
   Core --> Peer["Remote Actor system"]
+  Core --> Clock["ActorClock"]
+  Clock --> Binding["Embedded shared-system binding"]
+  Binding --> Platform["Host-supplied ActorClock"]
   Generator["Package generation"] --> Projection["Profile-specific Actor source mirror"]
   Projection --> Standard["Standard Distributed target"]
   Projection --> Embedded["Embedded target"]
@@ -55,8 +58,9 @@ Actor package owns the transport-neutral runtime beneath it.
 | Identity | Logical actor identity is selected by Swift code; transports and deployment routes do not replace it. |
 | Ownership | One actor address is either locally hosted or forwarded; conflicting ownership is rejected. |
 | Profile projection | Generated standard clients use Core plus Distributed; Embedded clients use Core plus Embedded. |
+| Embedded deadline clock | `WebActorSystem.installActorClock(_:)` returns `true` after binding the platform clock for the default Embedded system before the first deadline-clock use, and `false` for a custom system whose configuration is left untouched. A deadline-free call keeps the binding window open; the first clock sleep seals it. Repeated and late installation throw typed configuration errors. |
 | Failure | Actor invocation failures remain typed/observable and do not silently retry through the legacy JSON path. |
-| Source ownership | SwiftWeb imports released Actor products and mirrors source only from the resolved standalone checkout for generated WASM packages. |
+| Source ownership | SwiftWeb imports Actor products from the resolved standalone checkout and mirrors source only from that checkout for generated WASM packages. Unreleased cross-repository development may consume an exact immutable upstream revision; branch and local-path overrides are not part of the published graph. |
 
 ## Runtime Flows
 
@@ -64,6 +68,12 @@ For a bound call, Swift resolves the concrete actor reference, the SwiftWeb
 facade delegates to the Actor runtime, and the selected host or transport
 completes the invocation. A Service binding adds deployment-owned routing after
 the identity and authorization checks; it does not alter the call site.
+
+On Embedded, the Cloudflare host installs its `ActorClock` binding before
+rendering. The default shared system keeps that binding available through
+deadline-free calls; the first deadline sleep selects the installed clock and
+closes the installation window. An unavailable default sleep is terminal for
+the binding window and remains an explicit `ActorClockUnavailable` failure.
 
 Generated WASM clients receive source projections for the active profile. The
 standard browser flow is separately validated by the real counter E2E; the
@@ -78,6 +88,10 @@ cancellation, transport lifecycle, and profile runtime storage. Generated
 projections are replaceable build inputs and never become a second runtime
 owner.
 
+| State | Owner | Isolation | Read and mutation | Release |
+|---|---|---|---|---|
+| `SwiftWebActorClockBinding.State` | One `SwiftWebActorClockBinding` reference held by the shared Embedded system holder | One `Synchronization.Mutex<State>` on every target | `install` and the first `sleep` transition use `withLock`; the selected clock is retained locally before awaiting outside the lock | The shared holder owns the binding for its lifetime; custom system configuration clocks are not replaced |
+
 ## Failure, Concurrency, and Constraints
 
 Actor calls cross an explicit asynchronous boundary and preserve the runtime's
@@ -88,7 +102,9 @@ lifetimes. Cloud deployment is outside this release's verified runtime scope.
 
 ## Verification and Change Impact
 
-The module's focused evidence is `SwiftWebActorGroupTests`,
+The module's focused evidence includes
+[`SwiftWebActorClockBindingTests`](../../../Tests/SwiftWebTests/SwiftWebActorClockBindingTests.swift),
+`SwiftWebActorGroupTests`,
 `SwiftWebActorHostTests`, `ClientRuntimeConcurrencyTests`,
 `SwiftWebHTTPServerHostTests`, and `SwiftWebServiceActorBrowserTests`. The
 standalone Actor package's own tests establish its lower-level contracts. The
@@ -97,5 +113,7 @@ state mutation; generated Embedded compile/link and the standalone Embedded
 runtime validation do not claim full Embedded browser or cloud E2E.
 
 Changes to the facade or host policy require rechecking this contract and the
-parent package design. Changes to the standalone Actor package are reviewed and
-released in that repository before SwiftWeb consumes a new version.
+parent package design. Changes to the standalone Actor package are reviewed in
+that repository before SwiftWeb consumes a new source revision. An unreleased
+cross-repository revision is pinned by commit until a future semver release
+can replace it.

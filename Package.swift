@@ -150,7 +150,7 @@ let package = Package(
     dependencies: [
         .package(
             url: "https://github.com/1amageek/swift-html.git",
-            from: "0.16.0"
+            revision: "573aba6454604780c07ad8a7aabd0e153423fe4b"
         ),
         .package(url: "https://github.com/1amageek/JavaScriptKit.git", from: "0.57.0"),
         .package(url: "https://github.com/1amageek/swift-actor-system.git", from: "0.1.0"),

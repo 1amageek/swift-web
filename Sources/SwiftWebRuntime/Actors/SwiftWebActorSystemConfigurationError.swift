@@ -3,5 +3,7 @@ public enum SwiftWebActorSystemConfigurationError: Error, Sendable, Equatable {
     case conflictingActorHosts
     case conflictingLocalInvocationOwners
     case routeBindingsUnsupported
+    case actorClockAlreadyInstalled
+    case actorClockInstallationTooLate
 }
 #endif
