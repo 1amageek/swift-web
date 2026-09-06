@@ -438,8 +438,10 @@ struct SwiftWebHTTPServerHostTests {
     ) async throws {
         var serverConfiguration = HostTLSTestIdentity.serverConfiguration()
         serverConfiguration.alpnProtocols = []
+        let shutdownTimeout = TimeAmount.seconds(5)
         let transport = try HTTPServerTransportConfiguration.tls(
-            serverConfiguration
+            serverConfiguration,
+            handlerConfiguration: .init(shutdownTimeout: shutdownTimeout)
         )
         for _ in 0..<5 {
             let port = Int.random(in: 20_000..<60_000)
@@ -448,8 +450,10 @@ struct SwiftWebHTTPServerHostTests {
                 port: port,
                 transport: transport
             )
-            var logger = Logger(label: "swiftweb.tests.host.tls")
-            logger.logLevel = .trace
+            let logStore = HostLogStore()
+            let logger = Logger(label: "swiftweb.tests.host.tls") { _ in
+                HostRecordingLogHandler(store: logStore)
+            }
             let installation = try await host.render(app, logger: logger)
             let serveTask = Task {
                 try await installation.serve()
@@ -467,8 +471,17 @@ struct SwiftWebHTTPServerHostTests {
             }
             do {
                 try await body(client, base)
+                let shutdownStart = ContinuousClock.now
                 client.invalidateAndCancel()
                 try await Self.stop(serveTask, installation)
+                let shutdownDuration = shutdownStart.duration(to: .now)
+                // Observe error callbacks queued before connection shutdown completed.
+                for eventLoop in MultiThreadedEventLoopGroup.singleton.makeIterator() {
+                    try await eventLoop.submit {}.get()
+                }
+                let hadTLSFailure = logStore.contains("SwiftWeb TLS connection failed:")
+                #expect(shutdownDuration < .nanoseconds(shutdownTimeout.nanoseconds))
+                #expect(!hadTLSFailure)
                 return
             } catch {
                 client.invalidateAndCancel()

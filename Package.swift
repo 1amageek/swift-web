@@ -170,7 +170,7 @@ let package = Package(
         ),
         .package(
             url: "https://github.com/1amageek/swift-tls-nio.git",
-            from: "0.1.0"
+            revision: "d6edc14d363e5e64e4612399540b6ac63c986ff5"
         ),
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.6.0"),
         .package(url: "https://github.com/apple/swift-crypto.git", from: "4.0.0"),
