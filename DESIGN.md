@@ -6,10 +6,12 @@ SwiftWeb is the system package for server-rendered Swift applications and
 optional Swift WASM browser runtimes. This document is the package-level master
 for the 0.12.0 release.
 
-The package root has three directly maintained design children:
+The package root has four directly maintained design children:
 
 - [Package generation](Sources/SwiftWebDevelopment/PackageGeneration/DESIGN.md)
   owns generated package materialization and runtime source mirroring.
+- [Development server](Sources/SwiftWebDevelopment/DevServer/DESIGN.md) owns
+  desired-state convergence, worker transitions, and generated-input lifetime.
 - [Actor integration](Sources/SwiftWebRuntime/Actors/DESIGN.md) owns the
   SwiftWeb-facing Distributed Actor boundary.
 - [Client runtime](Sources/SwiftWebBrowser/ClientRuntime/DESIGN.md) owns
@@ -35,6 +37,7 @@ proof boundary.
 | Design | Relationship | Contract used | Cautions |
 |---|---|---|---|
 | [Package generation](Sources/SwiftWebDevelopment/PackageGeneration/DESIGN.md) | child | Materializes server, development, and WASM packages | Re-check source-owner lookup when dependency layout changes. |
+| [Development server](Sources/SwiftWebDevelopment/DevServer/DESIGN.md) | child | Converges generated inputs and Native worker processes | Never replace generated compiler inputs owned by an active transition. |
 | [Actor integration](Sources/SwiftWebRuntime/Actors/DESIGN.md) | child | Binds concrete Distributed Actors to SwiftWeb hosts and generated clients | Actor runtime ownership remains in the standalone package. |
 | [Client runtime](Sources/SwiftWebBrowser/ClientRuntime/DESIGN.md) | child | Owns browser callback scheduling and callback lifetime | Re-check callback detachment and profile parity when runtime lifecycle changes. |
 | [SwiftWebDevelopment facade](Sources/SwiftWebDevelopment/Facade/README.md) | used by child | CLI-facing development lifecycle | The facade does not own generated source contents. |
@@ -74,6 +77,8 @@ profile from the resolved checkouts; they do not link the host-only graph.
 | Actor source ownership | SwiftPM resolves `swift-actor-system` | SwiftWeb has no vendored Actor source tree; generation mirrors the resolved checkout. |
 | WASM projection | The selected profile supplies its required actor targets | Standard uses `ActorSystemCore` plus `ActorSystemDistributed`; Embedded uses `ActorSystemCore` plus `ActorSystemEmbedded`. |
 | Actor call policy | swift-actor-system supplies immutable initializer defaults and task-scoped `ActorCallOptions` | A scoped value can drive a generated call deadline without mutating SwiftWeb's shared Embedded actor system; `.defaults`, nesting, parallel requests, errors, and cancellation preserve the lower-level scope contract. |
+| Standard-WASM browser gate | Playwright Chromium and WebKit are installed for an explicitly enabled browser E2E run | Both npm counter commands require both engines. Chromium retains the full development/HMR suite; WebKit must launch before expensive build work, hydrate the generated runtime, mutate the Native Actor through the client component without navigation, and observe the new Actor value after a page reload. |
+| Development generated-root lifetime | An active worker transition may retain compiler and build inputs below the current generated root until the transition terminates | The reconciler does not run its materializing fast path while a transition or shutdown owns that lifetime. A changed desired fingerprint remains pending and is prepared after the transition-completion wake; crash handling and failure latching retain their existing order. |
 | Public surface | The release changes package ownership and dependency versions only | Existing Distributed Actor, scene binding, `ActorGroup`, `@RemoteActor`, HTTP, WSS, and generated-package APIs remain unchanged. |
 
 An absent runtime source or an invalid resolved graph is a materialization
@@ -89,9 +94,18 @@ failure. It is never replaced with an empty or pseudo-runtime source set.
 3. The adapter materializer renders collision-safe launcher module references;
    package generation writes isolated server, development, and profile-specific
    WASM packages.
-4. Native hosts serve rendered documents; standard WASM performs browser
+4. During development, the reconciler prepares or replaces that generated
+   root only when no transition owns compiler/build inputs below it. Changes
+   observed during an active transition update the desired fingerprint and are
+   prepared after that transition terminates and wakes convergence again.
+5. Native hosts serve rendered documents; standard WASM performs browser
    hydration and state reconciliation; Embedded WASM uses the generated actor
    projection where its target supports it.
+6. The opt-in standard-WASM counter runner proves the existing Chromium suite,
+   then runs WebKit against the same Native Actor: it records the rendered
+   server value, increments through the hydrated client component, rejects a
+   navigation, and reloads to prove the incremented value came from Actor
+   state rather than browser-only state.
 
 ## State, Ownership, and Lifecycle
 
@@ -103,6 +117,9 @@ identity and lifecycle semantics.
 The materializer's transaction owns staging and rollback of generated output;
 it does not mutate dependency checkouts. Development workers and host
 adapters own their process lifetimes under the existing development contracts.
+An active reconciler transition owns the generated paths consumed by its build
+until `runTransition` reaches its terminal state. The reconciler keeps newer
+desired input pending rather than replacing those paths during that lifetime.
 
 ## Failure, Concurrency, and Constraints
 
@@ -111,8 +128,11 @@ roots atomically. Source lookup is ordered and validated by required target
 directories. A remote adapter requirement whose exact version or resolved revision
 cannot be established fails materialization instead of falling back to its
 local checkout path. The generated profile must not import an inactive Actor
-target or host-only dependency. Browser E2E is opt-in and bounded; cloud
-deployment is not part of the 0.12.0 proof.
+target or host-only dependency. Direct browser-script execution remains opt-in,
+but each npm counter command is a required two-engine gate once invoked:
+missing or unlaunchable WebKit is a preflight failure, not a successful skip.
+An explicit required invocation without the opt-in is a configuration failure.
+Browser E2E is bounded; cloud deployment is not part of the 0.12.0 proof.
 
 ## Verification and Change Impact
 
@@ -120,10 +140,11 @@ deployment is not part of the 0.12.0 proof.
 |---|---|
 | `SwiftWebGeneratedPackageMaterializerTests` | Source projection, target selection, and generated package contracts. |
 | `SwiftWebLifecycleTests` | Adapter requirement provenance, including exact version, exact revision, explicit local path, and missing remote pin failure. |
+| `SwiftWebDevReconcilerTests` | Single-flight transition ownership, deferred fast-path preparation, latest-fingerprint convergence, crash precedence, failure latching, and shutdown behavior. |
 | `SwiftWebActorGroupTests`, `SwiftWebActorHostTests` | Native actor ownership, authorization, lifecycle, and failure behavior. |
 | `ClientRuntimeConcurrencyTests`, `SwiftWebHTTPServerHostTests` | Browser runtime scheduling and HTTP/TLS/WSS host behavior. |
 | Generated standard/Embedded package compile and link | Profile-specific source and dependency graph validity only. |
-| `counter-wasm` Chromium E2E | Real standard-WASM browser state and remote Actor call path. |
+| `counter-wasm` Chromium and WebKit E2E | Real standard-WASM browser state and remote Actor call path; Chromium owns the unchanged full development/HMR assertions, while WebKit owns hydration, navigation-free Actor mutation, reload persistence, diagnostics, and browser cleanup. |
 | `SwiftWebServiceActorBrowserTests` | Native Main-to-Service HTTP Actor boundary, not generated WASM or cloud E2E. |
 
 Changes to a child contract require rechecking this master and the directly

@@ -29,6 +29,7 @@ dependency resolver or make the vendored copy an alternate source owner.
 | Design | Relationship | Contract used | Cautions |
 |---|---|---|---|
 | [SwiftWeb package master](../../../DESIGN.md) | parent | Released dependency graph and generated-profile invariants | Recheck root dependency changes before changing lookup order. |
+| [Development server](../DevServer/DESIGN.md) | used by | Quiescent generated-root replacement admission | Active compiler and transition paths must outlive their build. |
 | [Actor integration](../../SwiftWebRuntime/Actors/DESIGN.md) | depends on | Profile-specific Actor target requirements | Do not duplicate Actor runtime lifecycle rules here. |
 | [Adapter contract](../../../docs/AdapterContract.md) | used by generated launchers | Application and adapter package boundaries | Adapter materialization is separate from client runtime mirroring. |
 | [Toolchain contract](../../../docs/Toolchain.md) | used by target graph | Exact host/WASM toolchain and SDK selection | A successful host build does not prove browser runtime behavior. |
@@ -94,7 +95,10 @@ The application package owns input source files and its resolved graph. The
 materializer owns only staged and committed generated roots. `GeneratedPackageFileWriter`
 owns file replacement and cleanup operations inside those roots. Source
 checkouts are read-only inputs for this module and outlive each materialization
-operation.
+operation. Replacing a committed generated root assumes that no active
+compiler, builder, or worker transition still owns paths below that root. The
+development reconciler satisfies this assumption through its own lifecycle
+contract.
 
 ## Failure, Concurrency, and Constraints
 

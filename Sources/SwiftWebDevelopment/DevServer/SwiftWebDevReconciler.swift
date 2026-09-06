@@ -26,8 +26,8 @@ package actor SwiftWebDevReconciler {
     private let builder: any SwiftWebDevWorkerBuilding
     private let launcher: any SwiftWebDevWorkerLaunching
     private let observer: SwiftWebDevReconcilerObserver
-    /// Fast-path hook run on every wake before convergence decisions: style
-    /// patches and WASM HMR (docs/DevServerReconcilerDesign.md §4.6). Best
+    /// Fast-path hook for changed sources when no transition is active: style
+    /// patches and WASM HMR (DESIGN.md lifecycle contract). Best
     /// effort — the fingerprint covers the same files, so the slow loop
     /// guarantees consistency regardless of what this does.
     private let fastPath: @Sendable (SwiftWebDevSourceFingerprint) async -> Void
@@ -154,11 +154,6 @@ package actor SwiftWebDevReconciler {
         if clearedFailure {
             lastFailure = nil
         }
-        if lastFastPathFingerprint != desired {
-            lastFastPathFingerprint = desired
-            await fastPath(desired)
-        }
-
         // Crash handling precedes the failure latch: even when the current
         // sources cannot be built, a crashed worker is still relaunched from
         // its existing executable so *something* keeps serving.
@@ -175,6 +170,11 @@ package actor SwiftWebDevReconciler {
         // Single flight: the completing transition wakes the loop again.
         if transitionTask != nil || isShuttingDown {
             return
+        }
+
+        if lastFastPathFingerprint != desired {
+            lastFastPathFingerprint = desired
+            await fastPath(desired)
         }
 
         if clearedFailure,

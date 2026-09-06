@@ -120,11 +120,12 @@ The module's focused evidence includes
 `SwiftWebActorHostTests`, `ClientRuntimeConcurrencyTests`,
 `SwiftWebHTTPServerHostTests`, and `SwiftWebServiceActorBrowserTests`. The
 standalone Actor package's own tests establish its lower-level contracts. The
-real `counter-wasm` gate proves generated standard-WASM browser execution and
-state mutation; generated Embedded compile/link and the standalone Embedded
-runtime validation do not claim full Embedded browser or cloud E2E. A generated
-Cloudflare page-worker deadline gate must originate in an ordinary generated
-Embedded actor call under `ActorCallOptions.withValue`; injecting a deadline
+parent package's required Chromium and WebKit `counter-wasm` gate proves
+generated standard-WASM browser execution and a real Actor-backed state
+mutation in both engines; generated Embedded compile/link and the standalone
+Embedded runtime validation do not claim full Embedded browser or cloud E2E.
+A generated Cloudflare page-worker deadline gate must originate in an ordinary
+generated Embedded actor call under `ActorCallOptions.withValue`; injecting a deadline
 only at a Native service's inbound Core boundary does not prove this path.
 
 Changes to the facade or host policy require rechecking this contract and the

@@ -534,10 +534,14 @@ scripts/swift-test-timeout.sh 120 -- "$SWIFT_WEB_HOST_SWIFT" test --skip-build
 Use `--filter <SuiteOrTestName>` for focused runs. Browser tests are opt-in;
 the [Service Actor HTTP boundary gate](Tests/BrowserE2E/README.md#service-actor-http-boundary)
 checks forwarding between two native hosts through Chromium. It is separate
-from the Swift-WASM hydration and development-loop gate:
+from the Swift-WASM hydration and development-loop gate, which requires the
+full Chromium suite plus WebKit hydration, navigation-free Actor mutation,
+and reload persistence. WebKit launch is checked before Swift builds; both
+counter npm commands select this same required gate:
 
 ```bash
 cd Tests/BrowserE2E
+npm run install-webkit
 npm run counter-wasm
 ```
 

@@ -7,6 +7,7 @@ same-origin HTTP boundary without rebuilding the browser WASM bundle.
 ```bash
 cd Tests/BrowserE2E
 npm install
+npm run install-webkit
 npm run counter-wasm
 npm run storyboard-navigation
 npm run page-access:perf
@@ -22,7 +23,9 @@ scene `.environment()` value travels SSR snapshot → wasm hydration →
 node env-badge-smoke.mjs "http://127.0.0.1:<port>"
 ```
 
-For the stronger local stability gate, install WebKit and require the smoke pass:
+Both counter commands run the same required two-engine gate. Install WebKit
+before either command; its launch and close are checked before app preparation
+or Swift builds:
 
 ```bash
 cd Tests/BrowserE2E
@@ -30,7 +33,13 @@ npm run install-webkit
 npm run counter-wasm:webkit
 ```
 
-The test copies `Examples/CounterApp` into a temporary directory, rewrites only `swift-web` to the local checkout, resolves the released `swift-html 0.16.0` package, starts `sweb dev`, and validates:
+The test copies `Examples/CounterApp` into a temporary directory and rewrites
+only `swift-web` to the local checkout. The example's `swift-html` declaration
+remains `from: "0.16.0"`, but the current SwiftWeb graph pins the public revision
+`573aba6454604780c07ad8a7aabd0e153423fe4b`; it does not resolve the `0.16.0` tag.
+See the root [manifest](../../Package.swift) and [resolved pins](../../Package.resolved),
+and retain the temporary CounterApp's `Package.resolved` as run-specific evidence.
+The runner starts `sweb dev` and validates:
 
 - an edit during the initial build converges to the latest source fingerprint
 - a timestamp-only touch does not rebuild or replace the worker
@@ -50,7 +59,11 @@ The test copies `Examples/CounterApp` into a temporary directory, rewrites only 
 - Server worker restart HMR followed by page patch without losing compatible client state
 - repeated page access liveness under direct HTTP and browser reload pressure
 - dev process shutdown cleanup
-- optional WebKit smoke when Playwright WebKit is installed, or required with `counter-wasm:webkit`
+- required WebKit hydration, client-to-Native Actor mutation without navigation, and server-rendered Actor value after reload
+
+Chromium retains the full development/HMR suite above. WebKit then uses the
+same server, reads its current Actor value, increments through the hydrated
+client, and verifies the persisted value after reload. Neither engine may skip.
 
 The E2E uses separate host and WASM processes under one Swift 6.4 snapshot
 contract:
@@ -73,7 +86,7 @@ Environment variables:
 
 | Name | Purpose |
 |---|---|
-| `SWIFTWEB_BROWSER_E2E` | Must be `1` to run. Otherwise the script exits successfully without work. |
+| `SWIFTWEB_BROWSER_E2E` | Must be `1` to run. Raw execution without opt-in or an explicit requirement skips; an explicit required invocation without opt-in fails. |
 | `SWIFTWEB_E2E_HOST_SWIFT_EXECUTABLE` | Swift executable used to build the host `sweb` CLI. Set this to the real pinned snapshot executable. |
 | `SWIFTWEB_E2E_HEADFUL` | Set to `1` to show the browser. |
 | `SWIFTWEB_E2E_PORT` | Fixed port. If omitted, an available port is selected. |
@@ -83,7 +96,7 @@ Environment variables:
 | `SWIFT_WEB_WASM_SWIFT` | Optional Swift executable override for WASM builds. |
 | `SWIFT_WEB_WASM_TOOLCHAIN_BIN` | Optional WASM toolchain bin directory override. |
 | `SWIFTWEB_E2E_BROWSER_EXECUTABLE_PATH` | Use a specific Chromium-compatible browser executable. |
-| `SWIFTWEB_E2E_REQUIRE_WEBKIT` | Set to `1` to fail when the optional WebKit smoke cannot run. |
+| `SWIFTWEB_E2E_REQUIRE_WEBKIT` | Invocation-intent guard set to `1` by both npm counter commands. It rejects a missing opt-in; every enabled counter run requires WebKit regardless of this value. |
 | `SWIFTWEB_E2E_KEEP_STORYBOARD` | Set to `1` to keep the generated `.swiftweb/storyboard` package after Storyboard navigation E2E. |
 
 ## Service Actor HTTP Boundary
@@ -136,11 +149,17 @@ timeouts.
 
 | Gate | Command | Expected browser coverage |
 |---|---|---|
-| Default browser E2E | `npm run counter-wasm` | Chromium-compatible browser plus optional WebKit smoke. |
+| Default browser E2E | `npm run counter-wasm` | Full Chromium suite plus required WebKit hydration, Actor mutation, reload persistence, and diagnostics. |
 | Storyboard navigation E2E | `npm run storyboard-navigation` | Chromium-compatible browser, same-origin client navigation, singular current sidebar link, back/forward, native hash/external fallback. |
 | Page access performance | `npm run page-access:perf` | Opt-in local latency gate for repeated test-page HTTP requests plus same-page browser reloads. |
 | Page access stress | `npm run page-access:stress` | Opt-in liveness gate for repeated test-page direct HTTP and browser access with per-request timeouts. |
-| Full local browser E2E | `npm run counter-wasm:webkit` | Chromium-compatible browser and required WebKit smoke. |
+| Full local browser E2E | `npm run counter-wasm:webkit` | Alias for the same required two-engine counter gate. |
+
+The fail-fast regression probes require no Swift build or running server:
+
+```bash
+../../scripts/swift-test-timeout.sh 90 -- node --test counter-wasm-preflight.test.mjs
+```
 
 The page access performance and stress gates are special tests and should not be part of
 the default fast test loop. They exist to detect the dev host becoming unresponsive during

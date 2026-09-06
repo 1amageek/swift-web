@@ -452,6 +452,7 @@ let package = Package(
                 "SwiftWebWasmBuild",
             ],
             path: "Sources/SwiftWebDevelopment/DevServer",
+            exclude: ["DESIGN.md"],
             swiftSettings: swiftWebSwiftSettings
         ),
         .target(

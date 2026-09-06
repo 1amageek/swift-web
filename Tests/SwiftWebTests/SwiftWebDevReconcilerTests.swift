@@ -23,8 +23,16 @@ struct SwiftWebDevReconcilerTests {
     world.fingerprinting.set(fingerprintB)
     world.reconciler.wake()
 
+    try await waitUntil("edited fingerprint is observed during the build") {
+      await world.reconciler.snapshot().desired == self.fingerprintB
+    }
+    // Allow the wake's async fast path to run while the builder stays held.
+    try await Task.sleep(nanoseconds: 200_000_000)
+    #expect(world.fastPathRecorder.fingerprints == [fingerprintA])
+
     world.builder.completeNext(with: URL(fileURLWithPath: "/tmp/exe-1"))
     try await waitUntil("second build starts") { world.builder.startedCount == 2 }
+    #expect(world.fastPathRecorder.fingerprints == [fingerprintA, fingerprintB])
     #expect(world.recorder.queuedFingerprints.contains(fingerprintB))
 
     world.builder.completeNext(with: URL(fileURLWithPath: "/tmp/exe-2"))

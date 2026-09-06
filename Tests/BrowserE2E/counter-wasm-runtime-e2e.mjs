@@ -11,6 +11,10 @@ const require = createRequire(import.meta.url);
 const execFileAsync = promisify(execFile);
 
 if (process.env.SWIFTWEB_BROWSER_E2E !== "1") {
+  if (process.env.SWIFTWEB_E2E_REQUIRE_WEBKIT === "1") {
+    console.error("SWIFTWEB_E2E_REQUIRE_WEBKIT=1 requires SWIFTWEB_BROWSER_E2E=1.");
+    process.exit(2);
+  }
   console.log("Skipping SwiftWeb browser E2E. Set SWIFTWEB_BROWSER_E2E=1 to run.");
   process.exit(0);
 }
@@ -940,35 +944,13 @@ async function launchBrowser() {
   }
 }
 
-async function runWebKitSmoke(baseURL) {
-  if (!webkit) {
-    const reason = "Playwright WebKit is not available in this installation.";
-    report.webkitSmoke = { skipped: true, reason };
-    recordPhase("webkit.smoke.skipped", { reason });
-    if (process.env.SWIFTWEB_E2E_REQUIRE_WEBKIT === "1") {
-      throw new Error(reason);
-    }
-    return;
-  }
-
+async function runWebKitAssertions(baseURL) {
   const headless = process.env.SWIFTWEB_E2E_HEADFUL !== "1";
-  let browser;
-  try {
-    browser = await webkit.launch({ headless });
-  } catch (error) {
-    const reason = String(error && error.message ? error.message : error);
-    report.webkitSmoke = { skipped: true, reason };
-    recordPhase("webkit.smoke.skipped", { reason });
-    if (process.env.SWIFTWEB_E2E_REQUIRE_WEBKIT === "1") {
-      throw error;
-    }
-    return;
-  }
-
+  const browser = await webkit.launch({ headless });
   try {
     const page = await browser.newPage();
     attachPageDiagnostics(page, "webkit");
-    recordPhase("webkit.smoke.goto");
+    recordPhase("webkit.goto");
     await page.goto(`${baseURL}/counter`, { waitUntil: "domcontentloaded", timeout: timeoutMs });
     await page.waitForFunction(
       () => document.documentElement.getAttribute("data-wasm-ready") === "true",
@@ -976,11 +958,43 @@ async function runWebKitSmoke(baseURL) {
       { timeout: timeoutMs }
     );
     await expectCounterValue(page, componentSelector("client-counter"), 0);
-    report.webkitSmoke = {
-      skipped: false,
+    const idleComponent = componentBySuffix(await runtimeManifestSnapshot(page), "ClientIdleCounter");
+    await page.waitForFunction(
+      (bundleID) => (window.__swiftWebWasmRuntimeStatus?.loadedBundleIDs || []).includes(bundleID),
+      idleComponent.bundleID,
+      { timeout: timeoutMs }
+    );
+    const baseline = await counterValue(page, componentSelector("server-counter"));
+    if (!Number.isSafeInteger(baseline) || !Number.isSafeInteger(baseline + 1)) {
+      throw new Error(`Invalid WebKit Actor baseline: ${baseline}`);
+    }
+    const marker = await page.evaluate(() => {
+      window.__swiftWebE2EMarker = crypto.randomUUID();
+      return window.__swiftWebE2EMarker;
+    });
+    recordPhase("webkit.ready", { baseline });
+    await page.locator(componentSelector("client-counter")).getByRole("button", { name: "Increment" }).click();
+    const incremented = baseline + 1;
+    await expectCounterValue(page, componentSelector("client-counter"), incremented);
+    if (await page.evaluate(() => window.__swiftWebE2EMarker) !== marker) {
+      throw new Error("WebKit Actor mutation navigated instead of updating the hydrated component.");
+    }
+    recordPhase("webkit.actor.incremented", { baseline, incremented });
+    await page.reload({ waitUntil: "domcontentloaded", timeout: timeoutMs });
+    await expectCounterValue(page, componentSelector("server-counter"), incremented);
+    await page.waitForFunction(
+      (bundleID) => document.documentElement.getAttribute("data-wasm-ready") === "true"
+        && (window.__swiftWebWasmRuntimeStatus?.loadedBundleIDs || []).includes(bundleID),
+      idleComponent.bundleID,
+      { timeout: timeoutMs }
+    );
+    report.webkit = {
+      baseline,
+      incremented,
       runtime: await browserRuntimeState(page),
     };
-    recordPhase("webkit.smoke.passed");
+    recordPhase("webkit.actor.persisted");
+    recordPhase("webkit.passed");
   } finally {
     await browser.close();
   }
@@ -1894,6 +1908,10 @@ const reusableTempRoot = process.env.SWIFTWEB_E2E_REUSE_TEMP_ROOT
   : null;
 
 try {
+  recordPhase("webkit.preflight.start");
+  const preflightBrowser = await webkit.launch({ headless: process.env.SWIFTWEB_E2E_HEADFUL !== "1" });
+  await preflightBrowser.close();
+  recordPhase("webkit.preflight.passed");
   const tempParent = path.join(swiftWebRoot, ".swiftweb", "browser-e2e");
   await mkdir(tempParent, { recursive: true });
   if (reusableTempRoot) {
@@ -1935,7 +1953,7 @@ try {
   recordPhase("server.ready");
 
   await runBrowserAssertions(baseURL, appRoot);
-  await runWebKitSmoke(baseURL);
+  await runWebKitAssertions(baseURL);
   assertNoUnexpectedBrowserDiagnostics();
   recordPhase("passed");
 } catch (error) {

@@ -12,21 +12,21 @@ Unit-test success alone does not satisfy T8.
 |---|---|
 | Swift toolchain | `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-08-14-a` |
 | Standard WASM SDK | `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-08-14-a_wasm` |
-| `swift-html` | released package `0.16.0` |
-| Browser | Playwright Chromium; WebKit is an optional additional smoke |
+| `swift-html` | Public revision `573aba6454604780c07ad8a7aabd0e153423fe4b` from the current SwiftWeb graph |
+| Browser | Playwright Chromium and WebKit; both are required |
 
-The E2E rewrites only the `swift-web` dependency to the local checkout. It
-keeps `swift-html` as a remote versioned dependency so unpublished sibling
-repository changes cannot make the verification pass.
+The E2E rewrites only the `swift-web` dependency to the local checkout. The
+example's `swift-html` declaration stays `from: "0.16.0"`, while SwiftWeb's
+[manifest](../Package.swift) selects the public revision above, as recorded in
+[resolved pins](../Package.resolved). Preserve the temporary CounterApp's
+`Package.resolved` for the actual run; no local SwiftHTML sibling override is used.
 
-The standard browser gate below is independent from the generated Embedded
-profile gate. The Embedded gate compiles and links the generated CounterApp
-package with `ActorSystemCore` plus `ActorSystemEmbedded` under the matching
-`_wasm-embedded` SDK; it does not claim Embedded browser or cloud execution.
-The pinned snapshot's debug-only SIL verifier diagnostic for the unchanged
-`Optional<String>` failure state is recorded in the [toolchain
-contract](Toolchain.md), while the release-profile compile/link gate remains
-the accepted Embedded evidence.
+The standard browser gate below is independent from Embedded verification.
+See the [root design](../DESIGN.md#verification-and-change-impact) for profile
+boundaries and [completed work](../PROGRESS.md) (`FIX-HTML` and
+`FIX-EMBEDDED-HOST`) for the corrected Debug Embedded path and actual local-workerd
+page/Actor evidence. That evidence does not claim Embedded browser execution,
+live deployment, or a release-profile gate.
 
 ## Automated gate
 
@@ -41,10 +41,16 @@ export SWIFTWEB_E2E_TIMEOUT_MS=900000
 export SWIFTWEB_E2E_HMR_TIMEOUT_MS=600000
 
 cd Tests/BrowserE2E
+npm run install-webkit
 npm run counter-wasm
 ```
 
-The command must exit with status zero and report every phase below.
+Both `counter-wasm` and `counter-wasm:webkit` run the same required two-engine
+gate. WebKit must launch and close before temporary app preparation or Swift
+builds; missing or unlaunchable WebKit fails immediately. An explicit
+`SWIFTWEB_E2E_REQUIRE_WEBKIT=1` without `SWIFTWEB_BROWSER_E2E=1` is a configuration
+failure, not a skip. The command must exit with status zero and report every
+phase below.
 
 | Scenario | Automated phase/evidence | Acceptance condition |
 |---|---|---|
@@ -54,6 +60,7 @@ The command must exit with status zero and report every phase below.
 | Timestamp-only touch | `reconciler.touch.no-rebuild` | Source/build fingerprints and worker PID remain unchanged. |
 | Quiescent freshness | response and status assertions throughout | `X-SwiftWeb-Dev-Build`, `X-SwiftWeb-Dev-Source`, `sourceFingerprint`, and `servingFingerprint` match; stale is false. |
 | Browser runtime | `wasm.ready` through `passed` | WASM hydration, same-type component identity, state, loading policies, ServerAction invalidation, generation-batched HMR rollback/recovery, injected DOM-command rollback, and page patching complete without a full reload on the normal path. An intercepted expired-generation `410` deliberately performs one full reload and converges to the latest runtime. |
+| Required WebKit | `webkit.preflight.passed`, `webkit.ready`, `webkit.actor.incremented`, `webkit.actor.persisted`, `webkit.passed` | After the unchanged full Chromium suite, WebKit hydrates, increments the current Native Actor baseline through the client without changing a window marker, reloads, and sees the incremented server-rendered value. Browser diagnostics and cleanup remain required. |
 | Long-lived HMR stream | Browser diagnostics after more than 30 seconds | The SSE response remains connected without incomplete-chunk or reconnect errors. |
 | Shutdown | `postStopProcessCheck` in the JSON report | No generated worker or build process remains. |
 
