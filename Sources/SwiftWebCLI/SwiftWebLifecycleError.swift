@@ -23,6 +23,8 @@ enum SwiftWebLifecycleError: Error, CustomStringConvertible {
     case incompatibleServiceArtifacts(service: String, produces: [String], accepts: [String])
     case invalidActorBinding(service: String, reason: String)
     case packageDependencyInspectionFailed(status: Int32, output: String)
+    case invalidPackageResolved(URL)
+    case missingRemotePackageRevision(identity: String, url: String)
     case invalidTemplatePath(String)
     case missingTemplate(URL)
     case unsafeTemplateEntry(URL)
@@ -51,6 +53,8 @@ enum SwiftWebLifecycleError: Error, CustomStringConvertible {
             65
         case .packageDependencyInspectionFailed, .taskFailed, .persistentTaskExited:
             70
+        case .invalidPackageResolved, .missingRemotePackageRevision:
+            65
         }
     }
 
@@ -100,6 +104,10 @@ enum SwiftWebLifecycleError: Error, CustomStringConvertible {
             "SwiftWeb service \(service) Actor binding is invalid: \(reason)"
         case .packageDependencyInspectionFailed(let status, let output):
             "Swift package dependency inspection failed with status \(status): \(output)"
+        case .invalidPackageResolved(let url):
+            "Package.resolved is invalid: \(url.path)"
+        case .missingRemotePackageRevision(let identity, let url):
+            "remote Swift package \(identity) (\(url)) has no resolved source-control revision"
         case .invalidTemplatePath(let path):
             "SwiftWeb adapter template path is unsafe: \(path)"
         case .missingTemplate(let url):

@@ -67,7 +67,7 @@ profile from the resolved checkouts; they do not link the host-only graph.
 
 | Boundary | Assumption | Guarantee |
 |---|---|---|
-| SwiftPM graph | Dependencies resolve from their public repositories | The root manifest has no local-path or revision dependency for release packages. |
+| SwiftPM graph | SwiftPM provides the dependency topology and checkout paths, and `Package.resolved` provides source-control pins | Remote adapter requirements materialize as exact versions or exact immutable revisions, never silently as checkout paths. Local paths remain limited to explicit local development and the generated application's own root composition. |
 | Platform | The host is macOS 26.2 or newer | The package and generated host consumers use the same minimum platform. |
 | Toolchain | The pinned Swift 6.4 snapshot and matching SDKs are selected | Host, standard WASM, and Embedded WASM evidence is attributed only to that tuple. |
 | Actor source ownership | SwiftPM resolves `swift-actor-system` | SwiftWeb has no vendored Actor source tree; generation mirrors the resolved checkout. |
@@ -80,8 +80,10 @@ failure. It is never replaced with an empty or pseudo-runtime source set.
 ## Runtime Flows
 
 1. SwiftPM resolves the application graph and records `Package.resolved`.
-2. The development materializer discovers the resolved SwiftWeb and SwiftHTML
-   roots, then locates the Actor targets from the same dependency context.
+2. The adapter dependency loader joins dependency identities from the inspected
+   graph with their source-control pins from `Package.resolved`. Separately, the
+   package-generation materializer discovers the resolved SwiftWeb and SwiftHTML
+   roots and locates the Actor targets from that dependency context.
 3. The materializer writes isolated server, development, and profile-specific
    WASM packages.
 4. Native hosts serve rendered documents; standard WASM performs browser
@@ -103,15 +105,18 @@ adapters own their process lifetimes under the existing development contracts.
 
 Materialization is serialized per application package and commits generated
 roots atomically. Source lookup is ordered and validated by required target
-directories. The generated profile must not import an inactive Actor target or
-host-only dependency. Browser E2E is opt-in and bounded; cloud deployment is
-not part of the 0.12.0 proof.
+directories. A remote adapter requirement whose exact version or resolved revision
+cannot be established fails materialization instead of falling back to its
+local checkout path. The generated profile must not import an inactive Actor
+target or host-only dependency. Browser E2E is opt-in and bounded; cloud
+deployment is not part of the 0.12.0 proof.
 
 ## Verification and Change Impact
 
 | Evidence | Scope |
 |---|---|
 | `SwiftWebGeneratedPackageMaterializerTests` | Source projection, target selection, and generated package contracts. |
+| `SwiftWebLifecycleTests` | Adapter requirement provenance, including exact version, exact revision, explicit local path, and missing remote pin failure. |
 | `SwiftWebActorGroupTests`, `SwiftWebActorHostTests` | Native actor ownership, authorization, lifecycle, and failure behavior. |
 | `ClientRuntimeConcurrencyTests`, `SwiftWebHTTPServerHostTests` | Browser runtime scheduling and HTTP/TLS/WSS host behavior. |
 | Generated standard/Embedded package compile and link | Profile-specific source and dependency graph validity only. |

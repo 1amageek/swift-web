@@ -76,7 +76,7 @@ struct SwiftWebEnvironmentMaterializer: Sendable {
                 workspaceDirectory
                 .appendingPathComponent("services", isDirectory: true)
                 .appendingPathComponent(service.name, isDirectory: true)
-            let serviceSubstitutions = serviceSubstitutions(
+            let serviceSubstitutions = try serviceSubstitutions(
                 service,
                 resolution: resolution,
                 serviceWorkspace: serviceWorkspace,
@@ -192,16 +192,16 @@ struct SwiftWebEnvironmentMaterializer: Sendable {
         for (adapterID, adapter) in resolution.adapters {
             values["adapter.\(adapterID).root"] = adapter.directory.path
             values["adapter.\(adapterID).swiftPackageRequirement"] =
-                swiftPackageRequirement(adapter.package)
+                try swiftPackageRequirement(adapter.package)
         }
         values["adapter.\(environment.hostAdapter.manifest.id).root"] =
             environment.hostAdapter.directory.path
         values["adapter.\(environment.hostAdapter.manifest.id).swiftPackageRequirement"] =
-            swiftPackageRequirement(environment.hostAdapter.package)
+            try swiftPackageRequirement(environment.hostAdapter.package)
         values["adapter.\(environment.deploymentAdapter.manifest.id).root"] =
             environment.deploymentAdapter.directory.path
         values["adapter.\(environment.deploymentAdapter.manifest.id).swiftPackageRequirement"] =
-            swiftPackageRequirement(environment.deploymentAdapter.package)
+            try swiftPackageRequirement(environment.deploymentAdapter.package)
         values.merge(environment.host.variables) { _, host in host }
         values.merge(environment.deployment.variables) { _, deployment in deployment }
         for service in environment.services {
@@ -220,7 +220,7 @@ struct SwiftWebEnvironmentMaterializer: Sendable {
             values["\(prefix).application.kebabName"] = Self.kebabCase(application.product)
             values["\(prefix).adapter.root"] = service.adapter.directory.path
             values["\(prefix).adapter.swiftPackageRequirement"] =
-                swiftPackageRequirement(service.adapter.package)
+                try swiftPackageRequirement(service.adapter.package)
             values["\(prefix).adapter.swiftPackageTraits"] =
                 swiftPackageTraits(service.project.adapterTraits)
             for (key, value) in service.component.variables {
@@ -408,7 +408,7 @@ struct SwiftWebEnvironmentMaterializer: Sendable {
         resolution: SwiftWebProjectResolution,
         serviceWorkspace: URL,
         substitutions: [String: String]
-    ) -> [String: String] {
+    ) throws -> [String: String] {
         let application = service.project.application
         var values = substitutions
         values["service.name"] = service.name
@@ -420,7 +420,7 @@ struct SwiftWebEnvironmentMaterializer: Sendable {
         values["service.application.kebabName"] = Self.kebabCase(application.product)
         values["service.adapter.root"] = service.adapter.directory.path
         values["service.adapter.swiftPackageRequirement"] =
-            swiftPackageRequirement(service.adapter.package)
+            try swiftPackageRequirement(service.adapter.package)
         values["service.adapter.swiftPackageTraits"] =
             swiftPackageTraits(service.project.adapterTraits)
         for (key, value) in service.component.variables {
@@ -434,14 +434,20 @@ struct SwiftWebEnvironmentMaterializer: Sendable {
 
     private func swiftPackageRequirement(
         _ package: SwiftPackageDependencyGraph.Package
-    ) -> String {
-        if package.version != "unspecified",
-            package.url.contains("://"),
-            !package.url.hasPrefix("file://")
-        {
+    ) throws -> String {
+        guard package.url.contains("://"), !package.url.hasPrefix("file://") else {
+            return "path: \"\(swiftString(package.directory.path))\""
+        }
+        if package.version != "unspecified" {
             return "url: \"\(swiftString(package.url))\", exact: \"\(swiftString(package.version))\""
         }
-        return "path: \"\(swiftString(package.directory.path))\""
+        guard let revision = package.revision, !revision.isEmpty else {
+            throw SwiftWebLifecycleError.missingRemotePackageRevision(
+                identity: package.identity,
+                url: package.url
+            )
+        }
+        return "url: \"\(swiftString(package.url))\", revision: \"\(swiftString(revision))\""
     }
 
     private func swiftPackageTraits(_ traits: [String]) -> String {

@@ -451,6 +451,195 @@ final class SwiftWebLifecycleTests: XCTestCase {
         }
     }
 
+    func testMaterializerRendersResolvedRevisionForUnspecifiedRemoteAdapter() async throws {
+        try await withTemporaryDirectory { root in
+            let app = root.appendingPathComponent("App", isDirectory: true)
+            let cloud = root.appendingPathComponent("cloud", isDirectory: true)
+            let remoteURL = "https://github.com/example/cloud-adapter.git"
+            let revision = "0123456789abcdef0123456789abcdef01234567"
+            try writeProjectManifest(at: app, host: "cloud/worker", deployment: "cloud/workers")
+            try writeAdapterManifest(
+                at: cloud,
+                id: "cloud",
+                host: "worker",
+                produces: ["swiftweb.wasm-module"],
+                deployment: "workers",
+                accepts: ["swiftweb.wasm-module"]
+            )
+            try writePackageResolvedPin(
+                identity: "cloud",
+                location: remoteURL,
+                revision: revision,
+                to: app
+            )
+
+            let graph = makeGraph(
+                root: app,
+                dependencyPackages: [
+                    .init(
+                        identity: "cloud",
+                        name: "CloudAdapter",
+                        url: remoteURL,
+                        version: "unspecified",
+                        path: cloud.path,
+                        dependencies: []
+                    )
+                ]
+            )
+            let resolution = try await SwiftWebProjectResolver(
+                graphLoader: StaticDependencyGraphLoader(graph: graph)
+            ).resolve(packageDirectory: app)
+            let environment = try resolution.environment(named: "production")
+
+            let materialized = try SwiftWebEnvironmentMaterializer().materialize(
+                resolution: resolution,
+                environment: environment
+            )
+
+            XCTAssertEqual(
+                materialized.substitutions["adapter.cloud.swiftPackageRequirement"],
+                "url: \"\(remoteURL)\", revision: \"\(revision)\""
+            )
+            XCTAssertFalse(
+                materialized.substitutions["adapter.cloud.swiftPackageRequirement", default: ""]
+                    .contains("path:")
+            )
+        }
+    }
+
+    func testMaterializerKeepsExactVersionForRemoteAdapter() async throws {
+        try await withTemporaryDirectory { root in
+            let app = root.appendingPathComponent("App", isDirectory: true)
+            let cloud = root.appendingPathComponent("cloud", isDirectory: true)
+            let remoteURL = "https://github.com/example/cloud-adapter.git"
+            try writeProjectManifest(at: app, host: "cloud/worker", deployment: "cloud/workers")
+            try writeAdapterManifest(
+                at: cloud,
+                id: "cloud",
+                host: "worker",
+                produces: ["swiftweb.wasm-module"],
+                deployment: "workers",
+                accepts: ["swiftweb.wasm-module"]
+            )
+
+            let graph = makeGraph(
+                root: app,
+                dependencyPackages: [
+                    .init(
+                        identity: "cloud",
+                        name: "CloudAdapter",
+                        url: remoteURL,
+                        version: "1.2.3",
+                        path: cloud.path,
+                        dependencies: []
+                    )
+                ]
+            )
+            let resolution = try await SwiftWebProjectResolver(
+                graphLoader: StaticDependencyGraphLoader(graph: graph)
+            ).resolve(packageDirectory: app)
+            let environment = try resolution.environment(named: "production")
+
+            let materialized = try SwiftWebEnvironmentMaterializer().materialize(
+                resolution: resolution,
+                environment: environment
+            )
+
+            XCTAssertEqual(
+                materialized.substitutions["adapter.cloud.swiftPackageRequirement"],
+                "url: \"\(remoteURL)\", exact: \"1.2.3\""
+            )
+        }
+    }
+
+    func testMaterializerRejectsRemoteAdapterWithoutResolvedRevision() async throws {
+        try await withTemporaryDirectory { root in
+            let app = root.appendingPathComponent("App", isDirectory: true)
+            let cloud = root.appendingPathComponent("cloud", isDirectory: true)
+            let remoteURL = "https://github.com/example/cloud-adapter.git"
+            try writeProjectManifest(at: app, host: "cloud/worker", deployment: "cloud/workers")
+            try writeAdapterManifest(
+                at: cloud,
+                id: "cloud",
+                host: "worker",
+                produces: ["swiftweb.wasm-module"],
+                deployment: "workers",
+                accepts: ["swiftweb.wasm-module"]
+            )
+
+            let graph = makeGraph(
+                root: app,
+                dependencyPackages: [
+                    .init(
+                        identity: "cloud",
+                        name: "CloudAdapter",
+                        url: remoteURL,
+                        version: "unspecified",
+                        path: cloud.path,
+                        dependencies: []
+                    )
+                ]
+            )
+            let resolution = try await SwiftWebProjectResolver(
+                graphLoader: StaticDependencyGraphLoader(graph: graph)
+            ).resolve(packageDirectory: app)
+            let environment = try resolution.environment(named: "production")
+
+            do {
+                _ = try SwiftWebEnvironmentMaterializer().materialize(
+                    resolution: resolution,
+                    environment: environment
+                )
+                XCTFail("Expected missing remote package revision")
+            } catch let error as SwiftWebLifecycleError {
+                guard case .missingRemotePackageRevision(
+                    identity: "cloud",
+                    url: remoteURL
+                ) = error else {
+                    XCTFail("Expected missingRemotePackageRevision, got \(error)")
+                    return
+                }
+            }
+        }
+    }
+
+    func testDependencyGraphRejectsNonCommitResolvedRevision() throws {
+        try withTemporaryDirectory { root in
+            let packageResolvedURL = root.appendingPathComponent("Package.resolved")
+            try writePackageResolvedPin(
+                identity: "cloud",
+                location: "https://github.com/example/cloud-adapter.git",
+                revision: "main",
+                to: root
+            )
+
+            let graph = makeGraph(
+                root: root,
+                dependencyPackages: [
+                    .init(
+                        identity: "cloud",
+                        name: "CloudAdapter",
+                        url: "https://github.com/example/cloud-adapter.git",
+                        version: "unspecified",
+                        path: root.appendingPathComponent("cloud").path,
+                        dependencies: []
+                    )
+                ]
+            )
+
+            XCTAssertThrowsError(
+                try graph.applyingResolvedRevisions(from: root)
+            ) { error in
+                guard let lifecycleError = error as? SwiftWebLifecycleError,
+                      case .invalidPackageResolved(let file) = lifecycleError else {
+                    XCTFail("Expected invalidPackageResolved, got \(error)")
+                    return
+                }
+                XCTAssertEqual(file, packageResolvedURL)
+            }
+        }
+    }
+
     func testMaterializerRemovesStaleManagedFilesAndPreservesBuildState() async throws {
         try await withTemporaryDirectory { root in
             let app = root.appendingPathComponent("App", isDirectory: true)
@@ -934,7 +1123,7 @@ private struct StaticDependencyGraphLoader: SwiftPackageDependencyGraphLoading {
     let graph: SwiftPackageDependencyGraph
 
     func load(packageDirectory: URL) async throws -> SwiftPackageDependencyGraph {
-        graph
+        try graph.applyingResolvedRevisions(from: packageDirectory)
     }
 }
 
@@ -957,6 +1146,48 @@ private func makeGraph(root: URL, dependencies: [URL]) -> SwiftPackageDependency
                 )
             }
         )
+    )
+}
+
+private func makeGraph(
+    root: URL,
+    dependencyPackages: [SwiftPackageDependencyGraph.Package]
+) -> SwiftPackageDependencyGraph {
+    SwiftPackageDependencyGraph(
+        root: .init(
+            identity: "app",
+            name: "App",
+            url: root.path,
+            version: "unspecified",
+            path: root.path,
+            dependencies: dependencyPackages
+        )
+    )
+}
+
+private func writePackageResolvedPin(
+    identity: String,
+    location: String,
+    revision: String,
+    to packageDirectory: URL
+) throws {
+    try write(
+        """
+        {
+          "pins": [
+            {
+              "identity": "\(identity)",
+              "kind": "remoteSourceControl",
+              "location": "\(location)",
+              "state": {
+                "revision": "\(revision)"
+              }
+            }
+          ],
+          "version": 3
+        }
+        """,
+        to: packageDirectory.appendingPathComponent("Package.resolved")
     )
 }
 

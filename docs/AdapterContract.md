@@ -211,7 +211,7 @@ Text templates may use:
 | `{{application.type}}` | Concrete `App` type |
 | `{{application.kebabName}}` | Product name converted to kebab case |
 | `{{adapter.<id>.root}}` | Resolved adapter package root |
-| `{{adapter.<id>.swiftPackageRequirement}}` | Resolved SwiftPM URL/version or local path arguments |
+| `{{adapter.<id>.swiftPackageRequirement}}` | Resolved SwiftPM remote URL with an exact version or immutable revision, or an explicit local-development path |
 | `{{actors.swiftImports}}` | Imports for concrete Actor contracts selected by the environment |
 | `{{actors.swiftProductDependencies}}` | SwiftPM product dependencies required by generated Actor descriptors |
 | `{{actors.swiftServiceBindings}}` | Typed `SwiftWebActorServiceBinding` values for the host launcher |
@@ -229,6 +229,20 @@ Adapter component variables extend this set. Binary files are copied unchanged.
 Symlinks and paths escaping their declared root are rejected. Re-materialization
 removes stale managed files but preserves untracked build state such as
 `node_modules` and compiler caches.
+
+SwiftPM dependency inspection supplies graph topology and checkout paths but
+may report `version: "unspecified"` for an exact-revision dependency. The
+materializer joins each remote adapter identity with its `Package.resolved` pin
+and renders `.package(url:revision:)`; it does not reinterpret the checkout as
+a local package. Versioned remote adapters continue to render
+`.package(url:exact:)`. A remote adapter without either an exact version or a
+resolved revision is an explicit materialization failure.
+
+A local adapter selected intentionally during development continues to render
+`.package(path:)`. The generated host package's `.package(path:
+"{{project.root}}")` is also retained because it composes the authored
+application sources into their generated host; it is not an external adapter
+dependency or a substitute for source-control provenance.
 
 The selected components, resolved package paths, and concrete Actor contract
 types are recorded in schema-version-3 `plan.lock.json`. Logical identities and
