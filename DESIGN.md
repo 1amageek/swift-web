@@ -84,6 +84,11 @@ profile from the resolved checkouts; they do not link the host-only graph.
 An absent runtime source or an invalid resolved graph is a materialization
 failure. It is never replaced with an empty or pseudo-runtime source set.
 
+Document metadata, including optional favicon links, follows the
+[HTML authoring model](docs/HTMLAuthoringModel.md#favicon-metadata).
+The convenience owns document composition only; applications own asset serving,
+and generic browser reconciliation retains its existing runtime boundary.
+
 ## Runtime Flows
 
 1. SwiftPM resolves the application graph and records `Package.resolved`.

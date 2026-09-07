@@ -242,6 +242,26 @@ SwiftWebUI head insertion markers, root language, and optional body class.
 Return a custom `HTMLDocument` when the application needs full control of the
 head or document attributes.
 
+### Favicon Metadata
+
+Favicon authoring belongs to `HTMLDocument.head`: custom documents use the
+standard `link` component with `rel="icon"` and an `href`. `PageMetadata` and
+the `PageDocument` convenience initializer accept `favicon: String? = nil`.
+`PageDocument.head` emits one such link when this value is present and none
+when it is absent. SwiftHTML owns attribute escaping; the convenience does not
+rewrite the URI, infer an image type, fetch the image, or validate availability.
+Title, description, language, body class, Open Graph metadata, and SwiftWebUI
+insertion markers retain their existing behavior.
+
+The application owns the image and its serving route. This metadata is not a
+Scene modifier, an asset pipeline, or a favicon-specific protocol. Initial
+rendering uses the existing generic document and component paths. Document
+lowering includes both head and body, but the current hydration session accepts
+a `Component` root, not an arbitrary `HTMLDocument`. Automatic reactivity of a
+computed document head is therefore not established by this convenience.
+Navigation-free icon updates require separate evidence through the existing
+generic runtime, not an icon-specific update channel.
+
 ## Boundary Rules
 
 | Boundary | Required contract |
@@ -269,3 +289,7 @@ The implementation must preserve all of the following:
 5. Documentation snippets compile against the pinned dependency revision.
 6. Rendering tests cover component composition, complete documents, rejected
    document nesting, static pages, and loaded pages.
+7. Favicon tests cover omitted metadata, exactly one declared link, escaped URI
+   attributes, both convenience initializers, and preservation of other head
+   metadata. Native HTTP page-to-image checks establish serving integration;
+   target compilation and browser reconciliation are distinct evidence gates.

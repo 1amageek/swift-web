@@ -21,6 +21,7 @@ public struct PageDocument<Content: Component>: HTMLDocument {
         description: String? = nil,
         language: String = "en",
         bodyClass: String? = nil,
+        favicon: String? = nil,
         @HTMLBuilder content: () -> Content
     ) {
         self.init(
@@ -28,7 +29,8 @@ public struct PageDocument<Content: Component>: HTMLDocument {
                 title: title,
                 description: description,
                 language: language,
-                bodyClass: bodyClass
+                bodyClass: bodyClass,
+                favicon: favicon
             ),
             content: content
         )
@@ -55,6 +57,9 @@ public struct PageDocument<Content: Component>: HTMLDocument {
         }
         if let description = metadata.description {
             meta(.name("description"), .content(description))
+        }
+        if let favicon = metadata.favicon {
+            link(.rel("icon"), .href(favicon))
         }
         if let openGraph = metadata.openGraph {
             openGraphTags(openGraph)

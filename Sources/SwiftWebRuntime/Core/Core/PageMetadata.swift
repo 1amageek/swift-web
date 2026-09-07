@@ -5,6 +5,7 @@ public struct PageMetadata: Sendable, Equatable {
     /// A class applied to the document `<body>`, letting a page opt into a
     /// body-level surface (e.g. a full-viewport app shell) styled by the SwiftWebUI root.
     public let bodyClass: String?
+    public let favicon: String?
     public let openGraph: OpenGraphMetadata?
 
     public init(
@@ -12,12 +13,14 @@ public struct PageMetadata: Sendable, Equatable {
         description: String? = nil,
         language: String = "en",
         bodyClass: String? = nil,
+        favicon: String? = nil,
         openGraph: OpenGraphMetadata? = nil
     ) {
         self.title = title
         self.description = description
         self.language = language
         self.bodyClass = bodyClass
+        self.favicon = favicon
         self.openGraph = openGraph
     }
 }

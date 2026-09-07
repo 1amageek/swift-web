@@ -118,6 +118,78 @@ struct SwiftWebPageDocumentTests {
     }
 
     @Test
+    func omitsFaviconLinkWhenNoFaviconIsProvided() {
+        let rendered = PageDocument(title: "Without favicon") {
+            main { "Calendar" }
+        }
+        .render()
+
+        #expect(!rendered.contains("<link rel=\"icon\""))
+    }
+
+    @Test
+    func rendersEscapedFaviconAndPreservesMetadataFromMetadataInitializer() {
+        let favicon = "/icons/calendar?label=\"<mark>\"&kind='brand'"
+        let rendered = PageDocument(
+            metadata: PageMetadata(
+                title: "Summer & Fireworks",
+                description: "Events across <Japan>.",
+                language: "ja",
+                bodyClass: "calendar-shell",
+                favicon: favicon,
+                openGraph: OpenGraphMetadata(
+                    type: "website",
+                    url: "https://example.com/ja",
+                    siteName: "Japan Calendar",
+                    locale: "ja_JP",
+                    image: OpenGraphImage(
+                        url: "https://example.com/assets/calendar.jpg",
+                        alt: "Seasonal events in Japan"
+                    )
+                )
+            )
+        ) {
+            main { "Calendar" }
+        }
+        .render()
+
+        #expect(rendered.components(separatedBy: "<link rel=\"icon\"").count - 1 == 1)
+        #expect(rendered.contains(
+            "<link rel=\"icon\" href=\"/icons/calendar?label=&quot;&lt;mark&gt;&quot;&amp;kind=&#39;brand&#39;\">"
+        ))
+        #expect(rendered.contains("<html lang=\"ja\" prefix=\"og: https://ogp.me/ns#\">"))
+        #expect(rendered.contains("<title>Summer &amp; Fireworks</title>"))
+        #expect(rendered.contains("<meta name=\"description\" content=\"Events across &lt;Japan&gt;.\">"))
+        #expect(rendered.contains("<meta property=\"og:title\" content=\"Summer &amp; Fireworks\">"))
+        #expect(rendered.contains("<body class=\"calendar-shell\"><main>Calendar</main></body>"))
+        #expect(rendered.contains("<!--swui-head-links-->"))
+        #expect(rendered.contains("<!--swui-base-->"))
+        #expect(rendered.contains("<!--swui-atomic-->"))
+        #expect(rendered.contains("<!--swui-head-scripts-->"))
+    }
+
+    @Test
+    func convenienceInitializerEmitsOneFaviconLink() {
+        let rendered = PageDocument(
+            title: "Calendar",
+            description: "Plan around events.",
+            language: "en",
+            bodyClass: "calendar-shell",
+            favicon: "/favicon.ico"
+        ) {
+            main { "Calendar" }
+        }
+        .render()
+
+        #expect(rendered.components(separatedBy: "<link rel=\"icon\"").count - 1 == 1)
+        #expect(rendered.contains("<link rel=\"icon\" href=\"/favicon.ico\">"))
+        #expect(rendered.contains("<title>Calendar</title>"))
+        #expect(rendered.contains("<meta name=\"description\" content=\"Plan around events.\">"))
+        #expect(rendered.contains("<html lang=\"en\">"))
+        #expect(rendered.contains("<body class=\"calendar-shell\"><main>Calendar</main></body>"))
+    }
+
+    @Test
     func rendersOpenGraphMetadataFromCanonicalPageValues() {
         let rendered = PageDocument(
             metadata: PageMetadata(
