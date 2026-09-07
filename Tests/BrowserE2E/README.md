@@ -168,7 +168,9 @@ For the focused HMR lifetime regression, use an already running dev server and
 run `../../scripts/swift-test-timeout.sh 60 node dev-hmr-lifecycle.mjs http://127.0.0.1:<port>`
 from this directory. It loads the actually served client/bootstrap in WebKit and
 uses controlled connection completions to check terminal close, retry-delay
-settlement, replacement, persisted pagehide, and visible live failures. It does
+settlement, replacement, persisted pagehide, and visible live failures. It also
+checks real native EventSource cursor reconnection and the single CLOSED status
+probe, including authentication reload and probe cancellation. It does
 not claim to reproduce a browser access-control error; the required Counter
 gate remains the final navigation test.
 

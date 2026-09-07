@@ -80,7 +80,10 @@ package enum SwiftWebDevHotReload {
         .contentType: "text/event-stream; charset=utf-8",
         .cacheControl: "no-cache, no-transform",
       ]
-      let payload = try await eventPayload(from: eventLog, after: search.lastEventID)
+      let payload = try await eventPayload(
+        from: eventLog, after: search.lastEventID,
+        lastEventIDHeader: req.headers[HTTPField.Name("Last-Event-ID")!]
+      )
       return Response(headers: headers, body: .init(string: payload))
     }
 
@@ -120,8 +123,10 @@ package enum SwiftWebDevHotReload {
 
   package static func eventPayload(
     from eventLog: SwiftWebDevEventLog,
-    after lastEventID: String?
+    after queryLastEventID: String?,
+    lastEventIDHeader: String? = nil
   ) async throws -> String {
+    let lastEventID = queryLastEventID ?? lastEventIDHeader
     if lastEventID == nil {
       if let latestEventID = try eventLog.latestEventID() {
         return try sseData(for: SwiftWebDevEvent(id: latestEventID, kind: .connected))
@@ -664,6 +669,7 @@ package enum SwiftWebDevHotReload {
             return false;
           }
           const source = new EventSource(swiftWebDevEventsURL.href, { withCredentials: true });
+          let didProbeClosedSource = false;
           state.eventSource = source;
           source.onopen = () => {
             if (state.closed || globalThis.__swiftWebDevReload !== state) {
@@ -708,28 +714,59 @@ package enum SwiftWebDevHotReload {
           ]) {
             source.addEventListener(name, handleEvent);
           }
-          source.onerror = () => {
+          source.onerror = async () => {
             if (state.closed || globalThis.__swiftWebDevReload !== state) {
               return;
             }
             state.lastError = `EventSource error: readyState=${source.readyState}`;
-            if (globalThis.__swiftWebDevReload === state && !state.reconnectTimer) {
-              state.reconnectTimer = window.setTimeout(() => {
-                state.reconnectTimer = null;
-                if (state.closed || globalThis.__swiftWebDevReload !== state) {
-                  return;
-                }
-                if (source.readyState === EventSource.CLOSED) {
-                  showDevStatus("SwiftWeb HMR reconnecting", "reconnecting");
-                  source.close();
-                  if (state.eventSource === source) {
-                    state.eventSource = null;
-                  }
-                  swiftWebStartEventStream();
-                } else if (source.readyState !== EventSource.OPEN) {
-                  showDevStatus("SwiftWeb HMR reconnecting", "reconnecting");
-                }
-              }, 1200);
+            if (source.readyState === EventSource.CONNECTING) {
+              // The browser owns reconnection and its Last-Event-ID cursor.
+              showDevStatus("SwiftWeb HMR reconnecting", "reconnecting");
+              return;
+            }
+            if (source.readyState !== EventSource.CLOSED || didProbeClosedSource) {
+              return;
+            }
+            didProbeClosedSource = true;
+            if (!("fetch" in window)) {
+              showDevStatus("SwiftWeb HMR stopped", "error", "Reload to reconnect.");
+              state.close();
+              return;
+            }
+            const controller = new AbortController();
+            state.abortController = controller;
+            try {
+              const response = await fetch(swiftWebDevEventsURL.href, {
+                cache: "no-store",
+                credentials: "same-origin",
+                headers: { "Accept": "text/event-stream" },
+                signal: controller.signal
+              });
+              if (state.closed || globalThis.__swiftWebDevReload !== state) {
+                return;
+              }
+              // Only headers belong to this probe; never retain an SSE body.
+              controller.abort();
+              if (response.status === 401 || response.status === 403) {
+                showDevStatus("SwiftWeb dev session changed", "reconnecting", "Reloading to reconnect with the current dev server token.");
+                state.close();
+                window.location.reload();
+                return;
+              }
+              state.lastError = `SwiftWeb HMR stopped with ${response.status}`;
+              showDevStatus("SwiftWeb HMR stopped", "error", state.lastError + ". Reload to reconnect.");
+            } catch (error) {
+              if (state.closed || controller.signal.aborted || globalThis.__swiftWebDevReload !== state) {
+                return;
+              }
+              state.lastError = String(error && error.message ? error.message : error);
+              showDevStatus("SwiftWeb HMR stopped", "error", state.lastError + ". Reload to reconnect.");
+            } finally {
+              controller.abort();
+              if (state.abortController === controller) {
+                state.abortController = null;
+              }
+              state.close();
             }
           };
           return true;
@@ -768,7 +805,7 @@ package enum SwiftWebDevHotReload {
             }, 300);
           }
         }
-        if (!swiftWebStartFetchEventStream() && !swiftWebStartEventStream()) {
+        if (!swiftWebStartEventStream() && !swiftWebStartFetchEventStream()) {
           swiftWebWaitForReload();
         }
       }

@@ -52,7 +52,8 @@ watcher / timer / worker exit
                               `--> terminal wake --> latest desired state
 
   browser document
-    `-- injected HMR state --> fetch-SSE / EventSource
+    `-- injected HMR state --> native EventSource
+          |                   `--> fetch-SSE / reload-poll capability fallbacks
           `-- terminal close <- replacement / non-persisted pagehide
 ```
 
@@ -77,6 +78,19 @@ watcher / timer / worker exit
   aborts the active fetch or closes the `EventSource`, cancels reconnect timers,
   settles any pending reconnect delay exactly once, and prevents every EOF, error, or delayed callback from opening another
   connection. It does not suppress genuine failures while the document is live.
+- Chromium and WebKit use native `EventSource` when it is available. The user
+  agent alone owns its `CONNECTING` reconnection and standard `Last-Event-ID`
+  cursor; client code does not recreate an `EventSource` or add a retry timer.
+- An unexpected native `CLOSED` state is terminal for that document owner. It
+  permits at most one abortable request to the same events endpoint to observe
+  the HTTP status, aborts the response body immediately after its headers are
+  read, reloads only for the existing 401/403 session-change contract, and
+  otherwise exposes the status failure without retrying. Closing the owner also
+  aborts this probe.
+- The streaming development host and the finite compatibility route accept an
+  explicit `lastEventID` query cursor first and otherwise the standard
+  `Last-Event-ID` header. Authentication is checked before cursor admission;
+  neither failure nor reconnection exposes the development token.
 
 ## Runtime Flows
 
@@ -92,10 +106,14 @@ watcher / timer / worker exit
    readiness, and publishes the replacement. Its terminal path clears the
    transition and wakes convergence so changes observed while it ran are not
    lost.
-5. The injected browser client selects fetch-SSE first and retains the existing
-   `EventSource` and reload-poll fallbacks. Replacement or non-persisted
-   `pagehide` closes the per-document owner; an abort caused by that terminal
-   close ends the loop without the reconnect delay or a new request.
+5. The injected browser client selects native `EventSource` first. Its
+   `CONNECTING` state keeps browser-owned reconnection, while unexpected
+   `CLOSED` performs one status-only probe and then either reloads for 401/403
+   or remains visibly terminal. Fetch-SSE is selected only when `EventSource`
+   is unavailable, and reload-poll remains the final capability fallback.
+6. Replacement or non-persisted `pagehide` closes the per-document owner. That
+   close terminates the native source, a status probe, or a fallback fetch and
+   settles any fallback reconnect delay without opening another request.
 
 ## State, Ownership, and Lifecycle
 
@@ -125,6 +143,13 @@ be hidden by filtering diagnostics: correctness is the absence of any request
 or reconnect attempt from the old document after terminal close. Live-document
 HTTP, parsing, and event-application failures retain their existing diagnostics.
 
+Transport failure never selects a lower capability fallback. Native
+`EventSource` failure remains native-source failure; fetch-SSE and reload-poll
+are selected only when the preceding browser API is absent. The one CLOSED
+status probe distinguishes the existing authentication recovery from other
+terminal failures without timing delays, error-string classification, or a
+second source owner.
+
 ## Verification and Change Impact
 
 `SwiftWebDevReconcilerTests` holds a build transition open, changes the source
@@ -140,9 +165,11 @@ active compiler. Changes to preparation order require rechecking package
 generation and the parent package design.
 
 Changes to browser HMR connection lifetime first require a focused generated-
-script regression that rejects a reconnect after terminal close while retaining
-the fetch-first and fallback selection rules. The cached required Chromium and
-WebKit Counter gate then must complete Actor mutation and reload persistence
-with no browser access-control, request, console, or server diagnostics and no
-residual process or listener. A string-presence assertion alone is not runtime
-proof of document-lifetime cleanup.
+script regression that rejects a reconnect after terminal close and checks
+native-source selection, browser-owned `CONNECTING`, one terminal CLOSED status
+probe, 401/403 reload, and capability-only fetch/reload-poll fallbacks. Host
+tests must prove query/header cursor equivalence on both events routes. The
+cached required Chromium and WebKit Counter gate then must complete Actor
+mutation and reload persistence with no browser access-control, request,
+console, or server diagnostics and no residual process or listener. A string-
+presence assertion alone is not runtime proof of document-lifetime cleanup.

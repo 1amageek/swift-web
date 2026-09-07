@@ -98,7 +98,7 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
                 responseSender: responseSender
             )
         case "/__swiftweb/dev/events", "/__dev/events":
-            return try await sendDevEvents(target: target, responseSender: responseSender)
+            return try await sendDevEvents(request: request, target: target, responseSender: responseSender)
         case "/__swiftweb/dev/reload":
             return try await sendReload(target: target, responseSender: responseSender)
         default:
@@ -282,6 +282,7 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
     }
 
     private func sendDevEvents(
+        request: HTTPRequest,
         target: SwiftWebDevHostRequestTarget,
         responseSender: consuming sending NIOHTTPServer.ResponseSender
     ) async throws {
@@ -308,7 +309,7 @@ struct SwiftWebDevHostHTTPHandler: HTTPServerRequestHandler {
             )
         )
         do {
-            var lastEventID = target.query["lastEventID"]
+            var lastEventID = target.query["lastEventID"] ?? request.headerFields[HTTPField.Name("Last-Event-ID")!]
             if lastEventID == nil {
                 let latestEventID = try eventLog.latestEventID()
                 let connected: SwiftWebDevEvent

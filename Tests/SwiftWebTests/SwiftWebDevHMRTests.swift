@@ -593,8 +593,8 @@ struct SwiftWebDevHMRTests {
     #expect(payload.contains(#""kind":"connected""#))
   }
 
-  @Test
-  func devEventPayloadReturnsEventsAfterLastEventID() async throws {
+  @Test(arguments: ["query", "header", "query-priority"])
+  func devEventPayloadReturnsEventsAfterLastEventID(cursor: String) async throws {
     let root = FileManager.default.temporaryDirectory
       .appendingPathComponent(
         "SwiftWebDevIncrementalEventPayloadTests-\(UUID().uuidString)", isDirectory: true)
@@ -612,7 +612,11 @@ struct SwiftWebDevHMRTests {
     try log.append(oldEvent)
     try log.append(nextEvent)
 
-    let payload = try await SwiftWebDevHotReload.eventPayload(from: log, after: oldEvent.id)
+    let payload = try await SwiftWebDevHotReload.eventPayload(
+      from: log,
+      after: cursor == "header" ? nil : oldEvent.id,
+      lastEventIDHeader: cursor == "query" ? nil : (cursor == "header" ? oldEvent.id : nextEvent.id)
+    )
 
     #expect(!payload.contains(oldEvent.id))
     #expect(payload.contains(nextEvent.id))
@@ -1398,8 +1402,8 @@ struct SwiftWebDevHMRTests {
     await host.stop()
   }
 
-  @Test(.timeLimit(.minutes(1)))
-  func devHostStreamsHotReloadEventsAfterLastEventIDOnOneConnection() async throws {
+  @Test(.timeLimit(.minutes(1)), arguments: ["query", "header", "query-priority"])
+  func devHostStreamsHotReloadEventsAfterLastEventIDOnOneConnection(cursor: String) async throws {
     let publicPort = try SwiftWebDevPortAllocator.allocateLoopbackPort()
     let root = FileManager.default.temporaryDirectory
       .appendingPathComponent(
@@ -1450,9 +1454,11 @@ struct SwiftWebDevHMRTests {
     do {
       try await host.start()
 
+      let query = cursor == "header" ? "" : "&lastEventID=\(styleEvent.id)"
       let events = try await fetchServerSentEvents(
-        "http://127.0.0.1:\(publicPort)/__swiftweb/dev/events?token=test-token&lastEventID=\(styleEvent.id)",
-        count: 2
+        "http://127.0.0.1:\(publicPort)/__swiftweb/dev/events?token=test-token\(query)",
+        count: 2,
+        lastEventIDHeader: cursor == "query" ? nil : (cursor == "header" ? styleEvent.id : "ignored-header-cursor")
       )
       #expect(events[0].contains("event: clientBuildStarted"))
       #expect(events[1].contains("event: serverBuildStarted"))
@@ -1684,7 +1690,9 @@ private func fetchFirstServerSentEvent(_ urlString: String) async throws -> Stri
   return event
 }
 
-private func fetchServerSentEvents(_ urlString: String, count: Int) async throws -> [String] {
+private func fetchServerSentEvents(
+  _ urlString: String, count: Int, lastEventIDHeader: String? = nil
+) async throws -> [String] {
   return try await withThrowingTaskGroup(of: [String].self) { group in
     group.addTask {
       guard let url = URL(string: urlString) else {
@@ -1692,6 +1700,9 @@ private func fetchServerSentEvents(_ urlString: String, count: Int) async throws
       }
       var request = URLRequest(url: url)
       request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+      if let lastEventIDHeader {
+        request.setValue(lastEventIDHeader, forHTTPHeaderField: "Last-Event-ID")
+      }
       let (bytes, response) = try await URLSession.shared.bytes(for: request)
       guard let httpResponse = response as? HTTPURLResponse else {
         throw SwiftWebDevHMRError.nonHTTPResponse
