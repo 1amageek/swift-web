@@ -146,6 +146,9 @@ Browser E2E is bounded; cloud deployment is not part of the 0.12.0 proof.
 | Generated standard/Embedded package compile and link | Profile-specific source and dependency graph validity only. |
 | `counter-wasm` Chromium and WebKit E2E | Real standard-WASM browser state and remote Actor call path; Chromium owns the unchanged full development/HMR assertions, while WebKit owns hydration, navigation-free Actor mutation, reload persistence, diagnostics, and browser cleanup. |
 | `SwiftWebServiceActorBrowserTests` | Native Main-to-Service HTTP Actor boundary, not generated WASM or cloud E2E. |
+| Native 1 MiB frame/HTTP/WSS probes | Retained owner/range, codec bounds, and real-server equality; required-copy reasons remain in [Actor integration](Sources/SwiftWebRuntime/Actors/DESIGN.md). |
+| `ActorTransportBoundary` Standard/Embedded Chromium probe | Controlled execution of the common browser HTTP owner at the exact public JavaScriptKit revision; [ClientRuntime](Sources/SwiftWebBrowser/ClientRuntime/DESIGN.md) owns ABI-copy measurements and source-backed intermediate storage accounting. Not full Embedded browser or cloud E2E. |
+| Page-access performance and stress profiles | One-time unchanged HelloWorld latency, liveness, diagnostics, and cleanup evidence in [BrowserE2E](Tests/BrowserE2E/README.md); not a cold-start or repository-wide performance claim. |
 
 Changes to a child contract require rechecking this master and the directly
 dependent module designs. Full release integration additionally proves the

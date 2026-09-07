@@ -1,5 +1,5 @@
 {
-  "originHash" : "7dc0a567a024ef3a571ad97f08917d93b3894b97ee7d5e16ab2f019ffb5e7431",
+  "originHash" : "f4e18b3b5c922de740d60ef70fae4b0ad9dcda452a63c9c1e4e91fe2496dbaf0",
   "pins" : [
     {
       "identity" : "async-http-client",
@@ -15,8 +15,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/1amageek/JavaScriptKit.git",
       "state" : {
-        "revision" : "7d3d6b25eea764a0c66d5334cc5841d9ffcb5687",
-        "version" : "0.57.0"
+        "revision" : "166dc39b6e282a0f039762381332ba6333ec809c"
       }
     },
     {

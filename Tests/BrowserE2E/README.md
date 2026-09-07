@@ -156,6 +156,7 @@ timeouts.
 | Page access performance | `npm run page-access:perf` | Opt-in local latency gate for repeated test-page HTTP requests plus same-page browser reloads. |
 | Page access stress | `npm run page-access:stress` | Opt-in liveness gate for repeated test-page direct HTTP and browser access with per-request timeouts. |
 | Full local browser E2E | `npm run counter-wasm:webkit` | Alias for the same required two-engine counter gate. |
+| Actor HTTP ABI boundary | [ActorTransportBoundary](ActorTransportBoundary/README.md) | Pinned Standard and Embedded WASM in Chromium, controlled fetch/host peers, 0/1 MiB equality, required copies, exact failures, and cleanup; not generated Embedded page or cloud E2E. |
 
 The fail-fast regression probes require no Swift build or running server:
 
@@ -188,6 +189,21 @@ Useful tuning variables:
 | `SWIFTWEB_PAGE_ACCESS_BROWSER_TIMEOUT_MS` | Per browser navigation/readiness timeout. |
 | `SWIFTWEB_PAGE_ACCESS_MAX_HTTP_P95_MS` | Optional p95 threshold; enabled by default for `page-access:perf`. |
 | `SWIFTWEB_PAGE_ACCESS_REUSE_BROWSER_PAGE` | Override browser mode; `page-access:perf` reuses one page, `page-access:stress` opens fresh pages by default. |
+
+The retained HelloWorld baseline at SwiftWeb `32d66b2` used the pinned August 14
+Swift 6.4 toolchain and default profiles after removing the unsupported
+`sweb dev --scratch-path` argument. No new CLI option or latency policy was added.
+
+| Profile | HTTP workload / observed p95 | Browser workload / observed p95 | Acceptance |
+|---|---|---|---|
+| Performance | 60 requests, concurrency 4 / 13 ms | 12 same-page accesses / 493 ms | Existing HTTP p95 limit 2500 ms and existing operation timeouts |
+| Stress | 240 requests, concurrency 8 / 20 ms | 40 new-page accesses / 430 ms | Existing operation timeouts; no added latency threshold |
+
+Both reports had empty unexpected-diagnostic collections, server exit 0, and
+no remaining owned process/listener. This unchanged page owner is not rerun for
+the browser Actor-copy-only change. The separate ABI fixture's before/after
+copy measurements are documented by [ClientRuntime](../../Sources/SwiftWebBrowser/ClientRuntime/DESIGN.md),
+not inferred from these page timings.
 
 The full gate is intended to prove the browser-visible dev loop, not just unit-level runtime helpers:
 

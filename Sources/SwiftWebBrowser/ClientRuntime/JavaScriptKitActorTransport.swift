@@ -47,7 +47,7 @@ public final class JavaScriptKitActorTransport: ActorTransport, Sendable {
             let encoded = try frameCodec.encode(frame)
             let response = try await requestDriver.perform(
                 endpoint: endpoint.transportSpecificAddress,
-                body: encoded.bytes
+                body: encoded
             )
             guard response.isSuccessful else {
                 throw actorSystemError(forHTTPStatus: response.status)
@@ -144,7 +144,7 @@ private final class JavaScriptKitActorRequestDriver: Sendable {
 
     func perform(
         endpoint: String,
-        body: [UInt8]
+        body: ActorByteBuffer
     ) async throws -> JavaScriptKitActorHTTPResponse {
         guard isAccepting else {
             throw ActorSystemError.transportClosed
@@ -187,14 +187,20 @@ private final class JavaScriptKitActorRequestDriver: Sendable {
                 options["method"] = "POST"
                 options["credentials"] = "same-origin"
                 options["headers"] = .object(headers)
-                options["body"] = JSUint8Array(body).jsValue
+                // The frame owner retains this byte-aligned UInt8 storage for the
+                // synchronous borrow. JavaScriptKit copies it into one JS owner;
+                // no pointer escapes the closure or survives across an await.
+                let requestBody = body.withUnsafeBytes { bytes in
+                    JSUint8Array(buffer: bytes.bindMemory(to: UInt8.self))
+                }
+                options["body"] = requestBody.jsValue
                 options["signal"] = abortController.signal
 
                 let responseInvocation: JSValue
                 if let hostRequest = JSObject.global.__swiftWebActorRequest.function {
                     responseInvocation = hostRequest(
                         endpoint,
-                        JSUint8Array(body).jsValue,
+                        requestBody.jsValue,
                         abortController.signal,
                         peerID
                     )
@@ -228,10 +234,22 @@ private final class JavaScriptKitActorRequestDriver: Sendable {
                 let typedArray = JSUint8Array(
                     unsafelyWrapping: uint8ArrayConstructor.new(bufferObject)
                 )
+                let byteCount = typedArray.length
+                // Array owns allocation and exactly-once release. Its UInt8
+                // destination has stride/alignment 1; the synchronous copy
+                // initializes exactly byteCount elements before publication.
+                // The whole JS response remains owned here, and neither pointer
+                // escapes. An empty response needs no storage or copy.
+                let bytes = [UInt8](unsafeUninitializedCapacity: byteCount) { buffer, initializedCount in
+                    if byteCount > 0 {
+                        typedArray.copyMemory(to: buffer)
+                    }
+                    initializedCount = byteCount
+                }
                 return JavaScriptKitActorHTTPResponse(
                     status: status,
                     isSuccessful: true,
-                    body: typedArray.withUnsafeBytes { Array($0) }
+                    body: bytes
                 )
             } onCancel: {
                 Task { @MainActor in

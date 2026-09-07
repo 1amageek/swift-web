@@ -28,6 +28,7 @@ boundaries.
 | [Actor runtime contract](README.md) | module authority | Concrete actor authoring, host policy, routing, and verification | This design indexes it; it does not duplicate its runtime rules. |
 | [swift-actor-system](https://github.com/1amageek/swift-actor-system) | depends on | Core, Distributed, Embedded, generation, and build-support products | The standalone release is the only Actor source owner. |
 | [Adapter contract](../../../docs/AdapterContract.md) | used by service binding | Structured service actor routes and deployment ownership | A service entry remains a build/deploy unit, not a generated Swift protocol. |
+| [Client runtime](../../SwiftWebBrowser/ClientRuntime/DESIGN.md) | coordinates with | Browser Actor HTTP byte ownership | Owns the measured JavaScript ABI copy boundary. | Controlled ABI peers do not prove Native HTTP/WSS or cloud routing. |
 
 ## Architecture
 
@@ -127,6 +128,20 @@ Embedded runtime validation do not claim full Embedded browser or cloud E2E.
 A generated Cloudflare page-worker deadline gate must originate in an ordinary
 generated Embedded actor call under `ActorCallOptions.withValue`; injecting a deadline
 only at a Native service's inbound Core boundary does not prove this path.
+
+The retained 1 MiB probes in `SwiftWebHostActorBinaryChannelTests` and
+`SwiftWebHTTPServerHostTests` passed 37 tests across two suites. Their ownership
+claims remain local to these unchanged paths:
+
+| Boundary | Retained behavior and required-copy reason |
+|---|---|
+| Actor frame codec | Encoded frame storage is reserved once and filled through scoped payload borrows; equality and frame/payload limits remain checked. |
+| Native binary channel and NIO WebSocket adapter | Owner identity and readable ranges survive slicing/forwarding without whole-payload array materialization. |
+| Native HTTP request and response | Public `[UInt8]` collection/response boundaries intentionally materialize owned bytes; the real HTTP 1 MiB echo preserves equality. |
+| HTTPS/WSS | Real encrypted 1 MiB echo preserves content; TLS encryption, decryption, and socket/client copies are not eliminated by owner/range reuse. |
+
+Browser transport copy changes do not alter these Native owners. Their retained
+evidence is complemented, not replaced, by the ClientRuntime ABI measurements.
 
 Changes to the facade or host policy require rechecking this contract and the
 parent package design. Changes to the standalone Actor package are reviewed in

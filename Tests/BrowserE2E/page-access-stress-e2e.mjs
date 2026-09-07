@@ -159,7 +159,7 @@ async function prepareAppCopy(root) {
   return appRoot;
 }
 
-async function launchDevServer(appRoot, scratchRoot, port) {
+async function launchDevServer(appRoot, port) {
   const swiftWebExecutable = await resolveSwiftWebExecutable();
   const wasmSwiftSDK = process.env.SWIFT_WEB_WASM_SDK || "swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-08-14-a_wasm";
   report.swiftWebExecutable = swiftWebExecutable;
@@ -177,8 +177,6 @@ async function launchDevServer(appRoot, scratchRoot, port) {
       "dev",
       "--package-path",
       appRoot,
-      "--scratch-path",
-      scratchRoot,
       "--port",
       String(port),
     ],
@@ -721,7 +719,6 @@ try {
   await mkdir(temporaryParent, { recursive: true });
   temporaryRoot = await mkdtemp(path.join(temporaryParent, "page-access-stress-"));
   const appRoot = await prepareAppCopy(temporaryRoot);
-  const scratchRoot = path.join(temporaryRoot, ".swiftweb", "dev");
   const port = await availablePort();
   const baseURL = `http://127.0.0.1:${port}`;
   report.baseURL = baseURL;
@@ -736,7 +733,7 @@ try {
   };
 
   recordPhase("server.start", { baseURL });
-  devServer = await launchDevServer(appRoot, scratchRoot, port);
+  devServer = await launchDevServer(appRoot, port);
   await waitForHTTP(`${baseURL}${testPath}`, Date.now() + startupTimeoutMs, devServer);
   recordPhase("server.ready");
 

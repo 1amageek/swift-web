@@ -36,13 +36,14 @@ struct SwiftWebHostActorBinaryChannelTests {
         let channel = try SwiftWebHostActorBinaryChannel(
             endpoint: ActorEndpoint("zero-copy-connection"),
             socket: socket,
-            maximumFrameBytes: 1_024,
+            maximumFrameBytes: 1_048_576,
             maximumBufferedFrames: 2
         )
         try await channel.start()
 
-        let storage = TestWebSocketBinaryStorage([0x00, 0x01, 0x02, 0x03, 0x04])
-        let message = WebSocketBinaryBuffer(storage: storage)[1..<4]
+        let expected = (0..<1_048_576).map { UInt8(truncatingIfNeeded: $0) }
+        let storage = TestWebSocketBinaryStorage([0xFE] + expected + [0xFF])
+        let message = WebSocketBinaryBuffer(storage: storage)[1..<1_048_577]
         var iterator = channel.incoming.makeAsyncIterator()
         try await socket.receiveBinary(message)
         let received = try #require(try await iterator.next())
@@ -53,10 +54,33 @@ struct SwiftWebHostActorBinaryChannelTests {
             sent.retainedStorage(as: TestWebSocketBinaryStorage.self)
         )
         #expect(retained.storage === storage)
-        #expect(retained.range == 1..<4)
-        #expect(sent.copyBytes() == [0x01, 0x02, 0x03])
+        #expect(retained.range == 1..<1_048_577)
+        #expect(sent.copyBytes() == expected)
 
         await channel.shutdown()
+    }
+
+    @Test
+    func oneMiBActorFrameCodecPreservesPayloadAndBounds() throws {
+        let payload = ActorByteBuffer((0..<1_048_576).map { UInt8(truncatingIfNeeded: $0) })
+        let frame = ActorFrame.result(ActorResultFrame(
+            callID: ActorCallID(session: ActorSessionID(71), sequence: 1),
+            outcome: .success(ActorInvocationResult(payload: payload))
+        ))
+        let codec = ActorFrameCodec(configuration: ActorSystemConfiguration(
+            sessionIdentitySource: FixedActorSessionIdentitySource(ActorSessionID(71)),
+            maximumFrameBytes: 1_048_832,
+            maximumPayloadBytes: 1_048_576
+        ))
+        let encoded = try codec.encode(frame)
+        #expect(try codec.decode(encoded) == frame)
+        let limited = ActorFrameCodec(configuration: ActorSystemConfiguration(
+            sessionIdentitySource: FixedActorSessionIdentitySource(ActorSessionID(71)),
+            maximumFrameBytes: 1_048_832,
+            maximumPayloadBytes: 1_048_575
+        ))
+        #expect(throws: ActorSystemError.self) { try limited.encode(frame) }
+        #expect(throws: ActorSystemError.self) { try limited.decode(encoded) }
     }
 
     @Test

@@ -15,10 +15,11 @@ import Testing
 struct SwiftWebHTTPServerHostTests {
     @Test
     func nioWebSocketStorageReusesItsNativeOwner() throws {
-        var source = ByteBufferAllocator().buffer(capacity: 5)
-        source.writeBytes([0x00, 0x01, 0x02, 0x03, 0x04])
+        let expected = (0..<1_048_576).map { UInt8(truncatingIfNeeded: $0) }
+        var source = ByteBufferAllocator().buffer(capacity: expected.count + 2)
+        source.writeBytes([0xFE] + expected + [0xFF])
         let storage = NIOWebSocketBinaryStorage(source)
-        let message = WebSocketBinaryBuffer(storage: storage)[1..<4]
+        let message = WebSocketBinaryBuffer(storage: storage)[1..<1_048_577]
 
         let outbound = NIOWebSocketBinaryStorage.byteBuffer(for: message)
         let sourceAddress = source.withUnsafeReadableBytes { bytes in
@@ -29,7 +30,21 @@ struct SwiftWebHTTPServerHostTests {
         }
 
         #expect(outboundAddress == sourceAddress)
-        #expect(outbound.readableBytesView.elementsEqual([0x01, 0x02, 0x03]))
+        #expect(outbound.readableBytesView.elementsEqual(expected))
+    }
+
+    @Test(.timeLimit(.minutes(1)))
+    func collectsAndEchoesOneMiBHTTPBody() async throws {
+        try await withHost(HostFixtureApp()) { client, base in
+            let expected = Data((0..<1_048_576).map { UInt8(truncatingIfNeeded: $0) })
+            var request = URLRequest(url: try #require(URL(string: "\(base)/hooks/echo")))
+            request.httpMethod = "POST"
+            request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
+            request.httpBody = expected
+            let (received, response) = try await client.data(for: request)
+            #expect((response as? HTTPURLResponse)?.statusCode == 200)
+            #expect(received == expected)
+        }
     }
 
     @Test

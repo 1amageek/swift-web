@@ -37,6 +37,7 @@ shutdown merely to release a dropped wrapper.
 | [Package generation](../../SwiftWebDevelopment/PackageGeneration/DESIGN.md) | used by | Profile-specific source projection | Copies this module into generated WASM packages. | Generated source must use the same callback owner contract. |
 | [Actor integration](../../SwiftWebRuntime/Actors/DESIGN.md) | depends on | Actor binding and shutdown contract | Provides the actor route and system lifecycle consumed by the client bridge. | A client callback failure is not an actor protocol success. |
 | SwiftHTML `StateStore` | depends on | Invalidation handler and dirty-cycle contract | Notifies one runtime owner after a state transition. | Detach the handler before releasing the runtime owner. |
+| [JavaScriptEventLoop](https://github.com/1amageek/JavaScriptKit/blob/166dc39b6e282a0f039762381332ba6333ec809c/Sources/JavaScriptEventLoop/DESIGN.md) | depends on | Installed immediate and MainActor executor | Allows the request driver's MainActor hop on the fixed WASI SDK. | Use the exact resolved public revision; Embedded does not gain delayed SchedulingExecutor conformance. |
 
 ## Architecture
 
@@ -70,6 +71,7 @@ against the private owner; it cannot create new work after detachment.
 | Shared state | Native, standard WASM, and Embedded WASM use the same logical state. | `Mutex` storage, `Sendable` contracts, read paths, mutation paths, and detachment semantics are identical across profiles. |
 | Post-shutdown work | A callback or task may race terminal detachment. | The access gate/state phase rejects updates with the existing shutdown error; no DOM update is applied. |
 | CSS deduplication | Atomic style rules use substring identity. | A `String.Index` scan over `Substring` prefixes has the same exact substring semantics and suppresses duplicate rules without materializing character arrays. |
+| Actor frame JavaScript ABI | WASM and JavaScript cannot share ownership of an Actor frame. | The selected `JavaScriptKitActorTransport` borrows the encoded `ActorByteBuffer` without an intermediate Swift array, creates one JavaScript-owned `Uint8Array`, and reuses it for the selected request API. A response allocates and initializes one final Swift byte array directly from the whole response `Uint8Array`; the required copy in each direction is not described as zero-copy. |
 
 ## Runtime Flows
 
@@ -82,6 +84,11 @@ against the private owner; it cannot create new work after detachment.
 4. Shutdown or wrapper deinitialization clears StateStore and update handlers,
    cancels pending tasks, and removes runtime entries. Explicit shutdown then
    awaits the retained actor and bridge terminations.
+5. A browser Actor request encodes into an owned `ActorByteBuffer`, borrows that
+   storage only while JavaScriptKit synchronously creates its owning typed
+   array, and reuses that typed array for either fetch or the optional host
+   request. The response copies the whole zero-offset JavaScript typed array
+   directly into one final Swift array before Actor decoding.
 
 ## State, Ownership, and Lifecycle
 
@@ -108,6 +115,16 @@ Embedded restrictions are handled by the shared lifecycle design, not by
 weakening ownership, removing synchronization, or adding raw-pointer escape
 hatches.
 
+The Actor-frame borrow cannot escape its closure or cross an `await`.
+JavaScriptKit owns the copied outbound typed array after the closure returns.
+Inbound allocation uses the typed-array length supplied by the existing
+whole-response driver, initializes the complete final array before publishing
+it, and handles an empty response without passing a nil base address to
+JavaScriptKit. Existing frame bounds remain the codec's responsibility after
+ownership transfer. This contract applies to
+the whole `ArrayBuffer` response currently constructed by the request driver;
+it does not infer equivalent offset semantics for arbitrary typed-array views.
+
 ## Verification and Change Impact
 
 `ClientRuntimeConcurrencyTests` owns the callback lifecycle contract. Changes
@@ -116,6 +133,36 @@ explicit terminal shutdown, pending-task termination, post-shutdown update
 rejection, and CSS substring deduplication. The generated Standard and
 Embedded package compile/link gates recheck profile projection; Counter
 Chromium E2E rechecks the live Standard WASM state and Actor call path.
+A bounded JavaScript ABI fixture additionally runs this common transport owner
+under the pinned Standard-WASM and Embedded-WASM profiles and checks one 1 MiB
+request/response for byte equality and the one-copy-per-direction accounting.
+The Embedded profile disables the Distributed Actor trait so that the existing
+`hasFeature(Embedded)` facade is selected; it does not change the transport
+implementation being measured. This controlled JavaScript ABI fixture is not
+an Embedded browser or cloud E2E. Compile/link or native buffer identity alone
+does not prove either WASM execution path.
+
+The [ActorTransportBoundary fixture](../../../Tests/BrowserE2E/ActorTransportBoundary/README.md)
+records the measured copy boundary. Its Standard before-edit run used the
+verified browser JavaScriptKit 0.57.2 source; both post-edit profiles use the
+same shared transport source and public JavaScriptKit `166dc39b6e282a0f039762381332ba6333ec809c`.
+
+| Boundary | Before | After | Evidence |
+|---|---|---|---|
+| Swift frame to JavaScript, fetch | One ABI copy | One ABI copy | Measured typed-array creation calls and bytes |
+| Swift frame to JavaScript, host request | Two ABI copies | One ABI copy reused by options and host request | Same ABI counters on the selected branch |
+| JavaScript response to Swift | One ABI copy | One ABI copy into the final owner | Measured typed-array copy calls and bytes |
+| Outbound intermediate Swift array | `encoded.bytes` materializes the whole frame | No intermediate array; nonescaping owner borrow | Source accounting on the executed path, not allocator instrumentation |
+| Inbound temporary Swift storage | Temporary copied buffer followed by final array construction | Direct initialization of the final array | Source accounting on the executed path, not allocator instrumentation |
+
+The remaining ABI copies transfer bytes between distinct JavaScript and Swift
+owners; they are required ownership boundaries, not zero-copy claims. The
+0-byte and 1 MiB payload cases retain content, cancellation, terminal stream,
+and failure checks under both Debug WASI profiles. The transport's phase remains
+under the same `Mutex`, and request state remains under the same `@MainActor`;
+neither storage nor Sendable is conditional on Embedded. Native compilation and
+27 focused ClientRuntime tests separately preserve the Native runtime surface;
+they do not execute this WASI-only transport.
 
 Changes to the private owner contract require rechecking the parent package
 design and the package-generation child design because generated source copies

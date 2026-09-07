@@ -152,7 +152,7 @@ let package = Package(
             url: "https://github.com/1amageek/swift-html.git",
             revision: "573aba6454604780c07ad8a7aabd0e153423fe4b"
         ),
-        .package(url: "https://github.com/1amageek/JavaScriptKit.git", from: "0.57.0"),
+        .package(url: "https://github.com/1amageek/JavaScriptKit.git", revision: "166dc39b6e282a0f039762381332ba6333ec809c"),
         .package(
             url: "https://github.com/1amageek/swift-actor-system.git",
             revision: "cdbca08b3a08d3cd5620ae16b5c33c372aff1ad3"
