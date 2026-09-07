@@ -225,9 +225,11 @@ package enum SwiftWebDevHotReload {
         }
         const state = {
           token: swiftWebDevToken,
+          closed: false,
           abortController: null,
           eventSource: null,
           reconnectTimer: null,
+          reconnectResolve: null,
           connectedAt: null,
           lastEvent: null,
           lastEventAt: null,
@@ -240,6 +242,11 @@ package enum SwiftWebDevHotReload {
           lastError: null,
           eventQueue: Promise.resolve(),
           close() {
+            if (this.closed) {
+              return;
+            }
+            this.closed = true;
+            window.removeEventListener("pagehide", swiftWebHandlePageHide);
             if (this.abortController) {
               this.abortController.abort();
             }
@@ -250,9 +257,20 @@ package enum SwiftWebDevHotReload {
               window.clearTimeout(this.reconnectTimer);
               this.reconnectTimer = null;
             }
+            const resolve = this.reconnectResolve;
+            this.reconnectResolve = null;
+            if (resolve) {
+              resolve();
+            }
           }
         };
         globalThis.__swiftWebDevReload = state;
+        function swiftWebHandlePageHide(event) {
+          if (!event.persisted) {
+            state.close();
+          }
+        }
+        window.addEventListener("pagehide", swiftWebHandlePageHide);
         function devStatusColor(phase) {
           if (phase === "error" || phase === "failed") {
             return "#f87171";
@@ -402,7 +420,17 @@ package enum SwiftWebDevHotReload {
           showDevStatus("SwiftWeb HMR: style patch applied", "style");
         }
         function swiftWebSleep(milliseconds) {
-          return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+          return new Promise((resolve) => {
+            state.reconnectResolve = resolve;
+            state.reconnectTimer = window.setTimeout(() => {
+              state.reconnectTimer = null;
+              const pending = state.reconnectResolve;
+              state.reconnectResolve = null;
+              if (pending) {
+                pending();
+              }
+            }, milliseconds);
+          });
         }
         function swiftWebDispatchSSEMessage(message) {
           if (!message || !message.data.length) {
@@ -450,6 +478,9 @@ package enum SwiftWebDevHotReload {
           }
         }
         async function swiftWebHandleDevEvent(payload) {
+          if (state.closed || globalThis.__swiftWebDevReload !== state) {
+            return;
+          }
           if (!payload || !payload.kind) {
             return;
           }
@@ -547,7 +578,7 @@ package enum SwiftWebDevHotReload {
           };
           state.eventSource = streamState;
           const run = async () => {
-            while (globalThis.__swiftWebDevReload === state && streamState.readyState !== 2) {
+            while (!state.closed && globalThis.__swiftWebDevReload === state && streamState.readyState !== 2) {
               const controller = new AbortController();
               state.abortController = controller;
               const url = new URL(swiftWebDevEventsURL.href);
@@ -561,6 +592,9 @@ package enum SwiftWebDevHotReload {
                     headers: { "Accept": "text/event-stream" },
                     signal: controller.signal
                   });
+                  if (state.closed || globalThis.__swiftWebDevReload !== state) {
+                    return;
+                  }
                   if (!response.ok || !response.body) {
                     if (response.status === 401 || response.status === 403) {
                       showDevStatus("SwiftWeb dev session changed", "reconnecting", "Reloading to reconnect with the current dev server token.");
@@ -593,17 +627,23 @@ package enum SwiftWebDevHotReload {
                     message.data.push(value);
                   }
                 };
-                while (globalThis.__swiftWebDevReload === state) {
+                while (!state.closed && globalThis.__swiftWebDevReload === state) {
                   const result = await reader.read();
+                  if (state.closed || globalThis.__swiftWebDevReload !== state) {
+                    return;
+                  }
                   if (result.done) {
                     break;
                   }
                   buffer += decoder.decode(result.value, { stream: true });
                   buffer = swiftWebParseSSEChunk(buffer, flush);
                 }
+                if (state.closed || globalThis.__swiftWebDevReload !== state) {
+                  return;
+                }
                 streamState.readyState = 0;
               } catch (error) {
-                if (controller.signal.aborted || globalThis.__swiftWebDevReload !== state) {
+                if (state.closed || controller.signal.aborted || globalThis.__swiftWebDevReload !== state) {
                   return;
                 }
                 streamState.readyState = 0;
@@ -617,12 +657,18 @@ package enum SwiftWebDevHotReload {
           return true;
         }
         function swiftWebStartEventStream() {
+          if (state.closed || globalThis.__swiftWebDevReload !== state) {
+            return false;
+          }
           if (!("EventSource" in window)) {
             return false;
           }
           const source = new EventSource(swiftWebDevEventsURL.href, { withCredentials: true });
           state.eventSource = source;
           source.onopen = () => {
+            if (state.closed || globalThis.__swiftWebDevReload !== state) {
+              return;
+            }
             state.connectedAt = Date.now();
             state.lastError = null;
             if (state.reconnectTimer) {
@@ -635,6 +681,9 @@ package enum SwiftWebDevHotReload {
             }
           };
           const handleEvent = (event) => {
+            if (state.closed || globalThis.__swiftWebDevReload !== state) {
+              return;
+            }
             try {
               if (!event || typeof event.data !== "string" || event.data.length === 0) {
                 return;
@@ -660,11 +709,14 @@ package enum SwiftWebDevHotReload {
             source.addEventListener(name, handleEvent);
           }
           source.onerror = () => {
+            if (state.closed || globalThis.__swiftWebDevReload !== state) {
+              return;
+            }
             state.lastError = `EventSource error: readyState=${source.readyState}`;
             if (globalThis.__swiftWebDevReload === state && !state.reconnectTimer) {
               state.reconnectTimer = window.setTimeout(() => {
                 state.reconnectTimer = null;
-                if (globalThis.__swiftWebDevReload !== state) {
+                if (state.closed || globalThis.__swiftWebDevReload !== state) {
                   return;
                 }
                 if (source.readyState === EventSource.CLOSED) {
@@ -683,7 +735,7 @@ package enum SwiftWebDevHotReload {
           return true;
         }
         async function swiftWebWaitForReload() {
-          if (globalThis.__swiftWebDevReload !== state) {
+          if (state.closed || globalThis.__swiftWebDevReload !== state) {
             return;
           }
           const controller = new AbortController();
@@ -694,8 +746,14 @@ package enum SwiftWebDevHotReload {
               credentials: "same-origin",
               signal: controller.signal
             });
+            if (state.closed || globalThis.__swiftWebDevReload !== state) {
+              return;
+            }
             const headerToken = response.headers.get("X-SwiftWeb-Dev-Token");
             const bodyToken = (await response.text()).trim();
+            if (state.closed || globalThis.__swiftWebDevReload !== state) {
+              return;
+            }
             const nextToken = bodyToken || headerToken;
             if (nextToken && nextToken !== swiftWebDevToken) {
               window.location.reload();
@@ -703,8 +761,11 @@ package enum SwiftWebDevHotReload {
             }
           } catch (_) {
           }
-          if (globalThis.__swiftWebDevReload === state) {
-            window.setTimeout(swiftWebWaitForReload, 300);
+          if (!state.closed && globalThis.__swiftWebDevReload === state) {
+            state.reconnectTimer = window.setTimeout(() => {
+              state.reconnectTimer = null;
+              swiftWebWaitForReload();
+            }, 300);
           }
         }
         if (!swiftWebStartFetchEventStream() && !swiftWebStartEventStream()) {

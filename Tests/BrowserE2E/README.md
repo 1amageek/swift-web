@@ -164,6 +164,20 @@ The fail-fast regression probes require no Swift build or running server:
 ../../scripts/swift-test-timeout.sh 90 -- node --test counter-wasm-preflight.test.mjs
 ```
 
+For the focused HMR lifetime regression, use an already running dev server and
+run `../../scripts/swift-test-timeout.sh 60 node dev-hmr-lifecycle.mjs http://127.0.0.1:<port>`
+from this directory. It loads the actually served client/bootstrap in WebKit and
+uses controlled connection completions to check terminal close, retry-delay
+settlement, replacement, persisted pagehide, and visible live failures. It does
+not claim to reproduce a browser access-control error; the required Counter
+gate remains the final navigation test.
+
+An explicit `SWIFTWEB_E2E_REUSE_TEMP_ROOT` points at an existing Counter gate
+temporary root. Preparation resets authored fixture inputs while preserving its
+`.build`, `.swiftweb`, and `Package.resolved`; ordinary new-root runs remain
+unchanged. Use this only when the integration contract permits a warm rerun,
+not as evidence of a fresh dependency resolution or cold build.
+
 The page access performance and stress gates are special tests and should not be part of
 the default fast test loop. They exist to detect the dev host becoming unresponsive during
 continued page access:

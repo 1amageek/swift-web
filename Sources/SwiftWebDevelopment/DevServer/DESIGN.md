@@ -18,6 +18,12 @@ prepares generated inputs, while the builder and launcher own compilation and
 worker startup. The reconciler decides when preparation is safe; the package
 materializer decides how a generated root is replaced transactionally.
 
+The injected `SwiftWebDevHotReload` client owns one private HMR state per
+browser document. That state owns its active fetch controller or `EventSource`
+and any reconnect timer. Script replacement and the document's terminal
+lifecycle signal are the only callers that close this owner; closing is
+idempotent and terminal, so no callback may reconnect after it.
+
 File-watcher and timer wakes are coalesced latency hints. Correctness comes
 from re-reading the source fingerprint inside the reconciler actor.
 
@@ -44,6 +50,10 @@ watcher / timer / worker exit
     |
     `-- transition --> builder --> launcher --> ready worker swap
                               `--> terminal wake --> latest desired state
+
+  browser document
+    `-- injected HMR state --> fetch-SSE / EventSource
+          `-- terminal close <- replacement / non-persisted pagehide
 ```
 
 ## Contracts and Invariants
@@ -61,6 +71,12 @@ watcher / timer / worker exit
   fingerprint changes.
 - A ready replacement is published before the previous worker is stopped.
   Shutdown cancels and joins the active transition before stopping the worker.
+- Each browser document owns exactly one current HMR connection state. A
+  replacement script closes the previous state before publishing its successor.
+- A non-persisted `pagehide` closes the current document state. Terminal close
+  aborts the active fetch or closes the `EventSource`, cancels reconnect timers,
+  settles any pending reconnect delay exactly once, and prevents every EOF, error, or delayed callback from opening another
+  connection. It does not suppress genuine failures while the document is live.
 
 ## Runtime Flows
 
@@ -76,6 +92,10 @@ watcher / timer / worker exit
    readiness, and publishes the replacement. Its terminal path clears the
    transition and wakes convergence so changes observed while it ran are not
    lost.
+5. The injected browser client selects fetch-SSE first and retains the existing
+   `EventSource` and reload-poll fallbacks. Replacement or non-persisted
+   `pagehide` closes the per-document owner; an abort caused by that terminal
+   close ends the loop without the reconnect delay or a new request.
 
 ## State, Ownership, and Lifecycle
 
@@ -85,6 +105,12 @@ cancellation, or failure. The materializer owns staged/backup root mechanics,
 but may publish a replacement only after reconciler admission. The active
 worker owns its executable process until replacement or shutdown stops it.
 
+Browser HMR connection state is document-local JavaScript state. The document
+retains it until script replacement or terminal navigation; the state retains
+only its connection handles, reconnect timer, event queue, and diagnostics.
+Closing this owner neither shuts down the dev server nor changes Actor or WASM
+runtime ownership.
+
 ## Failure, Concurrency, and Constraints
 
 Preparation and build failures remain observable and do not become successful
@@ -93,6 +119,11 @@ avoid a hot loop. Wakes may race or coalesce, but actor isolation and the
 single-flight transition guard preserve ordering. Deferring preparation must
 not introduce a second queue, lock, or global state; `desired`,
 `lastFastPathFingerprint`, and the terminal wake remain the convergence owners.
+
+A terminal browser abort is expected cleanup, not an HMR failure. It must not
+be hidden by filtering diagnostics: correctness is the absence of any request
+or reconnect attempt from the old document after terminal close. Live-document
+HTTP, parsing, and event-application failures retain their existing diagnostics.
 
 ## Verification and Change Impact
 
@@ -107,3 +138,11 @@ gate: it must complete initial-build edits, HMR and crash recovery, both browser
 paths, and process cleanup without moving generated inputs out from under an
 active compiler. Changes to preparation order require rechecking package
 generation and the parent package design.
+
+Changes to browser HMR connection lifetime first require a focused generated-
+script regression that rejects a reconnect after terminal close while retaining
+the fetch-first and fallback selection rules. The cached required Chromium and
+WebKit Counter gate then must complete Actor mutation and reload persistence
+with no browser access-control, request, console, or server diagnostics and no
+residual process or listener. A string-presence assertion alone is not runtime
+proof of document-lifetime cleanup.

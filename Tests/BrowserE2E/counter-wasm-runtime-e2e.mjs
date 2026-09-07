@@ -1,7 +1,7 @@
 import { createRequire } from "node:module";
 import { execFile, spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { cp, mkdir, mkdtemp, readFile, rm, utimes, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, readdir, rm, utimes, writeFile } from "node:fs/promises";
 import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -285,11 +285,24 @@ async function verifyWorkerCrashRecovery(baseURL, tempRoot) {
 
 async function prepareAppCopy(root) {
   const appRoot = path.join(root, "CounterApp");
-  await rm(appRoot, { recursive: true, force: true });
+  const preserveBuildState = Boolean(reusableTempRoot) && existsSync(appRoot);
+  const preserveResolution = preserveBuildState && existsSync(path.join(appRoot, "Package.resolved"));
+  if (preserveBuildState) {
+    for (const name of await readdir(appRoot)) {
+      if (![".build", ".swiftweb", "Package.resolved"].includes(name)) {
+        await rm(path.join(appRoot, name), { recursive: true, force: true });
+      }
+    }
+  } else {
+    await rm(appRoot, { recursive: true, force: true });
+  }
   await cp(exampleAppRoot, appRoot, {
     recursive: true,
     filter(source) {
       const name = path.basename(source);
+      if (preserveResolution && source === path.join(exampleAppRoot, "Package.resolved")) {
+        return false;
+      }
       return name !== ".build" && name !== ".swiftweb";
     },
   });
