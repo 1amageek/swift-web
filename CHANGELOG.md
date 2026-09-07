@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.13.0 - 2026-09-07
+
+Developer preview requiring the pinned Swift 6.4 2026-08-14 toolchain and matching SDKs.
+
+| Area | Change |
+|---|---|
+| Dependencies | Adopts released SwiftHTML `0.16.1`, JavaScriptKit fork `0.57.3`, ActorSystem `0.2.0`, and TLSNIO `0.1.1`, preserving the reviewed runtime source commits. |
+| State and scheduling | Fixes Embedded Debug Optional state ownership and Embedded WASI MainActor/default-executor installation while preserving common synchronization and Standard scheduling. |
+| Actor calls | Supports authored typed failures and scoped `ActorCallOptions`; additive Hosting SPI supplies the Embedded platform clock without moving deadline ownership out of Core. |
+| Browser transport | Reuses one outbound JavaScript typed array and initializes one final inbound Swift array. Controlled 0/1 MiB Standard/Embedded ABI probes measure one copy per direction; this is not a repository-wide zero-copy claim. |
+| HTTPS and WSS | Completes authenticated TLS shutdown after application inbound consumption stops, retaining typed stalled/unclean-peer failures and application-data ordering. |
+| Generation and development | Handles launcher module/type collisions, defers preparation while a build owns generated inputs, drains guarded process trees, and lets native EventSource own reconnection with cursor-preserving replay and terminal HMR cleanup. |
+| Verification scope | Required full Chromium plus WebKit Standard-WASM Counter behavior, focused Native owners, controlled Standard/Embedded browser ABI, and the production-generated Embedded page/Actor local-workerd path remain distinct evidence. No full Embedded browser, release-profile optimization, or live deployment claim. |
+
 ## 0.12.0 - 2026-09-06
 
 | Area | Change |

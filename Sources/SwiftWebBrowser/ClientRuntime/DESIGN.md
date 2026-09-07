@@ -37,7 +37,7 @@ shutdown merely to release a dropped wrapper.
 | [Package generation](../../SwiftWebDevelopment/PackageGeneration/DESIGN.md) | used by | Profile-specific source projection | Copies this module into generated WASM packages. | Generated source must use the same callback owner contract. |
 | [Actor integration](../../SwiftWebRuntime/Actors/DESIGN.md) | depends on | Actor binding and shutdown contract | Provides the actor route and system lifecycle consumed by the client bridge. | A client callback failure is not an actor protocol success. |
 | SwiftHTML `StateStore` | depends on | Invalidation handler and dirty-cycle contract | Notifies one runtime owner after a state transition. | Detach the handler before releasing the runtime owner. |
-| [JavaScriptEventLoop](https://github.com/1amageek/JavaScriptKit/blob/166dc39b6e282a0f039762381332ba6333ec809c/Sources/JavaScriptEventLoop/DESIGN.md) | depends on | Installed immediate and MainActor executor | Allows the request driver's MainActor hop on the fixed WASI SDK. | Use the exact resolved public revision; Embedded does not gain delayed SchedulingExecutor conformance. |
+| [JavaScriptEventLoop](https://github.com/1amageek/JavaScriptKit/blob/0.57.3/Sources/JavaScriptEventLoop/DESIGN.md) | depends on | Installed immediate and MainActor executor | Allows the request driver's MainActor hop on the fixed WASI SDK. | The 0.57.3 release preserves the verified source; Embedded does not gain delayed SchedulingExecutor conformance. |
 
 ## Architecture
 
@@ -145,7 +145,7 @@ does not prove either WASM execution path.
 The [ActorTransportBoundary fixture](../../../Tests/BrowserE2E/ActorTransportBoundary/README.md)
 records the measured copy boundary. Its Standard before-edit run used the
 verified browser JavaScriptKit 0.57.2 source; both post-edit profiles use the
-same shared transport source and public JavaScriptKit `166dc39b6e282a0f039762381332ba6333ec809c`.
+same shared transport source and public JavaScriptKit `166dc39b6e282a0f039762381332ba6333ec809c`, now released as 0.57.3.
 
 | Boundary | Before | After | Evidence |
 |---|---|---|---|

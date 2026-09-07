@@ -4,7 +4,7 @@
 
 SwiftWeb is the system package for server-rendered Swift applications and
 optional Swift WASM browser runtimes. This document is the package-level master
-for the 0.12.0 release.
+for the 0.13.0 release.
 
 The package root has four directly maintained design children:
 
@@ -52,7 +52,7 @@ proof boundary.
 flowchart TD
   App["Application Package.swift"] --> Graph["Resolved SwiftPM graph"]
   Graph --> HTML["SwiftHTML 0.16.x"]
-  Graph --> Actor["swift-actor-system 0.1.x"]
+  Graph --> Actor["swift-actor-system 0.2.x"]
   Graph --> TLS["swift-tls 2.1.x + swift-tls-nio 0.1.x"]
   Graph --> Modules["SwiftWeb modules"]
   Modules --> Host["Native host products"]
@@ -79,7 +79,7 @@ profile from the resolved checkouts; they do not link the host-only graph.
 | Actor call policy | swift-actor-system supplies immutable initializer defaults and task-scoped `ActorCallOptions` | A scoped value can drive a generated call deadline without mutating SwiftWeb's shared Embedded actor system; `.defaults`, nesting, parallel requests, errors, and cancellation preserve the lower-level scope contract. |
 | Standard-WASM browser gate | Playwright Chromium and WebKit are installed for an explicitly enabled browser E2E run | Both npm counter commands require both engines. Chromium retains the full development/HMR suite; WebKit must launch before expensive build work, hydrate the generated runtime, mutate the Native Actor through the client component without navigation, and observe the new Actor value after a page reload. |
 | Development generated-root lifetime | An active worker transition may retain compiler and build inputs below the current generated root until the transition terminates | The reconciler does not run its materializing fast path while a transition or shutdown owns that lifetime. A changed desired fingerprint remains pending and is prepared after the transition-completion wake; crash handling and failure latching retain their existing order. |
-| Public surface | The release changes package ownership and dependency versions only | Existing Distributed Actor, scene binding, `ActorGroup`, `@RemoteActor`, HTTP, WSS, and generated-package APIs remain unchanged. |
+| Public surface | The release adopts fixed dependency versions and additive Hosting SPI | Existing Distributed Actor, scene binding, `ActorGroup`, `@RemoteActor`, HTTP, and WSS APIs remain compatible. `WebActorSystem.installActorClock` supplies the Embedded platform clock through Hosting SPI; scoped call options come from ActorSystem 0.2.x. Generated launcher collision handling does not change authored Actor identity. |
 
 An absent runtime source or an invalid resolved graph is a materialization
 failure. It is never replaced with an empty or pseudo-runtime source set.
@@ -132,7 +132,7 @@ target or host-only dependency. Direct browser-script execution remains opt-in,
 but each npm counter command is a required two-engine gate once invoked:
 missing or unlaunchable WebKit is a preflight failure, not a successful skip.
 An explicit required invocation without the opt-in is a configuration failure.
-Browser E2E is bounded; cloud deployment is not part of the 0.12.0 proof.
+Browser E2E is bounded; cloud deployment is not part of the 0.13.0 proof.
 
 ## Verification and Change Impact
 

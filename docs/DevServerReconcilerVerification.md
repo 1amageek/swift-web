@@ -12,12 +12,12 @@ Unit-test success alone does not satisfy T8.
 |---|---|
 | Swift toolchain | `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-08-14-a` |
 | Standard WASM SDK | `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-08-14-a_wasm` |
-| `swift-html` | Public revision `573aba6454604780c07ad8a7aabd0e153423fe4b` from the current SwiftWeb graph |
+| `swift-html` | Released `0.16.1`, commit `573aba6454604780c07ad8a7aabd0e153423fe4b` |
 | Browser | Playwright Chromium and WebKit; both are required |
 
 The E2E rewrites only the `swift-web` dependency to the local checkout. The
-example's `swift-html` declaration stays `from: "0.16.0"`, while SwiftWeb's
-[manifest](../Package.swift) selects the public revision above, as recorded in
+example and SwiftWeb both declare `swift-html` with `from: "0.16.1"` in their
+[manifests](../Package.swift); the release graph is recorded in
 [resolved pins](../Package.resolved). Preserve the temporary CounterApp's
 `Package.resolved` for the actual run; no local SwiftHTML sibling override is used.
 

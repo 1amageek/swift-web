@@ -31,7 +31,7 @@ try {
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const swiftWebRoot = path.resolve(scriptDirectory, "../..");
-const expectedSwiftHTMLVersion = "0.16.0";
+const expectedSwiftHTMLVersion = "0.16.1";
 const exampleAppRoot = path.join(swiftWebRoot, "Examples", "CounterApp");
 const timeoutMs = Number(process.env.SWIFTWEB_E2E_TIMEOUT_MS || 600_000);
 const hmrTimeoutMs = Number(process.env.SWIFTWEB_E2E_HMR_TIMEOUT_MS || 300_000);
@@ -310,9 +310,9 @@ async function prepareAppCopy(root) {
   const packageFile = path.join(appRoot, "Package.swift");
   let manifest = await readFile(packageFile, "utf8");
   const expectedSwiftWebDependency =
-    '.package(url: "https://github.com/1amageek/swift-web.git", from: "0.12.0")';
+    '.package(url: "https://github.com/1amageek/swift-web.git", from: "0.13.0")';
   if (!manifest.includes(expectedSwiftWebDependency)) {
-    throw new Error("CounterApp does not declare the released SwiftWeb 0.12.0 dependency.");
+    throw new Error("CounterApp does not declare the released SwiftWeb 0.13.0 dependency.");
   }
   manifest = manifest.replace(
     /\.package\(\s*url:\s*"https:\/\/github\.com\/1amageek\/swift-web\.git",\s*from:\s*"[^"]+"\s*\),?/,

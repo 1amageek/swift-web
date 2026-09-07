@@ -10,8 +10,8 @@ let package = Package(
     platforms: [.macOS(.v14)],
     dependencies: [
         .package(path: "../../..", traits: []),
-        .package(url: "https://github.com/1amageek/swift-actor-system.git", revision: "cdbca08b3a08d3cd5620ae16b5c33c372aff1ad3"),
-        .package(url: "https://github.com/1amageek/JavaScriptKit.git", revision: "166dc39b6e282a0f039762381332ba6333ec809c"),
+        .package(url: "https://github.com/1amageek/swift-actor-system.git", exact: "0.2.0"),
+        .package(url: "https://github.com/1amageek/JavaScriptKit.git", exact: "0.57.3"),
     ],
     targets: [
         .executableTarget(

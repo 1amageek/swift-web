@@ -21,18 +21,18 @@ runtime uses the standard WASM SDK only.
 
 ## Generated Embedded verification
 
-The generated CounterApp Embedded package is a profile-specific compile/link
-gate, separate from the standard browser E2E and the standalone Actor runtime
-execution. With this pinned snapshot and the `_wasm-embedded` SDK, the 0.12.0
-candidate compiles and links its generated `ActorSystemCore` plus
-`ActorSystemEmbedded` runtime in `-c release` while preserving the
-application's `Optional<String>` failure state.
+SwiftHTML 0.16.1 fixes the former Debug `StateStore.install` Optional SIL
+verifier failure without changing `Optional<String>` state or invalidation
+semantics. Its Native, Standard-WASM, and Embedded-WASM owner probes retain the
+common Mutex contract on this pinned snapshot.
 
-The same source in `-c debug` reaches a Swift 6.4 SIL verifier diagnostic in
-SwiftHTML's `StateStore.install` Optional specialization (`Ill formed
-store_borrow scope`). This is recorded as snapshot/compiler triage evidence;
-application failure-state semantics must not be changed to hide it. Release
-compile/link does not claim Embedded browser execution.
+SwiftWeb 0.13.0 separately retains Debug Standard/Embedded Chromium execution
+of the controlled Actor HTTP transport ABI and a production-generated Embedded
+page-worker running through local workerd to a Native Actor. These prove their
+specific ownership, failure, cancellation, deadline, and shutdown boundaries;
+they are not a full Embedded browser gate, release-profile gate, or deployment.
+See the [package verification matrix](../DESIGN.md#verification-and-change-impact)
+and [ClientRuntime evidence](../Sources/SwiftWebBrowser/ClientRuntime/DESIGN.md#verification-and-change-impact).
 
 ```mermaid
 flowchart LR

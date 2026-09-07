@@ -5,9 +5,9 @@ optional Swift WASM browser runtime. Applications describe routes and complete
 HTML documents in Swift, use SwiftWebUI for higher-level components, and opt
 individual client components into hydration, local state, and browser events.
 
-> SwiftWeb 0.12.0 is a developer preview requiring the pinned Swift 6.4
+> SwiftWeb 0.13.0 is a developer preview requiring the pinned Swift 6.4
 > development snapshot. This README describes the released Service Actor
-> routing and adapter contracts. See [0.12.0](CHANGELOG.md#0120---2026-09-06).
+> routing and adapter contracts. See [0.13.0](CHANGELOG.md#0130---2026-09-07).
 
 ## What You Build
 
@@ -58,14 +58,14 @@ See [Toolchain](docs/Toolchain.md) for the complete host and WASM setup.
 
 ## Quick Start
 
-### Release 0.12.0
+### Release 0.13.0
 
-Install the `sweb` executable from the 0.12.0 release with
+Install the `sweb` executable from the 0.13.0 release with
 [Mint](https://github.com/yonaskolb/Mint):
 
 ```bash
 export PATH="$SWIFT_WEB_TOOLCHAIN_BIN:$PATH"
-mint install 1amageek/swift-web@0.12.0 sweb
+mint install 1amageek/swift-web@0.13.0 sweb
 sweb --help
 ```
 
@@ -94,8 +94,8 @@ let package = Package(
         .library(name: "MyApp", targets: ["MyApp"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/1amageek/swift-web.git", from: "0.12.0"),
-        .package(url: "https://github.com/1amageek/swift-html.git", from: "0.16.0"),
+        .package(url: "https://github.com/1amageek/swift-web.git", from: "0.13.0"),
+        .package(url: "https://github.com/1amageek/swift-html.git", from: "0.16.1"),
     ],
     targets: [
         .target(

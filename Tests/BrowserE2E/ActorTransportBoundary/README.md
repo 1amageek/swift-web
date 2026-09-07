@@ -4,9 +4,10 @@ This test-only Standard/Embedded WASM executable directly uses the public
 `JavaScriptKitActorTransport` selected by `ClientRuntimeActorSystemFactory`, and
 `ActorFrameCodec`. It does not replace or copy the transport. The root SwiftWeb
 package is the source under measurement; ActorSystem and JavaScriptKit use exact
-public revisions in this fixture's manifest. The before-copy baseline used
+public versions in this fixture's manifest: ActorSystem 0.2.0 and JavaScriptKit
+0.57.3. The before-copy baseline used
 JavaScriptKit 0.57.2 (`8067be4d2f907ab4a25614272f9e531fddd2ecfe`), matching the
-verified CounterApp WASM source. The final root and fixture graphs both pin
+verified CounterApp WASM source. The adopted JavaScriptKit 0.57.3 release is
 `166dc39b6e282a0f039762381332ba6333ec809c`, including the Embedded WASI executor
 integration. The root adoption also includes the already-reviewed 0.57.2 changes
 since its older 0.57.0 resolution; that older resolution was not the measured
@@ -31,7 +32,8 @@ bash Tests/BrowserE2E/ActorTransportBoundary/run.sh embedded
 
 The runner uses the pinned August 14 Swift 6.4 snapshot and matching WASM SDKs,
 separate profile scratch directories, Debug/native SwiftPM backend, jobs 2, a 1200-second build guard and a 60-second
-browser guard. It verifies public checkout revisions and compiled source paths, bundles the exact JavaScriptKit
+browser guard. It verifies exact public versions, reviewed checkout revisions,
+and compiled source paths, bundles the exact JavaScriptKit
 runtime, and reuses the production `SwiftWebWASI` class bytes. Browser, listener,
 and failure diagnostics belong to the runner. SwiftWeb dependency traits are
 disabled in both profiles: this directly exercises the common HTTP transport,

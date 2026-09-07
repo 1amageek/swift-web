@@ -34,9 +34,9 @@ npm run counter-wasm:webkit
 ```
 
 The test copies `Examples/CounterApp` into a temporary directory and rewrites
-only `swift-web` to the local checkout. The example's `swift-html` declaration
-remains `from: "0.16.0"`, but the current SwiftWeb graph pins the public revision
-`573aba6454604780c07ad8a7aabd0e153423fe4b`; it does not resolve the `0.16.0` tag.
+only `swift-web` to the local checkout. The example and SwiftWeb declare
+`swift-html` with `from: "0.16.1"`; that release preserves the reviewed commit
+`573aba6454604780c07ad8a7aabd0e153423fe4b`.
 See the root [manifest](../../Package.swift) and [resolved pins](../../Package.resolved),
 and retain the temporary CounterApp's `Package.resolved` as run-specific evidence.
 The runner starts `sweb dev` and validates:

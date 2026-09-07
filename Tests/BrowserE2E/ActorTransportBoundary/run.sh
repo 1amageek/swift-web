@@ -48,12 +48,14 @@ import { execFileSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import assert from 'node:assert/strict';
 const dependencies = JSON.parse(readFileSync(process.argv[2])).object.dependencies;
-for (const [identity, revision] of [
-  ['javascriptkit', '166dc39b6e282a0f039762381332ba6333ec809c'],
-  ['swift-actor-system', 'cdbca08b3a08d3cd5620ae16b5c33c372aff1ad3'],
+for (const [identity, version, revision] of [
+  ['javascriptkit', '0.57.3', '166dc39b6e282a0f039762381332ba6333ec809c'],
+  ['swift-actor-system', '0.2.0', 'cdbca08b3a08d3cd5620ae16b5c33c372aff1ad3'],
 ]) {
   const entry = dependencies.find(value => value.packageRef.identity.toLowerCase() === identity);
   assert.equal(entry?.state.name, 'sourceControlCheckout');
+  assert.equal(entry.state.checkoutState.version, version);
+  assert.equal(entry.state.checkoutState.branch, undefined);
   assert.equal(entry.state.checkoutState.revision, revision);
 }
 const scratch = dirname(process.argv[2]);

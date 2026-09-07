@@ -1,12 +1,13 @@
 {
-  "originHash" : "2b26cdfc751cba806b89e81ae0751d9d42eb75a3a087d93addd60cafec8c25dd",
+  "originHash" : "a0fa313897bb3aa4ce0d213dad6b47dfad8ad0ff119a8c35d42f40dc92ba8159",
   "pins" : [
     {
       "identity" : "javascriptkit",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/1amageek/JavaScriptKit.git",
       "state" : {
-        "revision" : "166dc39b6e282a0f039762381332ba6333ec809c"
+        "revision" : "166dc39b6e282a0f039762381332ba6333ec809c",
+        "version" : "0.57.3"
       }
     },
     {
@@ -23,7 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/1amageek/swift-actor-system.git",
       "state" : {
-        "revision" : "cdbca08b3a08d3cd5620ae16b5c33c372aff1ad3"
+        "revision" : "cdbca08b3a08d3cd5620ae16b5c33c372aff1ad3",
+        "version" : "0.2.0"
       }
     },
     {
@@ -31,7 +33,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/1amageek/swift-html.git",
       "state" : {
-        "revision" : "573aba6454604780c07ad8a7aabd0e153423fe4b"
+        "revision" : "573aba6454604780c07ad8a7aabd0e153423fe4b",
+        "version" : "0.16.1"
       }
     },
     {

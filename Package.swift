@@ -150,12 +150,12 @@ let package = Package(
     dependencies: [
         .package(
             url: "https://github.com/1amageek/swift-html.git",
-            revision: "573aba6454604780c07ad8a7aabd0e153423fe4b"
+            from: "0.16.1"
         ),
-        .package(url: "https://github.com/1amageek/JavaScriptKit.git", revision: "166dc39b6e282a0f039762381332ba6333ec809c"),
+        .package(url: "https://github.com/1amageek/JavaScriptKit.git", from: "0.57.3"),
         .package(
             url: "https://github.com/1amageek/swift-actor-system.git",
-            revision: "cdbca08b3a08d3cd5620ae16b5c33c372aff1ad3"
+            from: "0.2.0"
         ),
         .package(url: "https://github.com/apple/swift-http-types", from: "1.0.0"),
     ] + (swiftWebHostedApplication ? [
@@ -173,7 +173,7 @@ let package = Package(
         ),
         .package(
             url: "https://github.com/1amageek/swift-tls-nio.git",
-            revision: "d6edc14d363e5e64e4612399540b6ac63c986ff5"
+            from: "0.1.1"
         ),
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.6.0"),
         .package(url: "https://github.com/apple/swift-crypto.git", from: "4.0.0"),

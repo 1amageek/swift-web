@@ -63,7 +63,7 @@ Actor package owns the transport-neutral runtime beneath it.
 | Embedded deadline clock | `WebActorSystem.installActorClock(_:)` returns `true` after binding the platform clock for the default Embedded system before the first deadline-clock use, and `false` for a custom system whose configuration is left untouched. A deadline-free call keeps the binding window open; the first clock sleep seals it. Repeated and late installation throw typed configuration errors. |
 | Call options | `ActorCallOptions.withValue(_:operation:)` scopes options to an asynchronous task. The active scope, including `.defaults` with no timeout, wins over the actor system's initializer default; nested scopes restore and parallel scopes remain isolated without mutating the shared Embedded system. |
 | Failure | Actor invocation failures remain typed/observable and do not silently retry through the legacy JSON path. |
-| Source ownership | SwiftWeb imports Actor products from the resolved standalone checkout and mirrors source only from that checkout for generated WASM packages. Unreleased cross-repository development may consume an exact immutable upstream revision; branch and local-path overrides are not part of the published graph. |
+| Source ownership | SwiftWeb imports ActorSystem 0.2.x products from the resolved standalone checkout and mirrors source only from that checkout for generated WASM packages. Unreleased cross-repository development may consume an exact immutable upstream revision; revision, branch, and local-path overrides are not part of the published release graph. |
 
 ## Runtime Flows
 

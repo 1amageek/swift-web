@@ -28,7 +28,7 @@ for (const reuse of [false, true]) {
       const declaration = source.slice(source.indexOf("async function prepareAppCopy("), source.indexOf("async function launchDevServer("));
       const prepare = runInNewContext(`(${declaration})`, {
         path, cp, mkdir, readFile, readdir, rm, writeFile, existsSync,
-        swiftWebRoot, expectedSwiftHTMLVersion: "0.16.0",
+        swiftWebRoot, expectedSwiftHTMLVersion: "0.16.1",
         exampleAppRoot: path.join(swiftWebRoot, "Examples", "CounterApp"),
         reusableTempRoot: reuse ? root : null,
         swiftStringLiteral: (value) => value.replaceAll("\\", "\\\\").replaceAll('"', '\\"'),
