@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.14.0 - 2026-09-08
+
+Developer preview requiring the pinned Swift 6.4 2026-08-14 toolchain and matching SDKs.
+
+| Area | Change |
+|---|---|
+| Document metadata | Adds an optional favicon URI to `PageMetadata` and `PageDocument`; applications continue to own the asset and its serving route. |
+
 ## 0.13.0 - 2026-09-07
 
 Developer preview requiring the pinned Swift 6.4 2026-08-14 toolchain and matching SDKs.

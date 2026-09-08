@@ -310,9 +310,9 @@ async function prepareAppCopy(root) {
   const packageFile = path.join(appRoot, "Package.swift");
   let manifest = await readFile(packageFile, "utf8");
   const expectedSwiftWebDependency =
-    '.package(url: "https://github.com/1amageek/swift-web.git", from: "0.13.0")';
+    '.package(url: "https://github.com/1amageek/swift-web.git", from: "0.14.0")';
   if (!manifest.includes(expectedSwiftWebDependency)) {
-    throw new Error("CounterApp does not declare the released SwiftWeb 0.13.0 dependency.");
+    throw new Error("CounterApp does not declare the released SwiftWeb 0.14.0 dependency.");
   }
   manifest = manifest.replace(
     /\.package\(\s*url:\s*"https:\/\/github\.com\/1amageek\/swift-web\.git",\s*from:\s*"[^"]+"\s*\),?/,
