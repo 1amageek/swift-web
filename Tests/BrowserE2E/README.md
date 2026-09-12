@@ -71,21 +71,17 @@ contract:
 | Host Swift | Builds the `sweb` CLI and runs the development host with the pinned `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-08-14-a` toolchain. |
 | WASM Swift SDK | Builds client runtime bundles with the matching `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-08-14-a_wasm` SDK. |
 
-Configure the exact toolchain before running an E2E command:
-
-```bash
-export SWIFT_WEB_TOOLCHAIN_BIN="$HOME/Library/Developer/Toolchains/swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-08-14-a.xctoolchain/usr/bin"
-export SWIFTWEB_E2E_HOST_SWIFT_EXECUTABLE="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
-export SWIFT_WEB_WASM_SWIFT="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
-export SWIFT_WEB_WASM_TOOLCHAIN_BIN="$SWIFT_WEB_TOOLCHAIN_BIN"
-```
+Select the pinned compiler and install its matching SDK before running the gate.
+See [toolchain discovery](../../docs/Toolchain.md#automatic-discovery). The test
+runner checks `xcrun` and `swift`; use the optional host override below if those
+commands select a different compiler.
 
 Environment variables:
 
 | Name | Purpose |
 |---|---|
 | `SWIFTWEB_BROWSER_E2E` | Must be `1` to run. Raw execution without opt-in or an explicit requirement skips; an explicit required invocation without opt-in fails. |
-| `SWIFTWEB_E2E_HOST_SWIFT_EXECUTABLE` | Swift executable used to build the host `sweb` CLI. Set this to the real pinned snapshot executable. |
+| `SWIFTWEB_E2E_HOST_SWIFT_EXECUTABLE` | Optional pinned Swift executable override for the test runner’s host CLI build. |
 | `SWIFTWEB_E2E_HEADFUL` | Set to `1` to show the browser. |
 | `SWIFTWEB_E2E_PORT` | Fixed port. If omitted, an available port is selected. |
 | `SWIFTWEB_E2E_TIMEOUT_MS` | Overall wait timeout for server, runtime, and HMR phases. |

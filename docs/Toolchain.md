@@ -44,50 +44,61 @@ flowchart LR
   SDK --> Artifact
 ```
 
-## Environment
+## Automatic discovery
 
-Use the actual snapshot toolchain directory for WASM builds. Do not set
-`SWIFT_WEB_WASM_SWIFT` to `~/.swiftly/bin/swift`; the shim directory does not
-contain `wasm-ld`.
+Select the pinned compiler for `swift` and install the matching SDK. For a
+standard macOS installation, no SwiftWeb environment variables are required.
 
-```bash
-export SWIFT_WEB_TOOLCHAIN_BIN="$HOME/Library/Developer/Toolchains/swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-08-14-a.xctoolchain/usr/bin"
-export SWIFT_WEB_HOST_SWIFT="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
-export SWIFT_WEB_WASM_SWIFT="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
-export SWIFT_WEB_WASM_TOOLCHAIN_BIN="$SWIFT_WEB_TOOLCHAIN_BIN"
-export SWIFT_WEB_WASM_SDK="swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-08-14-a_wasm"
+```text
+sweb -> pinned compiler in ~/Library/Developer/Toolchains
+     -> matching WASM SDK (default identifier above)
 ```
 
-Verify the complete contract before building:
+Host compiler discovery checks the pinned user-toolchain directory, then
+`xcrun`, then `PATH`, validating the compiler against the pinned snapshot.
+WASM discovery checks the pinned user-toolchain directory, then the matching
+SDK's bundled toolchain; both `swift` and `wasm-ld` must be available.
 
-```bash
-"$SWIFT_WEB_HOST_SWIFT" --version
-test -x "$SWIFT_WEB_WASM_TOOLCHAIN_BIN/wasm-ld"
-"$SWIFT_WEB_WASM_SWIFT" sdk list | \
-  rg 'swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-08-14-a_wasm(-embedded)?'
-```
+`.swift-version` selects the compiler through Swiftly; it does not install the
+WASM SDK. To inspect your installation, use `swift --version` and `swift sdk list`.
+
+## Optional overrides
+
+For a nonstandard installation, override only the paths that automatic discovery
+cannot find. These settings are not part of the normal startup procedure.
+
+| Variable | Override |
+|---|---|
+| `SWIFT_WEB_HOST_SWIFT` | Host Swift executable |
+| `SWIFT_WEB_HOST_TOOLCHAIN_BIN` | Host toolchain directory, when no executable override is set |
+| `SWIFT_WEB_WASM_SWIFT` | WASM Swift executable, with `wasm-ld` in the same directory |
+| `SWIFT_WEB_WASM_TOOLCHAIN_BIN` | WASM toolchain directory, when no executable override is set |
+| `SWIFT_WEB_WASM_SDK` | Supported SDK identifier; defaults to the pinned standard SDK |
+
+Use real toolchain paths for overrides. A Swiftly shim directory does not contain
+`wasm-ld`. Explicit invalid overrides fail rather than falling back silently.
 
 ## Validation
 
 Validate every supported manifest mode:
 
 ```bash
-"$SWIFT_WEB_HOST_SWIFT" package dump-package
-SWIFTWEB_CORE_ONLY=1 "$SWIFT_WEB_HOST_SWIFT" package dump-package
-SWIFTWEB_HOSTED_APPLICATION=1 "$SWIFT_WEB_HOST_SWIFT" package dump-package
+swift package dump-package
+SWIFTWEB_CORE_ONLY=1 swift package dump-package
+SWIFTWEB_HOSTED_APPLICATION=1 swift package dump-package
 ```
 
 Build the CLI:
 
 ```bash
-"$SWIFT_WEB_HOST_SWIFT" build --product sweb --jobs 2
+swift build --product sweb --jobs 2
 ```
 
 Validate the Embedded capability surface without the browser-only or external
 actor runtime graph:
 
 ```bash
-SWIFTWEB_CORE_ONLY=1 "$SWIFT_WEB_HOST_SWIFT" build \
+SWIFTWEB_CORE_ONLY=1 swift build \
   --swift-sdk swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-08-14-a_wasm-embedded \
   --product SwiftWebCore \
   --disable-default-traits \
@@ -101,7 +112,7 @@ keeps the Foundation-dependent external actor runtime outside that graph.
 Build and process a real browser runtime:
 
 ```bash
-"$SWIFT_WEB_HOST_SWIFT" run sweb build \
+swift run sweb build \
   --package-path Examples/CounterApp \
   --environment local
 ```

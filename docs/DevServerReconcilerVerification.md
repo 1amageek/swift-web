@@ -30,13 +30,10 @@ live deployment, or a release-profile gate.
 
 ## Automated gate
 
-Run from the repository root:
+With the pinned compiler selected and matching SDK installed, run from the
+repository root. See [automatic discovery](Toolchain.md#automatic-discovery).
 
 ```bash
-export SWIFT_WEB_TOOLCHAIN_BIN="$HOME/Library/Developer/Toolchains/swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-08-14-a.xctoolchain/usr/bin"
-export SWIFTWEB_E2E_HOST_SWIFT_EXECUTABLE="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
-export SWIFT_WEB_WASM_SWIFT="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
-export SWIFT_WEB_WASM_TOOLCHAIN_BIN="$SWIFT_WEB_TOOLCHAIN_BIN"
 export SWIFTWEB_E2E_TIMEOUT_MS=900000
 export SWIFTWEB_E2E_HMR_TIMEOUT_MS=600000
 
@@ -84,10 +81,12 @@ generation route returns `410 Gone`. The host script treats that status as an
 explicit full-reload requirement instead of applying bytes from another
 generation.
 
-Generated application templates have a separate behavioral gate:
+Generated application templates have a separate behavioral gate. This script
+requires an explicit compiler path to avoid its machine-specific default; adjust
+the path below to your installation:
 
 ```bash
-SWIFT_WEB_HOST_SWIFT="$SWIFT_WEB_TOOLCHAIN_BIN/swift" \
+SWIFT_WEB_HOST_SWIFT="$HOME/Library/Developer/Toolchains/swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-08-14-a.xctoolchain/usr/bin/swift" \
   ./scripts/verify-new-command-templates.sh
 ```
 

@@ -518,7 +518,6 @@ currently mounted client DOM.
 |---|---|---|
 | Boundary diagnostics | Included | Excluded |
 | HMR metadata | Included | Excluded |
-| Storyboard overlays | Included | Excluded |
 | Bundle manifest | Included | Included |
 | Content-hashed WASM assets | Included | Included |
 | State/environment schema hashes | Included | Included when needed for safe hydration |

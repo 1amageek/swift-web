@@ -41,20 +41,9 @@ SwiftWeb pins the host toolchain and WASM SDK to the same snapshot.
 | Browser SDK | `swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-08-14-a_wasm` |
 | Package platform | macOS 26.2 or newer |
 
-For WASM commands, point SwiftWeb at the real toolchain directory. A `swiftly`
-shim does not contain the matching `wasm-ld` executable.
-
-```bash
-export SWIFT_WEB_TOOLCHAIN_BIN="$HOME/Library/Developer/Toolchains/swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-08-14-a.xctoolchain/usr/bin"
-export SWIFT_WEB_HOST_SWIFT="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
-export SWIFT_WEB_WASM_SWIFT="$SWIFT_WEB_TOOLCHAIN_BIN/swift"
-export SWIFT_WEB_WASM_TOOLCHAIN_BIN="$SWIFT_WEB_TOOLCHAIN_BIN"
-
-"$SWIFT_WEB_HOST_SWIFT" --version
-test -x "$SWIFT_WEB_WASM_TOOLCHAIN_BIN/wasm-ld"
-```
-
-See [Toolchain](docs/Toolchain.md) for the complete host and WASM setup.
+Select the pinned Swift toolchain and install the matching WASM SDK. SwiftWeb
+automatically detects the toolchain in its standard macOS installation location.
+See [Toolchain](docs/Toolchain.md) for discovery rules and optional overrides.
 
 ## Quick Start
 
@@ -121,7 +110,7 @@ same checkout instead of mixing a released CLI with source from `main`:
 ```bash
 git clone https://github.com/1amageek/swift-web.git
 cd swift-web
-"$SWIFT_WEB_HOST_SWIFT" build --product sweb --jobs 2
+swift build --product sweb --jobs 2
 export PATH="$PWD/.build/debug:$PATH"
 cd Examples/CounterApp
 sweb dev
@@ -529,8 +518,8 @@ Native tests with SwiftPM. Bound compilation separately so a cold build does
 not consume the test execution budget:
 
 ```bash
-scripts/swift-test-timeout.sh 1200 -- "$SWIFT_WEB_HOST_SWIFT" build --build-tests --jobs 2
-scripts/swift-test-timeout.sh 120 -- "$SWIFT_WEB_HOST_SWIFT" test --skip-build
+scripts/swift-test-timeout.sh 1200 -- swift build --build-tests --jobs 2
+scripts/swift-test-timeout.sh 120 -- swift test --skip-build
 ```
 
 Use `--filter <SuiteOrTestName>` for focused runs. Browser tests are opt-in;

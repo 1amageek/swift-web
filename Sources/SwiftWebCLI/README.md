@@ -171,6 +171,9 @@ The exact compiler and linker environment is documented in
 [selection contract](DESIGN.md#contracts-and-invariants) for configuration,
 validation, and migration from legacy flags.
 
+Run from a directory declaring `storyboard.packagePath`; the catalog lives in
+[swift-web-storyboard](https://github.com/1amageek/swift-web-storyboard).
+
 ```bash
 sweb storyboard
 sweb storyboard prepare
@@ -183,7 +186,7 @@ sweb storyboard build --environment local
 |---|---|
 | default | Generated SwiftWeb build caches and WASM helper caches |
 | `--swiftpm` | Also the app package `.build` directory |
-| `--storyboard` | Also the managed Storyboard package |
+| `--storyboard` | Legacy `.swiftweb/storyboard` output only; does not remove the independent app |
 | `--all` | Both optional groups |
 
 The shared content-addressed development WASM artifact cache is bounded by
