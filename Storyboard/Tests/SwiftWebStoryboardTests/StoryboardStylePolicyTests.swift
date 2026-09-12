@@ -2,12 +2,12 @@ import Foundation
 import Testing
 
 @Suite
-struct StylePolicyStaticTests {
+struct StoryboardStylePolicyTests {
   @Test
-  func swiftWebUIDoesNotUseRawSelectorsOrStyleAttributes() throws {
+  func catalogDoesNotUseRawSelectorsOrStyleAttributes() throws {
     let root = try projectRoot()
     let scannedRoots = [
-      root.appending(path: "Sources/SwiftWebUI/Components"),
+      root.appending(path: "Sources/SwiftWebStoryboard"),
     ]
     let commonForbiddenPatterns = [
       #"rule\(\s*#*""#,
@@ -18,9 +18,16 @@ struct StylePolicyStaticTests {
       #"HTMLAttribute\("style""#,
       #"style=""#,
     ]
+    let storyboardForbiddenPatterns = [
+      #"\.custom\("#,
+      #"\.style\s*\("#,
+      #"\.style\s*\{"#,
+      #"\.webStyle\s*\("#,
+    ]
+
     for file in try swiftFiles(in: scannedRoots) {
       let source = try String(contentsOf: file, encoding: .utf8)
-      for pattern in commonForbiddenPatterns {
+      for pattern in commonForbiddenPatterns + storyboardForbiddenPatterns {
         #expect(
           source.range(of: pattern, options: .regularExpression) == nil,
           "\(file.path) contains forbidden style pattern \(pattern)"

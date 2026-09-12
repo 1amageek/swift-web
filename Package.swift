@@ -136,7 +136,6 @@ let package = Package(
         .library(name: "SwiftWebDevServer", targets: ["SwiftWebDevServer"]),
         .library(name: "SwiftWebStoryboardTooling", targets: ["SwiftWebStoryboardTooling"]),
         .library(name: "SwiftWebDevelopment", targets: ["SwiftWebDevelopment"]),
-        .library(name: "SwiftWebStoryboard", targets: ["SwiftWebStoryboard"]),
         .executable(name: "sweb", targets: ["SwiftWebCLI"]),
     ],
     // Actors enables the transport-independent binary actor system. The
@@ -483,19 +482,6 @@ let package = Package(
             exclude: ["README.md"],
             swiftSettings: swiftWebSwiftSettings
         ),
-        .target(
-            name: "SwiftWebStoryboard",
-            dependencies: [
-                swiftHTMLDependency,
-                "SwiftWeb",
-                "SwiftWebStyle",
-                "SwiftWebUI",
-                "SwiftWebUIRuntime",
-            ],
-            path: "Sources/SwiftWebDevelopment/Storyboard",
-            exclude: ["INFORMATION_ARCHITECTURE.md"],
-            swiftSettings: swiftWebSwiftSettings
-        ),
         .executableTarget(
             name: "SwiftWebCLI",
             dependencies: [
@@ -528,7 +514,6 @@ let package = Package(
             dependencies: [
                 swiftHTMLDependency,
                 "SwiftWebUI",
-                "SwiftWebStoryboard",
                 "SwiftWebStyle",
             ],
             swiftSettings: swiftWebSwiftSettings

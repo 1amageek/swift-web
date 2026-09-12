@@ -99,7 +99,7 @@ Environment variables:
 | `SWIFT_WEB_WASM_TOOLCHAIN_BIN` | Optional WASM toolchain bin directory override. |
 | `SWIFTWEB_E2E_BROWSER_EXECUTABLE_PATH` | Use a specific Chromium-compatible browser executable. |
 | `SWIFTWEB_E2E_REQUIRE_WEBKIT` | Invocation-intent guard set to `1` by both npm counter commands. It rejects a missing opt-in; every enabled counter run requires WebKit regardless of this value. |
-| `SWIFTWEB_E2E_KEEP_STORYBOARD` | Set to `1` to keep the generated `.swiftweb/storyboard` package after Storyboard navigation E2E. |
+| `SWIFTWEB_E2E_KEEP_STORYBOARD` | Set to `1` to keep the independent Storyboard app's generated `Storyboard/.swiftweb` output after Storyboard navigation E2E. |
 
 ## Service Actor HTTP Boundary
 

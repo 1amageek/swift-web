@@ -45,7 +45,6 @@ struct SwiftWebStoryboardScaffoldTests {
                     .library(name: "SwiftWebCore", targets: ["SwiftWebCore"]),
               .library(name: "SwiftWeb", targets: ["SwiftWeb"]),
                     .library(name: "SwiftWebUI", targets: ["SwiftWebUI"]),
-                    .library(name: "SwiftWebStoryboard", targets: ["SwiftWebStoryboard"]),
                 ],
                 dependencies: [
                     .package(path: "\(swiftHTMLPackage.path)"),
@@ -54,18 +53,15 @@ struct SwiftWebStoryboardScaffoldTests {
                     .target(name: "SwiftWebCore"),
               .target(name: "SwiftWeb"),
                     .target(name: "SwiftWebUI"),
-                    .target(
-                        name: "SwiftWebStoryboard",
-                        path: "Sources/SwiftWebDevelopment/Storyboard"
-                    ),
                 ]
             )
             """,
             to: swiftWebPackage.appendingPathComponent("Package.swift")
         )
         let catalogSource = swiftWebPackage
-            .appendingPathComponent("Sources/SwiftWebDevelopment/Storyboard/Components/CatalogRoot.swift")
+            .appendingPathComponent("Storyboard/Sources/SwiftWebStoryboard/Catalog/CatalogRoot.swift")
         try write("public struct CatalogRoot {}", to: catalogSource)
+        try write("public struct AuthoredStoryboardApp {}", to: catalogSource.deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("App.swift"))
 
         try SwiftWebStoryboardScaffold(
             projectDirectory: storyboardPackage,
@@ -78,8 +74,11 @@ struct SwiftWebStoryboardScaffoldTests {
             encoding: .utf8
         )
         let linkedCatalogSource = storyboardPackage
-            .appendingPathComponent("Sources/StoryboardPreview/Components/CatalogRoot.swift")
+            .appendingPathComponent("Sources/StoryboardPreview/Catalog/CatalogRoot.swift")
         let linkedDestination = try FileManager.default.destinationOfSymbolicLink(atPath: linkedCatalogSource.path)
+        let previewApp = try String(contentsOf: storyboardPackage.appendingPathComponent("Sources/StoryboardPreview/App.swift"), encoding: .utf8)
+        #expect(previewApp.contains("public struct StoryboardPreview"))
+        #expect(!previewApp.contains("AuthoredStoryboardApp"))
 
         #expect(!packageSwift.contains("https://github.com/1amageek/swift-web.git"))
         #expect(packageSwift.contains(".package(path: \"\(swiftWebPackage.path)\""))
@@ -118,15 +117,10 @@ struct SwiftWebStoryboardScaffoldTests {
                 products: [
                     .library(name: "SwiftWeb", targets: ["SwiftWeb"]),
                     .library(name: "SwiftWebUI", targets: ["SwiftWebUI"]),
-                    .library(name: "SwiftWebStoryboard", targets: ["SwiftWebStoryboard"]),
                 ],
                 targets: [
                     .target(name: "SwiftWeb"),
                     .target(name: "SwiftWebUI"),
-                    .target(
-                        name: "SwiftWebStoryboard",
-                        path: "Sources/SwiftWebDevelopment/Storyboard"
-                    ),
                 ]
             )
             """,
@@ -135,7 +129,7 @@ struct SwiftWebStoryboardScaffoldTests {
         try write(
             "public struct CatalogRoot {}",
             to: swiftWebPackage
-                .appendingPathComponent("Sources/SwiftWebDevelopment/Storyboard/Components/CatalogRoot.swift")
+                .appendingPathComponent("Storyboard/Sources/SwiftWebStoryboard/Catalog/CatalogRoot.swift")
         )
 
         try SwiftWebStoryboardScaffold(
@@ -150,6 +144,19 @@ struct SwiftWebStoryboardScaffoldTests {
         )
 
         #expect(packageSwift.contains(#".package(url: "https://github.com/1amageek/swift-html.git", from: "0.16.1")"#))
+
+        let catalogDirectory = swiftWebPackage.appendingPathComponent("Storyboard/Sources/SwiftWebStoryboard")
+        try FileManager.default.removeItem(at: catalogDirectory.appendingPathComponent("Catalog/CatalogRoot.swift"))
+        try write("public struct AuthoredStoryboardApp {}", to: catalogDirectory.appendingPathComponent("App.swift"))
+        do {
+            try SwiftWebStoryboardScaffold(
+                projectDirectory: storyboardPackage,
+                swiftWebPackageDirectory: swiftWebPackage
+            ).materialize(force: false)
+            Issue.record("An app entry point without catalog sources must fail")
+        } catch SwiftWebStoryboardScaffoldError.emptyCatalogSources(let directory) {
+            #expect(directory.standardizedFileURL.path == catalogDirectory.standardizedFileURL.path)
+        }
     }
 
     private func write(_ contents: String, to url: URL) throws {

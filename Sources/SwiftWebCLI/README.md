@@ -166,7 +166,10 @@ The exact compiler and linker environment is documented in
 
 ## Storyboard
 
-`sweb storyboard` generates a managed package under `.swiftweb/storyboard` and
+The catalog is an independent [application package](../../Storyboard/README.md).
+Run it with `sweb dev --package-path Storyboard` from the repository root.
+
+For compatibility, `sweb storyboard` generates a managed package under `.swiftweb/storyboard` and
 runs the component catalog without editing application source. Production mode
 uses the same WASM artifact processor as the native Host build:
 

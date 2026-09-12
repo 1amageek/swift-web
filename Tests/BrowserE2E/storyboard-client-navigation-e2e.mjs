@@ -26,6 +26,7 @@ try {
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const swiftWebRoot = path.resolve(scriptDirectory, "../..");
+const storyboardRoot = path.join(swiftWebRoot, "Storyboard");
 const timeoutMs = Number(process.env.SWIFTWEB_E2E_TIMEOUT_MS || 600_000);
 const report = {
   phases: [],
@@ -99,9 +100,9 @@ async function launchStoryboardServer(port) {
   const child = spawn(
     swiftWebExecutable,
     [
-      "storyboard",
+      "dev",
       "--package-path",
-      swiftWebRoot,
+      storyboardRoot,
       "--host",
       "127.0.0.1",
       "--port",
@@ -734,9 +735,9 @@ try {
 } finally {
   await stopProcess(devServer);
   if (process.env.SWIFTWEB_E2E_KEEP_STORYBOARD === "1") {
-    report.keptStoryboard = path.join(swiftWebRoot, ".swiftweb", "storyboard");
+    report.keptStoryboard = path.join(storyboardRoot, ".swiftweb");
   } else {
-    await rm(path.join(swiftWebRoot, ".swiftweb", "storyboard"), { recursive: true, force: true });
+    await rm(path.join(storyboardRoot, ".swiftweb"), { recursive: true, force: true });
   }
   const output = JSON.stringify(report, null, 2);
   console.log(output);

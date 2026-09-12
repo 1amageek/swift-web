@@ -416,7 +416,7 @@ and `Sources`; do not edit `.swiftweb/generated` directly.
 | `sweb prepare [--environment <name>] [--runtime standard|embedded]` | Resolve adapters and materialize configured environments |
 | `sweb xcode` | Refresh and open `.swiftweb/generated/dev` |
 | `sweb dev [--environment <name>] [--host <host>] [--port <port>]` | Build and run the selected environment locally |
-| `sweb storyboard` | Generate and run the SwiftWebUI component Storyboard |
+| `sweb storyboard` | Compatibility command for a managed preview of the independent [Storyboard package](Storyboard/README.md) |
 | `sweb build [--environment <name>] [--runtime standard|embedded]` | Build and verify the selected environment |
 | `sweb deploy [--environment <name>] [--runtime standard|embedded]` | Build, verify, and deploy the selected environment |
 | `sweb clean [--storyboard] [--swiftpm] [--all]` | Remove selected generated output |
