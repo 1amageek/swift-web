@@ -10,6 +10,7 @@ the archive for those records.
 | Document | Audience | Purpose |
 |---|---|---|
 | [Project README](../README.md) | Application developers | Installation, first app, authoring, CLI, and production builds |
+| [Package design](../DESIGN.md) | Framework and adapter developers | Design master and direct module-design index |
 | [Changelog](../CHANGELOG.md) | All users | Unreleased changes, tagged releases, and compatibility notes |
 | [Toolchain](Toolchain.md) | All contributors | Exact Swift 6.4 host and WASM build contract |
 | [HTML Authoring Model](HTMLAuthoringModel.md) | Application and framework developers | `Component`, `HTMLDocument`, and `Page` boundaries |
@@ -24,7 +25,8 @@ the archive for those records.
 |---|---|
 | [Client Bundle Loading](ClientBundleLoadingDesign.md) | Implemented browser bundle and loading contract |
 | [Client Navigation](ClientNavigationDesign.md) | Implemented progressive navigation contract |
-| [Actor Runtime](../Sources/SwiftWebRuntime/Actors/README.md) | Concrete actor authoring, hosting versus references, same-origin Service routing, failure semantics, and verification boundaries |
+| [Actor Integration Design](../Sources/SwiftWebRuntime/Actors/DESIGN.md) | Canonical connection policy, destination examples, host/binding contracts, and verification boundaries |
+| [Actor Authoring Guide](../Sources/SwiftWebRuntime/Actors/README.md) | Existing concrete actor declarations, scene binding, and call-site examples |
 | [SwiftWebUI Core](SwiftWebUICoreDesign.md) | Current component, property, modifier, and environment model |
 | [SwiftWebUI Style](SwiftWebUIStyleDesign.md) | Current styling responsibility and resolution rules |
 | [Atomic Styling](AtomicStyling.md) | Current class generation, collection, and emission contract |
@@ -43,6 +45,9 @@ the archive for those records.
   changes separately from tagged releases.
 - Mark a document as proposed only when it defines a concrete future decision;
   do not mix proposals into user-facing setup instructions.
+- Keep each design decision in its owning `DESIGN.md`, reachable from the
+  package master; guides link to that authority. Label future destination
+  scenarios separately from implemented and verified paths.
 - Keep commands aligned with the pinned values in [Toolchain](Toolchain.md).
 - Keep implementation evidence in a runbook or release record, not in the
   project README.

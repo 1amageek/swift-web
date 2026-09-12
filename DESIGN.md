@@ -6,6 +6,14 @@ SwiftWeb is the system package for server-rendered Swift applications and
 optional Swift WASM browser runtimes. This document is the package-level master
 for the 0.14.0 release.
 
+SwiftWeb preserves Swift Distributed Actor declarations and calls as the
+application-facing model for identity-scoped remote participants. Deployment
+chooses where those participants run. Actor connection policy and destination
+examples are owned by the [Actor integration design](Sources/SwiftWebRuntime/Actors/DESIGN.md#connection-roles),
+including the distinction between Actor hosts, invocation executors, and
+external resources. Ordinary HTTP routes and Server Actions retain their own
+contracts.
+
 The package root has four directly maintained design children:
 
 - [Package generation](Sources/SwiftWebDevelopment/PackageGeneration/DESIGN.md)
@@ -34,17 +42,17 @@ proof boundary.
 
 ## Related Designs
 
-| Design | Relationship | Contract used | Cautions |
-|---|---|---|---|
-| [Package generation](Sources/SwiftWebDevelopment/PackageGeneration/DESIGN.md) | child | Materializes server, development, and WASM packages | Re-check source-owner lookup when dependency layout changes. |
-| [Development server](Sources/SwiftWebDevelopment/DevServer/DESIGN.md) | child | Converges generated inputs and Native worker processes | Never replace generated compiler inputs owned by an active transition. |
-| [Actor integration](Sources/SwiftWebRuntime/Actors/DESIGN.md) | child | Binds concrete Distributed Actors to SwiftWeb hosts and generated clients | Actor runtime ownership remains in the standalone package. |
-| [Client runtime](Sources/SwiftWebBrowser/ClientRuntime/DESIGN.md) | child | Owns browser callback scheduling and callback lifetime | Re-check callback detachment and profile parity when runtime lifecycle changes. |
-| [SwiftWebDevelopment facade](Sources/SwiftWebDevelopment/Facade/README.md) | used by child | CLI-facing development lifecycle | The facade does not own generated source contents. |
-| [SwiftWebCore](Sources/SwiftWebRuntime/Core/README.md) | sibling module | Rendering and request/runtime boundary | Keep host and browser ownership separate. |
-| [Adapter contract](docs/AdapterContract.md) | used by package and CLI | Schema-version-3 adapter discovery and service bindings | A Service build unit is not automatically an Actor API. |
-| [Toolchain contract](docs/Toolchain.md) | package constraint | Pinned Swift 6.4 host and WASM SDKs | Toolchain, SDK, and target are one build contract. |
-| [HTML authoring model](docs/HTMLAuthoringModel.md) | depends on | SwiftHTML document and component surface | Rendering semantics belong to SwiftHTML. |
+| Design | Relationship | Contract used | Summary | Cautions |
+|---|---|---|---|---|
+| [Package generation](Sources/SwiftWebDevelopment/PackageGeneration/DESIGN.md) | child | Server, development, and WASM materialization | Owns generated package inputs | Recheck source-owner lookup when dependency layout changes. |
+| [Development server](Sources/SwiftWebDevelopment/DevServer/DESIGN.md) | child | Generated-input and Native-worker convergence | Owns development transitions | Preserve compiler inputs owned by an active transition. |
+| [Actor integration](Sources/SwiftWebRuntime/Actors/DESIGN.md) | child | Distributed Actor interface, destination substitution, binding, and host policy | Owns the Actor connection policy | Runtime ownership remains in the standalone package; examples do not imply shipped adapters. |
+| [Client runtime](Sources/SwiftWebBrowser/ClientRuntime/DESIGN.md) | child | Callback scheduling and lifetime | Owns browser runtime execution | Recheck detachment and profile parity when lifecycle changes. |
+| [SwiftWebDevelopment facade](Sources/SwiftWebDevelopment/Facade/README.md) | used by child | CLI-facing development lifecycle | Exposes development orchestration | The facade does not own generated source contents. |
+| [SwiftWebCore](Sources/SwiftWebRuntime/Core/README.md) | constituent module | Rendering and request/runtime boundary | Composes application behavior | Keep host and browser ownership separate. |
+| [Adapter contract](docs/AdapterContract.md) | coordinates with | Schema-3 discovery and service bindings | Supplies build/deploy composition | A Service build unit is not automatically an Actor API. |
+| [Toolchain contract](docs/Toolchain.md) | package constraint | Pinned Swift 6.4 host and WASM SDKs | Selects the build tuple | Toolchain, SDK, and target are one build contract. |
+| [HTML authoring model](docs/HTMLAuthoringModel.md) | depends on | SwiftHTML document and component surface | Supplies rendering primitives | Rendering semantics belong to SwiftHTML. |
 
 ## Architecture
 

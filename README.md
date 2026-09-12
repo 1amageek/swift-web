@@ -208,8 +208,10 @@ owns the actor; `.actor(Type.self, identity:)` selects a reference in the caller
 Swift code owns the type and logical identity. `sweb.json` selects the Service
 build/deploy unit, and the deployment adapter supplies transport and endpoint templates. URLs,
 credentials, adapter names, and artifact names do not enter the actor call
-site. Destinations without Actor ownership and isolation remain Server
-connections.
+site. An application-owned actor can also coordinate an external API as a
+resource. The [connection policy and destination examples](Sources/SwiftWebRuntime/Actors/DESIGN.md#destination-examples)
+describe Native hosts, Durable Objects, containers, connected peers, functions,
+queues, and external APIs, with their different ownership and failure contracts.
 
 When the deployment supplies only a `hostRoute`, browser calls go through the
 primary application's same-origin Actor endpoint and authorization before the
@@ -217,7 +219,7 @@ Service hop. An explicit `clientRoute` selects direct browser routing. See
 [browser Service routing](Sources/SwiftWebRuntime/Actors/README.md#browser-service-routing)
 for the binding, authorization, and ownership requirements.
 
-See the [Actor runtime contract](Sources/SwiftWebRuntime/Actors/README.md) and
+See the [Actor authoring guide](Sources/SwiftWebRuntime/Actors/README.md) and
 the [adapter contract](docs/AdapterContract.md).
 
 ### HTTPS and WSS
@@ -500,7 +502,7 @@ The adapter repository contract is documented in
 Service applications remain build/deploy units rather than Swift-facing
 interfaces. Actor connections retain the concrete Swift Distributed Actor
 surface described by the
-[Actor runtime contract](Sources/SwiftWebRuntime/Actors/README.md).
+[Actor integration design](Sources/SwiftWebRuntime/Actors/DESIGN.md).
 
 ## Examples
 

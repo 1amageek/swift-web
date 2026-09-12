@@ -151,7 +151,10 @@ application may expose ordinary Server routes, an Actor host, or both. Server
 callers continue to use the existing request/response surface. Actor callers
 use the concrete Swift Distributed Actor type through `@RemoteActor` and
 `WebActorSystem`; they do not use `@ServiceClient` or a manifest-generated
-service protocol.
+service protocol. The [Actor connection policy](../Sources/SwiftWebRuntime/Actors/DESIGN.md#connection-roles)
+defines when a destination is an Actor host, an invocation executor, or an
+external resource consumed by an application-owned actor. It also owns the
+[destination substitution requirements](../Sources/SwiftWebRuntime/Actors/DESIGN.md#destination-substitution-contract).
 
 Schema version 3 does not make every Service an Actor. A project Service may
 name concrete actor contracts in `actors`; it never stores their logical
@@ -165,14 +168,13 @@ The adapter manifest cannot provide identity or an arbitrary Swift expression.
 When a selected Service declares actors, `sweb` requires exactly one accepted
 artifact binding and fails resolution otherwise.
 
-If `clientRoute` is absent, browser calls use the primary application's
-same-origin Actor frame endpoint. The runtime admits that gateway only for the
-exact `.actor(Type.self, identity:)` address associated with this `hostRoute`,
-applies the primary application's Actor authorization, and then uses the
-deployment-owned `hostRoute` for the Service hop. If `clientRoute` is present,
-it is serialized for direct browser routing and the same-origin gateway is not
-enabled for that binding. Neither form delegates browser credentials to the
-Service; Service-hop authentication remains adapter-owned.
+`hostRoute` and optional `clientRoute` are consumed according to the runtime's
+[browser Service routing contract](../Sources/SwiftWebRuntime/Actors/DESIGN.md#browser-service-routing).
+Their presence describes placement; schema version 3 does not certify distributed
+single ownership, persistence, readiness, or a provider's delivery guarantees.
+The selected adapter must satisfy the actor's required semantics. The platform
+requirements and their verification gates belong to the Actor design, rather
+than to new unimplemented manifest fields.
 
 ```mermaid
 flowchart LR
@@ -185,7 +187,7 @@ flowchart LR
 ```
 
 The Swift-facing binding and admission contract is defined beside the runtime
-in the [Actor runtime contract](../Sources/SwiftWebRuntime/Actors/README.md).
+in the [Actor integration design](../Sources/SwiftWebRuntime/Actors/DESIGN.md).
 
 ## Templates and generated state
 
