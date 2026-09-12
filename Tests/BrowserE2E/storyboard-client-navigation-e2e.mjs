@@ -100,9 +100,9 @@ async function launchStoryboardServer(port) {
   const child = spawn(
     swiftWebExecutable,
     [
-      "dev",
+      "storyboard",
       "--package-path",
-      storyboardRoot,
+      swiftWebRoot,
       "--host",
       "127.0.0.1",
       "--port",

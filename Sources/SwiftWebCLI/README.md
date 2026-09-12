@@ -1,7 +1,7 @@
 # SwiftWebCLI
 
 SwiftWebCLI provides the `sweb` executable. It parses user commands and
-delegates package generation, development orchestration, Storyboard generation,
+delegates package generation, development orchestration, application selection,
 and WASM processing to the corresponding development targets.
 
 ## Commands
@@ -12,7 +12,7 @@ and WASM processing to the corresponding development targets.
 | `prepare` | Adapter resolver, environment materializer, and lifecycle executor |
 | `xcode` | `SwiftWebPackageGeneration`, then the macOS `open` command |
 | `dev` | Selected Service, Host, and Deployment tasks; persistent processes are supervised together |
-| `storyboard` | `SwiftWebStoryboardTooling` and, in development mode, `SwiftWebDevServer` |
+| `storyboard` | Declared package selector, then the shared lifecycle executor |
 | `build` | Selected Service, Host, and Deployment build tasks |
 | `deploy` | Selected Service and Deployment tasks after successful prepare and build |
 | `clean` | `SwiftWebDevBuildArtifactCleaner` |
@@ -27,7 +27,7 @@ sweb build [--package-path <directory>] [--environment <name>] [--runtime standa
 sweb clean [--package-path <directory>] [--storyboard] [--swiftpm] [--all]
 sweb dev [--package-path <directory>] [--environment <name>] [--host <host>] [--port <port>]
 sweb deploy [--package-path <directory>] [--environment <name>] [--runtime standard|embedded]
-sweb storyboard [--package-path <directory>] [--output <directory>] [--host <host>] [--port <port>] [--no-run] [--force] [--production] [--runtime standard|embedded] [--swift-sdk <sdk>] [-c debug|release]
+sweb storyboard [prepare|build|dev] [--package-path <directory>] [--environment <name>] [--host <host>] [--port <port>] [--runtime standard|embedded]
 ```
 
 ## Project Creation
@@ -166,15 +166,15 @@ The exact compiler and linker environment is documented in
 
 ## Storyboard
 
-The catalog is an independent [application package](../../Storyboard/README.md).
-Run it with `sweb dev --package-path Storyboard` from the repository root.
-
-For compatibility, `sweb storyboard` generates a managed package under `.swiftweb/storyboard` and
-runs the component catalog without editing application source. Production mode
-uses the same WASM artifact processor as the native Host build:
+`sweb storyboard` selects an application through `storyboard.packagePath` in
+`sweb.json` and delegates to the existing lifecycle. See the
+[selection contract](DESIGN.md#contracts-and-invariants) for configuration,
+validation, and migration from legacy flags.
 
 ```bash
-sweb storyboard --production --runtime standard -c release
+sweb storyboard
+sweb storyboard prepare
+sweb storyboard build --environment local
 ```
 
 ## Clean

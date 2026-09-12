@@ -12,7 +12,6 @@ the owning targets.
 | `SwiftWebPackageGeneration` | Generated server, dev, and WASM packages |
 | `SwiftWebWasmBuild` | Toolchain resolution, artifact processing, size reports, and compression |
 | `SwiftWebDevServer` | DevHost, reconciler, watcher, worker supervision, HMR, and process ownership |
-| `SwiftWebStoryboardTooling` | Managed Storyboard scaffold and launch |
 
 ```mermaid
 flowchart LR
@@ -21,7 +20,6 @@ flowchart LR
   Facade --> Generation["PackageGeneration"]
   Facade --> Wasm["WasmBuild"]
   Facade --> Dev["DevServer"]
-  Facade --> Storyboard["StoryboardTooling"]
 ```
 
 ## Generated Runtime Boundary

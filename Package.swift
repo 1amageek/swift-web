@@ -134,7 +134,6 @@ let package = Package(
         .library(name: "SwiftWebWasmBuild", targets: ["SwiftWebWasmBuild"]),
         .library(name: "SwiftWebPackageGeneration", targets: ["SwiftWebPackageGeneration"]),
         .library(name: "SwiftWebDevServer", targets: ["SwiftWebDevServer"]),
-        .library(name: "SwiftWebStoryboardTooling", targets: ["SwiftWebStoryboardTooling"]),
         .library(name: "SwiftWebDevelopment", targets: ["SwiftWebDevelopment"]),
         .executable(name: "sweb", targets: ["SwiftWebCLI"]),
     ],
@@ -460,22 +459,11 @@ let package = Package(
             publicHeadersPath: "include"
         ),
         .target(
-            name: "SwiftWebStoryboardTooling",
-            dependencies: [
-                "SwiftWebDevelopmentHooks",
-                "SwiftWebDevServer",
-                "SwiftWebPackageGeneration",
-            ],
-            path: "Sources/SwiftWebDevelopment/StoryboardTooling",
-            swiftSettings: swiftWebSwiftSettings
-        ),
-        .target(
             name: "SwiftWebDevelopment",
             dependencies: [
                 "SwiftWebDevelopmentHooks",
                 "SwiftWebDevServer",
                 "SwiftWebPackageGeneration",
-                "SwiftWebStoryboardTooling",
                 "SwiftWebWasmBuild",
             ],
             path: "Sources/SwiftWebDevelopment/Facade",
@@ -490,7 +478,7 @@ let package = Package(
                 "SwiftWebUI",
                 "SwiftWebDevelopment",
             ],
-            exclude: ["README.md"],
+            exclude: ["README.md", "DESIGN.md"],
             swiftSettings: swiftWebSwiftSettings
         ),
         // Layout conformance harness: measures the same fixture tree in
@@ -553,7 +541,6 @@ let package = Package(
                 "SwiftWebDevelopmentHooks",
                 "SwiftWebDevelopment",
                 "SwiftWebPackageGeneration",
-                "SwiftWebStoryboardTooling",
                 "SwiftWebWasmBuild",
                 .product(name: "TLS", package: "swift-tls"),
                 actorSystemCoreDependency,

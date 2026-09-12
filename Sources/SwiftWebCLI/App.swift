@@ -10,9 +10,6 @@ struct SwiftWebCLI {
         } catch let error as CLIError {
             FileHandle.standardError.write(Data((error.message + "\n").utf8))
             Foundation.exit(Int32(error.exitCode))
-        } catch let error as SwiftWebStoryboardScaffoldError {
-            FileHandle.standardError.write(Data((error.description + "\n").utf8))
-            Foundation.exit(Int32(error.exitCode))
         } catch let error as SwiftWebGeneratedPackageMaterializerError {
             FileHandle.standardError.write(Data((error.description + "\n").utf8))
             Foundation.exit(66)
@@ -111,7 +108,7 @@ struct CommandLineInterface {
               sweb clean [--package-path <directory>] [--storyboard] [--swiftpm] [--all]
               sweb dev [--package-path <directory>] [--environment <name>] [--host <host>] [--port <port>]
               sweb deploy [--package-path <directory>] [--environment <name>] [--runtime standard|embedded]
-              sweb storyboard [--package-path <directory>] [--output <directory>] [--host <host>] [--port <port>] [--no-run] [--force] [--production] [--runtime standard|embedded] [--swift-sdk <sdk>] [-c debug|release]
+              sweb storyboard [prepare|build|dev] [--package-path <directory>] [--environment <name>] [--host <host>] [--port <port>] [--runtime standard|embedded]
 
             Commands:
               new         Create a SwiftWeb app skeleton. Pass --ai for a chat-first template, and --adapter to add an adapter package.
@@ -121,7 +118,7 @@ struct CommandLineInterface {
               clean       Remove SwiftWeb generated build artifacts. Pass --swiftpm to remove the package .build too.
               dev         Run a SwiftWeb app with rebuild, server restart, and dev browser updates on changes.
               deploy      Verify and deploy the selected environment.
-              storyboard  Generate and run a SwiftWebUI component style storyboard.
+              storyboard  Run the declared Storyboard application lifecycle.
 
             Package commands default to the current directory. Run them from the directory
             that contains Package.swift, or pass --package-path to target another package.

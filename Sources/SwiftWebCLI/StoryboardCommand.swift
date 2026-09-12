@@ -2,142 +2,76 @@ import Foundation
 import SwiftWebDevelopment
 
 struct StoryboardCommand {
-    let packageDirectory: URL
-    let storyboardDirectory: URL?
-    let scratchDirectory: URL?
-    let host: String
-    let port: Int
-    let runsServer: Bool
-    let force: Bool
-    let mode: StoryboardCommandMode
-    let configuration: String?
-    let swiftSDK: String?
-    let wasmRuntimeProfile: SwiftWebWasmRuntimeProfile
+    let lifecycle: LifecycleCommand
 
     static func parse(_ parser: ArgumentParser) throws -> StoryboardCommand {
-        var parser = parser
-        var packageDirectory = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-        var storyboardDirectory: URL?
-        var scratchDirectory: URL?
-        var host = "127.0.0.1"
-        var port = 3000
-        var runsServer = true
-        var force = false
-        var mode = StoryboardCommandMode.development
-        var configuration: String?
-        var swiftSDK: String?
-        var wasmRuntimeProfile = SwiftWebWasmRuntimeProfile.defaultValue()
+        var remaining = parser
+        var operation = SwiftWebExecutionPlan.Operation.dev
+        if let first = remaining.next(), !first.hasPrefix("-") {
+            guard let selected = SwiftWebExecutionPlan.Operation(rawValue: first),
+                selected != .deploy
+            else {
+                throw CLIError(message: "expected storyboard prepare, build, or dev", exitCode: 64)
+            }
+            operation = selected
+        } else {
+            remaining = parser
+        }
+        return StoryboardCommand(lifecycle: try LifecycleCommand.parse(remaining, operation: operation))
+    }
 
-        while let option = parser.next() {
-            switch option {
-            case "--package-path":
-                packageDirectory = URL(fileURLWithPath: try parser.requireValue(after: option))
-            case "--output":
-                storyboardDirectory = URL(fileURLWithPath: try parser.requireValue(after: option))
-            case "--scratch-path":
-                scratchDirectory = URL(fileURLWithPath: try parser.requireValue(after: option))
-            case "--host":
-                host = try parser.requireValue(after: option)
-            case "--port":
-                port = try parser.requireInt(after: option)
-            case "--no-run":
-                runsServer = false
-            case "--force":
-                force = true
-            case "--production", "--compress":
-                mode = .production
-            case "--embedded":
-                mode = .production
-                wasmRuntimeProfile = .embedded
-            case "--runtime", "--wasm-runtime":
-                let rawValue = try parser.requireValue(after: option)
-                guard let profile = SwiftWebWasmRuntimeProfile(rawValue: rawValue) else {
-                    throw CLIError(
-                        message:
-                            "unknown WASM runtime profile: \(rawValue). Expected standard or embedded.",
-                        exitCode: 64
-                    )
-                }
-                mode = .production
-                wasmRuntimeProfile = profile
-            case "--swift-sdk":
-                swiftSDK = try parser.requireValue(after: option)
-            case "-c", "--configuration":
-                configuration = try parser.requireValue(after: option)
-            default:
-                throw CLIError(message: "unknown option: \(option)", exitCode: 64)
+    func resolvedLifecycleCommand() throws -> LifecycleCommand {
+        let manifestURL = lifecycle.packageDirectory.appendingPathComponent("sweb.json")
+        guard FileManager.default.fileExists(atPath: manifestURL.path) else {
+            throw SwiftWebLifecycleError.projectManifestNotFound(manifestURL)
+        }
+        let selection: Selection
+        do {
+            selection = try JSONDecoder().decode(Selection.self, from: Data(contentsOf: manifestURL))
+        } catch {
+            throw CLIError(message: "invalid storyboard configuration at \(manifestURL.path): \(error)", exitCode: 65)
+        }
+        guard selection.schemaVersion == 3 else {
+            throw SwiftWebLifecycleError.unsupportedProjectSchema(selection.schemaVersion)
+        }
+        guard let path = selection.storyboard?.packagePath else {
+            throw CLIError(message: "storyboard.packagePath is not configured in \(manifestURL.path)", exitCode: 66)
+        }
+        guard !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+            !NSString(string: path).isAbsolutePath, !path.contains("\0")
+        else {
+            throw CLIError(message: "storyboard.packagePath must be a nonempty relative directory path", exitCode: 65)
+        }
+        let target = lifecycle.packageDirectory.appendingPathComponent(path, isDirectory: true).standardizedFileURL
+        for name in ["Package.swift", "sweb.json"] {
+            let file = target.appendingPathComponent(name)
+            var isDirectory: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: file.path, isDirectory: &isDirectory),
+                !isDirectory.boolValue
+            else {
+                throw CLIError(message: "storyboard target is missing \(file.path)", exitCode: 66)
             }
         }
-
-        return StoryboardCommand(
-            packageDirectory: packageDirectory.standardizedFileURL,
-            storyboardDirectory: storyboardDirectory?.standardizedFileURL,
-            scratchDirectory: scratchDirectory?.standardizedFileURL,
-            host: host,
-            port: port,
-            runsServer: runsServer,
-            force: force,
-            mode: mode,
-            configuration: configuration,
-            swiftSDK: swiftSDK,
-            wasmRuntimeProfile: wasmRuntimeProfile
+        return LifecycleCommand(
+            operation: lifecycle.operation,
+            packageDirectory: target,
+            environment: lifecycle.environment,
+            host: lifecycle.host,
+            port: lifecycle.port,
+            wasmRuntimeProfile: lifecycle.wasmRuntimeProfile
         )
     }
 
     func run() async throws {
-        let resolvedPort = runsServer
-            ? SwiftWebDevPortProbe.firstAvailablePort(host: host, startingAt: port)
-            : port
-        if runsServer, resolvedPort != port {
-            FileHandle.standardError.write(Data("Port \(port) is in use; using \(resolvedPort).\n".utf8))
-        }
-        let resolvedStoryboardDirectory = storyboardDirectory
-            ?? packageDirectory
-                .appendingPathComponent(".swiftweb", isDirectory: true)
-                .appendingPathComponent("storyboard", isDirectory: true)
-                .standardizedFileURL
-        let configuration = SwiftWebStoryboardRuntimeConfiguration(
-            packageDirectory: packageDirectory,
-            storyboardDirectory: resolvedStoryboardDirectory,
-            scratchDirectory: scratchDirectory,
-            host: host,
-            port: resolvedPort,
-            runsServer: mode == .development ? runsServer : false,
-            force: force
-        )
-        let observer = SwiftWebStoryboardRuntimeObserver(
-            didGenerate: { directory in
-                print("SwiftWeb storyboard generated at \(directory.path)")
-            },
-            didSkipServer: { packageDirectory in
-                if mode == .development {
-                    print("Run: sweb storyboard --package-path \(packageDirectory.path)")
-                }
-            },
-            willStartServer: { host, port in
-                print("SwiftWeb storyboard starting at http://\(host):\(port)")
-            }
-        )
-        try await SwiftWebStoryboardRuntime(configuration: configuration, observer: observer).run()
-        guard mode == .production else {
-            return
-        }
-
-        let productionServer = StoryboardProductionServer(
-            packageDirectory: resolvedStoryboardDirectory,
-            scratchDirectory: scratchDirectory,
-            host: host,
-            port: resolvedPort,
-            runsServer: runsServer,
-            configuration: self.configuration ?? "release",
-            swiftSDK: swiftSDK,
-            wasmRuntimeProfile: wasmRuntimeProfile
-        )
-        try await productionServer.run()
+        try await resolvedLifecycleCommand().run()
     }
-}
 
-enum StoryboardCommandMode {
-    case development
-    case production
+    private struct Selection: Decodable {
+        let schemaVersion: Int
+        let storyboard: Target?
+
+        struct Target: Decodable {
+            let packagePath: String
+        }
+    }
 }

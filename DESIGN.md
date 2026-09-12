@@ -14,8 +14,9 @@ including the distinction between Actor hosts, invocation executors, and
 external resources. Ordinary HTTP routes and Server Actions retain their own
 contracts.
 
-The package root has four directly maintained design children:
+The package root has five directly maintained design children:
 
+- [CLI contract](Sources/SwiftWebCLI/DESIGN.md) owns command and application selection.
 - [Package generation](Sources/SwiftWebDevelopment/PackageGeneration/DESIGN.md)
   owns generated package materialization and runtime source mirroring.
 - [Development server](Sources/SwiftWebDevelopment/DevServer/DESIGN.md) owns

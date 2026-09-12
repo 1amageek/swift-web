@@ -210,4 +210,4 @@ public struct FilesBrowser: ClientComponent {
 | `SwiftWeb` WASM host | Intercept eligible anchors, observe `data-navigation-path` writes, fetch SSR documents, merge, rebootstrap, and manage history. |
 | `SwiftWebUIRuntime` | Rebuild client component sessions from the new bootstrap request and compatible state store. |
 | `SwiftWebDevServer` | Verify HMR and same-origin navigation behavior against the same runtime contract. |
-| `SwiftWebStoryboardTooling` | Run Storyboard against the dev runtime so catalog navigation exercises the production browser contract. |
+| `sweb storyboard` | Select the declared application and run it against the generic dev runtime so catalog navigation exercises the production browser contract. |
