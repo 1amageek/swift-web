@@ -7,7 +7,7 @@ Application module of the [Storyboard package](../../DESIGN.md). Children:
 
 ## Responsibilities and Boundaries
 
-`StoryboardApp` composes the root redirect and catalog routes. It owns no
+`SwiftWebStoryboard` composes the root redirect and catalog routes. It owns no
 framework runtime, server process, or shared-state synchronization.
 
 ## Related Designs
@@ -21,12 +21,12 @@ framework runtime, server process, or shared-state synchronization.
 ## Architecture
 
 ```text
-StoryboardApp -> Routes -> Catalog -> SwiftWebUI
+SwiftWebStoryboard -> Routes -> Catalog -> SwiftWebUI
 ```
 
 ## Contracts and Invariants
 
-`StoryboardApp` exposes the existing three scenes. The generic CLI discovers
+`SwiftWebStoryboard` exposes the existing three scenes. The generic CLI discovers
 it through `sweb.json`; legacy preview scaffolding supplies a separate app
 entry point and excludes this module's App.swift.
 

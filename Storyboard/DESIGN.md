@@ -31,6 +31,8 @@ legacy sweb storyboard -> compatibility source links -> generated preview app
 ## Contracts and Invariants
 
 - The root manifest neither publishes nor tests the catalog target.
+- Package, product, target, and App type are named `SwiftWebStoryboard`, as required
+  by the existing generated development/server launcher contract.
 - Catalog Swift sources move unchanged; routes, styles, state, and failure semantics remain intact.
 - The authored app owns `/` redirect, `/storyboard`, and `/storyboard/:selection`.
 - Legacy scaffolding links only catalog/routes sources, excluding the authored App.swift,

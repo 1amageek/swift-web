@@ -3,7 +3,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "swift-web-storyboard",
+    name: "SwiftWebStoryboard",
     platforms: [.macOS("26.2")],
     products: [
         .library(name: "SwiftWebStoryboard", targets: ["SwiftWebStoryboard"]),

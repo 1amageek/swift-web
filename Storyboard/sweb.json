@@ -3,7 +3,7 @@
   "application": {
     "product": "SwiftWebStoryboard",
     "module": "SwiftWebStoryboard",
-    "type": "StoryboardApp"
+    "type": "SwiftWebStoryboard"
   },
   "environments": {
     "local": {

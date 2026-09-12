@@ -1,6 +1,6 @@
 import SwiftWeb
 
-public struct StoryboardApp: SwiftWeb.App {
+public struct SwiftWebStoryboard: SwiftWeb.App {
     public init() {}
 
     public var body: some Scene {
