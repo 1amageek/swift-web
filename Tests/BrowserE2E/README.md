@@ -9,7 +9,6 @@ cd Tests/BrowserE2E
 npm install
 npm run install-webkit
 npm run counter-wasm
-npm run storyboard-navigation
 npm run page-access:perf
 npm run page-access:stress
 ```
@@ -50,9 +49,6 @@ The runner starts `sweb dev` and validates:
 - `.visible`, `.idle`, `.interaction`, and `.manual` ClientComponent loading policies
 - named/shared split bundle contracts
 - ServerAction page invalidation without full navigation
-- Storyboard same-origin sidebar navigation without reloading or reinstantiating the WASM runtime
-- Storyboard current-link state remains singular after client navigation and history traversal
-- Storyboard browser history and native hash/external-link fallbacks
 - ClientComponent HMR patching while preserving state
 - ClientComponent HMR build failure rollback without replacing the old UI
 - expired-generation `410 Gone` followed by an explicit reload onto the latest runtime
@@ -99,7 +95,6 @@ Environment variables:
 | `SWIFT_WEB_WASM_TOOLCHAIN_BIN` | Optional WASM toolchain bin directory override. |
 | `SWIFTWEB_E2E_BROWSER_EXECUTABLE_PATH` | Use a specific Chromium-compatible browser executable. |
 | `SWIFTWEB_E2E_REQUIRE_WEBKIT` | Invocation-intent guard set to `1` by both npm counter commands. It rejects a missing opt-in; every enabled counter run requires WebKit regardless of this value. |
-| `SWIFTWEB_E2E_KEEP_STORYBOARD` | Set to `1` to keep the independent Storyboard app's generated `Storyboard/.swiftweb` output after Storyboard navigation E2E. |
 
 ## Service Actor HTTP Boundary
 
@@ -147,12 +142,14 @@ The Swift test owns both hosts and the browser subprocess and has a
 one-minute limit. Browser startup and each HTTP request also have bounded
 timeouts.
 
+Storyboard navigation tests are owned by the independent
+[swift-web-storyboard repository](https://github.com/1amageek/swift-web-storyboard).
+
 ## Stability Gates
 
 | Gate | Command | Expected browser coverage |
 |---|---|---|
 | Default browser E2E | `npm run counter-wasm` | Full Chromium suite plus required WebKit hydration, Actor mutation, reload persistence, and diagnostics. |
-| Storyboard navigation E2E | `npm run storyboard-navigation` | Chromium-compatible browser, same-origin client navigation, singular current sidebar link, back/forward, native hash/external fallback. |
 | Page access performance | `npm run page-access:perf` | Opt-in local latency gate for repeated test-page HTTP requests plus same-page browser reloads. |
 | Page access stress | `npm run page-access:stress` | Opt-in liveness gate for repeated test-page direct HTTP and browser access with per-request timeouts. |
 | Full local browser E2E | `npm run counter-wasm:webkit` | Alias for the same required two-engine counter gate. |

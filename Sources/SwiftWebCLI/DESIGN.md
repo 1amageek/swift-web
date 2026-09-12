@@ -51,7 +51,7 @@ sweb storyboard [prepare|build|dev]
 
 [Command tests](../../Tests/SwiftWebCLITests/StoryboardCommandTests.swift) verify
 arbitrary target paths, option forwarding, invalid declarations, and generic
-lifecycle failure propagation. The [browser gate](../../Tests/BrowserE2E/storyboard-client-navigation-e2e.mjs)
+lifecycle failure propagation. The [application-owned browser gate](https://github.com/1amageek/swift-web-storyboard/blob/main/Tests/BrowserE2E/storyboard-client-navigation-e2e.mjs)
 invokes the public command and checks actual application hydration/navigation and
 shutdown. Selector changes affect this CLI contract; App changes belong to the
 selected package and its tests.

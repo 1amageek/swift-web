@@ -26,8 +26,8 @@ The package root has five directly maintained design children:
 - [Client runtime](Sources/SwiftWebBrowser/ClientRuntime/DESIGN.md) owns
   browser callback scheduling, state reconciliation, and terminal detachment.
 
-The repository also contains the independently built [Storyboard package](Storyboard/DESIGN.md),
-which consumes SwiftWeb products and owns its catalog sources and tests.
+The independent [Storyboard repository](https://github.com/1amageek/swift-web-storyboard)
+consumes SwiftWeb products and owns its application, catalog, and tests.
 
 The package root does not replace the module README files or the external
 dependency contracts they reference.
