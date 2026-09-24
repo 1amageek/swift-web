@@ -5,6 +5,8 @@ public struct SwiftWebWasmToolchain: Sendable {
         "swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-08-14-a_wasm"
     public static let defaultEmbeddedSwiftSDKName =
         "swift-6.4.x-DEVELOPMENT-SNAPSHOT-2026-08-14-a_wasm-embedded"
+    public static let releaseSwiftSDKName = "swift-6.4.0-RELEASE_wasm"
+    public static let releaseEmbeddedSwiftSDKName = "swift-6.4.0-RELEASE_wasm-embedded"
 
     public let sdkName: String
     public let swiftExecutableURL: URL
@@ -26,7 +28,12 @@ public struct SwiftWebWasmToolchain: Sendable {
         homeDirectory: URL? = nil,
         fileManager: FileManager = .default
     ) throws -> SwiftWebWasmToolchain {
-        let supportedSDKNames = [defaultSwiftSDKName, defaultEmbeddedSwiftSDKName]
+        let supportedSDKNames = [
+            defaultSwiftSDKName,
+            defaultEmbeddedSwiftSDKName,
+            releaseSwiftSDKName,
+            releaseEmbeddedSwiftSDKName,
+        ]
         guard supportedSDKNames.contains(sdkName) else {
             throw SwiftWebWasmBuildError.unsupportedSwiftSDKName(
                 expected: supportedSDKNames,
@@ -190,7 +197,10 @@ public struct SwiftWebWasmToolchain: Sendable {
         else {
             return nil
         }
-        try SwiftWebPinnedToolchain.validate(swiftExecutableURL: swiftURL)
+        try SwiftWebPinnedToolchain.validate(
+            swiftExecutableURL: swiftURL,
+            matchingSDKName: sdkName
+        )
         return SwiftWebWasmToolchain(
             sdkName: sdkName,
             swiftExecutableURL: swiftURL,

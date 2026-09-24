@@ -14,11 +14,13 @@ including the distinction between Actor hosts, invocation executors, and
 external resources. Ordinary HTTP routes and Server Actions retain their own
 contracts.
 
-The package root has five directly maintained design children:
+The package root has six directly maintained design children:
 
 - [CLI contract](Sources/SwiftWebCLI/DESIGN.md) owns command and application selection.
 - [Package generation](Sources/SwiftWebDevelopment/PackageGeneration/DESIGN.md)
   owns generated package materialization and runtime source mirroring.
+- [WASM build](Sources/SwiftWebDevelopment/WasmBuild/DESIGN.md) owns supported
+  compiler/SDK compatibility checks.
 - [Development server](Sources/SwiftWebDevelopment/DevServer/DESIGN.md) owns
   desired-state convergence, worker transitions, and generated-input lifetime.
 - [Actor integration](Sources/SwiftWebRuntime/Actors/DESIGN.md) owns the
@@ -55,7 +57,7 @@ proof boundary.
 | [SwiftWebDevelopment facade](Sources/SwiftWebDevelopment/Facade/README.md) | used by child | CLI-facing development lifecycle | Exposes development orchestration | The facade does not own generated source contents. |
 | [SwiftWebCore](Sources/SwiftWebRuntime/Core/README.md) | constituent module | Rendering and request/runtime boundary | Composes application behavior | Keep host and browser ownership separate. |
 | [Adapter contract](docs/AdapterContract.md) | coordinates with | Schema-3 discovery and service bindings | Supplies build/deploy composition | A Service build unit is not automatically an Actor API. |
-| [Toolchain contract](docs/Toolchain.md) | package constraint | Pinned Swift 6.4 host and WASM SDKs | Selects the build tuple | Toolchain, SDK, and target are one build contract. |
+| [Toolchain contract](docs/Toolchain.md) | package constraint | Matching Swift 6.4 compiler and WASM SDK tuples | Selects the build tuple | The default snapshot and explicit official release are validated independently. |
 | [HTML authoring model](docs/HTMLAuthoringModel.md) | depends on | SwiftHTML document and component surface | Supplies rendering primitives | Rendering semantics belong to SwiftHTML. |
 
 ## Architecture
@@ -67,6 +69,7 @@ flowchart TD
   Graph --> Actor["swift-actor-system 0.2.x"]
   Graph --> TLS["swift-tls 2.1.x + swift-tls-nio 0.1.x"]
   Graph --> Modules["SwiftWeb modules"]
+  Modules --> Toolchain["Supported compiler + SDK tuple"]
   Modules --> Host["Native host products"]
   Modules --> Generator["SwiftWebPackageGeneration"]
   Generator --> Generated["Generated server/dev/WASM packages"]
@@ -85,7 +88,7 @@ profile from the resolved checkouts; they do not link the host-only graph.
 | SwiftPM graph | SwiftPM provides the dependency topology and checkout paths, and `Package.resolved` provides source-control pins | Remote adapter requirements materialize as exact versions or exact immutable revisions, never silently as checkout paths. Local paths remain limited to explicit local development and the generated application's own root composition. |
 | Adapter Swift module references | A generated launcher may import a module whose identifier is shadowed by an application or service type | The adapter materializer applies the collision-only launcher alias contract from [Adapter contract](docs/AdapterContract.md); original package/module identity, Actor/schema identity, and non-colliding source semantics remain unchanged. |
 | Platform | The host is macOS 26.2 or newer | The package and generated host consumers use the same minimum platform. |
-| Toolchain | The pinned Swift 6.4 snapshot and matching SDKs are selected | Host, standard WASM, and Embedded WASM evidence is attributed only to that tuple. |
+| Toolchain | A build selects either the pinned snapshot or the explicit Swift 6.4.0 release with matching SDKs | Host, standard WASM, and Embedded WASM evidence is attributed only to its selected tuple. |
 | Actor source ownership | SwiftPM resolves `swift-actor-system` | SwiftWeb has no vendored Actor source tree; generation mirrors the resolved checkout. |
 | WASM projection | The selected profile supplies its required actor targets | Standard uses `ActorSystemCore` plus `ActorSystemDistributed`; Embedded uses `ActorSystemCore` plus `ActorSystemEmbedded`. |
 | Actor call policy | swift-actor-system supplies immutable initializer defaults and task-scoped `ActorCallOptions` | A scoped value can drive a generated call deadline without mutating SwiftWeb's shared Embedded actor system; `.defaults`, nesting, parallel requests, errors, and cancellation preserve the lower-level scope contract. |

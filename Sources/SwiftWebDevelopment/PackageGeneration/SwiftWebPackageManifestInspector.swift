@@ -10,7 +10,9 @@ public enum SwiftWebPackageManifestInspector {
         }
 
         let manifest = try String(contentsOf: packageFile, encoding: .utf8)
-        let regex = try NSRegularExpression(pattern: #"Package\s*\(\s*name\s*:\s*"([^"]+)""#)
+        let regex = try NSRegularExpression(
+            pattern: #"Package\s*\(\s*(?:(?://[^\r\n]*(?:\r?\n|$))\s*)*name\s*:\s*"([^"]+)""#
+        )
         let range = NSRange(manifest.startIndex..<manifest.endIndex, in: manifest)
         guard let match = regex.firstMatch(in: manifest, range: range),
               match.numberOfRanges > 1,

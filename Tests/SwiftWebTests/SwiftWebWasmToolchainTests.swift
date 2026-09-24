@@ -17,6 +17,18 @@ struct SwiftWebWasmToolchainTests {
     }
 
     @Test
+    func toolchainAcceptsTheOfficialSwift64Release() throws {
+        let root = try temporaryDirectory()
+        defer { removeTemporaryDirectory(root) }
+        let swift = try writeExecutable(
+            output: "swift-driver version: 1.168.6 Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+            at: root.appendingPathComponent("swift")
+        )
+
+        try SwiftWebPinnedToolchain.validate(swiftExecutableURL: swift)
+    }
+
+    @Test
     func pinnedToolchainRejectsAnotherSnapshot() throws {
         let root = try temporaryDirectory()
         defer { removeTemporaryDirectory(root) }
@@ -68,6 +80,89 @@ struct SwiftWebWasmToolchainTests {
 
         #expect(toolchain.swiftExecutableURL == swift)
         #expect(toolchain.binDirectory == bin.standardizedFileURL)
+    }
+
+    @Test
+    func wasmOverrideAcceptsTheOfficialReleaseCompilerAndSDK() throws {
+        let root = try temporaryDirectory()
+        defer { removeTemporaryDirectory(root) }
+        let bin = root.appendingPathComponent("bin", isDirectory: true)
+        let swift = try writeExecutable(
+            output: "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+            at: bin.appendingPathComponent("swift")
+        )
+        _ = try writeExecutable(
+            output: "wasm-ld fixture",
+            at: bin.appendingPathComponent("wasm-ld")
+        )
+
+        let toolchain = try SwiftWebWasmToolchain.resolve(
+            sdkName: SwiftWebWasmToolchain.releaseSwiftSDKName,
+            environment: ["SWIFT_WEB_WASM_SWIFT": swift.path],
+            homeDirectory: root
+        )
+
+        #expect(toolchain.swiftExecutableURL == swift)
+        #expect(toolchain.sdkName == SwiftWebWasmToolchain.releaseSwiftSDKName)
+    }
+
+    @Test
+    func wasmToolchainRejectsMismatchedCompilerAndSDKTuples() throws {
+        let root = try temporaryDirectory()
+        defer { removeTemporaryDirectory(root) }
+        let bin = root.appendingPathComponent("bin", isDirectory: true)
+        _ = try writeExecutable(
+            output: "wasm-ld fixture",
+            at: bin.appendingPathComponent("wasm-ld")
+        )
+        let mismatches = [
+            (
+                sdkName: SwiftWebWasmToolchain.defaultSwiftSDKName,
+                compilerVersion: "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)"
+            ),
+            (
+                sdkName: SwiftWebWasmToolchain.releaseSwiftSDKName,
+                compilerVersion: "Swift version 6.4-dev (Swift 424cae54c1a10da)"
+            ),
+        ]
+
+        for mismatch in mismatches {
+            let swift = try writeExecutable(
+                output: mismatch.compilerVersion,
+                at: bin.appendingPathComponent("swift")
+            )
+            #expect(throws: SwiftWebWasmBuildError.self) {
+                try SwiftWebWasmToolchain.resolve(
+                    sdkName: mismatch.sdkName,
+                    environment: ["SWIFT_WEB_WASM_SWIFT": swift.path],
+                    homeDirectory: root
+                )
+            }
+        }
+    }
+
+    @Test
+    func runtimeProfilesAcceptOnlyTheirMatchingReleaseSDK() {
+        #expect(
+            SwiftWebWasmRuntimeProfile.standard.supports(
+                swiftSDKName: SwiftWebWasmToolchain.releaseSwiftSDKName
+            )
+        )
+        #expect(
+            SwiftWebWasmRuntimeProfile.embedded.supports(
+                swiftSDKName: SwiftWebWasmToolchain.releaseEmbeddedSwiftSDKName
+            )
+        )
+        #expect(
+            !SwiftWebWasmRuntimeProfile.standard.supports(
+                swiftSDKName: SwiftWebWasmToolchain.releaseEmbeddedSwiftSDKName
+            )
+        )
+        #expect(
+            !SwiftWebWasmRuntimeProfile.embedded.supports(
+                swiftSDKName: SwiftWebWasmToolchain.releaseSwiftSDKName
+            )
+        )
     }
 
     @Test

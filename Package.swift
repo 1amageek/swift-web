@@ -412,6 +412,7 @@ let package = Package(
                 .product(name: "Crypto", package: "swift-crypto"),
             ],
             path: "Sources/SwiftWebDevelopment/WasmBuild",
+            exclude: ["DESIGN.md"],
             swiftSettings: swiftWebSwiftSettings
         ),
         .target(

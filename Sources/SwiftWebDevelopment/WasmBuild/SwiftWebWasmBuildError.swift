@@ -21,6 +21,7 @@ public enum SwiftWebWasmBuildError: Error, Sendable, CustomStringConvertible {
         expectedCompilerCommit: String,
         actualVersion: String
     )
+    case swiftToolchainSDKMismatch(executable: URL, sdkName: String, actualVersion: String)
 
     public var description: String {
         switch self {
@@ -48,7 +49,7 @@ public enum SwiftWebWasmBuildError: Error, Sendable, CustomStringConvertible {
             \(searched.joined(separator: "\n"))
             """
         case .unsupportedSwiftSDKName(let expected, let actual):
-            return "Swift SDK \(actual) does not match the pinned SDKs: \(expected.joined(separator: ", "))"
+            return "Swift SDK \(actual) is not supported; expected one of: \(expected.joined(separator: ", "))"
         case .swiftToolchainVersionProbeFailed(let executable, let status, let output):
             return "Swift toolchain version probe failed for \(executable.path) with status \(status): \(output)"
         case .swiftToolchainMismatch(
@@ -57,7 +58,9 @@ public enum SwiftWebWasmBuildError: Error, Sendable, CustomStringConvertible {
             let expectedCompilerCommit,
             let actualVersion
         ):
-            return "Swift toolchain \(executable.path) does not match \(expectedSnapshot) (Swift \(expectedCompilerCommit)): \(actualVersion)"
+            return "Swift toolchain \(executable.path) does not match \(expectedSnapshot) (\(expectedCompilerCommit)): \(actualVersion)"
+        case .swiftToolchainSDKMismatch(let executable, let sdkName, let actualVersion):
+            return "Swift toolchain \(executable.path) does not match SDK \(sdkName): \(actualVersion)"
         }
     }
 }

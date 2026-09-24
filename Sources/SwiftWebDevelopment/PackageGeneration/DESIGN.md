@@ -32,7 +32,7 @@ dependency resolver or make the vendored copy an alternate source owner.
 | [Development server](../DevServer/DESIGN.md) | used by | Quiescent generated-root replacement admission | Active compiler and transition paths must outlive their build. |
 | [Actor integration](../../SwiftWebRuntime/Actors/DESIGN.md) | depends on | Profile-specific Actor target requirements | Do not duplicate Actor runtime lifecycle rules here. |
 | [Adapter contract](../../../docs/AdapterContract.md) | used by generated launchers | Application and adapter package boundaries | Adapter materialization is separate from client runtime mirroring. |
-| [Toolchain contract](../../../docs/Toolchain.md) | used by target graph | Exact host/WASM toolchain and SDK selection | A successful host build does not prove browser runtime behavior. |
+| [Toolchain contract](../../../docs/Toolchain.md) | used by target graph | Matching host/WASM compiler and SDK selection | A successful host build does not prove browser runtime behavior. |
 
 ## Architecture
 
@@ -61,6 +61,7 @@ exist.
 
 | Input or output | Assumption | Guarantee |
 |---|---|---|
+| Package manifest inspection | `Package.swift` declares its package name in `Package(...)` | The inspector recognizes whitespace and leading line comments before the `name` argument; malformed or missing declarations fail explicitly. |
 | Application package | `Package.swift` and a valid application target exist | Materialization fails with a typed error when either is missing. |
 | SwiftWeb dependency | SwiftPM resolves the package or an explicit local development root is supplied | The explicit local root wins over an older application checkout. |
 | SwiftHTML dependency | SwiftHTML source contains the runtime targets needed by the generated profile | Only runtime-safe sources are copied; preview and documentation trees are skipped. |
@@ -77,8 +78,8 @@ back to a different profile, an empty directory, or a legacy Actor runtime.
 
 1. Resolve the SwiftWeb source root, SwiftHTML source root, and lockfile
    snapshot.
-2. Evaluate the native and profile-specific target graphs with the pinned
-   toolchain.
+2. Evaluate the native and profile-specific target graphs with one supported,
+   matching compiler and SDK tuple.
 3. Project application actor declarations and write generated actor sources.
 4. Mirror application client sources and runtime sources into the WASM package.
 5. Render manifests and launchers, synchronize lockfiles, and commit the staged
@@ -114,7 +115,7 @@ logs, and unrelated worktree state remain outside cleanup scope.
 `SwiftWebGeneratedPackageMaterializerTests` is the module owner for projection,
 profile selection, source lookup precedence, lockfile synchronization, and
 transaction behavior. The generated standard and Embedded packages must each
-compile/link under their matching pinned SDKs. Changes to source lookup or
+compile/link under their matching supported SDKs. Changes to source lookup or
 profile target names require rechecking the parent package design and the
 browser counter E2E; changes to actor lifecycle semantics belong to the Actor
 integration owner.

@@ -21,6 +21,13 @@ public enum SwiftWebWasmRuntimeProfile: String, Sendable, Equatable {
     }
 
     public func supports(swiftSDKName: String) -> Bool {
-        swiftSDKName == defaultSwiftSDKName
+        switch self {
+        case .standard:
+            swiftSDKName == SwiftWebWasmToolchain.defaultSwiftSDKName
+                || swiftSDKName == SwiftWebWasmToolchain.releaseSwiftSDKName
+        case .embedded:
+            swiftSDKName == SwiftWebWasmToolchain.defaultEmbeddedSwiftSDKName
+                || swiftSDKName == SwiftWebWasmToolchain.releaseEmbeddedSwiftSDKName
+        }
     }
 }

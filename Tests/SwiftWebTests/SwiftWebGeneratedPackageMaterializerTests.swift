@@ -12,6 +12,38 @@ import SwiftWebDevelopmentHooks
 @Suite
 struct SwiftWebGeneratedPackageMaterializerTests {
   @Test
+  func packageNameAllowsACommentBeforeTheNameArgument() throws {
+    let packageDirectory = FileManager.default.temporaryDirectory
+      .appendingPathComponent("SwiftWebManifestComment-" + UUID().uuidString, isDirectory: true)
+    try FileManager.default.createDirectory(
+      at: packageDirectory,
+      withIntermediateDirectories: true
+    )
+    defer {
+      do {
+        try FileManager.default.removeItem(at: packageDirectory)
+      } catch {
+        Issue.record("Failed to remove temporary directory: \(error)")
+      }
+    }
+    try write(
+      """
+      import PackageDescription
+      let package = Package(
+        // Package identity is independent of this manifest's formatting.
+        name: "swift-tls",
+        targets: []
+      )
+      """,
+      to: packageDirectory.appendingPathComponent("Package.swift")
+    )
+
+    #expect(
+      try SwiftWebPackageManifestInspector.packageName(in: packageDirectory) == "swift-tls"
+    )
+  }
+
+  @Test
   func importedModulesSelectsOnlyTheActiveProfileBranch() throws {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(
       "SwiftWebGeneratedPackageMaterializerImports-\(UUID().uuidString)",
